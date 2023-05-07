@@ -40,8 +40,10 @@ namespace pyr
     {
         Context* ctx = {};
 
-        Shader vertShader;
-        Shader fragShader;
+        Buffer vertices;
+        VkPipelineLayout layout;
+        Shader vertexShader;
+        Shader fragmentShader;
     public:
         void Init(Context& ctx);
         // MeshID CreateMesh(

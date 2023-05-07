@@ -11,11 +11,6 @@ namespace pyr
 
         for (auto& surfaceFormat : surfaceFormats)
         {
-            PYR_LOG("-- format = {}", (int)surfaceFormat.format);
-        }
-
-        for (auto& surfaceFormat : surfaceFormats)
-        {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {

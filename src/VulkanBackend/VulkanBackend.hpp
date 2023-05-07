@@ -24,37 +24,6 @@ namespace pyr
     #define PYR_LOAD_DEVICE_PROC(name, device) ::pyr::name = (PFN_##name)vkGetDeviceProcAddr(device, #name);\
         PYR_LOG("Loaded fn [" #name "] - {}", (void*)name)
 
-    PYR_DECL_DEVICE_PROC(vkCreateShadersEXT);
-    PYR_DECL_DEVICE_PROC(vkDestroyShaderEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdBindShadersEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetPrimitiveTopologyEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetDepthTestEnableEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetDepthCompareOpEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetColorBlendEnableEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetDepthWriteEnableEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetCullModeEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetFrontFaceEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetColorBlendEquationEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetVertexInputEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetColorWriteMaskEXT);
-
-    PYR_DECL_DEVICE_PROC(vkGetDescriptorSetLayoutSizeEXT);
-    PYR_DECL_DEVICE_PROC(vkGetDescriptorSetLayoutBindingOffsetEXT);
-    PYR_DECL_DEVICE_PROC(vkGetDescriptorEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdBindDescriptorBuffersEXT);
-    PYR_DECL_DEVICE_PROC(vkCmdSetDescriptorBufferOffsetsEXT);
-
-    PYR_DECL_DEVICE_PROC(vkCmdPushDescriptorSetKHR);
-
-    PYR_DECL_DEVICE_PROC(vkGetAccelerationStructureBuildSizesKHR);
-    PYR_DECL_DEVICE_PROC(vkCreateAccelerationStructureKHR);
-    PYR_DECL_DEVICE_PROC(vkCmdBuildAccelerationStructuresKHR);
-    PYR_DECL_DEVICE_PROC(vkCreateRayTracingPipelinesKHR);
-    PYR_DECL_DEVICE_PROC(vkGetRayTracingShaderGroupHandlesKHR);
-    PYR_DECL_DEVICE_PROC(vkCmdTraceRaysKHR);
-
-    PYR_DECL_DEVICE_PROC(vkWaitForPresentKHR);
-
 // -----------------------------------------------------------------------------
 
     struct Image;

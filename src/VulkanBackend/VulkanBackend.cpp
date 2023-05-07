@@ -127,37 +127,6 @@ namespace pyr
 
         volkLoadDevice(ctx.device);
 
-        PYR_LOAD_DEVICE_PROC(vkCreateShadersEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkDestroyShaderEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdBindShadersEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetPrimitiveTopologyEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetDepthTestEnableEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetDepthCompareOpEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetColorBlendEnableEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetDepthWriteEnableEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetCullModeEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetFrontFaceEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetColorBlendEquationEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetVertexInputEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetColorWriteMaskEXT, ctx.device);
-
-        PYR_LOAD_DEVICE_PROC(vkGetDescriptorSetLayoutSizeEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkGetDescriptorSetLayoutBindingOffsetEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkGetDescriptorEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdBindDescriptorBuffersEXT, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdSetDescriptorBufferOffsetsEXT, ctx.device);
-
-        PYR_LOAD_DEVICE_PROC(vkCmdPushDescriptorSetKHR, ctx.device);
-
-        PYR_LOAD_DEVICE_PROC(vkGetAccelerationStructureBuildSizesKHR, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCreateAccelerationStructureKHR, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdBuildAccelerationStructuresKHR, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCreateRayTracingPipelinesKHR, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkGetRayTracingShaderGroupHandlesKHR, ctx.device);
-        PYR_LOAD_DEVICE_PROC(vkCmdTraceRaysKHR, ctx.device);
-
-        PYR_LOAD_DEVICE_PROC(vkWaitForPresentKHR, ctx.device);
-
         vkGetPhysicalDeviceProperties2(ctx.gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &ctx.descriptorSizes,

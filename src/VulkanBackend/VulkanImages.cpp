@@ -218,12 +218,12 @@ namespace pyr
         Flush(transferCmd);
     }
 
-    void Context::Transition(VkCommandBuffer cmd, Image& image, VkImageLayout newLayout)
+    void Context::Transition(VkCommandBuffer _cmd, Image& image, VkImageLayout newLayout)
     {
         if (image.layout == newLayout)
             return;
 
-        vkCmdPipelineBarrier2(cmd, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -245,9 +245,9 @@ namespace pyr
         image.layout = newLayout;
     }
 
-    void Context::TransitionMip(VkCommandBuffer cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
+    void Context::TransitionMip(VkCommandBuffer _cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
     {
-        vkCmdPipelineBarrier2(cmd, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {

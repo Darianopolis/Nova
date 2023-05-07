@@ -2,17 +2,50 @@
 
 namespace pyr
 {
+    struct Vertex
+    {
+        glm::vec2 position;
+        glm::vec3 color;
+    };
+
+    struct TrianglePushConstants
+    {
+        glm::mat4 viewProj;
+        u64 vertexVA;
+    };
+
     void Renderer::Init(Context& _ctx)
     {
         ctx = &_ctx;
 
-        vertShader = ctx->CreateShader(
+        vertexShader = ctx->CreateShader(
             VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT,
-            "assets/shaders/triangle.vert");
+            "assets/shaders/triangle.vert",
+            "",
+            {{
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                .size = sizeof(TrianglePushConstants),
+            }});
 
-        fragShader = ctx->CreateShader(
+        fragmentShader = ctx->CreateShader(
             VK_SHADER_STAGE_FRAGMENT_BIT, 0,
             "assets/shaders/triangle.frag");
+
+        VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+            .sType= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = Temp(VkPushConstantRange {
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                .size = sizeof(TrianglePushConstants),
+            }),
+        }), nullptr, &layout));
+
+        vertices = ctx->CreateBuffer(sizeof(Vertex) * 3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+        ctx->CopyToBuffer(vertices, std::array {
+            Vertex { { -0.75f, 0.75f }, { 1.f, 0.f, 0.f } },
+            Vertex { {  0.75f, 0.75f }, { 0.f, 1.f, 0.f } },
+            Vertex { {  0.f,  -0.75f }, { 0.f, 0.f, 1.f } },
+        }.data(), sizeof(Vertex) * 3);
     }
 
     void Renderer::Draw(Image& target)
@@ -88,8 +121,12 @@ namespace pyr
 
         vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         vkCmdBindShadersEXT(cmd, 2,
-            std::array { vertShader.stage, fragShader.stage }.data(),
-            std::array { vertShader.shader, fragShader.shader }.data());
+            std::array { vertexShader.stage, fragmentShader.stage }.data(),
+            std::array { vertexShader.shader, fragmentShader.shader }.data());
+        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TrianglePushConstants), Temp(TrianglePushConstants {
+            .viewProj = glm::mat4(1.f),
+            .vertexVA = vertices.address,
+        }));
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
         // End rendering

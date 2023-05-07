@@ -1,21 +1,27 @@
 #version 460
 
-const vec2 positions[3] = vec2[] (
-    vec2(-1, 1),
-    vec2(1, 1),
-    vec2(0, -1)
-);
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
 
-const vec3 colors[3] = vec3[] (
-    vec3(1, 0, 0),
-    vec3(0, 1, 0),
-    vec3(0, 0, 1)
-);
+struct Vertex
+{
+    vec2 position;
+    vec3 color;
+};
+layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
+
+layout(push_constant) uniform PushConstants
+{
+    mat4 viewProj;
+    uint64_t vertexVA;
+};
 
 layout(location = 0) out vec3 color;
 
 void main()
 {
-    color = colors[gl_VertexIndex];
-    gl_Position = vec4(positions[gl_VertexIndex] * vec2(0.75), 0, 1);
+    Vertex v = VertexBR(vertexVA).data[gl_VertexIndex];
+    color = v.color;
+    gl_Position = vec4(v.position, 0, 1);
 }
