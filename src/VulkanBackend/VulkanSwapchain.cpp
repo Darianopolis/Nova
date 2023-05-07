@@ -121,6 +121,7 @@ namespace pyr
                 image.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                 image.layout = VK_IMAGE_LAYOUT_UNDEFINED;
                 image.mips = 1;
+                image.layers = 1;
             }
         }
 

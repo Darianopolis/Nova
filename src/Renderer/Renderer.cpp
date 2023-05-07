@@ -2,9 +2,9 @@
 
 namespace pyr
 {
-    void Renderer::Init(Context* _ctx)
+    void Renderer::Init(Context& _ctx)
     {
-        ctx = _ctx;
+        ctx = &_ctx;
 
         vertShader = ctx->CreateShader(
             VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT,

@@ -43,7 +43,7 @@ namespace pyr
         Shader vertShader;
         Shader fragShader;
     public:
-        void Init(Context* ctx);
+        void Init(Context& ctx);
         // MeshID CreateMesh(
         //     const void* pVertices, u32 vertexCount, u32 vertexStride,
         //     const u32* pIndices, u32 indexCount,

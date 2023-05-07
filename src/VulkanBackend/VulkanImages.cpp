@@ -238,7 +238,7 @@ namespace pyr
                 .oldLayout = image.layout,
                 .newLayout = newLayout,
                 .image = image.image,
-                .subresourceRange = { image.aspect, 0, image.mips, 0, 1 },
+                .subresourceRange = { image.aspect, 0, image.mips, 0, image.layers },
             })
         }));
 
