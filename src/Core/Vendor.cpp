@@ -1,6 +1,8 @@
 #define VOLK_IMPLEMENTATION
 #include <volk.h>
 
+// -----------------------------------------------------------------------------
+
 #pragma warning(push)
 #pragma warning(disable: 4100)
 #pragma warning(disable: 4189)
@@ -10,3 +12,8 @@
 #include <vk_mem_alloc.h>
 
 #pragma warning(pop)
+
+// -----------------------------------------------------------------------------
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>

@@ -8,12 +8,7 @@ namespace pyr
     enum class MaterialTypeID : u32 {};
     enum class MaterialID     : u32 {};
     enum class ObjectID       : u32 {};
-
-    struct Vertex
-    {
-        vec3 position;
-        vec3 color;
-    };
+    enum class TextureID      : u32 {};
 
     struct RasterPushConstants
     {
@@ -43,6 +38,11 @@ namespace pyr
     {
         MaterialTypeID materialTypeID;
         u64 data;
+    };
+
+    struct Texture
+    {
+        u32 index;
     };
 
     struct Object
@@ -110,26 +110,34 @@ namespace pyr
     public:
         Context* ctx = {};
 
+        Image depthBuffer;
+        uvec3 lastExtent;
+
         VkPipelineLayout layout;
         Shader vertexShader;
 
         Buffer materialBuffer;
 
-        vec3 viewPosition = vec3(0.f, 0.f, 0.f);
-        quat viewRotation = vec3(0.f);
-        f32 viewFov = glm::radians(90.f);
+        VkDescriptorSetLayout textureDescriptorSetLayout;
+        VkDescriptorSet textureDescriptorSet;
+        Buffer textureDescriptorBuffer;
 
         Registry<Mesh, MeshID> meshes;
         Registry<Object, ObjectID> objects;
         Registry<MaterialType, MaterialTypeID> materialTypes;
         Registry<Material, MaterialID> materials;
+        Registry<Texture, TextureID> textures;
+
+        vec3 viewPosition = vec3(0.f, 0.f, 0.f);
+        quat viewRotation = vec3(0.f);
+        f32 viewFov = glm::radians(90.f);
     public:
         void Init(Context& ctx);
 
         MeshID CreateMesh(
-            const void* pData, usz dataSize,
-            usz vertexOffset, u32 vertexStride,
-            const u32* pIndices, u32 indexCount);
+            usz dataSize, const void* pData,
+            u32 vertexStride, usz vertexOffset,
+            u32 indexCount, const u32* pIndices);
         void DeleteMesh(MeshID);
 
         MaterialTypeID CreateMaterialType(const char* pShader, b8 inlineData);
@@ -141,8 +149,8 @@ namespace pyr
         ObjectID CreateObject(MeshID meshID, MaterialID matID, vec3 position, quat rotation, vec3 scale);
         void DeleteObject(ObjectID);
 
-        // u32 RegisterTexture(VkImageView view, VkSampler sampler);
-        // void UnregisterTexture(u32 textureIndex);
+        TextureID RegisterTexture(VkImageView view, VkSampler sampler);
+        void UnregisterTexture(TextureID);
 
         void SetCamera(vec3 position, quat rotation, f32 fov);
         void Draw(Image& target);

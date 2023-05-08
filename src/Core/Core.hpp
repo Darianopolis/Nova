@@ -42,6 +42,7 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#include <regex>
 
 #include "Vendor.hpp"
 
@@ -98,8 +99,8 @@ namespace pyr
             | static_cast<std::underlying_type_t<enumType>>(r));         \
     }                                                                    \
     inline pyr::b8 operator>=(enumType l, enumType r) {                  \
-        return static_cast<std::underlying_type_t<enumType>>(0)          \
-            != (static_cast<std::underlying_type_t<enumType>>(l)         \
+        return static_cast<std::underlying_type_t<enumType>>(r)          \
+            == (static_cast<std::underlying_type_t<enumType>>(l)         \
                 & static_cast<std::underlying_type_t<enumType>>(r));     \
     }                                                                    \
     inline pyr::b8 operator&(enumType l, enumType r) {                   \

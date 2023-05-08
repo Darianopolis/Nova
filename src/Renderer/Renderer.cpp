@@ -19,9 +19,35 @@ namespace pyr
     {
         ctx = &_ctx;
 
+// -----------------------------------------------------------------------------
+
+        VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                .bindingCount = 1,
+                .pBindingFlags = Temp<VkDescriptorBindingFlags>(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT),
+            }),
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+            .bindingCount = 1,
+            .pBindings = Temp(VkDescriptorSetLayoutBinding {
+                .binding = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 65'536,
+                .stageFlags = VK_SHADER_STAGE_ALL,
+            }),
+        }), nullptr, &textureDescriptorSetLayout));
+
+        VkDeviceSize descriptorSize;
+        vkGetDescriptorSetLayoutSizeEXT(ctx->device, textureDescriptorSetLayout, &descriptorSize);
+        textureDescriptorBuffer = ctx->CreateBuffer(descriptorSize,
+            VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+
+// -----------------------------------------------------------------------------
+
         vertexShader = ctx->CreateShader(
             VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT,
-            "assets/shaders/triangle.vert",
+            "assets/shaders/vertex-generated",
             R"(
 #version 460
 
@@ -52,19 +78,28 @@ void main()
             {{
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 .size = sizeof(RasterPushConstants),
-            }});
+            }},
+            {
+                textureDescriptorSetLayout
+            });
+
+// -----------------------------------------------------------------------------
+
+        materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+
+// -----------------------------------------------------------------------------
 
         VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
-            .sType= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &textureDescriptorSetLayout,
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 .size = sizeof(RasterPushConstants),
             }),
         }), nullptr, &layout));
-
-        materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::Mappable);
     }
 
     void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
@@ -77,6 +112,17 @@ void main()
     void Renderer::Draw(Image& target)
     {
         auto cmd = ctx->cmd;
+
+        // Resize depth buffer
+
+        if (target.extent != lastExtent)
+        {
+            lastExtent = target.extent;
+
+            ctx->DestroyImage(depthBuffer);
+            depthBuffer = ctx->CreateImage(target.extent, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_FORMAT_X8_D24_UNORM_PACK32);
+            ctx->Transition(cmd, depthBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        }
 
         // Begin rendering
 
@@ -94,6 +140,14 @@ void main()
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                 .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
             }),
+            .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .imageView = depthBuffer.view,
+                .imageLayout = depthBuffer.layout,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .clearValue = { .depthStencil = {{ 0.f }} },
+            })
         }));
 
         vkCmdSetScissorWithCount(cmd, 1, Temp(VkRect2D { {}, { target.extent.x, target.extent.y } }));
@@ -106,7 +160,7 @@ void main()
         // Set blend, depth, cull dynamic state
 
         b8 blend = true;
-        b8 depth = false;
+        b8 depth = true;
         b8 cull = false;
 
         if (depth)
@@ -152,6 +206,13 @@ void main()
 
         vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
+        vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+            .address = textureDescriptorBuffer.address,
+            .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+        }));
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
+
         objects.ForEach([&](auto, auto& object) {
             auto& mesh = meshes.Get(object.meshID);
 
@@ -185,9 +246,9 @@ void main()
     }
 
     MeshID Renderer::CreateMesh(
-        const void* pData, usz dataSize,
-        usz vertexOffset, u32 vertexStride,
-        const u32* pIndices, u32 indexCount)
+        usz dataSize, const void* pData,
+        u32 vertexStride, usz vertexOffset,
+        u32 indexCount, const u32* pIndices)
     {
         auto[id, mesh] = meshes.Acquire();
 
@@ -223,12 +284,19 @@ void main()
             std::format("{}{}{}",
             R"(
 #version 460
+
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_fragment_shader_barycentric : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+layout(set = 0, binding = 0) uniform sampler2D textures[];
+
 layout(location = 0) in pervertexEXT uint vertexIndex[3];
+
 layout(location = 0) out vec4 fragColor;
+
 layout(push_constant) uniform PushConstants
 {
     mat4 mvp;
@@ -247,7 +315,14 @@ void main()
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
         gl_BaryCoordEXT);
 }
-            )"));
+            )"),
+            {{
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                .size = sizeof(RasterPushConstants),
+            }},
+            {
+                textureDescriptorSetLayout
+            });
         materialType.inlineData = inlineData;
 
         return id;
@@ -312,5 +387,33 @@ void main()
     void Renderer::DeleteObject(ObjectID id)
     {
         objects.Return(id);
+    }
+
+    TextureID Renderer::RegisterTexture(VkImageView view, VkSampler sampler)
+    {
+        auto[id, texture] = textures.Acquire();
+        texture.index = u32(id);
+
+        vkGetDescriptorEXT(ctx->device,
+            Temp(VkDescriptorGetInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .data = {
+                    .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
+                        .sampler = sampler,
+                        .imageView = view,
+                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // TODO: configurable?
+                    }),
+                },
+            }),
+            ctx->descriptorSizes.combinedImageSamplerDescriptorSize,
+            textureDescriptorBuffer.mapped + (u32(id) * ctx->descriptorSizes.combinedImageSamplerDescriptorSize));
+
+        return id;
+    }
+
+    void Renderer::UnregisterTexture(TextureID id)
+    {
+        textures.Return(id);
     }
 }
