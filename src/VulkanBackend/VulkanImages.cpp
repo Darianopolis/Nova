@@ -61,7 +61,7 @@ namespace pyr
             }
         }
 
-        image.extent = glm::max(size, glm::uvec3(1));
+        image.extent = glm::max(size, uvec3(1));
 
         // ---- Create image -----
 
@@ -136,7 +136,7 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-    void Context::CopyToImage(Image& image, void* data, size_t size)
+    void Context::CopyToImage(Image& image, const void* data, size_t size)
     {
         Transition(transferCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 

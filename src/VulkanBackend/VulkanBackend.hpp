@@ -144,11 +144,11 @@ namespace pyr
     public:
         Buffer CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
         void DestroyBuffer(Buffer& buffer);
-        void CopyToBuffer(Buffer& buffer, void* data, size_t size, VkDeviceSize offset = 0);
+        void CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset = 0);
 
         Image CreateImage(uvec3 size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
         void DestroyImage(Image& image);
-        void CopyToImage(Image& image, void* data, size_t size);
+        void CopyToImage(Image& image, const void* data, size_t size);
         void GenerateMips(Image& image);
         void Transition(VkCommandBuffer cmd, Image& image, VkImageLayout newLayout);
         void TransitionMip(VkCommandBuffer cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);

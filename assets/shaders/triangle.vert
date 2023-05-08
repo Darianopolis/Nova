@@ -15,13 +15,15 @@ layout(push_constant) uniform PushConstants
 {
     mat4 viewProj;
     uint64_t vertexVA;
-};
+} pc;
 
-layout(location = 0) out vec3 color;
+layout(location = 0) out uint outVertexIndex;
+layout(location = 1) out vec3 color;
 
 void main()
 {
-    Vertex v = VertexBR(vertexVA).data[gl_VertexIndex];
+    Vertex v = VertexBR(pc.vertexVA).data[gl_VertexIndex];
     color = v.color;
-    gl_Position = vec4(v.position, 0, 1);
+    outVertexIndex = gl_VertexIndex;
+    gl_Position = pc.viewProj * vec4(v.position, 0, 1);
 }

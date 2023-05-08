@@ -2,17 +2,18 @@
 
 namespace pyr
 {
-    struct Vertex
+    static mat4 ProjInfReversedZRH(f32 fovY, f32 aspectWbyH, f32 zNear)
     {
-        glm::vec2 position;
-        glm::vec3 color;
-    };
+        // https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 
-    struct TrianglePushConstants
-    {
-        glm::mat4 viewProj;
-        u64 vertexVA;
-    };
+        f32 f = 1.f / glm::tan(fovY / 2.f);
+        mat4 proj{};
+        proj[0][0] = f / aspectWbyH;
+        proj[1][1] = f;
+        proj[3][2] = zNear; // Right, middle-bottom
+        proj[2][3] = -1.f;  // Bottom, middle-right
+        return proj;
+    }
 
     void Renderer::Init(Context& _ctx)
     {
@@ -21,31 +22,56 @@ namespace pyr
         vertexShader = ctx->CreateShader(
             VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT,
             "assets/shaders/triangle.vert",
-            "",
-            {{
-                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                .size = sizeof(TrianglePushConstants),
-            }});
+            R"(
+#version 460
 
-        fragmentShader = ctx->CreateShader(
-            VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-            "assets/shaders/triangle.frag");
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+
+struct Vertex
+{
+    vec2 position;
+    vec3 color;
+};
+layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
+
+layout(push_constant) uniform PushConstants
+{
+    mat4 mvp;
+    uint64_t vertices;
+    uint64_t material;
+} pc;
+
+layout(location = 0) out uint outVertexIndex;
+
+void main()
+{
+    Vertex v = VertexBR(pc.vertices).data[gl_VertexIndex];
+    outVertexIndex = gl_VertexIndex;
+    gl_Position = pc.mvp * vec4(v.position, 0, 1);
+}
+            )",
+            {{
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                .size = sizeof(RasterPushConstants),
+            }});
 
         VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
             .sType= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
-                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                .size = sizeof(TrianglePushConstants),
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                .size = sizeof(RasterPushConstants),
             }),
         }), nullptr, &layout));
+    }
 
-        vertices = ctx->CreateBuffer(sizeof(Vertex) * 3, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
-        ctx->CopyToBuffer(vertices, std::array {
-            Vertex { { -0.75f, 0.75f }, { 1.f, 0.f, 0.f } },
-            Vertex { {  0.75f, 0.75f }, { 0.f, 1.f, 0.f } },
-            Vertex { {  0.f,  -0.75f }, { 0.f, 0.f, 1.f } },
-        }.data(), sizeof(Vertex) * 3);
+    void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
+    {
+        viewPosition = position;
+        viewRotation = rotation;
+        viewFov = fov;
     }
 
     void Renderer::Draw(Image& target)
@@ -79,9 +105,9 @@ namespace pyr
 
         // Set blend, depth, cull dynamic state
 
-        bool blend = true;
-        bool depth = false;
-        bool cull = false;
+        b8 blend = true;
+        b8 depth = false;
+        b8 cull = false;
 
         if (depth)
         {
@@ -119,18 +145,165 @@ namespace pyr
 
         // Bind shaders and draw
 
+        auto proj = ProjInfReversedZRH(viewFov, f32(target.extent.x) / f32(target.extent.y), 0.01f);
+        auto translate = glm::translate(mat4(1.f), viewPosition);
+        auto rotate = glm::mat4_cast(viewRotation);
+        auto viewProj = proj * glm::affineInverse(translate * rotate);
+
         vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        vkCmdBindShadersEXT(cmd, 2,
-            std::array { vertexShader.stage, fragmentShader.stage }.data(),
-            std::array { vertexShader.shader, fragmentShader.shader }.data());
-        vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(TrianglePushConstants), Temp(TrianglePushConstants {
-            .viewProj = glm::mat4(1.f),
-            .vertexVA = vertices.address,
-        }));
-        vkCmdDraw(cmd, 3, 1, 0, 0);
+
+        for (auto& object : objects.elements)
+        {
+            auto& mesh = meshes.Get(object.meshID);
+
+            auto transform = glm::translate(glm::mat4(1.f), object.position);
+            transform *= glm::mat4_cast(object.rotation);
+            transform *= glm::scale(glm::mat4(1.f), object.scale);
+
+            auto& material = materials.Get(object.materialID);
+            auto& materialType = materialTypes.Get(material.materialTypeID);
+
+            vkCmdBindShadersEXT(cmd, 2,
+                std::array { vertexShader.stage, materialType.shader.stage }.data(),
+                std::array { vertexShader.shader, materialType.shader.shader }.data());
+
+            vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdPushConstants(cmd, layout,
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
+                    .mvp = viewProj * transform,
+                    .vertices = mesh.vertices.address,
+                    .material = material.data,
+                }));
+            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+        }
 
         // End rendering
 
         vkCmdEndRendering(cmd);
+    }
+
+    MeshID Renderer::CreateMesh(
+        const void* pVertices, u32 vertexCount, u32 vertexStride,
+        const u32* pIndices, u32 indexCount,
+        const void* pUserdata, usz userdataSize)
+    {
+        auto[id, mesh] = meshes.Acquire();
+
+        auto vertexSize = vertexStride * vertexCount;
+        mesh.vertices = ctx->CreateBuffer(vertexSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+        ctx->CopyToBuffer(mesh.vertices, pVertices, vertexSize);
+
+        auto indexSize = sizeof(u32) * indexCount;
+        mesh.indices = ctx->CreateBuffer(indexSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, BufferFlags::DeviceLocal);
+        ctx->CopyToBuffer(mesh.indices, pIndices, indexSize);
+
+        if (pUserdata && userdataSize > 0)
+        {
+            mesh.userdata = ctx->CreateBuffer(userdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+            ctx->CopyToBuffer(mesh.userdata, pUserdata, userdataSize);
+        }
+
+        mesh.indexCount = indexCount;
+
+        return id;
+    }
+
+    void Renderer::DeleteMesh(MeshID id)
+    {
+        auto& mesh = meshes.Get(id);
+        ctx->DestroyBuffer(mesh.vertices);
+        ctx->DestroyBuffer(mesh.indices);
+        ctx->DestroyBuffer(mesh.userdata);
+        meshes.Return(id);
+    }
+
+    MaterialTypeID Renderer::CreateMaterialType(const char* pShader, b8 inlineData)
+    {
+        auto[id, materialType] = materialTypes.Acquire();
+        materialType.shader = ctx->CreateShader(
+            VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+            "assets/shaders/fragment-generated",
+            std::format("{}{}{}",
+            R"(
+#version 460
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_fragment_shader_barycentric : require
+layout(location = 0) in pervertexEXT uint vertexIndex[3];
+layout(location = 0) out vec4 fragColor;
+layout(push_constant) uniform PushConstants
+{
+    mat4 mvp;
+    uint64_t vertices;
+    uint64_t material;
+} pc;
+            )",
+            pShader,
+            R"(
+void main()
+{
+    fragColor = shade(
+        pc.vertices, pc.material,
+        uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
+        gl_BaryCoordEXT);
+}
+            )"));
+        materialType.inlineData = inlineData;
+
+        return id;
+    }
+
+    void Renderer::DeleteMaterialType(MaterialTypeID id)
+    {
+        auto& material = materialTypes.Get(id);
+        ctx->DestroyShader(material.shader);
+        materialTypes.Return(id);
+    }
+
+    MaterialID Renderer::CreateMaterial(MaterialTypeID matTypeID, const void* pData, usz size)
+    {
+        auto[id, material] = materials.Acquire();
+        material.materialTypeID = matTypeID;
+
+        if (pData && size > 0)
+        {
+            if (materialTypes.Get(matTypeID).inlineData)
+            {
+                if (size > 8)
+                    PYR_THROW("Inline material data must not exceed 8 bytes");
+
+                std::memcpy(&material.data, pData, size);
+            }
+            else
+            {
+                PYR_LOG("Non-inline material data not yet implemented");
+            }
+        }
+
+        return id;
+    }
+
+    void Renderer::DeleteMaterial(MaterialID id)
+    {
+        materials.Return(id);
+    }
+
+    ObjectID Renderer::CreateObject(MeshID meshID, MaterialID materialID, vec3 position, quat rotation, vec3 scale)
+    {
+        auto[id, object] = objects.Acquire();
+        object.meshID = meshID;
+        object.materialID = materialID;
+        object.position = position;
+        object.rotation = rotation;
+        object.scale = scale;
+
+        return id;
+    }
+
+    void Renderer::DeleteObject(ObjectID id)
+    {
+        objects.Return(id);
     }
 }

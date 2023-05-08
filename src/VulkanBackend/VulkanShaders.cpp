@@ -233,11 +233,11 @@ namespace pyr
         return newShader;
     }
 
-    void DestroyShader(Context* ctx, Shader* shader)
+    void Context::DestroyShader(Shader& shader)
     {
-        if (shader->shader)
-            vkDestroyShaderEXT(ctx->device, shader->shader, nullptr);
+        if (shader.shader)
+            vkDestroyShaderEXT(device, shader.shader, nullptr);
 
-        vkDestroyShaderModule(ctx->device, shader->module, nullptr);
+        vkDestroyShaderModule(device, shader.module, nullptr);
     }
 }

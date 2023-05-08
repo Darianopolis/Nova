@@ -56,7 +56,7 @@ namespace pyr
             vmaUnmapMemory(vma, buffer.allocation);
     }
 
-    void Context::CopyToBuffer(Buffer& buffer, void* data, size_t size, VkDeviceSize offset)
+    void Context::CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset)
     {
         if (!data)
         {

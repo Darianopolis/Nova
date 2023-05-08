@@ -3,6 +3,8 @@
 #include <Renderer/Renderer.hpp>
 #include <ImGui/ImGuiBackend.h>
 
+using namespace pyr;
+
 int main()
 {
     auto ctx = pyr::CreateContext(true);
@@ -28,13 +30,123 @@ int main()
         ImGuiConfigFlags_ViewportsEnable
         | ImGuiConfigFlags_DockingEnable);
 
+    auto meshID = renderer.CreateMesh(
+        std::array {
+            Vertex { { -0.75f, -0.75f }, { 1.f, 0.f, 0.f } },
+            Vertex { {  0.75f, -0.75f }, { 0.f, 1.f, 0.f } },
+            Vertex { { -0.75f,  0.75f }, { 0.f, 0.f, 1.f } },
+            Vertex { {  0.75f,  0.75f }, { 1.f, 1.f, 1.f } },
+        }.data(), 4, sizeof(Vertex),
+        std::array {
+            0u, 1u, 2u,
+            3u, 2u, 1u,
+        }.data(), 6,
+        nullptr, 0);
+
+    auto materialTypeID = renderer.CreateMaterialType(
+        R"(
+struct Vertex
+{
+    vec2 position;
+    vec3 color;
+};
+layout(buffer_reference, scalar) buffer VertexBR { Vertex d[]; };
+
+vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+{
+    VertexBR v = VertexBR(vertices);
+    return unpackUnorm4x8(uint(material))
+        * vec4(v.d[i.x].color * w.x + v.d[i.y].color * w.y + v.d[i.z].color * w.z, 1.0);
+}
+        )",
+        true);
+
+    auto materialID = renderer.CreateMaterial(materialTypeID, pyr::Temp(0xFFFFFFFFu), 4);
+
+    auto objectID = renderer.CreateObject(
+        meshID, materialID,
+        vec3(0.f, 0.f, -1.f),
+        glm::angleAxis(glm::radians(45.f), vec3(0.f, 1.f, 0.f)),
+        vec3(1.f));
+
+    vec3 position = vec3(0.f, 0.f, 1.f);
+    quat rotation = vec3(0.f);
+    f32 fov = glm::radians(90.f);
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         ctx.GetNextImage(swapchain);
 
+        static f32 moveSpeed = 1.f;
+
+        {
+            static f64 lastX = 0.0, lastY = 0.0;
+            f64 x, y;
+            glfwGetCursorPos(window, &x, &y);
+            f32 deltaX = f32(x - lastX), deltaY = f32(y - lastY);
+            lastX = x;
+            lastY = y;
+
+            using namespace std::chrono;
+            static steady_clock::time_point lastTime = steady_clock::now();
+            auto now = steady_clock::now();
+            auto delta = duration_cast<duration<f32>>(now - lastTime).count();
+            lastTime = now;
+
+            PYR_DO_ONCE(&) {
+                glfwSetScrollCallback(window, [](auto, f64, f64 dy) {
+                    if (dy > 0)
+                        moveSpeed *= 1.1f;
+                    if (dy < 0)
+                        moveSpeed /= 1.1f;
+                });
+            };
+
+            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+            {
+                rotation = glm::angleAxis(deltaX * 0.0025f, vec3(0.f, -1.f, 0.f)) * rotation;
+                rotation = rotation * glm::angleAxis(deltaY * 0.0025f, vec3(-1.f, 0.f, 0.f));
+                rotation = glm::normalize(rotation);
+            }
+
+            {
+                glm::vec3 translate{};
+                if (glfwGetKey(window, GLFW_KEY_W))          translate += vec3( 0.f,  0.f, -1.f);
+                if (glfwGetKey(window, GLFW_KEY_A))          translate += vec3(-1.f,  0.f,  0.f);
+                if (glfwGetKey(window, GLFW_KEY_S))          translate += vec3( 0.f,  0.f,  1.f);
+                if (glfwGetKey(window, GLFW_KEY_D))          translate += vec3( 1.f,  0.f,  0.f);
+                if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) translate += vec3( 0.f, -1.f,  0.f);
+                if (glfwGetKey(window, GLFW_KEY_SPACE))      translate += vec3( 0.f,  1.f,  0.f);
+
+                position += rotation * (translate * moveSpeed * delta);
+            }
+
+            renderer.SetCamera(position, rotation, fov);
+        }
+
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
+
+        {
+            ImGui::Begin("Settings");
+            PYR_ON_SCOPE_EXIT() { ImGui::End(); };
+
+            ImGui::DragFloat("Move speed", &moveSpeed, 0.1f, 0.f, FLT_MAX);
+
+            float fovDegrees = glm::degrees(fov);
+            if (ImGui::DragFloat("FoV", &fovDegrees, 0.05f, 1.f, 179.f))
+                fov = glm::radians(fovDegrees);
+
+            ImGui::Separator();
+
+            auto& material = renderer.materials.Get(materialID);
+            vec4 color = glm::unpackUnorm4x8(u32(material.data));
+            if (ImGui::ColorPicker4("color", glm::value_ptr(color)))
+            {
+                material.data = glm::packUnorm4x8(color);
+            }
+        }
 
         renderer.Draw(*swapchain.image);
 

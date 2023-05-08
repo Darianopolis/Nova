@@ -38,18 +38,14 @@ Building is left as an exercise for the user. Good luck!
 
 <br>
 
-# Roadmap
+# To Do
 
-- `[X]` Basic Editor layout setup
-- `[X]` Primitive shapes, debug render
-- `[X]` Gizmos
-- `[X]` Mouse picking
-- `[X]` Hierarchies
-- `[X]` Ray trace debug
-- `[ ]` Materials and basic lighting
-- `[ ]` Physics
-- `[ ]` Height map terrain
+- `[9]` Minimal Vulkan Backend
+  - Images, Buffers, Shaders, Swapchain
+  - Note: Singlethreaded blocking API for now
+- `[9]` Hello Triangle
+- `[4]` Materials
 - `[ ]` glTF model loading
-- `[ ]` Scene (de)serialization
-- `[ ]` Outlines
+- `[ ]` Hierarchies
+- `[ ]` Ray trace
 - `[ ]` GPU cull and LOD

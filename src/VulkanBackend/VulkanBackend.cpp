@@ -49,7 +49,11 @@ namespace pyr
         vkGetPhysicalDeviceQueueFamilyProperties2(ctx.gpu, Temp(0u), nullptr);
         ctx.queueFamily = 0;
 
+        VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
+        barycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
+
         VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV rtInvocationReorderFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV };
+        rtInvocationReorderFeatures.pNext = &barycentricFeatures;
         rtInvocationReorderFeatures.rayTracingInvocationReorder = VK_TRUE;
 
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
@@ -107,6 +111,8 @@ namespace pyr
             VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,
+
+            VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };
 
         VkCall(vkCreateDevice(ctx.gpu, Temp(VkDeviceCreateInfo {
