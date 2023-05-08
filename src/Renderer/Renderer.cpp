@@ -29,27 +29,24 @@ namespace pyr
 #extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
 #extension GL_EXT_buffer_reference2 : require
 
-struct Vertex
-{
-    vec2 position;
-    vec3 color;
-};
-layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
+layout(buffer_reference, scalar) buffer PositionBR { vec3 value[]; };
 
 layout(push_constant) uniform PushConstants
 {
     mat4 mvp;
     uint64_t vertices;
     uint64_t material;
+    uint64_t vertexOffset;
+    uint vertexStride;
 } pc;
 
 layout(location = 0) out uint outVertexIndex;
 
 void main()
 {
-    Vertex v = VertexBR(pc.vertices).data[gl_VertexIndex];
+    vec3 pos = PositionBR(pc.vertices + pc.vertexOffset + (gl_VertexIndex * pc.vertexStride)).value[0];
     outVertexIndex = gl_VertexIndex;
-    gl_Position = pc.mvp * vec4(v.position, 0, 1);
+    gl_Position = pc.mvp * vec4(pos, 1);
 }
             )",
             {{
@@ -65,6 +62,9 @@ void main()
                 .size = sizeof(RasterPushConstants),
             }),
         }), nullptr, &layout));
+
+        materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::Mappable);
     }
 
     void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
@@ -152,8 +152,7 @@ void main()
 
         vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-        for (auto& object : objects.elements)
-        {
+        objects.ForEach([&](auto, auto& object) {
             auto& mesh = meshes.Get(object.meshID);
 
             auto transform = glm::translate(glm::mat4(1.f), object.position);
@@ -166,7 +165,6 @@ void main()
             vkCmdBindShadersEXT(cmd, 2,
                 std::array { vertexShader.stage, materialType.shader.stage }.data(),
                 std::array { vertexShader.shader, materialType.shader.shader }.data());
-
             vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdPushConstants(cmd, layout,
                 VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -174,9 +172,12 @@ void main()
                     .mvp = viewProj * transform,
                     .vertices = mesh.vertices.address,
                     .material = material.data,
+                    .vertexOffset = mesh.vertexOffset,
+                    .vertexStride = mesh.vertexStride,
                 }));
+
             vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
-        }
+        });
 
         // End rendering
 
@@ -184,25 +185,21 @@ void main()
     }
 
     MeshID Renderer::CreateMesh(
-        const void* pVertices, u32 vertexCount, u32 vertexStride,
-        const u32* pIndices, u32 indexCount,
-        const void* pUserdata, usz userdataSize)
+        const void* pData, usz dataSize,
+        usz vertexOffset, u32 vertexStride,
+        const u32* pIndices, u32 indexCount)
     {
         auto[id, mesh] = meshes.Acquire();
 
-        auto vertexSize = vertexStride * vertexCount;
-        mesh.vertices = ctx->CreateBuffer(vertexSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
-        ctx->CopyToBuffer(mesh.vertices, pVertices, vertexSize);
+        mesh.vertices = ctx->CreateBuffer(dataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+        ctx->CopyToBuffer(mesh.vertices, pData, dataSize);
+
+        mesh.vertexOffset = vertexOffset;
+        mesh.vertexStride = vertexStride;
 
         auto indexSize = sizeof(u32) * indexCount;
         mesh.indices = ctx->CreateBuffer(indexSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, BufferFlags::DeviceLocal);
         ctx->CopyToBuffer(mesh.indices, pIndices, indexSize);
-
-        if (pUserdata && userdataSize > 0)
-        {
-            mesh.userdata = ctx->CreateBuffer(userdataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
-            ctx->CopyToBuffer(mesh.userdata, pUserdata, userdataSize);
-        }
 
         mesh.indexCount = indexCount;
 
@@ -214,7 +211,6 @@ void main()
         auto& mesh = meshes.Get(id);
         ctx->DestroyBuffer(mesh.vertices);
         ctx->DestroyBuffer(mesh.indices);
-        ctx->DestroyBuffer(mesh.userdata);
         meshes.Return(id);
     }
 
@@ -238,6 +234,8 @@ layout(push_constant) uniform PushConstants
     mat4 mvp;
     uint64_t vertices;
     uint64_t material;
+    uint64_t vertexOffset;
+    uint vertexStride;
 } pc;
             )",
             pShader,
@@ -278,7 +276,16 @@ void main()
             }
             else
             {
-                PYR_LOG("Non-inline material data not yet implemented");
+                if (size > 64)
+                    PYR_THROW("Material size [{}] exceeds max (64)", size);
+
+                // TODO: Better material allocation strategy
+                //  - don't consume buffer space for inline materials
+                //  - allow packaged varaible size materials (16, 32, 64)
+
+                u64 offset = MaterialSize * u32(id);
+                std::memcpy(materialBuffer.mapped + offset, pData, size);
+                material.data = materialBuffer.address + offset;
             }
         }
 

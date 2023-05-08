@@ -32,38 +32,49 @@ int main()
 
     auto meshID = renderer.CreateMesh(
         std::array {
-            Vertex { { -0.75f, -0.75f }, { 1.f, 0.f, 0.f } },
-            Vertex { {  0.75f, -0.75f }, { 0.f, 1.f, 0.f } },
-            Vertex { { -0.75f,  0.75f }, { 0.f, 0.f, 1.f } },
-            Vertex { {  0.75f,  0.75f }, { 1.f, 1.f, 1.f } },
-        }.data(), 4, sizeof(Vertex),
+            Vertex { { -0.75f, -0.75f, 0.f }, { 1.f, 0.f, 0.f } },
+            Vertex { {  0.75f, -0.75f, 0.f }, { 0.f, 1.f, 0.f } },
+            Vertex { { -0.75f,  0.75f, 0.f }, { 0.f, 0.f, 1.f } },
+            Vertex { {  0.75f,  0.75f, 0.f }, { 1.f, 1.f, 1.f } },
+        }.data(), sizeof(Vertex) * 4,
+        0, sizeof(Vertex), // position
         std::array {
             0u, 1u, 2u,
             3u, 2u, 1u,
-        }.data(), 6,
-        nullptr, 0);
+        }.data(), 6);
+
+    b8 inlineTint = true;
 
     auto materialTypeID = renderer.CreateMaterialType(
-        R"(
+        std::format("{}{}{}",
+            R"(
 struct Vertex
 {
-    vec2 position;
+    vec3 position;
     vec3 color;
 };
+
 layout(buffer_reference, scalar) buffer VertexBR { Vertex d[]; };
+layout(buffer_reference, scalar) buffer TintBR { vec4 value[]; };
 
 vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 {
     VertexBR v = VertexBR(vertices);
-    return unpackUnorm4x8(uint(material))
+            )",
+            inlineTint
+                ? "return unpackUnorm4x8(uint(material))"
+                : "return TintBR(material).value[0]",
+            R"(
         * vec4(v.d[i.x].color * w.x + v.d[i.y].color * w.y + v.d[i.z].color * w.z, 1.0);
 }
-        )",
-        true);
+            )").c_str(),
+        inlineTint);
 
-    auto materialID = renderer.CreateMaterial(materialTypeID, pyr::Temp(0xFFFFFFFFu), 4);
+    auto materialID = inlineTint
+        ? renderer.CreateMaterial(materialTypeID, pyr::Temp(0xFFFFFFFFu), 4)
+        : renderer.CreateMaterial(materialTypeID, pyr::Temp(vec4(1.f, 1.f, 1.f, 1.f)), sizeof(vec4));
 
-    auto objectID = renderer.CreateObject(
+    [[maybe_unused]] auto objectID = renderer.CreateObject(
         meshID, materialID,
         vec3(0.f, 0.f, -1.f),
         glm::angleAxis(glm::radians(45.f), vec3(0.f, 1.f, 0.f)),
@@ -140,11 +151,19 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
             ImGui::Separator();
 
-            auto& material = renderer.materials.Get(materialID);
-            vec4 color = glm::unpackUnorm4x8(u32(material.data));
-            if (ImGui::ColorPicker4("color", glm::value_ptr(color)))
+            if (inlineTint)
             {
-                material.data = glm::packUnorm4x8(color);
+                auto& material = renderer.materials.Get(materialID);
+                vec4 color = glm::unpackUnorm4x8(u32(material.data));
+                if (ImGui::ColorPicker4("color", glm::value_ptr(color)))
+                {
+                    material.data = glm::packUnorm4x8(color);
+                }
+            }
+            else
+            {
+                vec4* color = reinterpret_cast<vec4*>(renderer.materialBuffer.mapped + Renderer::MaterialSize * u32(materialID));
+                ImGui::ColorPicker4("color", glm::value_ptr(*color));
             }
         }
 
