@@ -37,6 +37,7 @@ namespace pyr
     struct Material
     {
         MaterialTypeID materialTypeID;
+        Buffer buffer;
         u64 data;
     };
 
@@ -111,10 +112,15 @@ namespace pyr
         Context* ctx = {};
 
         Image depthBuffer;
+        Image accumImage;
         uvec3 lastExtent;
 
         VkPipelineLayout layout;
         Shader vertexShader;
+
+        Shader compositeShader;
+        VkPipelineLayout compositePipelineLayout;
+        VkDescriptorSetLayout compositeDescriptorLayout;
 
         Buffer materialBuffer;
 

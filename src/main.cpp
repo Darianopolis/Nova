@@ -1,5 +1,7 @@
 #include <VulkanBackend/VulkanBackend.hpp>
 
+#include <Renderer/Mesh.hpp>
+
 #include <Renderer/Renderer.hpp>
 #include <ImGui/ImGuiBackend.h>
 
@@ -29,6 +31,8 @@ int main()
     imgui.Init(ctx, swapchain, window,
         ImGuiConfigFlags_ViewportsEnable
         | ImGuiConfigFlags_DockingEnable);
+
+// -----------------------------------------------------------------------------
 
     VkSampler sampler;
     pyr::VkCall(vkCreateSampler(ctx.device, pyr::Temp(VkSamplerCreateInfo {
@@ -64,43 +68,10 @@ int main()
         return { texture, renderer.RegisterTexture(texture.view, sampler) };
     };
 
-    auto[texture, textureID] = loadTexture("assets/textures/statue.jpg");
-    auto[texture2, textureID2] = loadTexture("assets/textures/missing.png");
-
-    PYR_LOG("Texture ID = {}", u32(textureID));
-
-    // Test mesh
-
-    struct Vertex
-    {
-        vec3 position;
-        vec3 color;
-        vec2 texCoord;
-        u32 texIndex;
-    };
-
-    std::array mesh = {
-        Vertex { { -0.75f, -0.75f, 0.f }, { 1.f, 0.f, 0.f }, { 0.f, 1.f }, u32(textureID2) },
-        Vertex { {  0.75f, -0.75f, 0.f }, { 0.f, 1.f, 0.f }, { 1.f, 1.f }, u32(textureID) },
-        Vertex { { -0.75f,  0.75f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 0.f }, u32(textureID) },
-        Vertex { {  0.75f,  0.75f, 0.f }, { 1.f, 1.f, 1.f }, { 1.f, 0.f }, u32(textureID2) },
-    };
-
-    auto meshID = renderer.CreateMesh(
-        sizeof(mesh), mesh.data(),
-        sizeof(Vertex), 0,
-        6, std::array {
-            0u, 1u, 2u,
-            3u, 2u, 1u,
-        }.data());
-
-    // Test material
-
-    b8 inlineTint = false;
+// -----------------------------------------------------------------------------
 
     auto materialTypeID = renderer.CreateMaterialType(
-        std::regex_replace(
-            R"(
+        R"(
 struct Vertex
 {
     vec3 position;
@@ -110,7 +81,7 @@ struct Vertex
 };
 
 layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
-layout(buffer_reference, scalar) buffer TintBR { vec4 value[]; };
+layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
 
 vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 {
@@ -120,31 +91,50 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
     vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
 
-    vec3 tc0 = texture(textures[nonuniformEXT(v0.texIndex)], texCoord).rgb;
-    vec3 tc1 = texture(textures[nonuniformEXT(v1.texIndex)], texCoord).rgb;
-    vec3 tc2 = texture(textures[nonuniformEXT(v2.texIndex)], texCoord).rgb;
+    vec3 v01 = v1.position - v0.position;
+    vec3 v02 = v2.position - v0.position;
+    vec3 nrm = normalize(cross(v01, v02));
 
-    vec3 vertColor = v0.color * w.x + v1.color * w.y + v2.color * w.z;
-    vec3 texColor  = tc0      * w.x + tc1      * w.y + tc2      * w.z;
+    MaterialBR mat = MaterialBR(material);
 
-    vec4 tint = TINT_UNPACK;
-    return vec4(mix(vertColor, texColor, tint.rgb), tint.a);
+    vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
+    vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
+    vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
+
+    vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
+    if (color.a < 0.5)
+        color.a = 0.0;
+
+    float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
+    return vec4(color.rgb * d, color.a);
 }
-            )",
-            std::regex("TINT_UNPACK"),
-            inlineTint
-                ? "unpackUnorm4x8(uint(material))"
-                : "TintBR(material).value[0]").c_str(),
-        inlineTint);
+        )",
+        false);
 
-    auto materialID = inlineTint
-        ? renderer.CreateMaterial(materialTypeID, pyr::Temp(0xFFFFFFFFu), 4)
-        : renderer.CreateMaterial(materialTypeID, pyr::Temp(vec4(1.f, 1.f, 1.f, 1.f)), sizeof(vec4));
+// -----------------------------------------------------------------------------
 
-    // Test objet
+    auto loadMesh = [&](const char* file, const char* assetDir) {
+        auto mesh = pyr::LoadMesh(ctx, file, assetDir);
 
-    for (u32 i = 0; i < 10; ++i)
-        renderer.CreateObject(meshID, materialID, vec3(0.f, 0.f, -0.1f * i), vec3(0.f), vec3(1.f));
+        auto meshID = renderer.CreateMesh(
+            sizeof(GltfVertex) * mesh.vertices.size(), mesh.vertices.data(),
+            sizeof(GltfVertex), 0,
+            mesh.indices.size(), mesh.indices.data());
+
+        std::vector<TextureID> textures;
+        for (auto& image : mesh.images)
+            textures.push_back(renderer.RegisterTexture(image.view, sampler));
+
+        auto materialID = renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
+
+        renderer.CreateObject(meshID, materialID, vec3(0.f), vec3(0.f), vec3(1.f));
+    };
+
+    loadMesh("assets/models/Main/NewSponza_Main_Blender_glTF.gltf", "assets/models/Main");
+    loadMesh("assets/models/PKG_A_Curtains/NewSponza_Curtains_glTF.gltf", "assets/models/PKG_A_Curtains");
+    loadMesh("assets/models/PKG_B_Ivy/NewSponza_IvyGrowth_glTF.gltf", "assets/models/PKG_B_Ivy");
+
+// -----------------------------------------------------------------------------
 
     vec3 position = vec3(0.f, 0.f, 1.f);
     quat rotation = vec3(0.f);
@@ -203,7 +193,6 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
         }
 
         imgui.BeginFrame();
-        ImGui::ShowDemoWindow();
 
         {
             ImGui::Begin("Settings");
@@ -214,21 +203,6 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
             f32 fovDegrees = glm::degrees(fov);
             if (ImGui::DragFloat("FoV", &fovDegrees, 0.05f, 1.f, 179.f))
                 fov = glm::radians(fovDegrees);
-
-            ImGui::Separator();
-
-            if (inlineTint)
-            {
-                auto& material = renderer.materials.Get(materialID);
-                vec4 color = glm::unpackUnorm4x8(u32(material.data));
-                if (ImGui::ColorPicker4("Color", glm::value_ptr(color)))
-                    material.data = glm::packUnorm4x8(color);
-            }
-            else
-            {
-                vec4* color = reinterpret_cast<vec4*>(renderer.materialBuffer.mapped + Renderer::MaterialSize * u32(materialID));
-                ImGui::ColorPicker4("Color", glm::value_ptr(*color));
-            }
         }
 
         renderer.Draw(*swapchain.image);

@@ -89,6 +89,8 @@ namespace pyr
     using glm::ivec4;
 
     using glm::quat;
+
+    using glm::mat3;
     using glm::mat4;
 
 // -----------------------------------------------------------------------------
@@ -126,6 +128,20 @@ namespace pyr
     std::cout << std::format("ERROR: {}\n  Location = {} @ {}\n", \
         msg, __LINE__, __FILE__);                                 \
     throw std::runtime_error(std::move(msg));                     \
+} while (0)
+
+// -----------------------------------------------------------------------------
+
+    thread_local inline std::chrono::steady_clock::time_point PyrTimeitLast;
+
+#define PYR_TIMEIT_RESET() ::pyr::PyrTimeitLast = std::chrono::steady_clock::now()
+
+#define PYR_TIMEIT(...) do {                                                       \
+    using namespace std::chrono;                                                   \
+    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",  \
+        duration_cast<milliseconds>(steady_clock::now()                            \
+            - ::pyr::PyrTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+    ::pyr::PyrTimeitLast = steady_clock::now();                                    \
 } while (0)
 
 // -----------------------------------------------------------------------------

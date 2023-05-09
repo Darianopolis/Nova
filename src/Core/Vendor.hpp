@@ -10,8 +10,6 @@
 #define VMA_STATIC_VULKAN_FUNCTIONS 1
 #include <vk_mem_alloc.h>
 
-#include <meshoptimizer.h>
-
 // -----------------------------------------------------------------------------
 
 #pragma warning(push)
@@ -53,6 +51,10 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include <ImGuizmo.h>
+
 // -----------------------------------------------------------------------------
 
-#include <ImGuizmo.h>
+#include <cgltf.h>
+
+#include <meshoptimizer.h>

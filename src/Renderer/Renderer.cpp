@@ -83,13 +83,6 @@ void main()
                 textureDescriptorSetLayout
             });
 
-// -----------------------------------------------------------------------------
-
-        materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-
-// -----------------------------------------------------------------------------
-
         VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
@@ -100,6 +93,66 @@ void main()
                 .size = sizeof(RasterPushConstants),
             }),
         }), nullptr, &layout));
+
+// -----------------------------------------------------------------------------
+
+        VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+            .bindingCount = 2,
+            .pBindings = std::array {
+                VkDescriptorSetLayoutBinding {
+                    .binding = 0,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                },
+                VkDescriptorSetLayoutBinding {
+                    .binding = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+                },
+            }.data(),
+        }), nullptr, &compositeDescriptorLayout));
+
+        compositeShader = ctx->CreateShader(
+            VK_SHADER_STAGE_COMPUTE_BIT, 0,
+            "assets/shaders/comppute-generated",
+            R"(
+#version 460
+
+layout(set = 0, binding = 0, rgba16f) uniform image2D inAccum;
+layout(set = 0, binding = 1, rgba8) uniform image2D outColor;
+
+layout(local_size_x = 1) in;
+void main()
+{
+    uvec2 pos = gl_GlobalInvocationID.xy;
+    ivec2 coords = ivec2(pos);
+
+    vec4 color = imageLoad(inAccum, coords);
+    imageStore(outColor, coords, color);
+}
+            )",
+            {},
+            {
+                compositeDescriptorLayout,
+            });
+
+        VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &compositeDescriptorLayout,
+        }), nullptr, &compositePipelineLayout));
+
+// -----------------------------------------------------------------------------
+
+        materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+
+// -----------------------------------------------------------------------------
+
     }
 
     void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
@@ -119,12 +172,22 @@ void main()
         {
             lastExtent = target.extent;
 
+            ctx->DestroyImage(accumImage);
+            accumImage = ctx->CreateImage(target.extent,
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                | VK_IMAGE_USAGE_STORAGE_BIT,
+                VK_FORMAT_R16G16B16A16_SFLOAT);
+
             ctx->DestroyImage(depthBuffer);
-            depthBuffer = ctx->CreateImage(target.extent, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_FORMAT_X8_D24_UNORM_PACK32);
+            depthBuffer = ctx->CreateImage(target.extent,
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                VK_FORMAT_X8_D24_UNORM_PACK32);
             ctx->Transition(cmd, depthBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         }
 
         // Begin rendering
+
+        ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         vkCmdBeginRendering(cmd, Temp(VkRenderingInfo {
@@ -132,14 +195,16 @@ void main()
             .renderArea = { {}, { target.extent.x, target.extent.y } },
             .layerCount = 1,
             .colorAttachmentCount = 1,
-            .pColorAttachments = Temp(VkRenderingAttachmentInfo {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .imageView = target.view,
-                .imageLayout = target.layout,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
-            }),
+            .pColorAttachments = std::array {
+                VkRenderingAttachmentInfo {
+                    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                    .imageView = accumImage.view,
+                    .imageLayout = accumImage.layout,
+                    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                    .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
+                },
+            }.data(),
             .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = depthBuffer.view,
@@ -159,7 +224,7 @@ void main()
 
         // Set blend, depth, cull dynamic state
 
-        b8 blend = true;
+        b8 blend = false;
         b8 depth = true;
         b8 cull = false;
 
@@ -243,6 +308,33 @@ void main()
         // End rendering
 
         vkCmdEndRendering(cmd);
+
+        ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_GENERAL);
+        ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
+        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compositePipelineLayout, 0, 2, std::array {
+            VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstBinding = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .pImageInfo = Temp(VkDescriptorImageInfo {
+                    .imageView = accumImage.view,
+                    .imageLayout = accumImage.layout,
+                })
+            },
+            VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstBinding = 1,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .pImageInfo = Temp(VkDescriptorImageInfo {
+                    .imageView = target.view,
+                    .imageLayout = target.layout,
+                })
+            },
+        }.data());
+        vkCmdBindShadersEXT(cmd, 1, &compositeShader.stage, &compositeShader.shader);
+        vkCmdDispatch(cmd, target.extent.x, target.extent.y, 1);
     }
 
     MeshID Renderer::CreateMesh(
@@ -295,7 +387,7 @@ layout(set = 0, binding = 0) uniform sampler2D textures[];
 
 layout(location = 0) in pervertexEXT uint vertexIndex[3];
 
-layout(location = 0) out vec4 fragColor;
+layout(location = 0) out vec4 outAccum;
 
 layout(push_constant) uniform PushConstants
 {
@@ -310,10 +402,13 @@ layout(push_constant) uniform PushConstants
             R"(
 void main()
 {
-    fragColor = shade(
+    outAccum = shade(
         pc.vertices, pc.material,
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
         gl_BaryCoordEXT);
+
+    if (outAccum.a == 0.0)
+        discard;
 }
             )"),
             {{
@@ -349,11 +444,8 @@ void main()
 
                 std::memcpy(&material.data, pData, size);
             }
-            else
+            else if (size < 64)
             {
-                if (size > 64)
-                    PYR_THROW("Material size [{}] exceeds max (64)", size);
-
                 // TODO: Better material allocation strategy
                 //  - don't consume buffer space for inline materials
                 //  - allow packaged varaible size materials (16, 32, 64)
@@ -362,6 +454,16 @@ void main()
                 std::memcpy(materialBuffer.mapped + offset, pData, size);
                 material.data = materialBuffer.address + offset;
             }
+            else
+            {
+                // Large materials use dedicated buffer
+
+                material.buffer = ctx->CreateBuffer(size,
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                    BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+                ctx->CopyToBuffer(material.buffer, pData, size);
+                material.data = material.buffer.address;
+            }
         }
 
         return id;
@@ -369,6 +471,7 @@ void main()
 
     void Renderer::DeleteMaterial(MaterialID id)
     {
+        ctx->DestroyBuffer(materials.Get(id).buffer);
         materials.Return(id);
     }
 
@@ -391,6 +494,8 @@ void main()
 
     TextureID Renderer::RegisterTexture(VkImageView view, VkSampler sampler)
     {
+        // TODO: Support registering multiple textures contiguously
+
         auto[id, texture] = textures.Acquire();
         texture.index = u32(id);
 
