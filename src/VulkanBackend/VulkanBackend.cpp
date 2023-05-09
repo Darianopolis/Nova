@@ -49,7 +49,11 @@ namespace pyr
         vkGetPhysicalDeviceQueueFamilyProperties2(ctx.gpu, Temp(0u), nullptr);
         ctx.queueFamily = 0;
 
+        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
+        rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
+
         VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
+        barycentricFeatures.pNext = &rtPosFetchFeatures;
         barycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
 
         VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV rtInvocationReorderFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV };
@@ -99,6 +103,7 @@ namespace pyr
         features2.features.samplerAnisotropy = VK_TRUE;
         features2.features.wideLines = VK_TRUE;
         features2.features.multiDrawIndirect = VK_TRUE;
+        features2.features.fillModeNonSolid = VK_TRUE;
 
         auto deviceExtensions = std::array {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -111,6 +116,8 @@ namespace pyr
             VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,
+
+            VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME,
 
             VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };

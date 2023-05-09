@@ -9,7 +9,7 @@ using namespace pyr;
 
 int main()
 {
-    auto ctx = pyr::CreateContext(true);
+    auto ctx = pyr::CreateContext(false);
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1080, "test", nullptr, nullptr);
@@ -68,6 +68,8 @@ int main()
         return { texture, renderer.RegisterTexture(texture.view, sampler) };
     };
 
+    auto[missing, missingID] = loadTexture("assets/textures/missing.png");
+
 // -----------------------------------------------------------------------------
 
     auto materialTypeID = renderer.CreateMaterialType(
@@ -75,7 +77,6 @@ int main()
 struct Vertex
 {
     vec3 position;
-    vec3 color;
     vec2 uv;
     uint texIndex;
 };
@@ -94,6 +95,8 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
     vec3 v01 = v1.position - v0.position;
     vec3 v02 = v2.position - v0.position;
     vec3 nrm = normalize(cross(v01, v02));
+    if (!gl_FrontFacing)
+        nrm = -nrm;
 
     MaterialBR mat = MaterialBR(material);
 
@@ -105,6 +108,9 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
     if (color.a < 0.5)
         color.a = 0.0;
 
+    // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
+    //     return vec4(0.1, 0.1, 0.1, 0);
+
     float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
     return vec4(color.rgb * d, color.a);
 }
@@ -113,13 +119,16 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
 // -----------------------------------------------------------------------------
 
-    auto loadMesh = [&](const char* file, const char* assetDir) {
-        auto mesh = pyr::LoadMesh(ctx, file, assetDir);
+    auto loadMesh = [&](const std::string& folder, const std::string& file = "scene.gltf") {
+        auto mesh = pyr::LoadMesh(ctx, (folder +"/"+ file).c_str(), folder.c_str());
 
         auto meshID = renderer.CreateMesh(
             sizeof(GltfVertex) * mesh.vertices.size(), mesh.vertices.data(),
             sizeof(GltfVertex), 0,
             mesh.indices.size(), mesh.indices.data());
+
+        if (mesh.images.empty())
+            mesh.images.push_back(missing);
 
         std::vector<TextureID> textures;
         for (auto& image : mesh.images)
@@ -128,11 +137,18 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
         auto materialID = renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
 
         renderer.CreateObject(meshID, materialID, vec3(0.f), vec3(0.f), vec3(1.f));
+        // renderer.CreateObject(meshID, materialID, vec3(0.f), glm::angleAxis(glm::radians(90.f), vec3(-1.f, 0.f, 0.f)), vec3(1.f));
     };
 
-    loadMesh("assets/models/Main/NewSponza_Main_Blender_glTF.gltf", "assets/models/Main");
-    loadMesh("assets/models/PKG_A_Curtains/NewSponza_Curtains_glTF.gltf", "assets/models/PKG_A_Curtains");
-    loadMesh("assets/models/PKG_B_Ivy/NewSponza_IvyGrowth_glTF.gltf", "assets/models/PKG_B_Ivy");
+    loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
+    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf");
+    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf");
+
+    // loadMesh("assets/models/SciFiDragonWarrior");
+
+    // loadMesh("assets/models/StationDemerzel");
+
+    // loadMesh("assets/models", "monkey.gltf");
 
 // -----------------------------------------------------------------------------
 
@@ -203,6 +219,29 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
             f32 fovDegrees = glm::degrees(fov);
             if (ImGui::DragFloat("FoV", &fovDegrees, 0.05f, 1.f, 179.f))
                 fov = glm::radians(fovDegrees);
+
+            ImGui::Separator();
+
+            ImGui::Checkbox("Ray trace", &renderer.rayTrace);
+
+            ImGui::Separator();
+
+            using namespace std::chrono;
+            static u32 frameCount = 0;
+            static f32 fps = 0.f;
+            static auto lastSecond = steady_clock::now();
+
+            frameCount++;
+
+            auto curTime = steady_clock::now();
+            if (curTime > lastSecond + 1s)
+            {
+                fps = frameCount / duration_cast<duration<float>>(curTime - lastSecond).count();
+                lastSecond = curTime;
+                frameCount = 0;
+            }
+
+            ImGui::Text("FPS: %.2f", fps);
         }
 
         renderer.Draw(*swapchain.image);

@@ -44,6 +44,8 @@ namespace pyr
             VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
 // -----------------------------------------------------------------------------
+//                       Rasterization vertex shader
+// -----------------------------------------------------------------------------
 
         vertexShader = ctx->CreateShader(
             VK_SHADER_STAGE_VERTEX_BIT, VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -95,6 +97,8 @@ void main()
         }), nullptr, &layout));
 
 // -----------------------------------------------------------------------------
+//                           Compositing shaders
+// -----------------------------------------------------------------------------
 
         VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -118,7 +122,7 @@ void main()
 
         compositeShader = ctx->CreateShader(
             VK_SHADER_STAGE_COMPUTE_BIT, 0,
-            "assets/shaders/comppute-generated",
+            "assets/shaders/compute-generated",
             R"(
 #version 460
 
@@ -152,7 +156,427 @@ void main()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
 // -----------------------------------------------------------------------------
+//                   Prepare Top-Level acceleration structure
+// -----------------------------------------------------------------------------
 
+    {
+        auto geom = VkAccelerationStructureGeometryKHR {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+            .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+            .geometry = {
+                .instances =  {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+                },
+            },
+        };
+
+        auto buildInfo = VkAccelerationStructureBuildGeometryInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+            .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+            .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
+                ,
+            .geometryCount = 1,
+            .pGeometries = &geom,
+        };
+
+        auto sizes = VkAccelerationStructureBuildSizesInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+        };
+
+        vkGetAccelerationStructureBuildSizesKHR(ctx->device,
+            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+            &buildInfo,
+            &MaxInstances,
+            &sizes);
+
+        sizes.buildScratchSize += AccelScratchAlignment;
+
+        PYR_LOG("TLAS Statistics - scratch = {}, storage = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
+
+        tlasBuffer = ctx->CreateBuffer(sizes.accelerationStructureSize,
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, BufferFlags::DeviceLocal);
+
+        tlasScratchBuffer = ctx->CreateBuffer(sizes.buildScratchSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+
+        VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+            .buffer = tlasBuffer.buffer,
+            .size = tlasBuffer.size,
+            .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        }), nullptr, &tlas));
+
+        PYR_LOG("Created TLAS: {}", (void*)tlas);
+
+        instanceBuffer = ctx->CreateBuffer(MaxInstances * sizeof(VkAccelerationStructureInstanceKHR),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+    }
+
+// -----------------------------------------------------------------------------
+//                       Prepare Shader binding table
+// -----------------------------------------------------------------------------
+
+        {
+            VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                .bindingCount = 3,
+                .pBindings = std::array {
+                    VkDescriptorSetLayoutBinding {
+                        .binding = 0,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    },
+                    VkDescriptorSetLayoutBinding {
+                        .binding = 1,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    },
+                    VkDescriptorSetLayoutBinding {
+                        .binding = 2,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    },
+                }.data(),
+            }), nullptr, &rtDescLayout));
+
+            rayHitShader = ctx->CreateShader(
+                VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0,
+                "rayhit",
+                R"(
+#version 460
+
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_spirv_intrinsics : require
+
+#define GL_EXT_ray_tracing_position_fetch 1
+
+spirv_decorate(extensions = ["SPV_KHR_ray_tracing_position_fetch"], capabilities = [5336], 11, 5335)
+in vec3 gl_HitTriangleVertexPositionsEXT[3];
+
+struct RayPayload
+{
+    vec3 position[3];
+};
+layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
+
+void main()
+{
+    rayPayload.position[0] = gl_HitTriangleVertexPositionsEXT[0];
+    rayPayload.position[1] = gl_HitTriangleVertexPositionsEXT[1];
+    rayPayload.position[2] = gl_HitTriangleVertexPositionsEXT[2];
+}
+                )",
+                {},
+                {});
+
+            rayMissShader = ctx->CreateShader(
+                VK_SHADER_STAGE_MISS_BIT_KHR, 0,
+                "raymiss",
+                R"(
+#version 460
+
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_ray_tracing : require
+
+struct RayPayload
+{
+    vec3 position[3];
+};
+layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
+
+void main()
+{
+    rayPayload.position[0] = vec3(1, 0, 0);
+    rayPayload.position[1] = vec3(1, 0, 0);
+    rayPayload.position[2] = vec3(1, 0, 0);
+}
+                )",
+                {},
+                {});
+
+            rayGenShader = ctx->CreateShader(
+                VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0,
+                "raygen",
+                R"(
+#version 460
+
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_ray_tracing : require
+#extension GL_NV_shader_invocation_reorder : require
+
+layout(set = 0, binding = 0, rgba8) uniform image2D outImage;
+layout(set = 0, binding = 1) uniform accelerationStructureEXT topLevelAS;
+layout(set = 0, binding = 2, r32ui) uniform uimage2D objectIdImage;
+
+struct RayPayload
+{
+    vec3 position[3];
+};
+layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+
+layout(location = 0) hitObjectAttributeNV vec3 barycentric;
+
+layout(push_constant) uniform PushConstants
+{
+    vec3 pos;
+    vec3 camX;
+    vec3 camY;
+    uint64_t objectsVA;
+    uint64_t meshesVA;
+    float camZOffset;
+    uint debugMode;
+} pc;
+
+void main()
+{
+    imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(0, 0, 0, 1));
+
+    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
+    const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+    vec2 d = inUV * 2.0 - 1.0;
+    vec3 focalPoint = pc.camZOffset * cross(pc.camX, pc.camY);
+    vec3 pos = pc.pos;
+    d.x *= float(gl_LaunchSizeEXT.x) / float(gl_LaunchSizeEXT.y);
+    d.y *= -1.0;
+    vec3 dir = normalize((pc.camY * d.y) + (pc.camX * d.x) - focalPoint);
+
+    uint rayFlags = 0;
+    rayFlags |= gl_RayFlagsOpaqueEXT;
+
+    hitObjectNV hitObject;
+    hitObjectTraceRayNV(hitObject, topLevelAS, rayFlags, 0xFF, 0, 0, 1, pos, 0.0001, dir, 8000000, 0);
+
+    reorderThreadNV(hitObject);
+
+    if (hitObjectIsHitNV(hitObject))
+    {
+        hitObjectGetAttributesNV(hitObject, 0);
+        hitObjectExecuteShaderNV(hitObject, 0);
+
+        vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
+
+        vec3 v0 = rayPayload.position[0];
+        vec3 v1 = rayPayload.position[1];
+        vec3 v2 = rayPayload.position[2];
+
+        vec3 v01 = v1 - v0;
+        vec3 v02 = v2 - v0;
+        vec3 nrm = normalize(cross(v01, v02));
+        if (dot(dir, nrm) > 0)
+            nrm = -nrm;
+
+        vec3 color = nrm * 0.5 + 0.5;
+
+        imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+    }
+    else
+    {
+        imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(0.1, 0.1, 0.1, 1));
+    }
+}
+                )",
+                {{
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    .size = sizeof(RayTracePC),
+                }},
+                {
+                    rtDescLayout
+                });
+
+            std::array stages = {
+                rayGenShader.stageInfo,
+                rayMissShader.stageInfo,
+                rayHitShader.stageInfo,
+            };
+
+            std::array groups = {
+                VkRayTracingShaderGroupCreateInfoKHR {
+                    .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+                    .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+                    .generalShader = 0,
+                    .closestHitShader = VK_SHADER_UNUSED_KHR,
+                    .anyHitShader = VK_SHADER_UNUSED_KHR,
+                    .intersectionShader = VK_SHADER_UNUSED_KHR,
+                },
+                VkRayTracingShaderGroupCreateInfoKHR {
+                    .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+                    .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+                    .generalShader = 1,
+                    .closestHitShader = VK_SHADER_UNUSED_KHR,
+                    .anyHitShader = VK_SHADER_UNUSED_KHR,
+                    .intersectionShader = VK_SHADER_UNUSED_KHR,
+                },
+                VkRayTracingShaderGroupCreateInfoKHR {
+                    .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+                    .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+                    .generalShader = VK_SHADER_UNUSED_KHR,
+                    .closestHitShader = 2,
+                    .anyHitShader = VK_SHADER_UNUSED_KHR,
+                    .intersectionShader = VK_SHADER_UNUSED_KHR,
+                },
+            };
+
+            VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                .setLayoutCount = 1,
+                .pSetLayouts = &rtDescLayout,
+                .pushConstantRangeCount = 1,
+                .pPushConstantRanges = Temp(VkPushConstantRange {
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    .size = sizeof(RayTracePC),
+                }),
+            }), nullptr, &rtPipelineLayout));
+
+            VkCall(vkCreateRayTracingPipelinesKHR(ctx->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+                .stageCount = u32(stages.size()),
+                .pStages = stages.data(),
+                .groupCount = u32(groups.size()),
+                .pGroups = groups.data(),
+                .maxPipelineRayRecursionDepth = 2,
+                .layout = rtPipelineLayout,
+            }), nullptr, &rtPipeline));
+
+            // ---- Shader binding table ---
+
+            std::vector<u32> rayGenIndices { 0 };
+            std::vector<u32> rayMissIndices { 1 };
+            std::vector<u32> rayHitIndices { 2 };
+            std::vector<u32> rayCallIndices;
+
+            auto rayProperties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+            };
+            vkGetPhysicalDeviceProperties2(ctx->gpu, Temp(VkPhysicalDeviceProperties2 {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+                .pNext = &rayProperties,
+            }));
+
+            u32 handleSize = rayProperties.shaderGroupHandleSize;
+            u32 handleSizeAligned = (u32)AlignUpPower2(handleSize, rayProperties.shaderGroupHandleAlignment);
+
+            PYR_LOG("Handle Size = {:#x}", handleSize);
+            PYR_LOG("Handle Size Aligned = {:#x}", handleSizeAligned);
+            PYR_LOG("Shader group base alignment: {:#x}", rayProperties.shaderGroupBaseAlignment);
+
+            rayGenRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupBaseAlignment);
+            rayGenRegion.size = AlignUpPower2(rayGenIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
+            if (!rayGenRegion.size)
+                rayGenRegion.stride = 0;
+
+            rayMissRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
+            rayMissRegion.size = AlignUpPower2(rayMissIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
+            if (!rayMissRegion.size)
+                rayMissRegion.stride = 0;
+
+            rayHitRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
+            rayHitRegion.size = AlignUpPower2(rayHitIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
+            if (!rayHitRegion.size)
+                rayHitRegion.stride = 0;
+
+            rayCallRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
+            rayCallRegion.size = AlignUpPower2(rayCallIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
+            if (!rayCallRegion.size)
+                rayCallRegion.stride = 0;
+
+            PYR_LOG("RayGen Stride = {:#x}", rayGenRegion.stride);
+            PYR_LOG("RayGen Size = {:#x}", rayGenRegion.size);
+            PYR_LOG("RayHit Stride = {:#x}", rayHitRegion.stride);
+            PYR_LOG("RayHit Size = {:#x}", rayHitRegion.size);
+
+            // Get handles into shader groups from pipeline
+
+            u32 dataSize = (u32)groups.size() * handleSize;
+            std::vector<u8> handles(dataSize);
+            VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, (u32)groups.size(), dataSize, handles.data()));
+
+            // Allocate buffer for the SBT
+
+            VkDeviceSize sbtSize = rayGenRegion.size + rayMissRegion.size + rayHitRegion.size + rayCallRegion.size;
+            PYR_LOG("Making SBT size = {}", sbtSize);
+            sbtSize = std::max(256ull, sbtSize);
+            sbtBuffer = ctx->CreateBuffer(sbtSize,
+                VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+                BufferFlags::DeviceLocal | BufferFlags::Mappable);
+
+            // Find SBT Addresses of each group
+
+            rayGenRegion.deviceAddress  = sbtBuffer.address;
+            if (rayMissRegion.size)
+                rayMissRegion.deviceAddress = rayGenRegion.deviceAddress + rayGenRegion.size;
+            if (rayHitRegion.size)
+                rayHitRegion.deviceAddress  = rayGenRegion.deviceAddress + rayGenRegion.size + rayMissRegion.size;
+            if (rayCallRegion.size)
+                rayCallRegion.deviceAddress = rayGenRegion.deviceAddress + rayGenRegion.size + rayMissRegion.size + rayHitRegion.size;
+
+            // Map the SBT buffer and write in the handles
+
+            auto getHandle = [&](u32 i) { return handles.data() + i * handleSize; };
+
+            u8* pSBTBuffer;
+            vmaMapMemory(ctx->vma, sbtBuffer.allocation, (void**)&pSBTBuffer);
+            u8* pData = nullptr;
+
+            // Ray generation
+
+            PYR_LOG("Building SBT");
+
+            pData = pSBTBuffer;
+            for (u32 handleIdx : rayGenIndices)
+            {
+                PYR_LOG(" - Ray Gen shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
+                std::memcpy(pData, getHandle(handleIdx), handleSize);
+                pData += rayGenRegion.stride;
+            }
+
+            // Miss
+
+            pData = pSBTBuffer + rayGenRegion.size;
+            for (u32 handleIdx : rayMissIndices)
+            {
+                PYR_LOG(" - Ray Miss shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
+                std::memcpy(pData, getHandle(handleIdx), handleSize);
+                pData += rayMissRegion.stride;
+            }
+
+            // Hit
+
+            pData = pSBTBuffer + rayGenRegion.size + rayMissRegion.size;
+            for (u32 handleIdx : rayHitIndices)
+            {
+                PYR_LOG(" - Ray Hit shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
+                std::memcpy(pData, getHandle(handleIdx), handleSize);
+                pData += rayHitRegion.stride;
+            }
+
+            // Call
+
+            pData = pSBTBuffer + rayGenRegion.size + rayMissRegion.size + rayHitRegion.size;
+            for (u32 handleIdx : rayCallIndices)
+            {
+                PYR_LOG(" - Ray Call shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
+                std::memcpy(pData, getHandle(handleIdx), handleSize);
+                pData += rayCallRegion.stride;
+            }
+
+            vmaUnmapMemory(ctx->vma, sbtBuffer.allocation);
+
+            PYR_LOG("Prepared shader binding table!");
+        }
     }
 
     void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
@@ -187,154 +611,279 @@ void main()
 
         // Begin rendering
 
-        ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        if (!rayTrace)
+        {
+            ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkCmdBeginRendering(cmd, Temp(VkRenderingInfo {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = { {}, { target.extent.x, target.extent.y } },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = std::array {
-                VkRenderingAttachmentInfo {
+            ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            vkCmdBeginRendering(cmd, Temp(VkRenderingInfo {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .renderArea = { {}, { target.extent.x, target.extent.y } },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = std::array {
+                    VkRenderingAttachmentInfo {
+                        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                        .imageView = accumImage.view,
+                        .imageLayout = accumImage.layout,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                        .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
+                    },
+                }.data(),
+                .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
                     .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                    .imageView = accumImage.view,
-                    .imageLayout = accumImage.layout,
+                    .imageView = depthBuffer.view,
+                    .imageLayout = depthBuffer.layout,
                     .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                    .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
-                },
-            }.data(),
-            .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
-                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .imageView = depthBuffer.view,
-                .imageLayout = depthBuffer.layout,
-                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                .clearValue = { .depthStencil = {{ 0.f }} },
-            })
-        }));
-
-        vkCmdSetScissorWithCount(cmd, 1, Temp(VkRect2D { {}, { target.extent.x, target.extent.y } }));
-        vkCmdSetViewportWithCount(cmd, 1, Temp(VkViewport {
-            0.f, f32(target.extent.y),
-            f32(target.extent.x), -f32(target.extent.y),
-            0.f, 1.f
-        }));
-
-        // Set blend, depth, cull dynamic state
-
-        b8 blend = false;
-        b8 depth = true;
-        b8 cull = false;
-
-        if (depth)
-        {
-            vkCmdSetDepthTestEnable(cmd, true);
-            vkCmdSetDepthWriteEnable(cmd, true);
-            vkCmdSetDepthCompareOp(cmd, VK_COMPARE_OP_GREATER);
-        }
-
-        if (cull)
-        {
-            vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
-            vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-        }
-
-        vkCmdSetColorWriteMaskEXT(cmd, 0, 1, Temp<VkColorComponentFlags>(
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-        ));
-        if (blend)
-        {
-            vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(true));
-            vkCmdSetColorBlendEquationEXT(cmd, 0, 1, Temp(VkColorBlendEquationEXT {
-                .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                .colorBlendOp = VK_BLEND_OP_ADD,
-                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                .alphaBlendOp = VK_BLEND_OP_ADD,
+                    .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                    .clearValue = { .depthStencil = {{ 0.f }} },
+                })
             }));
+
+            vkCmdSetScissorWithCount(cmd, 1, Temp(VkRect2D { {}, { target.extent.x, target.extent.y } }));
+            vkCmdSetViewportWithCount(cmd, 1, Temp(VkViewport {
+                0.f, f32(target.extent.y),
+                f32(target.extent.x), -f32(target.extent.y),
+                0.f, 1.f
+            }));
+
+            // Set blend, depth, cull dynamic state
+
+            b8 blend = false;
+            b8 depth = true;
+            b8 cull = false;
+            b8 wireframe = false;
+
+            if (depth)
+            {
+                vkCmdSetDepthTestEnable(cmd, true);
+                vkCmdSetDepthWriteEnable(cmd, true);
+                vkCmdSetDepthCompareOp(cmd, VK_COMPARE_OP_GREATER);
+            }
+
+            if (cull)
+            {
+                vkCmdSetCullMode(cmd, VK_CULL_MODE_BACK_BIT);
+                vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+            }
+
+            vkCmdSetColorWriteMaskEXT(cmd, 0, 1, Temp<VkColorComponentFlags>(
+                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+            ));
+            if (blend)
+            {
+                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(true));
+                vkCmdSetColorBlendEquationEXT(cmd, 0, 1, Temp(VkColorBlendEquationEXT {
+                    .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                    .colorBlendOp = VK_BLEND_OP_ADD,
+                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                    .alphaBlendOp = VK_BLEND_OP_ADD,
+                }));
+            }
+            else
+            {
+                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(false));
+            }
+
+            if (wireframe)
+            {
+                vkCmdSetPolygonModeEXT(cmd, VK_POLYGON_MODE_LINE);
+                vkCmdSetLineWidth(cmd, 1.f);
+            }
+
+            // Bind shaders and draw
+
+            auto proj = ProjInfReversedZRH(viewFov, f32(target.extent.x) / f32(target.extent.y), 0.01f);
+            auto translate = glm::translate(mat4(1.f), viewPosition);
+            auto rotate = glm::mat4_cast(viewRotation);
+            auto viewProj = proj * glm::affineInverse(translate * rotate);
+
+            vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+                .address = textureDescriptorBuffer.address,
+                .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+            }));
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
+
+            objects.ForEach([&](auto, auto& object) {
+                auto& mesh = meshes.Get(object.meshID);
+
+                auto transform = glm::translate(glm::mat4(1.f), object.position);
+                transform *= glm::mat4_cast(object.rotation);
+                transform *= glm::scale(glm::mat4(1.f), object.scale);
+
+                auto& material = materials.Get(object.materialID);
+                auto& materialType = materialTypes.Get(material.materialTypeID);
+
+                vkCmdBindShadersEXT(cmd, 2,
+                    std::array { vertexShader.stage, materialType.shader.stage }.data(),
+                    std::array { vertexShader.shader, materialType.shader.shader }.data());
+                vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
+                        .mvp = viewProj * transform,
+                        .vertices = mesh.vertices.address,
+                        .material = material.data,
+                        .vertexOffset = mesh.vertexOffset,
+                        .vertexStride = mesh.vertexStride,
+                    }));
+
+                vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+            });
+
+            // End rendering
+
+            vkCmdEndRendering(cmd);
+
+            ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_GENERAL);
+            ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
+            vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compositePipelineLayout, 0, 2, std::array {
+                VkWriteDescriptorSet {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .dstBinding = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                    .pImageInfo = Temp(VkDescriptorImageInfo {
+                        .imageView = accumImage.view,
+                        .imageLayout = accumImage.layout,
+                    })
+                },
+                VkWriteDescriptorSet {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    .dstBinding = 1,
+                    .descriptorCount = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                    .pImageInfo = Temp(VkDescriptorImageInfo {
+                        .imageView = target.view,
+                        .imageLayout = target.layout,
+                    })
+                },
+            }.data());
+            vkCmdBindShadersEXT(cmd, 1, &compositeShader.stage, &compositeShader.shader);
+            vkCmdDispatch(cmd, target.extent.x, target.extent.y, 1);
         }
         else
         {
-            vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(false));
-        }
+            auto geom = VkAccelerationStructureGeometryKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                .geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR,
+                .geometry = {
+                    .instances =  {
+                        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
+                        .data = {{ instanceBuffer.address }},
+                    },
+                },
+            };
 
-        // Bind shaders and draw
+            auto buildRange = VkAccelerationStructureBuildRangeInfoKHR {
+                .primitiveCount = objects.GetCount(),
+            };
 
-        auto proj = ProjInfReversedZRH(viewFov, f32(target.extent.x) / f32(target.extent.y), 0.01f);
-        auto translate = glm::translate(mat4(1.f), viewPosition);
-        auto rotate = glm::mat4_cast(viewRotation);
-        auto viewProj = proj * glm::affineInverse(translate * rotate);
+            u32 i = 0;
+            objects.ForEach([&](auto, Object& object) {
+                auto& mesh = meshes.Get(object.meshID);
 
-        vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+                auto transform = glm::translate(glm::mat4(1.f), object.position);
+                transform *= glm::mat4_cast(object.rotation);
+                transform *= glm::scale(glm::mat4(1.f), object.scale);
 
-        vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-            .address = textureDescriptorBuffer.address,
-            .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
-        }));
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
+                auto& M = transform;
 
-        objects.ForEach([&](auto, auto& object) {
-            auto& mesh = meshes.Get(object.meshID);
+                instanceBuffer.Get<VkAccelerationStructureInstanceKHR>(i) = VkAccelerationStructureInstanceKHR {
+                    .transform = {
+                        M[0][0], M[1][0], M[2][0], M[3][0],
+                        M[0][1], M[1][1], M[2][1], M[3][1],
+                        M[0][2], M[1][2], M[2][2], M[3][2],
+                    },
+                    .instanceCustomIndex = i,
+                    .mask = 0xFF,
+                    .instanceShaderBindingTableRecordOffset = 0,
+                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
+                    .accelerationStructureReference = mesh.accelBuffer.address,
+                };
 
-            auto transform = glm::translate(glm::mat4(1.f), object.position);
-            transform *= glm::mat4_cast(object.rotation);
-            transform *= glm::scale(glm::mat4(1.f), object.scale);
+                i++;
+            });
 
-            auto& material = materials.Get(object.materialID);
-            auto& materialType = materialTypes.Get(material.materialTypeID);
+            auto buildInfo = VkAccelerationStructureBuildGeometryInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+                .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
+                    ,
+                .dstAccelerationStructure = tlas,
+                .geometryCount = 1,
+                .pGeometries = &geom,
+                .scratchData = {{ AlignUpPower2(tlasScratchBuffer.address, AccelScratchAlignment) }},
+            };
 
-            vkCmdBindShadersEXT(cmd, 2,
-                std::array { vertexShader.stage, materialType.shader.stage }.data(),
-                std::array { vertexShader.shader, materialType.shader.shader }.data());
-            vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdPushConstants(cmd, layout,
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
-                    .mvp = viewProj * transform,
-                    .vertices = mesh.vertices.address,
-                    .material = material.data,
-                    .vertexOffset = mesh.vertexOffset,
-                    .vertexStride = mesh.vertexStride,
+            vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, Temp(&buildRange));
+
+            ctx->Flush();
+
+            ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline);
+
+            vkCmdPushDescriptorSetKHR(cmd,
+                VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+                rtPipelineLayout,
+                0, 2, std::array {
+                    VkWriteDescriptorSet {
+                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                        .dstBinding = 0,
+                        .descriptorCount = 1,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        .pImageInfo = Temp(VkDescriptorImageInfo {
+                            .imageView = target.view,
+                            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                        })
+                    },
+                    VkWriteDescriptorSet {
+                        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                        .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
+                            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                            .accelerationStructureCount = 1,
+                            .pAccelerationStructures = &tlas,
+                        }),
+                        .dstBinding = 1,
+                        .descriptorCount = 1,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                    },
+                }.data());
+
+            auto camX = viewRotation * glm::vec3(1, 0, 0);
+            auto camY = viewRotation * glm::vec3(0, 1, 0);
+            auto camZOffset = 1.f / glm::tan(0.5f * viewFov);
+
+            // PYR_LOG("pos = {}", glm::to_string(viewPosition));
+            // PYR_LOG("camX = {}", glm::to_string(camX));
+            // PYR_LOG("camY = {}", glm::to_string(camY));
+            // PYR_LOG("camZOffset = {}", camZOffset);
+
+            vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                0, sizeof(RayTracePC), Temp(RayTracePC {
+                    // .pos = glm::vec3(0.f),
+                    .pos = viewPosition,
+                    .camX = camX,
+                    .camY = camY,
+                    .objectsVA = 0,
+                    .meshesVA = 0,
+                    .camZOffset = camZOffset,
+                    .debugMode = 0,
                 }));
 
-            vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
-        });
-
-        // End rendering
-
-        vkCmdEndRendering(cmd);
-
-        ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_GENERAL);
-        ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
-        vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compositePipelineLayout, 0, 2, std::array {
-            VkWriteDescriptorSet {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstBinding = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                .pImageInfo = Temp(VkDescriptorImageInfo {
-                    .imageView = accumImage.view,
-                    .imageLayout = accumImage.layout,
-                })
-            },
-            VkWriteDescriptorSet {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstBinding = 1,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                .pImageInfo = Temp(VkDescriptorImageInfo {
-                    .imageView = target.view,
-                    .imageLayout = target.layout,
-                })
-            },
-        }.data());
-        vkCmdBindShadersEXT(cmd, 1, &compositeShader.stage, &compositeShader.shader);
-        vkCmdDispatch(cmd, target.extent.x, target.extent.y, 1);
+            vkCmdTraceRaysKHR(cmd,
+                &rayGenRegion, &rayMissRegion, &rayHitRegion, &rayCallRegion,
+                target.extent.x, target.extent.y, 1);
+        }
     }
 
     MeshID Renderer::CreateMesh(
@@ -344,17 +893,99 @@ void main()
     {
         auto[id, mesh] = meshes.Acquire();
 
-        mesh.vertices = ctx->CreateBuffer(dataSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+        mesh.vertices = ctx->CreateBuffer(dataSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
         ctx->CopyToBuffer(mesh.vertices, pData, dataSize);
 
         mesh.vertexOffset = vertexOffset;
         mesh.vertexStride = vertexStride;
 
         auto indexSize = sizeof(u32) * indexCount;
-        mesh.indices = ctx->CreateBuffer(indexSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, BufferFlags::DeviceLocal);
+        mesh.indices = ctx->CreateBuffer(indexSize,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
         ctx->CopyToBuffer(mesh.indices, pIndices, indexSize);
 
         mesh.indexCount = indexCount;
+
+        {
+            // BLAS
+
+            u32 maxIndex = 0;
+            for (auto i = 0; i < indexCount; ++i)
+                maxIndex = std::max(maxIndex, pIndices[indexCount]);
+
+            auto geometry = VkAccelerationStructureGeometryKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+                .geometry = {
+                    .triangles = {
+                        .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+                        .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+                        .vertexData = {{ mesh.vertices.address + vertexOffset }},
+                        .vertexStride = vertexStride,
+                        .maxVertex = maxIndex,
+                        .indexType = VK_INDEX_TYPE_UINT32,
+                        .indexData = {{ mesh.indices.address }},
+                    },
+                },
+            };
+
+            auto buildRange = VkAccelerationStructureBuildRangeInfoKHR {
+                .primitiveCount = indexCount / 3,
+            };
+
+            auto buildInfo = VkAccelerationStructureBuildGeometryInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+                .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
+                    ,
+                .geometryCount = 1,
+                .pGeometries = &geometry,
+            };
+
+            // Compute sizes
+
+            auto sizes = VkAccelerationStructureBuildSizesInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+            };
+            vkGetAccelerationStructureBuildSizesKHR(ctx->device,
+                VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                &buildInfo, &buildRange.primitiveCount, &sizes);
+
+            constexpr VkDeviceSize accelScratchAlignment = 128;
+            sizes.buildScratchSize += accelScratchAlignment;
+
+            PYR_LOG("Building BLAS for mesh, triangles = {}", buildRange.primitiveCount);
+            PYR_LOG("  scratch size = {}, storage size = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
+
+            auto scratchBuffer = ctx->CreateBuffer(sizes.buildScratchSize,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+            mesh.accelBuffer = ctx->CreateBuffer(sizes.accelerationStructureSize,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, BufferFlags::DeviceLocal);
+
+            // Build
+
+            VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+                .buffer = mesh.accelBuffer.buffer,
+                .size = mesh.accelBuffer.size,
+                .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+            }), nullptr, &mesh.accelStructure));
+
+            buildInfo.dstAccelerationStructure = mesh.accelStructure;
+            buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer.address, accelScratchAlignment);
+
+            vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, Temp(&buildRange));
+            ctx->Flush(ctx->transferCmd);
+
+            ctx->DestroyBuffer(scratchBuffer);
+
+            PYR_LOG("Built BLAS!");
+        }
 
         return id;
     }
@@ -364,6 +995,10 @@ void main()
         auto& mesh = meshes.Get(id);
         ctx->DestroyBuffer(mesh.vertices);
         ctx->DestroyBuffer(mesh.indices);
+
+        vkDestroyAccelerationStructureKHR(ctx->device, mesh.accelStructure, nullptr);
+        ctx->DestroyBuffer(mesh.accelBuffer);
+
         meshes.Return(id);
     }
 

@@ -59,7 +59,7 @@ namespace pyr
                 {
                     if (width == 4096 && height == 4096)
                     {
-                        uint32_t newSize = 1024;
+                        uint32_t newSize = 2048;
                         loadedImage = ctx.CreateImage({ newSize, newSize, 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
                         ctx.CopyToImage(intermediate, imageData, width * height * 4);
                         ctx.Transition(ctx.transferCmd, intermediate, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

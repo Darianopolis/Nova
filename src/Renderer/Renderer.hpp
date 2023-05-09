@@ -26,6 +26,9 @@ namespace pyr
         u32 indexCount;
         u64 vertexOffset;
         u32 vertexStride;
+
+        Buffer accelBuffer;
+        VkAccelerationStructureKHR accelStructure;
     };
 
     struct MaterialType
@@ -102,10 +105,32 @@ namespace pyr
                     visit(Key(i), elements[i]);
             }
         }
+
+        u32 GetCount()
+        {
+            return u32(elements.size() - freelist.size());
+        }
     };
+
+    struct RayTracePC
+    {
+        alignas(16) vec3 pos;
+        alignas(16) vec3 camX;
+        alignas(16) vec3 camY;
+        u64 objectsVA;
+        u64 meshesVA;
+        f32 camZOffset;
+        u32 debugMode;
+    };
+
 
     struct Renderer
     {
+        static constexpr u32 MaxInstances = 65'536;
+        static constexpr VkDeviceSize AccelScratchAlignment = 128;
+
+        static constexpr u32 MaxMaterialTypes = 1024;
+
         static constexpr u32 MaxMaterials = 65'536;
         static constexpr u32 MaterialSize = 64;
     public:
@@ -128,11 +153,30 @@ namespace pyr
         VkDescriptorSet textureDescriptorSet;
         Buffer textureDescriptorBuffer;
 
+        Buffer tlasScratchBuffer;
+        Buffer tlasBuffer;
+        VkAccelerationStructureKHR tlas;
+        Buffer instanceBuffer;
+
+        Shader rayGenShader;
+        Shader rayMissShader;
+        Shader rayHitShader;
+        VkDescriptorSetLayout rtDescLayout;
+        VkPipelineLayout rtPipelineLayout;
+        VkPipeline rtPipeline;
+        Buffer sbtBuffer;
+        VkStridedDeviceAddressRegionKHR rayGenRegion = {};
+        VkStridedDeviceAddressRegionKHR rayMissRegion = {};
+        VkStridedDeviceAddressRegionKHR rayHitRegion = {};
+        VkStridedDeviceAddressRegionKHR rayCallRegion = {};
+
         Registry<Mesh, MeshID> meshes;
         Registry<Object, ObjectID> objects;
         Registry<MaterialType, MaterialTypeID> materialTypes;
         Registry<Material, MaterialID> materials;
         Registry<Texture, TextureID> textures;
+
+        b8 rayTrace = false;
 
         vec3 viewPosition = vec3(0.f, 0.f, 0.f);
         quat viewRotation = vec3(0.f);

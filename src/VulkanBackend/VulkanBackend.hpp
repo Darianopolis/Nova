@@ -52,6 +52,12 @@ namespace pyr
         VkDeviceAddress  address = 0ull;
         byte*             mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
+
+        template<class T>
+        T& Get(u64 index, u64 offset = 0)
+        {
+            return reinterpret_cast<T*>(mapped + offset)[index];
+        }
     };
 
 
