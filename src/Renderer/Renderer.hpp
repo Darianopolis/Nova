@@ -33,7 +33,8 @@ namespace pyr
 
     struct MaterialType
     {
-        Shader shader;
+        Shader fragmentShader;
+        Shader closestHitShader;
         b8 inlineData;
     };
 
@@ -140,30 +141,30 @@ namespace pyr
         Image accumImage;
         uvec3 lastExtent;
 
-        VkPipelineLayout layout;
+        VkPipelineLayout layout = {};
         Shader vertexShader;
 
         Shader compositeShader;
-        VkPipelineLayout compositePipelineLayout;
-        VkDescriptorSetLayout compositeDescriptorLayout;
+        VkPipelineLayout compositePipelineLayout = {};
+        VkDescriptorSetLayout compositeDescriptorLayout = {};
 
         Buffer materialBuffer;
 
-        VkDescriptorSetLayout textureDescriptorSetLayout;
-        VkDescriptorSet textureDescriptorSet;
+        VkDescriptorSetLayout textureDescriptorSetLayout = {};
+        VkDescriptorSet textureDescriptorSet = {};
         Buffer textureDescriptorBuffer;
 
         Buffer tlasScratchBuffer;
         Buffer tlasBuffer;
-        VkAccelerationStructureKHR tlas;
+        VkAccelerationStructureKHR tlas = {};
         Buffer instanceBuffer;
 
         Shader rayGenShader;
         Shader rayMissShader;
-        Shader rayHitShader;
-        VkDescriptorSetLayout rtDescLayout;
-        VkPipelineLayout rtPipelineLayout;
-        VkPipeline rtPipeline;
+        // Shader rayHitShader;
+        VkDescriptorSetLayout rtDescLayout = {};
+        VkPipelineLayout rtPipelineLayout = {};
+        VkPipeline rtPipeline = {};
         Buffer sbtBuffer;
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
@@ -201,6 +202,8 @@ namespace pyr
 
         TextureID RegisterTexture(VkImageView view, VkSampler sampler);
         void UnregisterTexture(TextureID);
+
+        void RebuildShaderBindingTable();
 
         void SetCamera(vec3 position, quat rotation, f32 fov);
         void Draw(Image& target);

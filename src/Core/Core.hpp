@@ -43,6 +43,7 @@
 #include <variant>
 #include <vector>
 #include <regex>
+#include <bitset>
 
 #include "Vendor.hpp"
 

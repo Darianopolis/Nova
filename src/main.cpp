@@ -9,7 +9,7 @@ using namespace pyr;
 
 int main()
 {
-    auto ctx = pyr::CreateContext(false);
+    auto ctx = pyr::CreateContext(true);
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1080, "test", nullptr, nullptr);
@@ -150,11 +150,15 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
     // loadMesh("assets/models", "monkey.gltf");
 
+    renderer.RebuildShaderBindingTable();
+
 // -----------------------------------------------------------------------------
 
     vec3 position = vec3(0.f, 0.f, 1.f);
     quat rotation = vec3(0.f);
     f32 fov = glm::radians(90.f);
+
+    std::bitset<100> bits;
 
     while (!glfwWindowShouldClose(window))
     {
