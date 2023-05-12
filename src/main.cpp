@@ -5,6 +5,12 @@
 #include <Renderer/Renderer.hpp>
 #include <ImGui/ImGuiBackend.h>
 
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
 using namespace pyr;
 
 int main()
@@ -74,52 +80,74 @@ int main()
 
     auto materialTypeID = renderer.CreateMaterialType(
         R"(
-struct Vertex
-{
-    vec3 position;
-    vec2 uv;
-    uint texIndex;
-};
+// struct Vertex
+// {
+//     vec3 position;
+//     vec2 uv;
+//     uint texIndex;
+// };
 
-layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
-layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
+// layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
+// layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
 
 vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 {
-    Vertex v0 = VertexBR(vertices).data[i.x];
-    Vertex v1 = VertexBR(vertices).data[i.y];
-    Vertex v2 = VertexBR(vertices).data[i.z];
+    // Vertex v0 = VertexBR(vertices).data[i.x];
+    // Vertex v1 = VertexBR(vertices).data[i.y];
+    // Vertex v2 = VertexBR(vertices).data[i.z];
 
-    vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
+    // vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
 
-    vec3 v01 = v1.position - v0.position;
-    vec3 v02 = v2.position - v0.position;
-    vec3 nrm = normalize(cross(v01, v02));
-    if (!gl_FrontFacing)
-        nrm = -nrm;
+    // vec3 v01 = v1.position - v0.position;
+    // vec3 v02 = v2.position - v0.position;
+    // vec3 nrm = normalize(cross(v01, v02));
+    // // if (!gl_FrontFacing)
+    // //     nrm = -nrm;
 
-    MaterialBR mat = MaterialBR(material);
+    // MaterialBR mat = MaterialBR(material);
 
-    vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
-    vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
-    vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
+    // vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
+    // vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
+    // vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
 
-    vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
-    if (color.a < 0.5)
-        color.a = 0.0;
+    // vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
+    // if (color.a < 0.5)
+    //     color.a = 0.0;
 
-    // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
-    //     return vec4(0.1, 0.1, 0.1, 0);
+    // // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
+    // //     return vec4(0.1, 0.1, 0.1, 0);
 
-    float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
-    return vec4(color.rgb * d, color.a);
+    // float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
+    // return vec4(color.rgb * d, color.a);
+
+    return vec4(0, 0, 1, 1);
 }
         )",
         false);
 
+    auto redMaterialType = renderer.CreateMaterialType(
+        R"(
+vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+{
+    return vec4(1, 0, 0, 1);
+}
+        )", true);
+
+    auto redMaterial = renderer.CreateMaterial(redMaterialType, nullptr, 0);
+
+    auto greenMaterialType = renderer.CreateMaterialType(
+        R"(
+vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+{
+    return vec4(0, 1, 0, 1);
+}
+        )", true);
+
+    auto greenMaterial = renderer.CreateMaterial(greenMaterialType, nullptr, 0);
+
 // -----------------------------------------------------------------------------
 
-    auto loadMesh = [&](const std::string& folder, const std::string& file = "scene.gltf") {
+    auto loadMesh = [&](const std::string& folder, const std::string& file = "scene.gltf", MaterialID* customMaterialID = nullptr) {
         auto mesh = pyr::LoadMesh(ctx, (folder +"/"+ file).c_str(), folder.c_str());
 
         auto meshID = renderer.CreateMesh(
@@ -134,15 +162,17 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
         for (auto& image : mesh.images)
             textures.push_back(renderer.RegisterTexture(image.view, sampler));
 
-        auto materialID = renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
+        auto materialID = customMaterialID
+            ? *customMaterialID
+            : renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
 
         renderer.CreateObject(meshID, materialID, vec3(0.f), vec3(0.f), vec3(1.f));
         // renderer.CreateObject(meshID, materialID, vec3(0.f), glm::angleAxis(glm::radians(90.f), vec3(-1.f, 0.f, 0.f)), vec3(1.f));
     };
 
     loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
-    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf");
-    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf");
+    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf", &redMaterial);
+    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf", &greenMaterial);
 
     // loadMesh("assets/models/SciFiDragonWarrior");
 

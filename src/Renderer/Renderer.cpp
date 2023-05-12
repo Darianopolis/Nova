@@ -246,50 +246,6 @@ void main()
                 }.data(),
             }), nullptr, &rtDescLayout));
 
-//             rayHitShader = ctx->CreateShader(
-//                 VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0,
-//                 "rayhit",
-//                 R"(
-// #version 460
-
-// #extension GL_EXT_scalar_block_layout : require
-// #extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
-// #extension GL_EXT_buffer_reference2 : require
-// #extension GL_EXT_ray_tracing : require
-// #extension GL_EXT_ray_tracing_position_fetch : require
-
-// struct RayPayload
-// {
-//     vec3 color;
-// };
-// layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
-
-// hitAttributeEXT vec3 barycentric;
-
-// void main()
-// {
-//     // rayPayload.position[0] = gl_HitTriangleVertexPositionsEXT[0];
-//     // rayPayload.position[1] = gl_HitTriangleVertexPositionsEXT[1];
-//     // rayPayload.position[2] = gl_HitTriangleVertexPositionsEXT[2];
-
-//     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
-
-//     vec3 v0 = gl_HitTriangleVertexPositionsEXT[0];
-//     vec3 v1 = gl_HitTriangleVertexPositionsEXT[1];
-//     vec3 v2 = gl_HitTriangleVertexPositionsEXT[2];
-
-//     vec3 v01 = v1 - v0;
-//     vec3 v02 = v2 - v0;
-//     vec3 nrm = normalize(cross(v01, v02));
-//     if (dot(gl_WorldRayDirectionEXT, nrm) > 0)
-//         nrm = -nrm;
-
-//     rayPayload.color = nrm * 0.5 + 0.5;
-// }
-//                 )",
-//                 {},
-//                 {});
-
             rayMissShader = ctx->CreateShader(
                 VK_SHADER_STAGE_MISS_BIT_KHR, 0,
                 "raymiss",
@@ -309,10 +265,7 @@ layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
 
 void main()
 {
-    // rayPayload.position[0] = vec3(1, 0, 0);
-    // rayPayload.position[1] = vec3(1, 0, 0);
-    // rayPayload.position[2] = vec3(1, 0, 0);
-    rayPayload.color = vec3(0.5, 0.5, 0);
+    rayPayload.color = vec3(39/255.0, 57/255.0, 58/255.0);
 }
                 )",
                 {},
@@ -351,14 +304,16 @@ layout(push_constant) uniform PushConstants
     uint64_t meshesVA;
     float camZOffset;
     uint debugMode;
+    uint64_t vertices;
+    uint64_t material;
 } pc;
 
 void main()
 {
     imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(0, 0, 0, 1));
 
-    const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
-    const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+    vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
+    vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
     vec2 d = inUV * 2.0 - 1.0;
     vec3 focalPoint = pc.camZOffset * cross(pc.camX, pc.camY);
     vec3 pos = pc.pos;
@@ -370,28 +325,16 @@ void main()
     rayFlags |= gl_RayFlagsOpaqueEXT;
 
     hitObjectNV hitObject;
-    hitObjectTraceRayNV(hitObject, topLevelAS, rayFlags, 0xFF, 0, 0, 1, pos, 0.0001, dir, 8000000, 0);
+    hitObjectTraceRayNV(hitObject, topLevelAS, rayFlags, 0xFF, 0, 0, 0, pos, 0.0001, dir, 8000000, 0);
 
     reorderThreadNV(hitObject);
 
-    if (hitObjectIsHitNV(hitObject))
+    uint index = hitObjectGetShaderBindingTableRecordIndexNV(hitObject);
+    if (hitObjectIsHitNV(hitObject))// && index == 1)
     {
+
         hitObjectGetAttributesNV(hitObject, 0);
         hitObjectExecuteShaderNV(hitObject, 0);
-
-        // vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
-
-        // vec3 v0 = rayPayload.position[0];
-        // vec3 v1 = rayPayload.position[1];
-        // vec3 v2 = rayPayload.position[2];
-
-        // vec3 v01 = v1 - v0;
-        // vec3 v02 = v2 - v0;
-        // vec3 nrm = normalize(cross(v01, v02));
-        // if (dot(dir, nrm) > 0)
-        //     nrm = -nrm;
-
-        // vec3 color = nrm * 0.5 + 0.5;
 
         imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.color, 1));
     }
@@ -402,7 +345,7 @@ void main()
 }
                 )",
                 {{
-                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
                     .size = sizeof(RayTracePC),
                 }},
                 {
@@ -415,11 +358,13 @@ void main()
                 .pSetLayouts = &rtDescLayout,
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
-                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
                     .size = sizeof(RayTracePC),
                 }),
             }), nullptr, &rtPipelineLayout));
         }
+
+        objectBuffer = ctx->CreateBuffer(MaxInstances * sizeof(GpuObject), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     }
 
     void Renderer::RebuildShaderBindingTable()
@@ -453,7 +398,6 @@ void main()
 
         // Convert to stages and groups
 
-        u32 nextStageIndex = 0;
         ankerl::unordered_dense::map<VkShaderModule, u32> stageIndices;
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
@@ -463,15 +407,13 @@ void main()
             if (!shader)
                 return VK_SHADER_UNUSED_KHR;
 
-            if (!stageIndices.contains(shader->module))
+            if (!stageIndices.contains(shader->info.module))
             {
-                u32 index = nextStageIndex++;
-                stageIndices.insert({ shader->module, index });
-                stages.push_back(shader->stageInfo);
-                return index;
+                stageIndices.insert({ shader->info.module, stages.size() });
+                stages.push_back(shader->info);
             }
 
-            return stageIndices.at(shader->module);
+            return stageIndices.at(shader->info.module);
         };
 
         auto createGroup = [&]() -> auto& {
@@ -516,11 +458,14 @@ void main()
 
         PYR_LOG("---- stages ----");
         for (auto& stage : stages)
-            PYR_LOG(" - stage.module = {}", (void*)stage.module);
+            PYR_LOG(" - stage.module = {} -> {}", (void*)stage.module, stageIndices.at(stage.module));
         PYR_LOG("---- groups ----");
         for (auto& group : groups)
             PYR_LOG(" - group.type = {}, general = {}, closest hit = {}, any hit = {}",
                 (i32)group.type, group.generalShader, group.closestHitShader, group.anyHitShader);
+        PYR_LOG("---- hit group indices ----");
+        for (auto& index : rayHitIndices)
+            PYR_LOG(" - index = {}", index);
         PYR_LOG("----");
 
         // Create pipeline
@@ -881,7 +826,11 @@ void main()
             auto camY = viewRotation * glm::vec3(0, 1, 0);
             auto camZOffset = 1.f / glm::tan(0.5f * viewFov);
 
-            vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+            auto& object = objects.Get(ObjectID(0));
+            auto& mesh = meshes.Get(object.meshID);
+            auto& material = materials.Get(object.materialID);
+
+            vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
                 0, sizeof(RayTracePC), Temp(RayTracePC {
                     .pos = viewPosition,
                     .camX = camX,
@@ -890,6 +839,8 @@ void main()
                     .meshesVA = 0,
                     .camZOffset = camZOffset,
                     .debugMode = 0,
+                    .vertices = mesh.vertices.address,
+                    .material = material.data,
                 }));
 
             u32 activeRayGenShader = 0;
@@ -1028,7 +979,7 @@ void main()
             VK_SHADER_STAGE_FRAGMENT_BIT, 0,
             "assets/shaders/fragment-generated",
             std::format("{}{}{}",
-            R"(
+                R"(
 #version 460
 
 #extension GL_EXT_scalar_block_layout : require
@@ -1051,9 +1002,9 @@ layout(push_constant) uniform PushConstants
     uint64_t vertexOffset;
     uint vertexStride;
 } pc;
-            )",
-            pShader,
-            R"(
+                )",
+                pShader,
+                R"(
 void main()
 {
     outAccum = shade(
@@ -1064,7 +1015,7 @@ void main()
     if (outAccum.a == 0.0)
         discard;
 }
-            )"),
+                )"),
             {{
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 .size = sizeof(RasterPushConstants),
@@ -1076,13 +1027,15 @@ void main()
 
         materialType.closestHitShader = ctx->CreateShader(
             VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0,
-            "rayhit",
-            R"(
+            "assets/shaders/closesthit-generated",
+            std::format("{}{}{}",
+                R"(
 #version 460
 
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
 #extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_nonuniform_qualifier : require
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_ray_tracing_position_fetch : require
 
@@ -1094,29 +1047,46 @@ layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
 
 hitAttributeEXT vec3 barycentric;
 
+layout(push_constant) uniform PushConstants
+{
+    vec3 pos;
+    vec3 camX;
+    vec3 camY;
+    uint64_t objectsVA;
+    uint64_t meshesVA;
+    float camZOffset;
+    uint debugMode;
+    uint64_t vertices;
+    uint64_t material;
+} pc;
+                )",
+                pShader,
+                R"(
 void main()
 {
-    // rayPayload.position[0] = gl_HitTriangleVertexPositionsEXT[0];
-    // rayPayload.position[1] = gl_HitTriangleVertexPositionsEXT[1];
-    // rayPayload.position[2] = gl_HitTriangleVertexPositionsEXT[2];
-
     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
 
-    vec3 v0 = gl_HitTriangleVertexPositionsEXT[0];
-    vec3 v1 = gl_HitTriangleVertexPositionsEXT[1];
-    vec3 v2 = gl_HitTriangleVertexPositionsEXT[2];
+    // vec3 v0 = gl_HitTriangleVertexPositionsEXT[0];
+    // vec3 v1 = gl_HitTriangleVertexPositionsEXT[1];
+    // vec3 v2 = gl_HitTriangleVertexPositionsEXT[2];
 
-    vec3 v01 = v1 - v0;
-    vec3 v02 = v2 - v0;
-    vec3 nrm = normalize(cross(v01, v02));
-    if (dot(gl_WorldRayDirectionEXT, nrm) > 0)
-        nrm = -nrm;
+    // vec3 v01 = v1 - v0;
+    // vec3 v02 = v2 - v0;
+    // vec3 nrm = normalize(cross(v01, v02));
+    // if (dot(gl_WorldRayDirectionEXT, nrm) > 0)
+    //     nrm = -nrm;
 
-    rayPayload.color = nrm * 0.5 + 0.5;
+    // rayPayload.color = nrm * 0.5 + 0.5;
+
+    vec4 color = shade(pc.vertices, pc.material, uvec3(0, 0, 0), w);
+
+    rayPayload.color = color.rgb;
 }
-            )",
-            {},
-            {});
+                )").c_str(),
+            {{
+                .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                .size = sizeof(RayTracePC),
+            }});
 
         return id;
     }
@@ -1181,6 +1151,20 @@ void main()
         object.position = position;
         object.rotation = rotation;
         object.scale = scale;
+
+        auto transform = glm::translate(glm::mat4(1.f), object.position);
+        transform *= glm::mat4_cast(object.rotation);
+        transform *= glm::scale(glm::mat4(1.f), object.scale);
+
+        auto& mesh = meshes.Get(meshID);
+
+        objectBuffer.Get<GpuObject>(u32(id)) = GpuObject {
+            .matrix = transform,
+            .vertices = mesh.vertices.address,
+            .material = materials.Get(materialID).data,
+            .vertexOffset = mesh.vertexOffset,
+            .vertexStride = mesh.vertexStride,
+        };
 
         return id;
     }

@@ -89,11 +89,11 @@ namespace pyr
 
     struct Shader
     {
-        VkShaderStageFlagBits stage;
-        VkShaderEXT          shader;
-        VkShaderModule       module;
+        VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
+        VkShaderEXT          shader = {};
+        // VkShaderModule       module;
 
-        VkPipelineShaderStageCreateInfo stageInfo = {
+        VkPipelineShaderStageCreateInfo info = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .module = {},
             .pName = "main",

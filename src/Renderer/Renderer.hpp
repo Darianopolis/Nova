@@ -61,6 +61,15 @@ namespace pyr
         MaterialID materialID;
     };
 
+    struct GpuObject
+    {
+        mat4 matrix;
+        u64 vertices;
+        u64 material;
+        u64 vertexOffset;
+        u32 vertexStride;
+    };
+
     template<class Element, class Key>
     struct Registry
     {
@@ -124,8 +133,9 @@ namespace pyr
         u64 meshesVA;
         f32 camZOffset;
         u32 debugMode;
+        u64 vertices;
+        u64 material;
     };
-
 
     struct Renderer
     {
@@ -177,6 +187,8 @@ namespace pyr
         Registry<MaterialType, MaterialTypeID> materialTypes;
         Registry<Material, MaterialID> materials;
         Registry<Texture, TextureID> textures;
+
+        Buffer objectBuffer;
 
         b8 rayTrace = false;
 

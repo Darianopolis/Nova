@@ -210,8 +210,8 @@ namespace pyr
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), nullptr, &newShader.stageInfo.module));
-        newShader.stageInfo.stage = vkStage;
+        }), nullptr, &newShader.info.module));
+        newShader.info.stage = vkStage;
 
         if (supportsShaderObjects)
         {
@@ -238,6 +238,7 @@ namespace pyr
         if (shader.shader)
             vkDestroyShaderEXT(device, shader.shader, nullptr);
 
-        vkDestroyShaderModule(device, shader.module, nullptr);
+        if (shader.info.module)
+        vkDestroyShaderModule(device, shader.info.module, nullptr);
     }
 }
