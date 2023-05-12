@@ -428,84 +428,102 @@ void main()
             vkDestroyPipeline(ctx->device, rtPipeline, nullptr);
         ctx->DestroyBuffer(sbtBuffer);
 
-        // VkPipelineShaderStageCreateInfo* stageInfo = nullptr;
-        // materialTypes.ForEach([&](auto, auto& materialType) {
-        //     if (!stageInfo)
-        //         stageInfo = &materialType.closestHitShader.stageInfo;
-        // });
-        // PYR_LOGEXPR(stageInfo);
-        // std::array stages {
-        //     rayGenShader.stageInfo,
-        //     rayMissShader.stageInfo,
-        //     // rayHitShader.stageInfo,
-        //     *stageInfo,
-        // };
-
-        // std::array groups = {
-        //     VkRayTracingShaderGroupCreateInfoKHR {
-        //         .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-        //         .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-        //         .generalShader = 0,
-        //         .closestHitShader = VK_SHADER_UNUSED_KHR,
-        //         .anyHitShader = VK_SHADER_UNUSED_KHR,
-        //         .intersectionShader = VK_SHADER_UNUSED_KHR,
-        //     },
-        //     VkRayTracingShaderGroupCreateInfoKHR {
-        //         .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-        //         .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-        //         .generalShader = 1,
-        //         .closestHitShader = VK_SHADER_UNUSED_KHR,
-        //         .anyHitShader = VK_SHADER_UNUSED_KHR,
-        //         .intersectionShader = VK_SHADER_UNUSED_KHR,
-        //     },
-        //     VkRayTracingShaderGroupCreateInfoKHR {
-        //         .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-        //         .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-        //         .generalShader = VK_SHADER_UNUSED_KHR,
-        //         .closestHitShader = 2,
-        //         .anyHitShader = VK_SHADER_UNUSED_KHR,
-        //         .intersectionShader = VK_SHADER_UNUSED_KHR,
-        //     },
-        // };
-
-        std::vector<VkPipelineShaderStageCreateInfo> stages;
-        stages.resize(2 + materialTypes.GetCount());
-        stages[0] = rayGenShader.stageInfo;
-        stages[1] = rayMissShader.stageInfo;
-
-        std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
-        groups.resize(2 + materialTypes.GetCount());
-        groups[0] = {
-            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-            .generalShader = 0,
-            .closestHitShader = VK_SHADER_UNUSED_KHR,
-            .anyHitShader = VK_SHADER_UNUSED_KHR,
-            .intersectionShader = VK_SHADER_UNUSED_KHR,
-        };
-        groups[1] = {
-            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-            .generalShader = 1,
-            .closestHitShader = VK_SHADER_UNUSED_KHR,
-            .anyHitShader = VK_SHADER_UNUSED_KHR,
-            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        struct HitShaderGroup
+        {
+            Shader* closestHitShader;
+            Shader* anyHitShader;
+            Shader* intersectionShader;
         };
 
-        // TODO: This will break with empty material slots
-        materialTypes.ForEach([&](auto materialTypeID, auto& materialType) {
-            u32 index = 2 + u32(materialTypeID);
-            PYR_LOG("Material type index = {}", index);
-            stages[index] = materialType.closestHitShader.stageInfo;
-            groups[index] = {
-                .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
-                .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
-                .generalShader = VK_SHADER_UNUSED_KHR,
-                .closestHitShader = index,
-                .anyHitShader = VK_SHADER_UNUSED_KHR,
-                .intersectionShader = VK_SHADER_UNUSED_KHR,
-            };
+        std::vector<Shader*> rayGenShaders;
+        std::vector<Shader*> rayMissShaders;
+        std::vector<HitShaderGroup> rayHitShaderGroups;
+        std::vector<Shader*> callableShaders;
+
+        // Add shaders
+
+        rayGenShaders.push_back(&rayGenShader);
+        rayMissShaders.push_back(&rayMissShader);
+        materialTypes.ForEach([&](auto, auto& materialType) {
+            materialType.sbtOffset = rayHitShaderGroups.size();
+            rayHitShaderGroups.push_back(HitShaderGroup {
+                .closestHitShader = &materialType.closestHitShader,
+            });
         });
+
+        // Convert to stages and groups
+
+        u32 nextStageIndex = 0;
+        ankerl::unordered_dense::map<VkShaderModule, u32> stageIndices;
+        std::vector<VkPipelineShaderStageCreateInfo> stages;
+        std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
+        std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
+
+        auto getShaderIndex = [&](Shader* shader) {
+            if (!shader)
+                return VK_SHADER_UNUSED_KHR;
+
+            if (!stageIndices.contains(shader->module))
+            {
+                u32 index = nextStageIndex++;
+                stageIndices.insert({ shader->module, index });
+                stages.push_back(shader->stageInfo);
+                return index;
+            }
+
+            return stageIndices.at(shader->module);
+        };
+
+        auto createGroup = [&]() -> auto& {
+            auto& info = groups.emplace_back();
+            info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+            info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+            info.generalShader = info.closestHitShader = info.anyHitShader = info.intersectionShader = VK_SHADER_UNUSED_KHR;
+            return info;
+        };
+
+        for (auto& shader : rayGenShaders)
+        {
+            rayGenIndices.push_back(groups.size());
+            createGroup().generalShader = getShaderIndex(shader);
+        }
+
+        for (auto& shader : rayMissShaders)
+        {
+            rayMissIndices.push_back(groups.size());
+            createGroup().generalShader = getShaderIndex(shader);
+        }
+
+        for (auto& group : rayHitShaderGroups)
+        {
+            rayHitIndices.push_back(groups.size());
+            auto& info = createGroup();
+            info.type = group.intersectionShader
+                ? VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR
+                : VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+            info.closestHitShader = getShaderIndex(group.closestHitShader);
+            info.anyHitShader = getShaderIndex(group.anyHitShader);
+            info.intersectionShader = getShaderIndex(group.intersectionShader);
+        }
+
+        for (auto& shader : callableShaders)
+        {
+            rayCallIndices.push_back(groups.size());
+            createGroup().generalShader = getShaderIndex(shader);
+        }
+
+        // Debug
+
+        PYR_LOG("---- stages ----");
+        for (auto& stage : stages)
+            PYR_LOG(" - stage.module = {}", (void*)stage.module);
+        PYR_LOG("---- groups ----");
+        for (auto& group : groups)
+            PYR_LOG(" - group.type = {}, general = {}, closest hit = {}, any hit = {}",
+                (i32)group.type, group.generalShader, group.closestHitShader, group.anyHitShader);
+        PYR_LOG("----");
+
+        // Create pipeline
 
         VkCall(vkCreateRayTracingPipelinesKHR(ctx->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -517,133 +535,63 @@ void main()
             .layout = rtPipelineLayout,
         }), nullptr, &rtPipeline));
 
-        // ---- Shader binding table ---
+        // Compute table parameters
 
-        std::vector<u32> rayGenIndices { 0 };
-        std::vector<u32> rayMissIndices { 1 };
-        std::vector<u32> rayHitIndices;
-        for (u32 i = 2; i < groups.size(); ++i)
-            rayHitIndices.push_back(i);
-        std::vector<u32> rayCallIndices;
-
-        auto rayProperties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
-        };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayProperties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
         vkGetPhysicalDeviceProperties2(ctx->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &rayProperties,
         }));
 
         u32 handleSize = rayProperties.shaderGroupHandleSize;
-        u32 handleSizeAligned = (u32)AlignUpPower2(handleSize, rayProperties.shaderGroupHandleAlignment);
+        u32 handleStride = u32(AlignUpPower2(handleSize, rayProperties.shaderGroupHandleAlignment));
+        u64 groupAlign = rayProperties.shaderGroupBaseAlignment;
+        u64 rayMissOffset = AlignUpPower2(rayGenIndices.size() * handleStride, groupAlign);
+        u64 rayHitOffset = rayMissOffset + AlignUpPower2(rayMissIndices.size() * handleStride, groupAlign);
+        u64 rayCallOffset = rayHitOffset + AlignUpPower2(rayHitIndices.size() * handleStride, groupAlign);
+        u64 tableSize = rayCallOffset + rayCallIndices.size() * handleStride;
 
-        PYR_LOG("Handle Size = {:#x}", handleSize);
-        PYR_LOG("Handle Size Aligned = {:#x}", handleSizeAligned);
-        PYR_LOG("Shader group base alignment: {:#x}", rayProperties.shaderGroupBaseAlignment);
+        // Allocate table and get groups from pipeline
 
-        rayGenRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupBaseAlignment);
-        rayGenRegion.size = AlignUpPower2(rayGenIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
-        if (!rayGenRegion.size)
-            rayGenRegion.stride = 0;
-
-        rayMissRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
-        rayMissRegion.size = AlignUpPower2(rayMissIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
-        if (!rayMissRegion.size)
-            rayMissRegion.stride = 0;
-
-        rayHitRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
-        rayHitRegion.size = AlignUpPower2(rayHitIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
-        if (!rayHitRegion.size)
-            rayHitRegion.stride = 0;
-
-        rayCallRegion.stride = AlignUpPower2(handleSizeAligned, rayProperties.shaderGroupHandleAlignment);
-        rayCallRegion.size = AlignUpPower2(rayCallIndices.size() * handleSizeAligned, (u64)rayProperties.shaderGroupBaseAlignment);
-        if (!rayCallRegion.size)
-            rayCallRegion.stride = 0;
-
-        PYR_LOG("RayGen Stride = {:#x}", rayGenRegion.stride);
-        PYR_LOG("RayGen Size = {:#x}", rayGenRegion.size);
-        PYR_LOG("RayHit Stride = {:#x}", rayHitRegion.stride);
-        PYR_LOG("RayHit Size = {:#x}", rayHitRegion.size);
-
-        // Get handles into shader groups from pipeline
-
-        u32 dataSize = (u32)groups.size() * handleSize;
-        std::vector<u8> handles(dataSize);
-        VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, (u32)groups.size(), dataSize, handles.data()));
-
-        // Allocate buffer for the SBT
-
-        VkDeviceSize sbtSize = rayGenRegion.size + rayMissRegion.size + rayHitRegion.size + rayCallRegion.size;
-        PYR_LOG("Making SBT size = {}", sbtSize);
-        sbtSize = std::max(256ull, sbtSize);
-        sbtBuffer = ctx->CreateBuffer(sbtSize,
+        sbtBuffer = ctx->CreateBuffer(std::max(256ull, tableSize),
             VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-            BufferFlags::DeviceLocal | BufferFlags::Mappable);
+            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+        auto getMapped = [&](u32 offset, u32 i) { return sbtBuffer.mapped + offset + (i * handleStride); };
 
-        // Find SBT Addresses of each group
-
-        rayGenRegion.deviceAddress  = sbtBuffer.address;
-        if (rayMissRegion.size)
-            rayMissRegion.deviceAddress = rayGenRegion.deviceAddress + rayGenRegion.size;
-        if (rayHitRegion.size)
-            rayHitRegion.deviceAddress  = rayGenRegion.deviceAddress + rayGenRegion.size + rayMissRegion.size;
-        if (rayCallRegion.size)
-            rayCallRegion.deviceAddress = rayGenRegion.deviceAddress + rayGenRegion.size + rayMissRegion.size + rayHitRegion.size;
-
-        // Map the SBT buffer and write in the handles
-
+        std::vector<u8> handles(groups.size() * handleSize);
+        VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, u32(groups.size()), u32(handles.size()), handles.data()));
         auto getHandle = [&](u32 i) { return handles.data() + i * handleSize; };
 
-        u8* pSBTBuffer;
-        vmaMapMemory(ctx->vma, sbtBuffer.allocation, (void**)&pSBTBuffer);
-        u8* pData = nullptr;
+        // Gen
 
-        // Ray generation
-
-        PYR_LOG("Building SBT");
-
-        pData = pSBTBuffer;
-        for (u32 handleIdx : rayGenIndices)
-        {
-            PYR_LOG(" - Ray Gen shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
-            std::memcpy(pData, getHandle(handleIdx), handleSize);
-            pData += rayGenRegion.stride;
-        }
+        rayGenRegion.size = handleSize;
+        rayGenRegion.stride = handleSize;
+        for (u32 i = 0; i < rayGenIndices.size(); ++i)
+            std::memcpy(getMapped(0, i), getHandle(rayGenIndices[i]), handleSize);
 
         // Miss
 
-        pData = pSBTBuffer + rayGenRegion.size;
-        for (u32 handleIdx : rayMissIndices)
-        {
-            PYR_LOG(" - Ray Miss shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
-            std::memcpy(pData, getHandle(handleIdx), handleSize);
-            pData += rayMissRegion.stride;
-        }
+        rayMissRegion.deviceAddress = sbtBuffer.address + rayMissOffset;
+        rayMissRegion.size = rayHitOffset - rayMissOffset;
+        rayMissRegion.stride = handleStride;
+        for (u32 i = 0; i < rayMissIndices.size(); ++i)
+            std::memcpy(getMapped(rayMissOffset, i), getHandle(rayMissIndices[i]), handleSize);
 
         // Hit
 
-        pData = pSBTBuffer + rayGenRegion.size + rayMissRegion.size;
-        for (u32 handleIdx : rayHitIndices)
-        {
-            PYR_LOG(" - Ray Hit shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
-            std::memcpy(pData, getHandle(handleIdx), handleSize);
-            pData += rayHitRegion.stride;
-        }
+        rayHitRegion.deviceAddress = sbtBuffer.address + rayHitOffset;
+        rayHitRegion.size = rayCallOffset - rayHitOffset;
+        rayHitRegion.stride = handleStride;
+        for (u32 i = 0; i < rayHitIndices.size(); ++i)
+            std::memcpy(getMapped(rayHitOffset, i), getHandle(rayHitIndices[i]), handleSize);
 
         // Call
 
-        pData = pSBTBuffer + rayGenRegion.size + rayMissRegion.size + rayHitRegion.size;
-        for (u32 handleIdx : rayCallIndices)
-        {
-            PYR_LOG(" - Ray Call shader {} -> {}", (void*)getHandle(handleIdx), (void*)pData);
-            std::memcpy(pData, getHandle(handleIdx), handleSize);
-            pData += rayCallRegion.stride;
-        }
-
-        vmaUnmapMemory(ctx->vma, sbtBuffer.allocation);
-
-        PYR_LOG("Prepared shader binding table!");
+        rayCallRegion.deviceAddress = sbtBuffer.address + rayCallOffset;
+        rayCallRegion.size = tableSize - rayCallOffset;
+        rayCallRegion.stride = handleStride;
+        for (u32 i = 0; i < rayCallIndices.size(); ++i)
+            std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
     void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
@@ -857,6 +805,9 @@ void main()
             objects.ForEach([&](auto, Object& object) {
                 auto& mesh = meshes.Get(object.meshID);
 
+                auto& material = materials.Get(object.materialID);
+                auto& materialType = materialTypes.Get(material.materialTypeID);
+
                 auto transform = glm::translate(glm::mat4(1.f), object.position);
                 transform *= glm::mat4_cast(object.rotation);
                 transform *= glm::scale(glm::mat4(1.f), object.scale);
@@ -871,9 +822,9 @@ void main()
                     },
                     .instanceCustomIndex = i,
                     .mask = 0xFF,
-                    .instanceShaderBindingTableRecordOffset = 0,
-                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
-                    .accelerationStructureReference = mesh.accelBuffer.address,
+                    .instanceShaderBindingTableRecordOffset = materialType.sbtOffset,
+                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+                    .accelerationStructureReference = mesh.accelAddress,
                 };
 
                 i++;
@@ -930,14 +881,8 @@ void main()
             auto camY = viewRotation * glm::vec3(0, 1, 0);
             auto camZOffset = 1.f / glm::tan(0.5f * viewFov);
 
-            // PYR_LOG("pos = {}", glm::to_string(viewPosition));
-            // PYR_LOG("camX = {}", glm::to_string(camX));
-            // PYR_LOG("camY = {}", glm::to_string(camY));
-            // PYR_LOG("camZOffset = {}", camZOffset);
-
             vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR,
                 0, sizeof(RayTracePC), Temp(RayTracePC {
-                    // .pos = glm::vec3(0.f),
                     .pos = viewPosition,
                     .camX = camX,
                     .camY = camY,
@@ -947,6 +892,8 @@ void main()
                     .debugMode = 0,
                 }));
 
+            u32 activeRayGenShader = 0;
+            rayGenRegion.deviceAddress = sbtBuffer.address + (rayGenRegion.stride * activeRayGenShader);
             vkCmdTraceRaysKHR(cmd,
                 &rayGenRegion, &rayMissRegion, &rayHitRegion, &rayCallRegion,
                 target.extent.x, target.extent.y, 1);
@@ -1042,6 +989,11 @@ void main()
                 .size = mesh.accelBuffer.size,
                 .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
             }), nullptr, &mesh.accelStructure));
+
+            mesh.accelAddress = vkGetAccelerationStructureDeviceAddressKHR(ctx->device, Temp(VkAccelerationStructureDeviceAddressInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+                .accelerationStructure = mesh.accelStructure,
+            }));
 
             buildInfo.dstAccelerationStructure = mesh.accelStructure;
             buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer.address, accelScratchAlignment);

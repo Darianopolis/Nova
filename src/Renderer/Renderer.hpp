@@ -29,12 +29,14 @@ namespace pyr
 
         Buffer accelBuffer;
         VkAccelerationStructureKHR accelStructure;
+        u64 accelAddress;
     };
 
     struct MaterialType
     {
         Shader fragmentShader;
         Shader closestHitShader;
+        u32 sbtOffset;
         b8 inlineData;
     };
 
@@ -161,7 +163,6 @@ namespace pyr
 
         Shader rayGenShader;
         Shader rayMissShader;
-        // Shader rayHitShader;
         VkDescriptorSetLayout rtDescLayout = {};
         VkPipelineLayout rtPipelineLayout = {};
         VkPipeline rtPipeline = {};
