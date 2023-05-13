@@ -61,20 +61,31 @@ layout(buffer_reference, scalar) buffer PositionBR { vec3 value[]; };
 
 layout(push_constant) uniform PushConstants
 {
-    mat4 mvp;
-    uint64_t vertices;
-    uint64_t material;
-    uint64_t vertexOffset;
-    uint vertexStride;
+    mat4 viewProj;
+    uint64_t objectsVA;
 } pc;
 
+struct Object
+{
+    mat4 matrix;
+    uint64_t vertices;
+    uint64_t material;
+    uint64_t indices;
+    uint64_t vertexOffset;
+    uint vertexStride;
+};
+layout(buffer_reference, scalar) buffer ObjectBR { Object data[]; };
+
 layout(location = 0) out uint outVertexIndex;
+layout(location = 1) out uint objectID;
 
 void main()
 {
-    vec3 pos = PositionBR(pc.vertices + pc.vertexOffset + (gl_VertexIndex * pc.vertexStride)).value[0];
+    Object obj = ObjectBR(pc.objectsVA).data[gl_InstanceIndex];
+    vec3 pos = PositionBR(obj.vertices + obj.vertexOffset + (gl_VertexIndex * obj.vertexStride)).value[0];
     outVertexIndex = gl_VertexIndex;
-    gl_Position = pc.mvp * vec4(pos, 1);
+    objectID = gl_InstanceIndex;
+    gl_Position = pc.viewProj * obj.matrix * vec4(pos, 1);
 }
             )",
             {{
@@ -222,7 +233,8 @@ void main()
         {
             VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                    | VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
                 .bindingCount = 3,
                 .pBindings = std::array {
                     VkDescriptorSetLayoutBinding {
@@ -300,12 +312,8 @@ layout(push_constant) uniform PushConstants
     vec3 pos;
     vec3 camX;
     vec3 camY;
-    uint64_t objectsVA;
-    uint64_t meshesVA;
     float camZOffset;
-    uint debugMode;
-    uint64_t vertices;
-    uint64_t material;
+    uint64_t objectsVA;
 } pc;
 
 void main()
@@ -332,9 +340,10 @@ void main()
     uint index = hitObjectGetShaderBindingTableRecordIndexNV(hitObject);
     if (hitObjectIsHitNV(hitObject))// && index == 1)
     {
-
         hitObjectGetAttributesNV(hitObject, 0);
         hitObjectExecuteShaderNV(hitObject, 0);
+
+        // rayPayload.color = vec3(0, 0, 1);
 
         imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.color, 1));
     }
@@ -349,13 +358,17 @@ void main()
                     .size = sizeof(RayTracePC),
                 }},
                 {
-                    rtDescLayout
+                    rtDescLayout,
+                    textureDescriptorSetLayout,
                 });
 
             VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                .setLayoutCount = 1,
-                .pSetLayouts = &rtDescLayout,
+                .setLayoutCount = 2,
+                .pSetLayouts = std::array {
+                    rtDescLayout,
+                    textureDescriptorSetLayout,
+                }.data(),
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
@@ -390,7 +403,7 @@ void main()
         rayGenShaders.push_back(&rayGenShader);
         rayMissShaders.push_back(&rayMissShader);
         materialTypes.ForEach([&](auto, auto& materialType) {
-            materialType.sbtOffset = rayHitShaderGroups.size();
+            materialType.sbtOffset = u32(rayHitShaderGroups.size());
             rayHitShaderGroups.push_back(HitShaderGroup {
                 .closestHitShader = &materialType.closestHitShader,
             });
@@ -409,7 +422,7 @@ void main()
 
             if (!stageIndices.contains(shader->info.module))
             {
-                stageIndices.insert({ shader->info.module, stages.size() });
+                stageIndices.insert({ shader->info.module, u32(stages.size()) });
                 stages.push_back(shader->info);
             }
 
@@ -426,19 +439,19 @@ void main()
 
         for (auto& shader : rayGenShaders)
         {
-            rayGenIndices.push_back(groups.size());
+            rayGenIndices.push_back(u32(groups.size()));
             createGroup().generalShader = getShaderIndex(shader);
         }
 
         for (auto& shader : rayMissShaders)
         {
-            rayMissIndices.push_back(groups.size());
+            rayMissIndices.push_back(u32(groups.size()));
             createGroup().generalShader = getShaderIndex(shader);
         }
 
         for (auto& group : rayHitShaderGroups)
         {
-            rayHitIndices.push_back(groups.size());
+            rayHitIndices.push_back(u32(groups.size()));
             auto& info = createGroup();
             info.type = group.intersectionShader
                 ? VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR
@@ -450,7 +463,7 @@ void main()
 
         for (auto& shader : callableShaders)
         {
-            rayCallIndices.push_back(groups.size());
+            rayCallIndices.push_back(u32(groups.size()));
             createGroup().generalShader = getShaderIndex(shader);
         }
 
@@ -472,6 +485,7 @@ void main()
 
         VkCall(vkCreateRayTracingPipelinesKHR(ctx->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+            .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
             .stageCount = u32(stages.size()),
             .pStages = stages.data(),
             .groupCount = u32(groups.size()),
@@ -501,7 +515,7 @@ void main()
         sbtBuffer = ctx->CreateBuffer(std::max(256ull, tableSize),
             VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-        auto getMapped = [&](u32 offset, u32 i) { return sbtBuffer.mapped + offset + (i * handleStride); };
+        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer.mapped + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
         VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, u32(groups.size()), u32(handles.size()), handles.data()));
@@ -671,12 +685,8 @@ void main()
             }));
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
 
-            objects.ForEach([&](auto, auto& object) {
+            objects.ForEach([&](auto id, auto& object) {
                 auto& mesh = meshes.Get(object.meshID);
-
-                auto transform = glm::translate(glm::mat4(1.f), object.position);
-                transform *= glm::mat4_cast(object.rotation);
-                transform *= glm::scale(glm::mat4(1.f), object.scale);
 
                 auto& material = materials.Get(object.materialID);
                 auto& materialType = materialTypes.Get(material.materialTypeID);
@@ -688,14 +698,11 @@ void main()
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
-                        .mvp = viewProj * transform,
-                        .vertices = mesh.vertices.address,
-                        .material = material.data,
-                        .vertexOffset = mesh.vertexOffset,
-                        .vertexStride = mesh.vertexStride,
+                        .viewProj = viewProj,
+                        .objectsVA = objectBuffer.address,
                     }));
 
-                vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, 0);
+                vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, u32(id));
             });
 
             // End rendering
@@ -747,7 +754,7 @@ void main()
             };
 
             u32 i = 0;
-            objects.ForEach([&](auto, Object& object) {
+            objects.ForEach([&](auto objectID, Object& object) {
                 auto& mesh = meshes.Get(object.meshID);
 
                 auto& material = materials.Get(object.materialID);
@@ -765,7 +772,7 @@ void main()
                         M[0][1], M[1][1], M[2][1], M[3][1],
                         M[0][2], M[1][2], M[2][2], M[3][2],
                     },
-                    .instanceCustomIndex = i,
+                    .instanceCustomIndex = u32(objectID),
                     .mask = 0xFF,
                     .instanceShaderBindingTableRecordOffset = materialType.sbtOffset,
                     .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
@@ -795,6 +802,12 @@ void main()
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline);
 
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
+                .address = textureDescriptorBuffer.address,
+                .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+            }));
+
             vkCmdPushDescriptorSetKHR(cmd,
                 VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
                 rtPipelineLayout,
@@ -822,25 +835,19 @@ void main()
                     },
                 }.data());
 
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipelineLayout, 1, 1, Temp(0u), Temp(0ull));
+
             auto camX = viewRotation * glm::vec3(1, 0, 0);
             auto camY = viewRotation * glm::vec3(0, 1, 0);
             auto camZOffset = 1.f / glm::tan(0.5f * viewFov);
-
-            auto& object = objects.Get(ObjectID(0));
-            auto& mesh = meshes.Get(object.meshID);
-            auto& material = materials.Get(object.materialID);
 
             vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
                 0, sizeof(RayTracePC), Temp(RayTracePC {
                     .pos = viewPosition,
                     .camX = camX,
                     .camY = camY,
-                    .objectsVA = 0,
-                    .meshesVA = 0,
                     .camZOffset = camZOffset,
-                    .debugMode = 0,
-                    .vertices = mesh.vertices.address,
-                    .material = material.data,
+                    .objectsVA = objectBuffer.address,
                 }));
 
             u32 activeRayGenShader = 0;
@@ -879,7 +886,7 @@ void main()
             // BLAS
 
             u32 maxIndex = 0;
-            for (auto i = 0; i < indexCount; ++i)
+            for (u32 i = 0; i < indexCount; ++i)
                 maxIndex = std::max(maxIndex, pIndices[indexCount]);
 
             auto geometry = VkAccelerationStructureGeometryKHR {
@@ -991,24 +998,41 @@ void main()
 layout(set = 0, binding = 0) uniform sampler2D textures[];
 
 layout(location = 0) in pervertexEXT uint vertexIndex[3];
+layout(location = 1) in flat uint objectID;
 
 layout(location = 0) out vec4 outAccum;
 
 layout(push_constant) uniform PushConstants
 {
-    mat4 mvp;
+    // mat4 mvp;
+    // uint64_t vertices;
+    // uint64_t material;
+    // uint64_t vertexOffset;
+    // uint vertexStride;
+
+    mat4 viewProj;
+    uint64_t objectsVA;
+} pc;
+
+struct Object
+{
+    mat4 matrix;
     uint64_t vertices;
     uint64_t material;
+    uint64_t indices;
     uint64_t vertexOffset;
     uint vertexStride;
-} pc;
+};
+layout(buffer_reference, scalar) buffer ObjectBR { Object data[]; };
                 )",
                 pShader,
                 R"(
 void main()
 {
+    Object obj = ObjectBR(pc.objectsVA).data[objectID];
+
     outAccum = shade(
-        pc.vertices, pc.material,
+        obj.vertices, obj.material,
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
         gl_BaryCoordEXT);
 
@@ -1039,6 +1063,8 @@ void main()
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_ray_tracing_position_fetch : require
 
+layout(set = 1, binding = 0) uniform sampler2D textures[];
+
 struct RayPayload
 {
     vec3 color;
@@ -1052,18 +1078,34 @@ layout(push_constant) uniform PushConstants
     vec3 pos;
     vec3 camX;
     vec3 camY;
-    uint64_t objectsVA;
-    uint64_t meshesVA;
     float camZOffset;
-    uint debugMode;
+    uint64_t objectsVA;
+} pc;
+
+struct Object
+{
+    mat4 matrix;
     uint64_t vertices;
     uint64_t material;
-} pc;
+    uint64_t indices;
+    uint64_t vertexOffset;
+    uint vertexStride;
+};
+layout(buffer_reference, scalar) buffer ObjectBR { Object data[]; };
+
+layout(buffer_reference, scalar) buffer IndexBR { uint data[]; };
                 )",
                 pShader,
                 R"(
 void main()
 {
+    uint id = gl_InstanceCustomIndexEXT;
+    Object obj = ObjectBR(pc.objectsVA).data[id];
+
+    uint i0 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 0];
+    uint i1 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 1];
+    uint i2 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 2];
+
     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
 
     // vec3 v0 = gl_HitTriangleVertexPositionsEXT[0];
@@ -1078,7 +1120,7 @@ void main()
 
     // rayPayload.color = nrm * 0.5 + 0.5;
 
-    vec4 color = shade(pc.vertices, pc.material, uvec3(0, 0, 0), w);
+    vec4 color = shade(obj.vertices, obj.material, uvec3(i0, i1, i2), w);
 
     rayPayload.color = color.rgb;
 }
@@ -1086,7 +1128,11 @@ void main()
             {{
                 .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
                 .size = sizeof(RayTracePC),
-            }});
+            }},
+            {
+                rtDescLayout,
+                textureDescriptorSetLayout,
+            });
 
         return id;
     }
@@ -1162,6 +1208,7 @@ void main()
             .matrix = transform,
             .vertices = mesh.vertices.address,
             .material = materials.Get(materialID).data,
+            .indices = mesh.indices.address,
             .vertexOffset = mesh.vertexOffset,
             .vertexStride = mesh.vertexStride,
         };

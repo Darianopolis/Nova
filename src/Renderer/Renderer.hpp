@@ -12,11 +12,8 @@ namespace pyr
 
     struct RasterPushConstants
     {
-        mat4 mvp;
-        u64 vertices;
-        u64 material;
-        u64 vertexOffset;
-        u32 vertexStride;
+        mat4 viewProj;
+        u64 objectsVA;
     };
 
     struct Mesh
@@ -66,6 +63,7 @@ namespace pyr
         mat4 matrix;
         u64 vertices;
         u64 material;
+        u64 indices;
         u64 vertexOffset;
         u32 vertexStride;
     };
@@ -129,12 +127,14 @@ namespace pyr
         alignas(16) vec3 pos;
         alignas(16) vec3 camX;
         alignas(16) vec3 camY;
-        u64 objectsVA;
-        u64 meshesVA;
+        // u64 objectsVA;
+        // u64 meshesVA;
         f32 camZOffset;
-        u32 debugMode;
-        u64 vertices;
-        u64 material;
+        // u32 debugMode;
+        // u64 vertices;
+        // u64 material;
+
+        u64 objectsVA;
     };
 
     struct Renderer

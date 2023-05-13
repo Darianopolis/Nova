@@ -80,47 +80,50 @@ int main()
 
     auto materialTypeID = renderer.CreateMaterialType(
         R"(
-// struct Vertex
-// {
-//     vec3 position;
-//     vec2 uv;
-//     uint texIndex;
-// };
+struct Vertex
+{
+    vec3 position;
+    vec2 uv;
+    uint texIndex;
+};
 
-// layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
-// layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
+layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
+layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
 
 vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 {
-    // Vertex v0 = VertexBR(vertices).data[i.x];
-    // Vertex v1 = VertexBR(vertices).data[i.y];
-    // Vertex v2 = VertexBR(vertices).data[i.z];
+    Vertex v0 = VertexBR(vertices).data[i.x];
+    Vertex v1 = VertexBR(vertices).data[i.y];
+    Vertex v2 = VertexBR(vertices).data[i.z];
 
-    // vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
+    vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
 
-    // vec3 v01 = v1.position - v0.position;
-    // vec3 v02 = v2.position - v0.position;
-    // vec3 nrm = normalize(cross(v01, v02));
-    // // if (!gl_FrontFacing)
-    // //     nrm = -nrm;
+    vec3 v01 = v1.position - v0.position;
+    vec3 v02 = v2.position - v0.position;
+    vec3 nrm = normalize(cross(v01, v02));
+    // if (!gl_FrontFacing)
+    //     nrm = -nrm;
 
-    // MaterialBR mat = MaterialBR(material);
+    MaterialBR mat = MaterialBR(material);
 
-    // vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
-    // vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
-    // vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
+    vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
+    vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
+    vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
 
-    // vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
-    // if (color.a < 0.5)
-    //     color.a = 0.0;
+    vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
+    if (color.a < 0.5)
+        color.a = 0.0;
 
-    // // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
-    // //     return vec4(0.1, 0.1, 0.1, 0);
+    // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
+    //     return vec4(0.1, 0.1, 0.1, 0);
 
-    // float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
-    // return vec4(color.rgb * d, color.a);
+    // return vec4(v0.position * w.x + v1.position * w.y + v2.position * w.z, 1);
+    // return vec4(nrm * 0.5 + 0.5, 1);
 
-    return vec4(0, 0, 1, 1);
+    float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
+    return vec4(color.rgb * d, color.a);
+
+    // return vec4(0, 0, 1, 1);
 }
         )",
         false);
@@ -152,8 +155,8 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
         auto meshID = renderer.CreateMesh(
             sizeof(GltfVertex) * mesh.vertices.size(), mesh.vertices.data(),
-            sizeof(GltfVertex), 0,
-            mesh.indices.size(), mesh.indices.data());
+            u32(sizeof(GltfVertex)), 0,
+            u32(mesh.indices.size()), mesh.indices.data());
 
         if (mesh.images.empty())
             mesh.images.push_back(missing);

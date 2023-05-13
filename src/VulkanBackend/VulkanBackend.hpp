@@ -91,7 +91,6 @@ namespace pyr
     {
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
-        // VkShaderModule       module;
 
         VkPipelineShaderStageCreateInfo info = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
