@@ -54,29 +54,57 @@ namespace pyr
             {
                 int width, height, channels;
                 auto imageData = stbi_load(std::format("{}/{}", baseDir, texture.image->uri).c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+
+                // {
+                //     void* BC7Options;
+                //     CreateOptionsBC7(&BC7Options);
+
+                //     SetQualityBC7(BC7Options, 0.05f);
+                //     SetMaskBC7(BC7Options, 0b01000010);
+
+                //     auto blocks = std::make_unique<unsigned char[]>(width * height);
+                //     for (u32 x = 0; x < width; x += 4)
+                //     {
+                //         for (u32 y = 0; y < height; y += 4)
+                //         {
+                //             u32 source[4][4];
+                //             for (u32 ly = 0; ly < 4; ly++)
+                //                 std::memcpy(source[ly], (u32*)imageData + (x + (y + ly) * width), 16);
+
+                //             CompressBlockBC7((const unsigned char*)source, 16, &blocks[16 * (x/4 + (y/4 * width/4))], BC7Options);
+                //         }
+                //     }
+
+                //     DestroyOptionsBC7(BC7Options);
+                // }
+
                 pyr::Image loadedImage;
 #pragma omp critical
                 {
-                    if (width == 4096 && height == 4096)
-                    {
-                        uint32_t newSize = 2048;
-                        loadedImage = ctx.CreateImage({ newSize, newSize, 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
-                        ctx.CopyToImage(intermediate, imageData, width * height * 4);
-                        ctx.Transition(ctx.transferCmd, intermediate, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-                        ctx.Transition(ctx.transferCmd, loadedImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-                        vkCmdBlitImage(ctx.transferCmd, intermediate.image, intermediate.layout, loadedImage.image, loadedImage.layout, 1, pyr::Temp(VkImageBlit {
-                            .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                            .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)intermediate.extent.x, (int32_t)intermediate.extent.y, 1} },
-                            .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                            .dstOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)loadedImage.extent.x, (int32_t)loadedImage.extent.y, 1} },
-                        }), VK_FILTER_LINEAR);
-                        ctx.GenerateMips(loadedImage);
-                    }
-                    else
+                    // if (width == 4096 && height == 4096)
+                    // {
+                    //     uint32_t newSize = 2048;
+                    //     loadedImage = ctx.CreateImage({ newSize, newSize, 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
+                    //     ctx.CopyToImage(intermediate, imageData, width * height * 4);
+                    //     ctx.Transition(ctx.transferCmd, intermediate, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                    //     ctx.Transition(ctx.transferCmd, loadedImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                    //     vkCmdBlitImage(ctx.transferCmd, intermediate.image, intermediate.layout, loadedImage.image, loadedImage.layout, 1, pyr::Temp(VkImageBlit {
+                    //         .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                    //         .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)intermediate.extent.x, (int32_t)intermediate.extent.y, 1} },
+                    //         .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                    //         .dstOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)loadedImage.extent.x, (int32_t)loadedImage.extent.y, 1} },
+                    //     }), VK_FILTER_LINEAR);
+                    //     ctx.GenerateMips(loadedImage);
+                    // }
+                    // else
                     {
                         loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
                         ctx.CopyToImage(loadedImage, imageData, width * height * 4);
                         ctx.GenerateMips(loadedImage);
+
+                        // loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM);
+                        // ctx.CopyToImage(loadedImage, imageData, width * height * 4);
                     }
 
                     ctx.Transition(ctx.transferCmd, loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -201,6 +229,79 @@ namespace pyr
         }
 
         PYR_TIMEIT("glTF: Processed vertex attributes");
+
+        {
+            std::vector<f32> summedAreas;
+            summedAreas.resize(loadedMesh.vertices.size());
+
+            auto updateNormalTangent = [&](u32 i, vec3 normal, vec3 tangent, f32 area) {
+                f32 lastArea = summedAreas[i];
+                summedAreas[i] += area;
+
+                f32 lastWeight = lastArea / (lastArea + area);
+                f32 newWeight = 1.f - lastWeight;
+
+                auto& v = loadedMesh.vertices[i];
+                v.normal = (lastWeight * v.normal) + (newWeight * normal);
+                // v.tangent = (lastWeight * v.tangent) + (newWeight * tangent);
+            };
+
+            std::vector<b8> keepPrim(loadedMesh.indices.size() / 3);
+
+            for (u32 i = 0; i < loadedMesh.indices.size(); i += 3)
+            {
+                u32 v1i = loadedMesh.indices[i + 0];
+                u32 v2i = loadedMesh.indices[i + 1];
+                u32 v3i = loadedMesh.indices[i + 2];
+
+                auto& v1 = loadedMesh.vertices[v1i];
+                auto& v2 = loadedMesh.vertices[v2i];
+                auto& v3 = loadedMesh.vertices[v3i];
+
+                auto v12 = v2.position - v1.position;
+                auto v13 = v3.position - v1.position;
+
+                auto u12 = v2.texCoord - v1.texCoord;
+                auto u13 = v3.texCoord - v1.texCoord;
+
+                f32 f = 1.f / (u12.x * u13.y - u13.x * u12.y);
+                vec3 tangent = f * vec3 {
+                    u13.y * v12.x - u12.y * v13.x,
+                    u13.y * v12.y - u12.y * v13.y,
+                    u13.y * v12.z - u12.y * v13.z,
+                };
+
+                auto cross = glm::cross(v12, v13);
+                auto area = glm::length(0.5f * cross);
+                auto normal = glm::normalize(cross);
+
+                if (area)
+                {
+                    keepPrim[i / 3] = true;
+
+                    updateNormalTangent(v1i, normal, tangent, area);
+                    updateNormalTangent(v2i, normal, tangent, area);
+                    updateNormalTangent(v3i, normal, tangent, area);
+                }
+            }
+
+            u32 newVertexIndex = 0;
+            std::vector<u32> vertexRemap(loadedMesh.vertices.size());
+            auto culledVertices = std::erase_if(loadedMesh.vertices, [&](auto& v) {
+                usz i = (&v - loadedMesh.vertices.data());
+                b8 keep = summedAreas[i] > 0;
+                if (keep)
+                    vertexRemap[i] = newVertexIndex++;
+                return !keep;
+            });
+
+            auto culledIndices = std::erase_if(loadedMesh.indices, [&](auto& i) {
+                i = vertexRemap[i];
+                return !keepPrim[(&i - loadedMesh.indices.data()) / 3];
+            });
+
+            PYR_LOG("glTF: Cleaned up mesh, removed {} indices and {} vertices", culledIndices, culledVertices);
+        }
 
         PYR_LOG("glTF: Mesh loaded, vertices = {} triangles = {}", loadedMesh.vertices.size(), loadedMesh.indices.size() / 3);
 

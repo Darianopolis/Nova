@@ -21,6 +21,7 @@ if Project "pyrite-v4" then
         "ankerl-maps",
         "imguizmo",
         "jolt",
+        "Compressonator",
     }
     Artifact { "out/main", type = "Console" }
 end

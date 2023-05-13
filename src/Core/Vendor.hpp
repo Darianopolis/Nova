@@ -58,3 +58,7 @@
 #include <cgltf.h>
 
 #include <meshoptimizer.h>
+
+// -----------------------------------------------------------------------------
+
+#include <cmp_core.h>

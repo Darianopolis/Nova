@@ -44,6 +44,7 @@
 #include <vector>
 #include <regex>
 #include <bitset>
+#include <stacktrace>
 
 #include "Vendor.hpp"
 
@@ -124,11 +125,11 @@ namespace pyr
     sso << #expr " = " << (expr) << '\n'; \
 } while (0)
 
-#define PYR_THROW(fmt, ...) do {                                  \
-    auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__);        \
-    std::cout << std::format("ERROR: {}\n  Location = {} @ {}\n", \
-        msg, __LINE__, __FILE__);                                 \
-    throw std::runtime_error(std::move(msg));                     \
+#define PYR_THROW(fmt, ...) do {                           \
+    auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
+    std::cout << std::stacktrace::current();               \
+    std::cout << std::format("\nERROR: {}\n", msg);        \
+    throw std::runtime_error(std::move(msg));              \
 } while (0)
 
 // -----------------------------------------------------------------------------

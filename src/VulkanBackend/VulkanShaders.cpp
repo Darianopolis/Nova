@@ -172,7 +172,16 @@ namespace pyr
         // ---- Parsing ----
 
         if (!shader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault))
+        {
+            std::istringstream iss(glslCode);
+            std::string line;
+            u32 lineNum = 0;
+            while (std::getline(iss, line))
+            {
+                PYR_LOG("{:3} : {}", lineNum++, line);
+            }
             PYR_THROW("GLSL parsing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
+        }
 
         // ---- Linking ----
 

@@ -7,6 +7,7 @@ namespace pyr
     struct GltfVertex
     {
         vec3 position = vec3(0.f);
+        vec3 normal = vec3(0.f);
         vec2 texCoord = vec2(0.f);
         u32 texIndex = 0;
     };

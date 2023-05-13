@@ -130,6 +130,7 @@ namespace pyr
         alignas(16) vec3 camY;
         f32 camZOffset;
         u64 objectsVA;
+        f32 rayConeGradient;
     };
 
     struct Renderer
@@ -190,6 +191,8 @@ namespace pyr
         vec3 viewPosition = vec3(0.f, 0.f, 0.f);
         quat viewRotation = vec3(0.f);
         f32 viewFov = glm::radians(90.f);
+
+        f32 rayConeGradient = 0.0005f;
     public:
         void Init(Context& ctx);
 

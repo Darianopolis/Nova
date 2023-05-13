@@ -83,6 +83,7 @@ int main()
 struct Vertex
 {
     vec3 position;
+    vec3 normal;
     vec2 uv;
     uint texIndex;
 };
@@ -90,74 +91,114 @@ struct Vertex
 layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
 layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
 
-bool material_AlphaTest(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+// P is the intersection point
+// f is the triangle normal
+// d is the ray cone direction
+vec4 computeAnistropicEllipseAxes(vec3 P, vec3 f,
+    vec3 d, float rayConeRadiusAtIntersection,
+    vec3 positions[3], vec2 txcoords[3],
+    vec2 interpolatedTexCoordsAtIntersection)
+{
+    // Compute ellipse axes.
+    vec3 a1 = d - dot(f, d) * f;
+    vec3 p1 = a1 - dot(d, a1) * d;
+    a1 *= rayConeRadiusAtIntersection / max(0.0001, length(p1));
+    vec3 a2 = cross(f, a1);
+    vec3 p2 = a2 - dot(d, a2) * d;
+    a2 *= rayConeRadiusAtIntersection / max(0.0001, length(p2));
+
+    // Compute texture coordinate gradients.
+    vec3 eP, delta = P - positions[0];
+    vec3 e1 = positions[1] - positions[0];
+    vec3 e2 = positions[2] - positions[0];
+
+    float oneOverAreaTriangle = 1.0 / dot(f, cross(e1, e2));
+
+    eP = delta + a1;
+    float u1 = dot(f, cross(eP, e2)) * oneOverAreaTriangle;
+    float v1 = dot(f, cross(e1, eP)) * oneOverAreaTriangle;
+    vec2 texGradient1 = (1.0-u1-v1) * txcoords[0] + u1 * txcoords[1] +
+        v1 * txcoords[2] - interpolatedTexCoordsAtIntersection;
+
+    eP = delta + a2;
+    float u2 = dot(f, cross(eP, e2)) * oneOverAreaTriangle;
+    float v2 = dot(f, cross(e1, eP)) * oneOverAreaTriangle;
+    vec2 texGradient2 = (1.0-u2-v2) * txcoords[0] + u2 * txcoords[1] +
+        v2 * txcoords[2] - interpolatedTexCoordsAtIntersection;
+
+    return vec4(texGradient1, texGradient2);
+}
+
+bool material_AlphaTest(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 rayDir, float rayConeRadius, bool frontFace)
 {
     Vertex v0 = VertexBR(vertices).data[i.x];
     Vertex v1 = VertexBR(vertices).data[i.y];
     Vertex v2 = VertexBR(vertices).data[i.z];
 
+    vec3 pos = v0.position * w.x + v1.position * w.y + v2.position * w.z;
     vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
-    float alpha = texture(textures[nonuniformEXT(MaterialBR(material).ids[v0.texIndex])], texCoord).a;
+    vec3 nrm = normalize(v0.normal * w.x + v1.normal * w.y + v2.normal * w.z);
+    if (!frontFace)
+        nrm = -nrm;
+
+    vec4 grad = computeAnistropicEllipseAxes(pos, nrm, rayDir, rayConeRadius,
+        vec3[](v0.position, v1.position, v2.position),
+        vec2[](v0.uv, v1.uv, v2.uv), texCoord);
+
+    float alpha = textureGrad(textures[nonuniformEXT(MaterialBR(material).ids[v0.texIndex])], texCoord, grad.xy, grad.zw).a;
     return alpha > 0.5;
 }
 
-vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 rayDir, float rayConeRadius, bool frontFace)
 {
     Vertex v0 = VertexBR(vertices).data[i.x];
     Vertex v1 = VertexBR(vertices).data[i.y];
     Vertex v2 = VertexBR(vertices).data[i.z];
 
+    vec3 pos = v0.position * w.x + v1.position * w.y + v2.position * w.z;
     vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
-
-    vec3 v01 = v1.position - v0.position;
-    vec3 v02 = v2.position - v0.position;
-    vec3 nrm = normalize(cross(v01, v02));
-    // if (!gl_FrontFacing)
-    //     nrm = -nrm;
+    vec3 nrm = normalize(v0.normal * w.x + v1.normal * w.y + v2.normal * w.z);
+    if (!frontFace)
+        nrm = -nrm;
 
     MaterialBR mat = MaterialBR(material);
 
-    vec4 tc0 = texture(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord);
-    vec4 tc1 = texture(textures[nonuniformEXT(mat.ids[v1.texIndex])], texCoord);
-    vec4 tc2 = texture(textures[nonuniformEXT(mat.ids[v2.texIndex])], texCoord);
+    vec4 grad = computeAnistropicEllipseAxes(pos, nrm, rayDir, rayConeRadius,
+        vec3[](v0.position, v1.position, v2.position),
+        vec2[](v0.uv, v1.uv, v2.uv), texCoord);
 
-    vec4 color = tc0 * w.x + tc1 * w.y + tc2 * w.z;
+    vec4 color = textureGrad(textures[nonuniformEXT(mat.ids[v0.texIndex])], texCoord, grad.xy, grad.zw);
     if (color.a < 0.5)
-        color.a = 0.0;
+        return vec4(0);
 
     // if (w.x > 0.05 && w.y > 0.05 && w.z > 0.05)
     //     return vec4(0.1, 0.1, 0.1, 0);
 
-    // return vec4(v0.position * w.x + v1.position * w.y + v2.position * w.z, 1);
-    // return vec4(nrm * 0.5 + 0.5, 1);
-
     float d = dot(normalize(vec3(0.5, 0.5, 0.5)), nrm) * 0.4 + 0.6;
     return vec4(color.rgb * d, color.a);
-
-    // return vec4(0, 0, 1, 1);
 }
         )",
         false);
 
-//     auto redMaterialType = renderer.CreateMaterialType(
-//         R"(
-// vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
-// {
-//     return vec4(1, 0, 0, 1);
-// }
-//         )", true);
+    auto redMaterialType = renderer.CreateMaterialType(
+        R"(
+vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 rayDir, float rayConeRadius, bool frontFace)
+{
+    return vec4(1, 0, 0, 1);
+}
+        )", true);
 
-    // auto redMaterial = renderer.CreateMaterial(redMaterialType, nullptr, 0);
+    auto redMaterial = renderer.CreateMaterial(redMaterialType, nullptr, 0);
 
-//     auto greenMaterialType = renderer.CreateMaterialType(
-//         R"(
-// vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
-// {
-//     return vec4(0, 1, 0, 1);
-// }
-//         )", true);
+    auto greenMaterialType = renderer.CreateMaterialType(
+        R"(
+vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 rayDir, float rayConeRadius, bool frontFace)
+{
+    return vec4(0, 1, 0, 1);
+}
+        )", true);
 
-    // auto greenMaterial = renderer.CreateMaterial(greenMaterialType, nullptr, 0);
+    auto greenMaterial = renderer.CreateMaterial(greenMaterialType, nullptr, 0);
 
 // -----------------------------------------------------------------------------
 
@@ -181,17 +222,14 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
             : renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
 
         renderer.CreateObject(meshID, materialID, vec3(0.f), vec3(0.f), vec3(1.f));
-        // renderer.CreateObject(meshID, materialID, vec3(0.f), glm::angleAxis(glm::radians(90.f), vec3(-1.f, 0.f, 0.f)), vec3(1.f));
     };
 
     loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
-    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf");//, &redMaterial);
-    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf");//, &greenMaterial);
+    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf", &redMaterial);
+    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf", &greenMaterial);
 
     // loadMesh("assets/models/SciFiDragonWarrior");
-
     // loadMesh("assets/models/StationDemerzel");
-
     // loadMesh("assets/models", "monkey.gltf");
 
     renderer.RebuildShaderBindingTable();
@@ -271,6 +309,9 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
             ImGui::Separator();
 
             ImGui::Checkbox("Ray trace", &renderer.rayTrace);
+            float grad100 = 100.f * renderer.rayConeGradient;
+            if (ImGui::DragFloat("Ray Cone Gradient", &grad100, 0.001f, 0.f, 1.f))
+                renderer.rayConeGradient = 0.01f * grad100;
 
             ImGui::Separator();
 

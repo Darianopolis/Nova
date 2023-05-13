@@ -867,6 +867,7 @@ void main()
                     .camY = camY,
                     .camZOffset = camZOffset,
                     .objectsVA = objectBuffer.address,
+                    .rayConeGradient = rayConeGradient,
                 }));
 
             u32 activeRayGenShader = 0;
@@ -1052,7 +1053,8 @@ void main()
     outAccum = material_Shade(
         obj.vertices, obj.material,
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
-        gl_BaryCoordEXT);
+        gl_BaryCoordEXT, vec3(0), 0, // TODO: FIXME ray dir + radius
+        gl_FrontFacing);
 
     if (outAccum.a == 0.0)
         discard;
@@ -1098,6 +1100,7 @@ layout(push_constant) uniform PushConstants
     vec3 camY;
     float camZOffset;
     uint64_t objectsVA;
+    float rayConeGradient;
 } pc;
 
 struct Object
@@ -1126,7 +1129,9 @@ void main()
 
     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
 
-    vec4 color = material_Shade(obj.vertices, obj.material, uvec3(i0, i1, i2), w);
+    float rayConeRadius = gl_HitTEXT * pc.rayConeGradient;
+    vec4 color = material_Shade(obj.vertices, obj.material, uvec3(i0, i1, i2), w,
+        gl_WorldRayDirectionEXT, rayConeRadius, gl_HitKindEXT == gl_HitKindFrontFacingTriangleEXT);
 
     rayPayload.color = color.rgb;
 }
@@ -1173,6 +1178,7 @@ layout(push_constant) uniform PushConstants
     vec3 camY;
     float camZOffset;
     uint64_t objectsVA;
+    float rayConeGradient;
 } pc;
 
 struct Object
@@ -1201,8 +1207,12 @@ void main()
 
     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
 
-    if (!material_AlphaTest(obj.vertices, obj.material, uvec3(i0, i1, i2), w))
+    float rayConeRadius = gl_HitTEXT * pc.rayConeGradient;
+    if (!material_AlphaTest(obj.vertices, obj.material, uvec3(i0, i1, i2), w,
+        gl_WorldRayDirectionEXT, rayConeRadius, gl_HitKindEXT == gl_HitKindFrontFacingTriangleEXT))
+    {
         ignoreIntersectionEXT;
+    }
 }
                     )").c_str(),
                 {{
