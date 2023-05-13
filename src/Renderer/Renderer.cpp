@@ -185,8 +185,7 @@ void main()
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
             .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
             .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
-                ,
+                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
             .geometryCount = 1,
             .pGeometries = &geom,
         };
@@ -321,6 +320,7 @@ void main()
     imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(0, 0, 0, 1));
 
     vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy);
+    pixelCenter += vec2(0.5);
     vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
     vec2 d = inUV * 2.0 - 1.0;
     vec3 focalPoint = pc.camZOffset * cross(pc.camX, pc.camY);
@@ -330,7 +330,6 @@ void main()
     vec3 dir = normalize((pc.camY * d.y) + (pc.camX * d.x) - focalPoint);
 
     uint rayFlags = 0;
-    rayFlags |= gl_RayFlagsOpaqueEXT;
 
     hitObjectNV hitObject;
     hitObjectTraceRayNV(hitObject, topLevelAS, rayFlags, 0xFF, 0, 0, 0, pos, 0.0001, dir, 8000000, 0);
@@ -354,7 +353,9 @@ void main()
 }
                 )",
                 {{
-                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
+                        | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+                        | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
                     .size = sizeof(RayTracePC),
                 }},
                 {
@@ -371,7 +372,9 @@ void main()
                 }.data(),
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
-                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
+                        | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+                        | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
                     .size = sizeof(RayTracePC),
                 }),
             }), nullptr, &rtPipelineLayout));
@@ -406,6 +409,9 @@ void main()
             materialType.sbtOffset = u32(rayHitShaderGroups.size());
             rayHitShaderGroups.push_back(HitShaderGroup {
                 .closestHitShader = &materialType.closestHitShader,
+                .anyHitShader = materialType.anyHitShader.info.module
+                    ? &materialType.anyHitShader
+                    : nullptr,
             });
         });
 
@@ -570,11 +576,11 @@ void main()
         {
             lastExtent = target.extent;
 
-            ctx->DestroyImage(accumImage);
-            accumImage = ctx->CreateImage(target.extent,
-                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-                | VK_IMAGE_USAGE_STORAGE_BIT,
-                VK_FORMAT_R16G16B16A16_SFLOAT);
+            // ctx->DestroyImage(accumImage);
+            // accumImage = ctx->CreateImage(target.extent,
+            //     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+            //     | VK_IMAGE_USAGE_STORAGE_BIT,
+            //     VK_FORMAT_R16G16B16A16_SFLOAT);
 
             ctx->DestroyImage(depthBuffer);
             depthBuffer = ctx->CreateImage(target.extent,
@@ -587,7 +593,7 @@ void main()
 
         if (!rayTrace)
         {
-            ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            // ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             vkCmdBeginRendering(cmd, Temp(VkRenderingInfo {
@@ -598,8 +604,10 @@ void main()
                 .pColorAttachments = std::array {
                     VkRenderingAttachmentInfo {
                         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                        .imageView = accumImage.view,
-                        .imageLayout = accumImage.layout,
+                        // .imageView = accumImage.view,
+                        // .imageLayout = accumImage.layout,
+                        .imageView = target.view,
+                        .imageLayout = target.layout,
                         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                         .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
@@ -685,15 +693,22 @@ void main()
             }));
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
 
+            auto lastMaterialTypeID = MaterialTypeID(~0u);
+
             objects.ForEach([&](auto id, auto& object) {
                 auto& mesh = meshes.Get(object.meshID);
-
                 auto& material = materials.Get(object.materialID);
-                auto& materialType = materialTypes.Get(material.materialTypeID);
 
-                vkCmdBindShadersEXT(cmd, 2,
-                    std::array { vertexShader.stage, materialType.fragmentShader.stage }.data(),
-                    std::array { vertexShader.shader, materialType.fragmentShader.shader }.data());
+                if (lastMaterialTypeID != material.materialTypeID)
+                {
+                    lastMaterialTypeID = material.materialTypeID;
+                    auto& materialType = materialTypes.Get(material.materialTypeID);
+
+                    vkCmdBindShadersEXT(cmd, 2,
+                        std::array { vertexShader.stage, materialType.fragmentShader.stage }.data(),
+                        std::array { vertexShader.shader, materialType.fragmentShader.shader }.data());
+                }
+
                 vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -709,32 +724,32 @@ void main()
 
             vkCmdEndRendering(cmd);
 
-            ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_GENERAL);
-            ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
-            vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compositePipelineLayout, 0, 2, std::array {
-                VkWriteDescriptorSet {
-                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .dstBinding = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                    .pImageInfo = Temp(VkDescriptorImageInfo {
-                        .imageView = accumImage.view,
-                        .imageLayout = accumImage.layout,
-                    })
-                },
-                VkWriteDescriptorSet {
-                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .dstBinding = 1,
-                    .descriptorCount = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                    .pImageInfo = Temp(VkDescriptorImageInfo {
-                        .imageView = target.view,
-                        .imageLayout = target.layout,
-                    })
-                },
-            }.data());
-            vkCmdBindShadersEXT(cmd, 1, &compositeShader.stage, &compositeShader.shader);
-            vkCmdDispatch(cmd, target.extent.x, target.extent.y, 1);
+            // ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_GENERAL);
+            // ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
+            // vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, compositePipelineLayout, 0, 2, std::array {
+            //     VkWriteDescriptorSet {
+            //         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            //         .dstBinding = 0,
+            //         .descriptorCount = 1,
+            //         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            //         .pImageInfo = Temp(VkDescriptorImageInfo {
+            //             .imageView = accumImage.view,
+            //             .imageLayout = accumImage.layout,
+            //         })
+            //     },
+            //     VkWriteDescriptorSet {
+            //         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            //         .dstBinding = 1,
+            //         .descriptorCount = 1,
+            //         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            //         .pImageInfo = Temp(VkDescriptorImageInfo {
+            //             .imageView = target.view,
+            //             .imageLayout = target.layout,
+            //         })
+            //     },
+            // }.data());
+            // vkCmdBindShadersEXT(cmd, 1, &compositeShader.stage, &compositeShader.shader);
+            // vkCmdDispatch(cmd, target.extent.x, target.extent.y, 1);
         }
         else
         {
@@ -775,7 +790,8 @@ void main()
                     .instanceCustomIndex = u32(objectID),
                     .mask = 0xFF,
                     .instanceShaderBindingTableRecordOffset = materialType.sbtOffset,
-                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR,
+                    .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR
+                        | (materialType.anyHitShader.info.module ? VkGeometryInstanceFlagsKHR(0) : VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR),
                     .accelerationStructureReference = mesh.accelAddress,
                 };
 
@@ -786,8 +802,7 @@ void main()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
                 .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
-                    ,
+                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
                 .dstAccelerationStructure = tlas,
                 .geometryCount = 1,
                 .pGeometries = &geom,
@@ -841,7 +856,11 @@ void main()
             auto camY = viewRotation * glm::vec3(0, 1, 0);
             auto camZOffset = 1.f / glm::tan(0.5f * viewFov);
 
-            vkCmdPushConstants(cmd, rtPipelineLayout, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+            vkCmdPushConstants(cmd,
+                rtPipelineLayout,
+                VK_SHADER_STAGE_RAYGEN_BIT_KHR
+                    | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+                    | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
                 0, sizeof(RayTracePC), Temp(RayTracePC {
                     .pos = viewPosition,
                     .camX = camX,
@@ -913,8 +932,7 @@ void main()
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
                 .flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR
-                    ,
+                    | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
                 .geometryCount = 1,
                 .pGeometries = &geometry,
             };
@@ -1031,7 +1049,7 @@ void main()
 {
     Object obj = ObjectBR(pc.objectsVA).data[objectID];
 
-    outAccum = shade(
+    outAccum = material_Shade(
         obj.vertices, obj.material,
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
         gl_BaryCoordEXT);
@@ -1108,19 +1126,7 @@ void main()
 
     vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
 
-    // vec3 v0 = gl_HitTriangleVertexPositionsEXT[0];
-    // vec3 v1 = gl_HitTriangleVertexPositionsEXT[1];
-    // vec3 v2 = gl_HitTriangleVertexPositionsEXT[2];
-
-    // vec3 v01 = v1 - v0;
-    // vec3 v02 = v2 - v0;
-    // vec3 nrm = normalize(cross(v01, v02));
-    // if (dot(gl_WorldRayDirectionEXT, nrm) > 0)
-    //     nrm = -nrm;
-
-    // rayPayload.color = nrm * 0.5 + 0.5;
-
-    vec4 color = shade(obj.vertices, obj.material, uvec3(i0, i1, i2), w);
+    vec4 color = material_Shade(obj.vertices, obj.material, uvec3(i0, i1, i2), w);
 
     rayPayload.color = color.rgb;
 }
@@ -1134,6 +1140,83 @@ void main()
                 textureDescriptorSetLayout,
             });
 
+        if (std::string_view(pShader).find("material_AlphaTest") != std::string_view::npos)
+        {
+            materialType.anyHitShader = ctx->CreateShader(
+                VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0,
+                "assets/shaders/anyhit-generated",
+                std::format("{}{}{}",
+                    R"(
+#version 460
+
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64  : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_ray_tracing_position_fetch : require
+
+layout(set = 1, binding = 0) uniform sampler2D textures[];
+
+struct RayPayload
+{
+    vec3 color;
+};
+layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
+
+hitAttributeEXT vec3 barycentric;
+
+layout(push_constant) uniform PushConstants
+{
+    vec3 pos;
+    vec3 camX;
+    vec3 camY;
+    float camZOffset;
+    uint64_t objectsVA;
+} pc;
+
+struct Object
+{
+    mat4 matrix;
+    uint64_t vertices;
+    uint64_t material;
+    uint64_t indices;
+    uint64_t vertexOffset;
+    uint vertexStride;
+};
+layout(buffer_reference, scalar) buffer ObjectBR { Object data[]; };
+
+layout(buffer_reference, scalar) buffer IndexBR { uint data[]; };
+                    )",
+                    pShader,
+                    R"(
+void main()
+{
+    uint id = gl_InstanceCustomIndexEXT;
+    Object obj = ObjectBR(pc.objectsVA).data[id];
+
+    uint i0 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 0];
+    uint i1 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 1];
+    uint i2 = IndexBR(obj.indices).data[gl_PrimitiveID * 3 + 2];
+
+    vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
+
+    if (!material_AlphaTest(obj.vertices, obj.material, uvec3(i0, i1, i2), w))
+        ignoreIntersectionEXT;
+}
+                    )").c_str(),
+                {{
+                    .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
+                        | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
+                        | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+                    .size = sizeof(RayTracePC),
+                }},
+                {
+                    rtDescLayout,
+                    textureDescriptorSetLayout,
+                });
+        }
+
         return id;
     }
 
@@ -1141,6 +1224,8 @@ void main()
     {
         auto& material = materialTypes.Get(id);
         ctx->DestroyShader(material.fragmentShader);
+        ctx->DestroyShader(material.closestHitShader);
+        ctx->DestroyShader(material.anyHitShader);
         materialTypes.Return(id);
     }
 

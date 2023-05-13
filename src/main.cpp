@@ -15,7 +15,7 @@ using namespace pyr;
 
 int main()
 {
-    auto ctx = pyr::CreateContext(true);
+    auto ctx = pyr::CreateContext(false);
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1080, "test", nullptr, nullptr);
@@ -90,7 +90,18 @@ struct Vertex
 layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
 layout(buffer_reference, scalar) buffer MaterialBR { uint ids[]; };
 
-vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+bool material_AlphaTest(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+{
+    Vertex v0 = VertexBR(vertices).data[i.x];
+    Vertex v1 = VertexBR(vertices).data[i.y];
+    Vertex v2 = VertexBR(vertices).data[i.z];
+
+    vec2 texCoord  = v0.uv * w.x + v1.uv * w.y + v2.uv * w.z;
+    float alpha = texture(textures[nonuniformEXT(MaterialBR(material).ids[v0.texIndex])], texCoord).a;
+    return alpha > 0.5;
+}
+
+vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 {
     Vertex v0 = VertexBR(vertices).data[i.x];
     Vertex v1 = VertexBR(vertices).data[i.y];
@@ -128,25 +139,25 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
         )",
         false);
 
-    auto redMaterialType = renderer.CreateMaterialType(
-        R"(
-vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
-{
-    return vec4(1, 0, 0, 1);
-}
-        )", true);
+//     auto redMaterialType = renderer.CreateMaterialType(
+//         R"(
+// vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+// {
+//     return vec4(1, 0, 0, 1);
+// }
+//         )", true);
 
-    auto redMaterial = renderer.CreateMaterial(redMaterialType, nullptr, 0);
+    // auto redMaterial = renderer.CreateMaterial(redMaterialType, nullptr, 0);
 
-    auto greenMaterialType = renderer.CreateMaterialType(
-        R"(
-vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
-{
-    return vec4(0, 1, 0, 1);
-}
-        )", true);
+//     auto greenMaterialType = renderer.CreateMaterialType(
+//         R"(
+// vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
+// {
+//     return vec4(0, 1, 0, 1);
+// }
+//         )", true);
 
-    auto greenMaterial = renderer.CreateMaterial(greenMaterialType, nullptr, 0);
+    // auto greenMaterial = renderer.CreateMaterial(greenMaterialType, nullptr, 0);
 
 // -----------------------------------------------------------------------------
 
@@ -174,8 +185,8 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
     };
 
     loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
-    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf", &redMaterial);
-    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf", &greenMaterial);
+    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf");//, &redMaterial);
+    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf");//, &greenMaterial);
 
     // loadMesh("assets/models/SciFiDragonWarrior");
 
@@ -187,7 +198,7 @@ vec4 shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w)
 
 // -----------------------------------------------------------------------------
 
-    vec3 position = vec3(0.f, 0.f, 1.f);
+    vec3 position = vec3(0.f, 1.f, 1.f);
     quat rotation = vec3(0.f);
     f32 fov = glm::radians(90.f);
 

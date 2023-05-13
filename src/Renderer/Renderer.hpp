@@ -33,6 +33,7 @@ namespace pyr
     {
         Shader fragmentShader;
         Shader closestHitShader;
+        Shader anyHitShader;
         u32 sbtOffset;
         b8 inlineData;
     };
@@ -127,13 +128,7 @@ namespace pyr
         alignas(16) vec3 pos;
         alignas(16) vec3 camX;
         alignas(16) vec3 camY;
-        // u64 objectsVA;
-        // u64 meshesVA;
         f32 camZOffset;
-        // u32 debugMode;
-        // u64 vertices;
-        // u64 material;
-
         u64 objectsVA;
     };
 
@@ -150,7 +145,7 @@ namespace pyr
         Context* ctx = {};
 
         Image depthBuffer;
-        Image accumImage;
+        // Image accumImage;
         uvec3 lastExtent;
 
         VkPipelineLayout layout = {};
