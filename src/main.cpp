@@ -234,7 +234,6 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
     // loadMesh("assets/models/StationDemerzel");
     // loadMesh("assets/models", "monkey.gltf");
 
-PYR_DEBUG();
     renderer.RebuildShaderBindingTable();
 
 // -----------------------------------------------------------------------------
@@ -243,12 +242,11 @@ PYR_DEBUG();
     quat rotation = vec3(0.f);
     f32 fov = glm::radians(90.f);
 
-    std::bitset<100> bits;
-
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        ctx->GetNextImage(*swapchain);
+        ctx->GetNextImage(*swapchain, ctx->graphics, ctx->semaphore.Raw());
+        // ctx->semaphore->Wait();
 
         static f32 moveSpeed = 1.f;
 
@@ -339,7 +337,13 @@ PYR_DEBUG();
         renderer.Draw(*swapchain->image);
 
         imgui.EndFrame(*swapchain);
-        ctx->Present(*swapchain);
+
+        ctx->Transition(ctx->cmd, *swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        ctx->commands->Submit(ctx->cmd, ctx->semaphore.Raw(), ctx->semaphore.Raw());
+        ctx->Present(*swapchain, ctx->semaphore.Raw());
+        ctx->semaphore->Wait();
+        ctx->commands->Clear();
+        ctx->cmd = ctx->commands->Allocate();
     }
 
     vkDeviceWaitIdle(ctx->device);

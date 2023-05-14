@@ -166,6 +166,10 @@ namespace pyr
         Image*                   image = nullptr;
         VkExtent2D              extent = { 0, 0 };
 
+        static constexpr u32 SemaphoreCount = 4;
+        std::vector<VkSemaphore> semaphores = {};
+        u32                  semaphoreIndex = 0;
+
     public:
         ~Swapchain();
     };
@@ -194,6 +198,19 @@ namespace pyr
         ~ResourceTracker();
     };
 
+    struct Semaphore : RefCounted
+    {
+        Ref<Context>  context = {};
+
+        VkSemaphore semaphore = {};
+        u64             value = 0;
+
+    public:
+        ~Semaphore();
+
+        void Wait(u64 waitValue = 0ull);
+    };
+
     struct Commands : RefCounted
     {
         Ref<Context> context = {};
@@ -208,7 +225,9 @@ namespace pyr
         ~Commands();
 
         VkCommandBuffer Allocate();
-        void Flush();
+
+        void Clear();
+        void Submit(VkCommandBuffer cmd, Semaphore* wait, Semaphore* signal);
     };
 
 // -----------------------------------------------------------------------------
@@ -230,6 +249,8 @@ namespace pyr
         // VkCommandPool pool;
         // VkCommandBuffer transferCmd;
         // VkCommandPool transferPool;
+
+        Ref<Semaphore> semaphore;
 
         Ref<Commands> commands;
         VkCommandBuffer cmd;
@@ -262,14 +283,13 @@ namespace pyr
         // void DestroyShader(Shader& shader);
 
         Ref<Swapchain> CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
-        void Present(Swapchain& swapchain);
-        bool GetNextImage(Swapchain& swapchain);
+        void Present(Swapchain& swapchain, Semaphore* wait);
+        bool GetNextImage(Swapchain& swapchain, Queue& queue, Semaphore* signal);
         // void DestroySwapchain(Swapchain& swapchain);
 
         Ref<Commands> CreateCommands();
-        // VkCommandBuffer AllocCmdBuf(Context* ctx, Commands* cmds);
-        // void FlushCommands(Context* ctx, Commands* cmds, Queue* queue);
-        // void Flush(VkCommandBuffer commandBuffer = {});
+
+        Ref<Semaphore> MakeSemaphore(); // TODO: Rename this
     };
 
     Ref<Context> CreateContext(b8 debug);

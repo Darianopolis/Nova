@@ -67,7 +67,9 @@ namespace pyr
                 .size = size,
             }));
 
-            transferCommands->Flush();
+            transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
+            semaphore->Wait();
+            transferCommands->Clear();
             transferCmd = transferCommands->Allocate();
         }
         else if (buffer.mapped)
@@ -88,7 +90,9 @@ namespace pyr
                     .size = chunkSize,
                 }));
 
-                transferCommands->Flush();
+                transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
+                semaphore->Wait();
+                transferCommands->Clear();
                 transferCmd = transferCommands->Allocate();
             }
         }

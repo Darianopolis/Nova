@@ -81,8 +81,9 @@ namespace pyr
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(ctx->cmd);
-        // ctx->Flush();
-        ctx->commands->Flush();
+        ctx->commands->Submit(ctx->cmd, nullptr, ctx->semaphore.Raw());
+        ctx->semaphore->Wait();
+        ctx->commands->Clear();
         ctx->cmd = ctx->commands->Allocate();
 
         ImGui::SetCurrentContext(lastImguiCtx);

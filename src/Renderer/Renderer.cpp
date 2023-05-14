@@ -807,9 +807,6 @@ void main()
 
             vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, Temp(&buildRange));
 
-            ctx->commands->Flush();
-            cmd = ctx->cmd = ctx->commands->Allocate();
-
             ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline);
@@ -974,8 +971,9 @@ void main()
 
             vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, Temp(&buildRange));
 
-            // ctx->Flush(ctx->transferCmd);
-            ctx->transferCommands->Flush();
+            ctx->transferCommands->Submit(ctx->transferCmd, nullptr, ctx->semaphore.Raw());
+            ctx->semaphore->Wait();
+            ctx->transferCommands->Clear();
             ctx->transferCmd = ctx->transferCommands->Allocate();
 
             PYR_LOG("Built BLAS!");

@@ -49,60 +49,61 @@ namespace pyr
         return cmd;
     }
 
-    void Commands::Flush()
+    void Commands::Clear()
     {
-        if (queue && index)
-        {
-            auto bufferInfos = (VkCommandBufferSubmitInfo*)_alloca(index * sizeof(VkCommandBufferSubmitInfo));
-            for (u32 i = 0; i < index; ++i)
-            {
-                bufferInfos[i] = {
-                    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-                    .commandBuffer = buffers[i],
-                };
+        // if (queue && index)
+        // {
+        //     auto bufferInfos = (VkCommandBufferSubmitInfo*)_alloca(index * sizeof(VkCommandBufferSubmitInfo));
+        //     for (u32 i = 0; i < index; ++i)
+        //     {
+        //         bufferInfos[i] = {
+        //             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        //             .commandBuffer = buffers[i],
+        //         };
 
-                VkCall(vkEndCommandBuffer(buffers[i]));
-            }
+        //         VkCall(vkEndCommandBuffer(buffers[i]));
+        //     }
 
-            VkCall(vkQueueSubmit2(queue->handle, 1, Temp(VkSubmitInfo2 {
-                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                .commandBufferInfoCount = index,
-                .pCommandBufferInfos = bufferInfos,
-            }), VK_NULL_HANDLE));
+        //     VkCall(vkQueueSubmit2(queue->handle, 1, Temp(VkSubmitInfo2 {
+        //         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        //         .commandBufferInfoCount = index,
+        //         .pCommandBufferInfos = bufferInfos,
+        //     }), VK_NULL_HANDLE));
 
-            _freea(bufferInfos);
+        //     _freea(bufferInfos);
 
-            VkCall(vkQueueWaitIdle(queue->handle));
-        }
+        //     VkCall(vkQueueWaitIdle(queue->handle));
+        // }
 
         index = 0;
         VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
-    // void Context::Flush(VkCommandBuffer _cmd)
-    // {
-    //     if (!_cmd)
-    //         _cmd = cmd;
+    void Commands::Submit(VkCommandBuffer cmd, Semaphore* wait, Semaphore* signal)
+    {
+        VkCall(vkEndCommandBuffer(cmd));
 
-    //     auto _pool = _cmd == cmd
-    //         ? pool
-    //         : transferPool;
-
-    //     VkCall(vkEndCommandBuffer(_cmd));
-
-    //     VkCall(vkQueueSubmit2(queue, 1, Temp(VkSubmitInfo2 {
-    //         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-    //         .commandBufferInfoCount = 1,
-    //         .pCommandBufferInfos = Temp(VkCommandBufferSubmitInfo {
-    //             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-    //             .commandBuffer = _cmd,
-    //         }),
-    //     }), VK_NULL_HANDLE));
-
-    //     VkCall(vkQueueWaitIdle(queue));
-    //     VkCall(vkResetCommandPool(device, _pool, 0));
-    //     VkCall(vkBeginCommandBuffer(_cmd, Temp(VkCommandBufferBeginInfo {
-    //         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    //     })));
-    // }
+        VkCall(vkQueueSubmit2(queue->handle, 1, Temp(VkSubmitInfo2 {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = wait ? 1u : 0u,
+            .pWaitSemaphoreInfos = wait ? Temp(VkSemaphoreSubmitInfo {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = wait->semaphore,
+                .value = wait->value,
+                .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            }) : nullptr,
+            .commandBufferInfoCount = 1,
+            .pCommandBufferInfos = Temp(VkCommandBufferSubmitInfo {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+                .commandBuffer = cmd,
+            }),
+            .signalSemaphoreInfoCount = signal ? 1u : 0u,
+            .pSignalSemaphoreInfos = signal ? Temp(VkSemaphoreSubmitInfo {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = signal->semaphore,
+                .value = ++signal->value,
+                .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            }): nullptr,
+        }), nullptr));
+    }
 }

@@ -108,8 +108,9 @@ namespace pyr
                     }
 
                     ctx.Transition(ctx.transferCmd, *loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    // ctx.Flush(ctx.transferCmd);
-                    ctx.transferCommands->Flush();
+                    ctx.transferCommands->Submit(ctx.transferCmd, nullptr, ctx.semaphore.Raw());
+                    ctx.semaphore->Wait();
+                    ctx.transferCommands->Clear();
                     ctx.transferCmd = ctx.transferCommands->Allocate();
 
                     std::cout << "\r\x1b[KTextures loaded: " << ++texturesLoaded << " / " << data->textures_count << " [" << data->textures[textureId].image->uri << "]";
@@ -234,7 +235,7 @@ namespace pyr
             std::vector<f32> summedAreas;
             summedAreas.resize(loadedMesh.vertices.size());
 
-            auto updateNormalTangent = [&](u32 i, vec3 normal, vec3 tangent, f32 area) {
+            auto updateNormalTangent = [&](u32 i, vec3 normal, [[maybe_unused]] vec3 tangent, f32 area) {
                 f32 lastArea = summedAreas[i];
                 summedAreas[i] += area;
 

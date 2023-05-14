@@ -24,6 +24,14 @@ namespace pyr
         swapchain->presentMode = presentMode;
         swapchain->surface = surface;
 
+        swapchain->semaphores.resize(Swapchain::SemaphoreCount);
+        for (auto& s : swapchain->semaphores)
+        {
+            VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            }), nullptr, &s));
+        }
+
         return swapchain;
     }
 
@@ -31,26 +39,47 @@ namespace pyr
     {
         // PYR_LOG("Destroying swapchain");
 
-        images.clear();
+        for (auto semaphore : semaphores)
+            vkDestroySemaphore(context->device, semaphore, nullptr);
+
         vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     }
 
 // -----------------------------------------------------------------------------
 
-    void Context::Present(Swapchain& swapchain)
+    void Context::Present(Swapchain& swapchain, Semaphore* wait)
     {
-        Transition(cmd, *swapchain.image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-        // Flush();
-        commands->Flush();
-        cmd = commands->Allocate();
+        if (wait)
+        {
+            VkCall(vkQueueSubmit2(graphics.handle, 1, Temp(VkSubmitInfo2 {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = 1,
+                .pWaitSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                    .semaphore = semaphore->semaphore,
+                    .value = semaphore->value,
+                    .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                }),
+                .signalSemaphoreInfoCount = 1,
+                .pSignalSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                    .semaphore = swapchain.semaphores[swapchain.semaphoreIndex],
+                }),
+            }), nullptr));
+        }
 
         VkResult result = vkQueuePresentKHR(graphics.handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = wait ? 1u : 0u,
+            .pWaitSemaphores = wait ? &swapchain.semaphores[swapchain.semaphoreIndex] : nullptr,
             .swapchainCount = 1,
             .pSwapchains = &swapchain.swapchain,
             .pImageIndices = &swapchain.index,
         }));
+
+        if (wait)
+            swapchain.semaphoreIndex = (swapchain.semaphoreIndex + 1) % swapchain.semaphores.size();
+
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
             PYR_LOG("Suboptimal / out of date swapchain!\n");
@@ -61,7 +90,7 @@ namespace pyr
         }
     }
 
-    bool Context::GetNextImage(Swapchain& swapchain)
+    bool Context::GetNextImage(Swapchain& swapchain, Queue& queue, Semaphore* signal)
     {
         VkSurfaceCapabilitiesKHR caps;
         VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, swapchain.surface, &caps));
@@ -86,7 +115,9 @@ namespace pyr
                 .imageExtent = swapchain.extent,
                 .imageArrayLayers = 1,
                 .imageUsage = swapchain.usage,
-                .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, // TODO: concurrent for async present
+                .queueFamilyIndexCount = 1,
+                .pQueueFamilyIndices = &queue.family,
                 .preTransform = caps.currentTransform,
                 .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
                 .presentMode = swapchain.presentMode,
@@ -122,9 +153,29 @@ namespace pyr
             }
         }
 
-        VkCall(vkResetFences(device, 1, &fence));
-        VkCall(vkAcquireNextImageKHR(device, swapchain.swapchain, UINT64_MAX, VK_NULL_HANDLE, fence, &swapchain.index));
-        VkCall(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
+        VkCall(vkAcquireNextImageKHR(device, swapchain.swapchain, UINT64_MAX,
+            signal ? swapchain.semaphores[swapchain.semaphoreIndex] : nullptr, nullptr, &swapchain.index));
+
+        if (signal)
+        {
+            VkCall(vkQueueSubmit2(queue.handle, 1, Temp(VkSubmitInfo2 {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = 1,
+                .pWaitSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                    .semaphore = swapchain.semaphores[swapchain.semaphoreIndex],
+                }),
+                .signalSemaphoreInfoCount = 1,
+                .pSignalSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
+                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                    .semaphore = signal->semaphore,
+                    .value = ++semaphore->value,
+                    .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                }),
+            }), nullptr));
+
+            swapchain.semaphoreIndex = (swapchain.semaphoreIndex + 1) % swapchain.semaphores.size();
+        }
 
         swapchain.image = swapchain.images[swapchain.index].Raw();
         swapchain.image->format = VK_FORMAT_UNDEFINED;

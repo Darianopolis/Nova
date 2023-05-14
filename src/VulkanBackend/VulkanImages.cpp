@@ -128,9 +128,6 @@ namespace pyr
 
     Image::~Image()
     {
-        // std::cout << std::stacktrace::current() << '\n';
-        // PYR_LOG("Destroying image");
-
         if (view)
             vkDestroyImageView(context->device, view, nullptr);
 
@@ -151,8 +148,9 @@ namespace pyr
             .imageExtent = { image.extent.x, image.extent.y,  1 },
         }));
 
-        // Flush(transferCmd);
-        transferCommands->Flush();
+        transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
+        semaphore->Wait();
+        transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }
 
@@ -221,8 +219,9 @@ namespace pyr
 
         image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        // Flush(transferCmd);
-        transferCommands->Flush();
+        transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
+        semaphore->Wait();
+        transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }
 

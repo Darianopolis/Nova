@@ -90,6 +90,7 @@ namespace pyr
         vk12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
         vk12Features.drawIndirectCount = VK_TRUE;
         vk12Features.samplerFilterMinmax = VK_TRUE;
+        vk12Features.timelineSemaphore = VK_TRUE;
 
         VkPhysicalDeviceVulkan13Features vk13Features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
         vk13Features.pNext = &vk12Features;
@@ -173,6 +174,8 @@ namespace pyr
 
         ctx->commands = ctx->CreateCommands();
         ctx->cmd = ctx->commands->Allocate();
+
+        ctx->semaphore = ctx->MakeSemaphore();
 
         // auto createCommands = [&](VkCommandBuffer& cmd, VkCommandPool& pool) {
         //     VkCall(vkCreateCommandPool(ctx->device, Temp(VkCommandPoolCreateInfo {
