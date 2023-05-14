@@ -807,7 +807,8 @@ void main()
 
             vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, Temp(&buildRange));
 
-            ctx->Flush();
+            ctx->commands->Flush();
+            cmd = ctx->cmd = ctx->commands->Allocate();
 
             ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
 
@@ -972,7 +973,10 @@ void main()
             buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer->address, accelScratchAlignment);
 
             vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, Temp(&buildRange));
-            ctx->Flush(ctx->transferCmd);
+
+            // ctx->Flush(ctx->transferCmd);
+            ctx->transferCommands->Flush();
+            ctx->transferCmd = ctx->transferCommands->Allocate();
 
             PYR_LOG("Built BLAS!");
         }

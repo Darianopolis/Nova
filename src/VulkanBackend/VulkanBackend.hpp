@@ -154,7 +154,7 @@ namespace pyr
 
     struct Swapchain : RefCounted
     {
-        Ref<Context>      context = {};
+        Ref<Context> context = {};
 
         VkSurfaceKHR           surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
@@ -172,12 +172,44 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-    // struct Commands
-    // {
-    //     VkCommandPool                   pool = {};
-    //     std::vector<VkCommandBuffer> buffers = {};
-    //     u32                            index = 0;
-    // };
+    struct Queue
+    {
+        VkQueue handle = {};
+        u32     family = UINT32_MAX;
+    };
+
+    struct ResourceTracker : RefCounted
+    {
+        Ref<Context> context = {};
+
+        struct ImageState
+        {
+            VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
+            VkAccessFlags2 access = 0;
+        };
+        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+
+    public:
+        ~ResourceTracker();
+    };
+
+    struct Commands : RefCounted
+    {
+        Ref<Context> context = {};
+
+        Queue* queue = {};
+
+        VkCommandPool                   pool = {};
+        std::vector<VkCommandBuffer> buffers = {};
+        u32                            index = 0;
+
+    public:
+        ~Commands();
+
+        VkCommandBuffer Allocate();
+        void Flush();
+    };
 
 // -----------------------------------------------------------------------------
 
@@ -192,16 +224,23 @@ namespace pyr
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
         };
 
-        VkQueue queue;
-        u32 queueFamily;
+        // VkQueue queue;
+        // u32 queueFamily;
+        // VkCommandBuffer cmd;
+        // VkCommandPool pool;
+        // VkCommandBuffer transferCmd;
+        // VkCommandPool transferPool;
+
+        Ref<Commands> commands;
         VkCommandBuffer cmd;
-        VkCommandPool pool;
-        VkCommandBuffer transferCmd;
-        VkCommandPool transferPool;
+
+        Queue graphics;
 
         VkFence fence;
 
         Ref<Buffer> staging;
+        Ref<Commands> transferCommands;
+        VkCommandBuffer transferCmd;
     public:
         ~Context();
 
@@ -227,10 +266,10 @@ namespace pyr
         bool GetNextImage(Swapchain& swapchain);
         // void DestroySwapchain(Swapchain& swapchain);
 
-        // Commands CreateCommands(Context* ctx, Queue* queue);
+        Ref<Commands> CreateCommands();
         // VkCommandBuffer AllocCmdBuf(Context* ctx, Commands* cmds);
         // void FlushCommands(Context* ctx, Commands* cmds, Queue* queue);
-        void Flush(VkCommandBuffer commandBuffer = {});
+        // void Flush(VkCommandBuffer commandBuffer = {});
     };
 
     Ref<Context> CreateContext(b8 debug);

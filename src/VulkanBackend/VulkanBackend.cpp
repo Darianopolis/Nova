@@ -47,7 +47,7 @@ namespace pyr
         // ---- Logical Device ----
 
         vkGetPhysicalDeviceQueueFamilyProperties2(ctx->gpu, Temp(0u), nullptr);
-        ctx->queueFamily = 0;
+        ctx->graphics.family = 0;
 
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
@@ -129,7 +129,7 @@ namespace pyr
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = ctx->queueFamily,
+                    .queueFamilyIndex = ctx->graphics.family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
@@ -147,7 +147,7 @@ namespace pyr
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(ctx->device, ctx->queueFamily, 0, &ctx->queue);
+        vkGetDeviceQueue(ctx->device, ctx->graphics.family, 0, &ctx->graphics.handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -168,26 +168,32 @@ namespace pyr
 
         ctx->staging = ctx->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
 
-        auto createCommands = [&](VkCommandBuffer& cmd, VkCommandPool& pool) {
-            VkCall(vkCreateCommandPool(ctx->device, Temp(VkCommandPoolCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .queueFamilyIndex = ctx->queueFamily,
-            }), nullptr, &pool));
+        ctx->transferCommands = ctx->CreateCommands();
+        ctx->transferCmd = ctx->transferCommands->Allocate();
 
-            VkCall(vkAllocateCommandBuffers(ctx->device, Temp(VkCommandBufferAllocateInfo {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pool,
-                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                .commandBufferCount = 1
-            }), &cmd));
+        ctx->commands = ctx->CreateCommands();
+        ctx->cmd = ctx->commands->Allocate();
 
-            VkCall(vkBeginCommandBuffer(cmd, Temp(VkCommandBufferBeginInfo {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            })));
-        };
+        // auto createCommands = [&](VkCommandBuffer& cmd, VkCommandPool& pool) {
+        //     VkCall(vkCreateCommandPool(ctx->device, Temp(VkCommandPoolCreateInfo {
+        //         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        //         .queueFamilyIndex = ctx->queueFamily,
+        //     }), nullptr, &pool));
 
-        createCommands(ctx->cmd, ctx->pool);
-        createCommands(ctx->transferCmd, ctx->transferPool);
+        //     VkCall(vkAllocateCommandBuffers(ctx->device, Temp(VkCommandBufferAllocateInfo {
+        //         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        //         .commandPool = pool,
+        //         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        //         .commandBufferCount = 1
+        //     }), &cmd));
+
+        //     VkCall(vkBeginCommandBuffer(cmd, Temp(VkCommandBufferBeginInfo {
+        //         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        //     })));
+        // };
+
+        // createCommands(ctx->cmd, ctx->pool);
+        // createCommands(ctx->transferCmd, ctx->transferPool);
 
         return ctx;
     }

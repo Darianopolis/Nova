@@ -67,7 +67,8 @@ namespace pyr
                 .size = size,
             }));
 
-            Flush(transferCmd);
+            transferCommands->Flush();
+            transferCmd = transferCommands->Allocate();
         }
         else if (buffer.mapped)
         {
@@ -87,7 +88,8 @@ namespace pyr
                     .size = chunkSize,
                 }));
 
-                Flush(transferCmd);
+                transferCommands->Flush();
+                transferCmd = transferCommands->Allocate();
             }
         }
     }

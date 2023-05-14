@@ -80,7 +80,7 @@ namespace pyr
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
-                    queueFamily,
+                    graphics.family,
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
@@ -151,7 +151,9 @@ namespace pyr
             .imageExtent = { image.extent.x, image.extent.y,  1 },
         }));
 
-        Flush(transferCmd);
+        // Flush(transferCmd);
+        transferCommands->Flush();
+        transferCmd = transferCommands->Allocate();
     }
 
     void Context::GenerateMips(Image& image)
@@ -219,7 +221,9 @@ namespace pyr
 
         image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        Flush(transferCmd);
+        // Flush(transferCmd);
+        transferCommands->Flush();
+        transferCmd = transferCommands->Allocate();
     }
 
     void Context::Transition(VkCommandBuffer _cmd, Image& image, VkImageLayout newLayout)

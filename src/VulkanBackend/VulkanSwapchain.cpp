@@ -41,9 +41,11 @@ namespace pyr
     {
         Transition(cmd, *swapchain.image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        Flush();
+        // Flush();
+        commands->Flush();
+        cmd = commands->Allocate();
 
-        VkResult result = vkQueuePresentKHR(queue, Temp(VkPresentInfoKHR {
+        VkResult result = vkQueuePresentKHR(graphics.handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .swapchainCount = 1,
             .pSwapchains = &swapchain.swapchain,
@@ -70,7 +72,7 @@ namespace pyr
 
         if (resized)
         {
-            VkCall(vkQueueWaitIdle(queue));
+            VkCall(vkQueueWaitIdle(graphics.handle));
 
             PYR_LOG("Resizing, size = ({}, {})", caps.currentExtent.width, caps.currentExtent.height);
 

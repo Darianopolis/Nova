@@ -108,7 +108,9 @@ namespace pyr
                     }
 
                     ctx.Transition(ctx.transferCmd, *loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    ctx.Flush(ctx.transferCmd);
+                    // ctx.Flush(ctx.transferCmd);
+                    ctx.transferCommands->Flush();
+                    ctx.transferCmd = ctx.transferCommands->Allocate();
 
                     std::cout << "\r\x1b[KTextures loaded: " << ++texturesLoaded << " / " << data->textures_count << " [" << data->textures[textureId].image->uri << "]";
                 }

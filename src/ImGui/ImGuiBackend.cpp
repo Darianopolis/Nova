@@ -63,8 +63,8 @@ namespace pyr
             .Instance = ctx->instance,
             .PhysicalDevice = ctx->gpu,
             .Device = ctx->device,
-            .QueueFamily = ctx->queueFamily,
-            .Queue = ctx->queue,
+            .QueueFamily = ctx->graphics.family,
+            .Queue = ctx->graphics.handle,
             .DescriptorPool = descriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
@@ -81,7 +81,9 @@ namespace pyr
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(ctx->cmd);
-        ctx->Flush();
+        // ctx->Flush();
+        ctx->commands->Flush();
+        ctx->cmd = ctx->commands->Allocate();
 
         ImGui::SetCurrentContext(lastImguiCtx);
     }
