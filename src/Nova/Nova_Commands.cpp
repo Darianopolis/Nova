@@ -1,8 +1,8 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Commands> Context::CreateCommands()
+    CommandsRef Context::CreateCommands()
     {
         Ref cmds = new Commands;
         cmds->context = this;
@@ -79,7 +79,7 @@ namespace pyr
         VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
-    void Commands::Submit(VkCommandBuffer cmd, Semaphore* wait, Semaphore* signal)
+    void Commands::Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal)
     {
         VkCall(vkEndCommandBuffer(cmd));
 

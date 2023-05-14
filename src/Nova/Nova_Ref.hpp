@@ -1,16 +1,16 @@
 #pragma once
 
-#include "Core.hpp"
+#include "Nova_Core.hpp"
 
-// #define PYR_NOISY_REFS 1
-// #define PYR_NOISY_REF_INC 1
-// #define PYR_NOISY_REF_CONSTRUCT 1
+// #define NOVA_NOISY_REFS 1
+// #define NOVA_NOISY_REF_INC 1
+// #define NOVA_NOISY_REF_CONSTRUCT 1
 
-#define PYR_SAFE_REFERENCES 1
+#define NOVA_SAFE_REFERENCES 1
 
 int32_t& RefTotal();
 
-namespace pyr
+namespace nova
 {
     class RefCounted
     {
@@ -26,15 +26,15 @@ namespace pyr
         std::atomic<u32> referenceCount = 0;
 
     public:
-#ifdef PYR_NOISY_REFS
+#ifdef NOVA_NOISY_REFS
         RefCounted()
         {
-            PYR_LOG("RefCounted  + {}", ++RefTotal());
+            NOVA_LOG("RefCounted  + {}", ++RefTotal());
         }
 
         ~RefCounted()
         {
-            PYR_LOG("RefCounted -  {}", --RefTotal());
+            NOVA_LOG("RefCounted -  {}", --RefTotal());
         }
 #else
         RefCounted() = default;
@@ -57,11 +57,11 @@ namespace pyr
 
         inline void Decrement()
         {
-#ifdef PYR_NOISY_REF_INC
-            PYR_LOG("decrementing {}[{}] from {}", typeid(T).name(), (void*)value,  value->referenceCount.load());
+#ifdef NOVA_NOISY_REF_INC
+            NOVA_LOG("decrementing {}[{}] from {}", typeid(T).name(), (void*)value,  value->referenceCount.load());
 #endif
             if (!--static_cast<RefCounted*>(value)->referenceCount) {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
                 static_cast<RefCounted*>(value)->referenceCount = std::numeric_limits<u32>::max();
 #endif
                 delete value;
@@ -70,18 +70,18 @@ namespace pyr
 
         inline void Increment()
         {
-#ifdef PYR_NOISY_REF_INC
-            PYR_LOG("incrementing {}[{}] to {}", typeid(T).name(), (void*)value, (value->referenceCount.load() + 1));
+#ifdef NOVA_NOISY_REF_INC
+            NOVA_LOG("incrementing {}[{}] to {}", typeid(T).name(), (void*)value, (value->referenceCount.load() + 1));
 #endif
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (static_cast<RefCounted*>(value)->referenceCount == std::numeric_limits<u32>::max()) [[unlikely]] {
-                PYR_THROW("Attempted to increment Ref on object that is being destroyed!");
+                NOVA_THROW("Attempted to increment Ref on object that is being destroyed!");
             }
 #endif
             ++static_cast<RefCounted*>(value)->referenceCount;
         }
 
-        inline b8 GuardedAssignment(T* other)
+        inline bool GuardedAssignment(T* other)
         {
             if (value) {
                 if (value == other) return false;
@@ -123,21 +123,21 @@ namespace pyr
 // -------------------- Move construction and assignment -------------------- //
 
         inline Ref(Ref<T>&& moved
-#ifdef PYR_NOISY_REF_CONSTRUCT
+#ifdef NOVA_NOISY_REF_CONSTRUCT
             , std::source_location location = std::source_location::current()
 #endif
         )
-#if !(defined(PYR_SAFE_REFERENCES) || defined(PYR_NOISY_REF_CONSTRUCT))
+#if !(defined(NOVA_SAFE_REFERENCES) || defined(NOVA_NOISY_REF_CONSTRUCT))
                                    noexcept
 #endif
             : value(moved.value)
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (this == &moved)
-                PYR_THROW("Ref::Ref(Ref<T>&&) called on self");
+                NOVA_THROW("Ref::Ref(Ref<T>&&) called on self");
 #endif
-#ifdef PYR_NOISY_REF_CONSTRUCT
-            PYR_LOG("Ref::Ref({}&&) at {} @ {}", typeid(T).name(), location.line(), location.file_name());
+#ifdef NOVA_NOISY_REF_CONSTRUCT
+            NOVA_LOG("Ref::Ref({}&&) at {} @ {}", typeid(T).name(), location.line(), location.file_name());
 #endif
             moved.value = nullptr;
         }
@@ -153,18 +153,18 @@ namespace pyr
 // -------------------- Copy construction and assignment --------------------- //
 
         inline Ref(const Ref<T>& copied
-#ifdef PYR_NOISY_REF_CONSTRUCT
+#ifdef NOVA_NOISY_REF_CONSTRUCT
             , std::source_location location = std::source_location::current()
 #endif
         )
             : value(copied.value)
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (this == &copied)
-                PYR_THROW("Ref::Ref(const Ref<T>&) called on self");
+                NOVA_THROW("Ref::Ref(const Ref<T>&) called on self");
 #endif
-#ifdef PYR_NOISY_REF_CONSTRUCT
-            PYR_LOG("Ref::Ref(const {}&) at {} @ {}", typeid(T).name(), location.line(), location.file_name());
+#ifdef NOVA_NOISY_REF_CONSTRUCT
+            NOVA_LOG("Ref::Ref(const {}&) at {} @ {}", typeid(T).name(), location.line(), location.file_name());
 #endif
             if (value) Increment();
         }
@@ -183,7 +183,7 @@ namespace pyr
         template<class T>
         inline operator T() const = delete;
 
-        inline operator b8() const { return value; }
+        inline operator bool() const { return value; }
 
 //--------------------------------- Upcast --------------------------------- //
 
@@ -213,10 +213,10 @@ namespace pyr
         template<class T2>
         Ref<T2> As() const
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             auto cast = dynamic_cast<T2*>(value);
             if (value && !cast)
-                PYR_THROW("Invalid cast!");
+                NOVA_THROW("Invalid cast!");
             return Ref<T2>(cast);
 #else
             return Ref<T2>(static_cast<T2*>(value));
@@ -233,35 +233,35 @@ namespace pyr
 
         inline const T* operator->() const
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (!value)
-                PYR_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
+                NOVA_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
 #endif
             return value;
         }
         inline T* operator->()
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (!value)
-                PYR_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
+                NOVA_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
 #endif
             return value;
         }
 
         inline const T& operator*() const
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (!value)
-                PYR_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
+                NOVA_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
 #endif
             return *value;
         }
 
         inline T& operator*()
         {
-#ifdef PYR_SAFE_REFERENCES
+#ifdef NOVA_SAFE_REFERENCES
             if (!value)
-                PYR_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
+                NOVA_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
 #endif
             return *value;
         }

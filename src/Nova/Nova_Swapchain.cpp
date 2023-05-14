@@ -1,14 +1,14 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Swapchain> Context::CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode)
+    SwapchainRef Context::CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode)
     {
         Ref swapchain = new Swapchain;
         swapchain->context = this;
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        PYR_VKQUERY(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
+        NOVA_VKQUERY(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
@@ -37,8 +37,6 @@ namespace pyr
 
     Swapchain::~Swapchain()
     {
-        // PYR_LOG("Destroying swapchain");
-
         for (auto semaphore : semaphores)
             vkDestroySemaphore(context->device, semaphore, nullptr);
 
@@ -47,7 +45,7 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-    void Context::Present(Swapchain& swapchain, Semaphore* wait)
+    void Context::Present(Swapchain& swapchain, Fence* wait)
     {
         if (wait)
         {
@@ -56,8 +54,8 @@ namespace pyr
                 .waitSemaphoreInfoCount = 1,
                 .pWaitSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = semaphore->semaphore,
-                    .value = semaphore->value,
+                    .semaphore = fence->semaphore,
+                    .value = fence->value,
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 }),
                 .signalSemaphoreInfoCount = 1,
@@ -82,7 +80,7 @@ namespace pyr
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
-            PYR_LOG("Suboptimal / out of date swapchain!\n");
+            NOVA_LOG("Suboptimal / out of date swapchain!\n");
         }
         else
         {
@@ -90,7 +88,7 @@ namespace pyr
         }
     }
 
-    bool Context::GetNextImage(Swapchain& swapchain, Queue& queue, Semaphore* signal)
+    bool Context::GetNextImage(Swapchain& swapchain, Queue& queue, Fence* signal)
     {
         VkSurfaceCapabilitiesKHR caps;
         VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, swapchain.surface, &caps));
@@ -103,7 +101,7 @@ namespace pyr
         {
             VkCall(vkQueueWaitIdle(graphics.handle));
 
-            PYR_LOG("Resizing, size = ({}, {})", caps.currentExtent.width, caps.currentExtent.height);
+            NOVA_LOG("Resizing, size = ({}, {})", caps.currentExtent.width, caps.currentExtent.height);
 
             swapchain.extent = caps.currentExtent;
             VkCall(vkCreateSwapchainKHR(device, Temp(VkSwapchainCreateInfoKHR {
@@ -126,7 +124,7 @@ namespace pyr
             }), nullptr, &swapchain.swapchain));
 
             std::vector<VkImage> vkImages;
-            PYR_VKQUERY(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
+            NOVA_VKQUERY(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
 
             swapchain.images.resize(vkImages.size());
             for (uint32_t i = 0; i < swapchain.images.size(); ++i)
@@ -169,7 +167,7 @@ namespace pyr
                 .pSignalSemaphoreInfos = Temp(VkSemaphoreSubmitInfo {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = signal->semaphore,
-                    .value = ++semaphore->value,
+                    .value = ++fence->value,
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 }),
             }), nullptr));

@@ -1,15 +1,15 @@
-#include "ImGuiBackend.h"
+#include "Pyrite_ImGui.hpp"
 
 namespace pyr
 {
-    void ImGuiBackend::Init(Context& _ctx, Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
+    void ImGuiBackend::Init(nova::Context& _ctx, nova::Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
     {
         ctx = &_ctx;
 
-        VkCall(vkCreateRenderPass(ctx->device, Temp(VkRenderPassCreateInfo {
+        nova::VkCall(vkCreateRenderPass(ctx->device, nova::Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
-            .pAttachments = Temp(VkAttachmentDescription {
+            .pAttachments = nova::Temp(VkAttachmentDescription {
                 .format = swapchain.format.format,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -20,16 +20,16 @@ namespace pyr
                 .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             }),
             .subpassCount = 1,
-            .pSubpasses = Temp(VkSubpassDescription {
+            .pSubpasses = nova::Temp(VkSubpassDescription {
                 .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
                 .colorAttachmentCount = 1,
-                .pColorAttachments = Temp(VkAttachmentReference {
+                .pColorAttachments = nova::Temp(VkAttachmentReference {
                     .attachment = 0,
                     .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 }),
             }),
             .dependencyCount = 1,
-            .pDependencies = Temp(VkSubpassDependency {
+            .pDependencies = nova::Temp(VkSubpassDependency {
                 .srcSubpass = VK_SUBPASS_EXTERNAL,
                 .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                 .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -42,12 +42,12 @@ namespace pyr
         // All application descriptor sets will be managed by descriptor buffers
 
         constexpr u32 MaxSamplers = 65'536;
-        VkCall(vkCreateDescriptorPool(ctx->device, Temp(VkDescriptorPoolCreateInfo {
+        nova::VkCall(vkCreateDescriptorPool(ctx->device, nova::Temp(VkDescriptorPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
-            .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
+            .pPoolSizes = nova::Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
         }), nullptr, &descriptorPool));
 
         // Create ImGui context and initialize
@@ -59,7 +59,7 @@ namespace pyr
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= imguiFlags;
         ImGui_ImplGlfw_InitForVulkan(window, true);
-        ImGui_ImplVulkan_Init(Temp(ImGui_ImplVulkan_InitInfo {
+        ImGui_ImplVulkan_Init(nova::Temp(ImGui_ImplVulkan_InitInfo {
             .Instance = ctx->instance,
             .PhysicalDevice = ctx->gpu,
             .Device = ctx->device,
@@ -69,7 +69,7 @@ namespace pyr
             .Subpass = 0,
             .MinImageCount = 2,
             .ImageCount = 2,
-            .CheckVkResultFn = [](VkResult r) { VkCall(r); },
+            .CheckVkResultFn = [](VkResult r) { nova::VkCall(r); },
         }), renderPass);
 
         // Rescale UI and fonts
@@ -81,8 +81,8 @@ namespace pyr
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(ctx->cmd);
-        ctx->commands->Submit(ctx->cmd, nullptr, ctx->semaphore.Raw());
-        ctx->semaphore->Wait();
+        ctx->commands->Submit(ctx->cmd, nullptr, ctx->fence.Raw());
+        ctx->fence->Wait();
         ctx->commands->Clear();
         ctx->cmd = ctx->commands->Allocate();
 
@@ -125,14 +125,14 @@ namespace pyr
             dockspaceFlags |= ImGuiDockNodeFlags_PassthruCentralNode;
 
             // Register dockspace
-            ImGui::Begin("Dockspace", Temp(true), windowFlags);
+            ImGui::Begin("Dockspace", nova::Temp(true), windowFlags);
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
             ImGui::End();
         }
     }
 
-    void ImGuiBackend::EndFrame(Swapchain& swapchain)
+    void ImGuiBackend::EndFrame(nova::Swapchain& swapchain)
     {
         ImGui::Render();
 
@@ -144,7 +144,7 @@ namespace pyr
             for (u32 i = 0; i < swapchain.images.size(); ++i)
             {
                 vkDestroyFramebuffer(ctx->device, framebuffers[i], nullptr);
-                VkCall(vkCreateFramebuffer(ctx->device, Temp(VkFramebufferCreateInfo {
+                nova::VkCall(vkCreateFramebuffer(ctx->device, nova::Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
@@ -157,7 +157,7 @@ namespace pyr
         }
 
         ctx->Transition(ctx->cmd, *swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkCmdBeginRenderPass(ctx->cmd, Temp(VkRenderPassBeginInfo {
+        vkCmdBeginRenderPass(ctx->cmd, nova::Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
             .framebuffer = framebuffers[swapchain.index],

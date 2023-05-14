@@ -1,13 +1,13 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Image> Context::CreateImage(uvec3 size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags)
+    ImageRef Context::CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags)
     {
         Ref image = new Image;
         image->context = this;
 
-        b8 makeView = usage != 0;
+        bool makeView = usage != 0;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         image->mips = flags >= ImageFlags::Mips
@@ -36,7 +36,7 @@ namespace pyr
             }
             else
             {
-                PYR_THROW("Image array must have at least 1 dimension and 1 layer");
+                NOVA_THROW("Image array must have at least 1 dimension and 1 layer");
             }
         }
         else
@@ -58,11 +58,11 @@ namespace pyr
             }
             else
             {
-                PYR_THROW("Image must have at least one non-zero dimension");
+                NOVA_THROW("Image must have at least one non-zero dimension");
             }
         }
 
-        image->extent = glm::max(size, uvec3(1));
+        image->extent = glm::max(size, Vec3U(1));
 
         // ---- Create image -----
 
@@ -148,8 +148,8 @@ namespace pyr
             .imageExtent = { image.extent.x, image.extent.y,  1 },
         }));
 
-        transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
-        semaphore->Wait();
+        transferCommands->Submit(transferCmd, nullptr, fence.Raw());
+        fence->Wait();
         transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }
@@ -219,8 +219,8 @@ namespace pyr
 
         image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
-        semaphore->Wait();
+        transferCommands->Submit(transferCmd, nullptr, fence.Raw());
+        fence->Wait();
         transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }

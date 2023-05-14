@@ -1,6 +1,6 @@
-#include "Core.hpp"
+#include "Nova_Core.hpp"
 
-namespace pyr
+namespace nova
 {
     struct Job
     {
@@ -9,7 +9,7 @@ namespace pyr
         Job** pDependents;
         std::atomic<u16> remainingDependencies = 0;
         u16 dependentsCount;
-        std::atomic<b8> done = false;
+        std::atomic<bool> done = false;
 
         template<class Fn>
         void Bind(Fn& fn, u32 dependencies, Job** dependents, u16 _dependentsCount)

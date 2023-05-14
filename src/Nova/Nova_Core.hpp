@@ -46,68 +46,70 @@
 #include <bitset>
 #include <stacktrace>
 
-#include "Vendor.hpp"
+#include "Vendor/Nova_Vendor.hpp"
 
 using namespace std::literals;
 
-namespace pyr
+namespace nova
 {
-    using u8  = uint8_t;
-    using u16 = uint16_t;
-    using u32 = uint32_t;
-    using u64 = uint64_t;
+    namespace types
+    {
+        using u8  = uint8_t;
+        using u16 = uint16_t;
+        using u32 = uint32_t;
+        using u64 = uint64_t;
 
-    using i8  = int8_t;
-    using i16 = int16_t;
-    using i32 = int32_t;
-    using i64 = int64_t;
+        using i8  = int8_t;
+        using i16 = int16_t;
+        using i32 = int32_t;
+        using i64 = int64_t;
 
-    using c8  = char;
-    using c16 = wchar_t;
-    using c32 = char32_t;
+        using c8  = char;
+        using c16 = wchar_t;
+        using c32 = char32_t;
 
-    using f32 = float;
-    using f64 = double;
+        using f32 = float;
+        using f64 = double;
 
-    using b8 = bool;
-    using b32 = uint32_t;
+        using b8 = std::byte;
 
-    using usz = size_t;
-
-    using byte = std::byte;
-
-// -----------------------------------------------------------------------------
-
-    using glm::vec2;
-    using glm::ivec2;
-    using glm::uvec2;
-
-    using glm::vec3;
-    using glm::ivec3;
-    using glm::uvec3;
-
-    using glm::vec4;
-    using glm::uvec4;
-    using glm::ivec4;
-
-    using glm::quat;
-
-    using glm::mat3;
-    using glm::mat4;
+        using usz = size_t;
 
 // -----------------------------------------------------------------------------
 
-#define PYR_DECORATE_FLAG_ENUM(enumType)                                 \
+        using Vec2 = glm::vec2;
+        using Vec2I = glm::ivec2;
+        using Vec2U = glm::uvec2;
+
+        using Vec3 = glm::vec3;
+        using Vec3I = glm::ivec3;
+        using Vec3U = glm::uvec3;
+
+        using Vec4 = glm::vec4;
+        using Vec4I = glm::ivec4;
+        using Vec4U = glm::uvec4;
+
+        using Quat = glm::quat;
+
+        using Mat3 = glm::mat3;
+        using Mat4 = glm::mat4;
+    }
+
+    using namespace types;
+
+// -----------------------------------------------------------------------------
+
+#define NOVA_DECORATE_FLAG_ENUM(enumType)                                \
     inline enumType operator|(enumType l, enumType r) {                  \
         return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
             | static_cast<std::underlying_type_t<enumType>>(r));         \
     }                                                                    \
-    inline pyr::b8 operator>=(enumType l, enumType r) {                  \
+    inline bool operator>=(enumType l, enumType r) {               \
         return static_cast<std::underlying_type_t<enumType>>(r)          \
             == (static_cast<std::underlying_type_t<enumType>>(l)         \
                 & static_cast<std::underlying_type_t<enumType>>(r));     \
     }                                                                    \
-    inline pyr::b8 operator&(enumType l, enumType r) {                   \
+    inline bool operator&(enumType l, enumType r) {                \
         return static_cast<std::underlying_type_t<enumType>>(0)          \
             != (static_cast<std::underlying_type_t<enumType>>(l)         \
                 & static_cast<std::underlying_type_t<enumType>>(r));     \
@@ -115,17 +117,17 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-#define PYR_DEBUG() std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
+#define NOVA_DEBUG() std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
 
-#define PYR_LOG(fmt, ...) \
+#define NOVA_LOG(fmt, ...) \
     std::cout << std::format(fmt"\n" __VA_OPT__(,) __VA_ARGS__)
 
-#define PYR_LOGEXPR(expr) do {            \
+#define NOVA_LOGEXPR(expr) do {           \
     std::osyncstream sso(std::cout);      \
     sso << #expr " = " << (expr) << '\n'; \
 } while (0)
 
-#define PYR_THROW(fmt, ...) do {                           \
+#define NOVA_THROW(fmt, ...) do {                          \
     auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
     std::cout << std::stacktrace::current();               \
     std::cout << std::format("\nERROR: {}\n", msg);        \
@@ -136,14 +138,14 @@ namespace pyr
 
     thread_local inline std::chrono::steady_clock::time_point PyrTimeitLast;
 
-#define PYR_TIMEIT_RESET() ::pyr::PyrTimeitLast = std::chrono::steady_clock::now()
+#define NOVA_TIMEIT_RESET() ::nova::PyrTimeitLast = std::chrono::steady_clock::now()
 
-#define PYR_TIMEIT(...) do {                                                       \
-    using namespace std::chrono;                                                   \
-    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",  \
-        duration_cast<milliseconds>(steady_clock::now()                            \
-            - ::pyr::PyrTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
-    ::pyr::PyrTimeitLast = steady_clock::now();                                    \
+#define NOVA_TIMEIT(...) do {                                                       \
+    using namespace std::chrono;                                                    \
+    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",   \
+        duration_cast<milliseconds>(steady_clock::now()                             \
+            - ::nova::PyrTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+    ::nova::PyrTimeitLast = steady_clock::now();                                    \
 } while (0)
 
 // -----------------------------------------------------------------------------
@@ -172,8 +174,8 @@ namespace pyr
         }
     };
 
-#define PYR_DO_ONCE(...) static ::pyr::DoOnceState PYR_CONCAT(_do_once_$_, __COUNTER__) = [__VA_ARGS__]
-#define PYR_ON_EXIT(...) static ::pyr::OnShutdown  PYR_CONCAT(_on_exit_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_DO_ONCE(...) static ::nova::DoOnceState NOVA_CONCAT(_do_once_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_EXIT(...) static ::nova::OnShutdown  NOVA_CONCAT(_on_exit_$_, __COUNTER__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 
@@ -231,11 +233,11 @@ namespace pyr
         }
     };
 
-#define PYR_CONCAT_INTERNAL(a, b) a##b
-#define PYR_CONCAT(a, b) PYR_CONCAT_INTERNAL(a, b)
-#define PYR_ON_SCOPE_EXIT(...)    OnScopeExit    PYR_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
-#define PYR_ON_SCOPE_SUCCESS(...) OnScopeSuccess PYR_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
-#define PYR_ON_SCOPE_FAILURE(...) OnScopeFailure PYR_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_CONCAT_INTERNAL(a, b) a##b
+#define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
+#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 
@@ -250,42 +252,5 @@ namespace pyr
     {
         std::cout << msg +"\n";
         throw std::runtime_error(msg);
-    }
-
-// -----------------------------------------------------------------------------
-
-    template<class T>
-    T AlignUpPower2(T v, u64 align) {
-        return T((u64(v) + (align - 1)) &~ (align - 1));
-    }
-
-    inline
-    u32 RoundUpPower2(u32 v) {
-        v--;
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        v++;
-
-        return v;
-    }
-
-    inline
-    glm::quat QuatFromVec4(glm::vec4 v)
-    {
-        glm::quat q;
-        q.x = v.x;
-        q.y = v.y;
-        q.z = v.z;
-        q.w = v.w;
-        return q;
-    }
-
-    inline
-    glm::vec4 QuatToVec4(glm::quat q)
-    {
-        return { q.x, q.y, q.z, q.w };
     }
 }

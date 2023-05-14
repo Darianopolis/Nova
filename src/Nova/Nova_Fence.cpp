@@ -1,11 +1,11 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Semaphore> Context::MakeSemaphore()
+    FenceRef Context::CreateFence()
     {
-        Ref semaphore = new Semaphore;
-        semaphore->context = this;
+        Ref _fence = new Fence;
+        _fence->context = this;
 
         VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -14,19 +14,18 @@ namespace pyr
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             })
-        }), nullptr, &semaphore->semaphore));
+        }), nullptr, &_fence->semaphore));
 
-        return semaphore;
+        return _fence;
     }
 
-    Semaphore::~Semaphore()
+    Fence::~Fence()
     {
         vkDestroySemaphore(context->device, semaphore, nullptr);
     }
 
-    void Semaphore::Wait(u64 waitValue)
+    void Fence::Wait(u64 waitValue)
     {
-        // PYR_LOG("Waiting on semaphore value - {}", value);
         VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,

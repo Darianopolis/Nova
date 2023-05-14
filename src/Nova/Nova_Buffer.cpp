@@ -1,8 +1,8 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Buffer> Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
+    BufferRef Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
     {
         Ref buffer = new Buffer;
         buffer->context = this;
@@ -67,8 +67,8 @@ namespace pyr
                 .size = size,
             }));
 
-            transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
-            semaphore->Wait();
+            transferCommands->Submit(transferCmd, nullptr, fence.Raw());
+            fence->Wait();
             transferCommands->Clear();
             transferCmd = transferCommands->Allocate();
         }
@@ -82,7 +82,7 @@ namespace pyr
             {
                 u64 chunkSize = std::min(size, start + staging->size) - start;
 
-                std::memcpy(staging->mapped, (byte*)data + start, chunkSize);
+                std::memcpy(staging->mapped, (b8*)data + start, chunkSize);
 
                 vkCmdCopyBuffer(transferCmd, staging->buffer, buffer.buffer, 1, Temp(VkBufferCopy {
                     .srcOffset = 0,
@@ -90,8 +90,8 @@ namespace pyr
                     .size = chunkSize,
                 }));
 
-                transferCommands->Submit(transferCmd, nullptr, semaphore.Raw());
-                semaphore->Wait();
+                transferCommands->Submit(transferCmd, nullptr, fence.Raw());
+                fence->Wait();
                 transferCommands->Clear();
                 transferCmd = transferCommands->Allocate();
             }

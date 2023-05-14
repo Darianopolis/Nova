@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Core/Core.hpp>
-#include <Core/Ref.hpp>
+#include "Nova_Core.hpp"
+#include "Nova_Ref.hpp"
 
-namespace pyr
+namespace nova
 {
     inline
     void VkCall(VkResult res, std::source_location loc = std::source_location::current())
@@ -12,7 +12,7 @@ namespace pyr
             Error(std::format("Error: {} ({} @ {})\n", int(res), loc.line(), loc.file_name()));
     }
 
-    #define PYR_VKQUERY(name, func, ...) do {                \
+    #define NOVA_VKQUERY(name, func, ...) do {                \
         u32 count;                                           \
         func(__VA_ARGS__ __VA_OPT__(,) &count, nullptr);     \
         name.resize(count);                                  \
@@ -21,17 +21,25 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-    #define PYR_DECL_DEVICE_PROC(name)  inline PFN_##name name
-    #define PYR_LOAD_DEVICE_PROC(name, device) ::pyr::name = (PFN_##name)vkGetDeviceProcAddr(device, #name);\
-        PYR_LOG("Loaded fn [" #name "] - {}", (void*)name)
+    #define NOVA_DECL_DEVICE_PROC(name)  inline PFN_##name name
+    #define NOVA_LOAD_DEVICE_PROC(name, device) ::nova::name = (PFN_##name)vkGetDeviceProcAddr(device, #name);\
+        NOVA_LOG("Loaded fn [" #name "] - {}", (void*)name)
 
 // -----------------------------------------------------------------------------
 
-    struct Image;
-    struct Buffer;
-    struct Shader;
-    struct Context;
-    struct Commands;
+#define NOVA_DECLARE_STRUCTURE(name) \
+    struct name; \
+    using name##Ref = Ref<name>;
+
+    NOVA_DECLARE_STRUCTURE(Image)
+    NOVA_DECLARE_STRUCTURE(Buffer)
+    NOVA_DECLARE_STRUCTURE(Shader)
+    NOVA_DECLARE_STRUCTURE(Context)
+    NOVA_DECLARE_STRUCTURE(Swapchain)
+    NOVA_DECLARE_STRUCTURE(Commands)
+    NOVA_DECLARE_STRUCTURE(Context)
+    NOVA_DECLARE_STRUCTURE(Fence)
+    NOVA_DECLARE_STRUCTURE(ResourceTracker)
 
 // -----------------------------------------------------------------------------
 
@@ -43,7 +51,7 @@ namespace pyr
         Mappable     = 1 << 2,
         CreateMapped = 1 << 3 | Mappable,
     };
-    PYR_DECORATE_FLAG_ENUM(BufferFlags)
+    NOVA_DECORATE_FLAG_ENUM(BufferFlags)
 
     enum class BufferUsage
     {
@@ -57,17 +65,17 @@ namespace pyr
         DescriptorSamplers = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
         DescriptorResources = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT,
     };
-    PYR_DECORATE_FLAG_ENUM(BufferUsage)
+    NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
     struct Buffer : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
         VkDeviceSize        size = 0ull;
         VkDeviceAddress  address = 0ull;
-        byte*             mapped = nullptr;
+        b8*               mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
 
     public:
@@ -88,7 +96,7 @@ namespace pyr
         Array = 1 << 0,
         Mips  = 1 << 1,
     };
-    PYR_DECORATE_FLAG_ENUM(ImageFlags)
+    NOVA_DECORATE_FLAG_ENUM(ImageFlags)
 
     enum class ImageUsage
     {
@@ -96,7 +104,7 @@ namespace pyr
         Attachment = 1 << 1,
         Storage    = 1 << 2,
     };
-    PYR_DECORATE_FLAG_ENUM(ImageUsage)
+    NOVA_DECORATE_FLAG_ENUM(ImageUsage)
 
     enum class Format
     {
@@ -113,7 +121,7 @@ namespace pyr
 
     struct Image : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         VkImage             image = {};
         VmaAllocation  allocation = {};
@@ -122,7 +130,7 @@ namespace pyr
         VkFormat           format = VK_FORMAT_UNDEFINED;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
-        uvec3 extent = {};
+        Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
 
@@ -135,7 +143,7 @@ namespace pyr
 
     struct Shader : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
@@ -154,14 +162,14 @@ namespace pyr
 
     struct Swapchain : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         VkSurfaceKHR           surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Ref<Image>> images = {};
+        std::vector<ImageRef> images = {};
         uint32_t                 index = UINT32_MAX;
         Image*                   image = nullptr;
         VkExtent2D              extent = { 0, 0 };
@@ -184,13 +192,13 @@ namespace pyr
 
     struct ResourceTracker : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         struct ImageState
         {
-            VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
             VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
-            VkAccessFlags2 access = 0;
+            VkAccessFlags2       access = 0;
         };
         ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
 
@@ -198,22 +206,22 @@ namespace pyr
         ~ResourceTracker();
     };
 
-    struct Semaphore : RefCounted
+    struct Fence : RefCounted
     {
-        Ref<Context>  context = {};
+        ContextRef  context = {};
 
         VkSemaphore semaphore = {};
         u64             value = 0;
 
     public:
-        ~Semaphore();
+        ~Fence();
 
         void Wait(u64 waitValue = 0ull);
     };
 
     struct Commands : RefCounted
     {
-        Ref<Context> context = {};
+        ContextRef context = {};
 
         Queue* queue = {};
 
@@ -227,7 +235,7 @@ namespace pyr
         VkCommandBuffer Allocate();
 
         void Clear();
-        void Submit(VkCommandBuffer cmd, Semaphore* wait, Semaphore* signal);
+        void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
     };
 
 // -----------------------------------------------------------------------------
@@ -243,54 +251,41 @@ namespace pyr
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
         };
 
-        // VkQueue queue;
-        // u32 queueFamily;
-        // VkCommandBuffer cmd;
-        // VkCommandPool pool;
-        // VkCommandBuffer transferCmd;
-        // VkCommandPool transferPool;
+        FenceRef fence;
 
-        Ref<Semaphore> semaphore;
-
-        Ref<Commands> commands;
+        CommandsRef commands;
         VkCommandBuffer cmd;
 
         Queue graphics;
 
-        VkFence fence;
-
-        Ref<Buffer> staging;
-        Ref<Commands> transferCommands;
+        BufferRef staging;
+        CommandsRef transferCommands;
         VkCommandBuffer transferCmd;
     public:
         ~Context();
 
-        Ref<Buffer> CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
-        // void DestroyBuffer(Buffer& buffer);
+        BufferRef CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
         void CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset = 0);
 
-        Ref<Image> CreateImage(uvec3 size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
-        // void DestroyImage(Image& image);
+        ImageRef CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
         void CopyToImage(Image& image, const void* data, size_t size);
         void GenerateMips(Image& image);
         void Transition(VkCommandBuffer cmd, Image& image, VkImageLayout newLayout);
         void TransitionMip(VkCommandBuffer cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
 
-        Ref<Shader> CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
+        ShaderRef CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
             const std::string& filename, const std::string& sourceCode = {},
             std::initializer_list<VkPushConstantRange> pushConstantRanges = {},
             std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts = {});
-        // void DestroyShader(Shader& shader);
 
-        Ref<Swapchain> CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
-        void Present(Swapchain& swapchain, Semaphore* wait);
-        bool GetNextImage(Swapchain& swapchain, Queue& queue, Semaphore* signal);
-        // void DestroySwapchain(Swapchain& swapchain);
+        SwapchainRef CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
+        void Present(Swapchain& swapchain, Fence* wait);
+        bool GetNextImage(Swapchain& swapchain, Queue& queue, Fence* signal);
 
-        Ref<Commands> CreateCommands();
+        CommandsRef CreateCommands();
 
-        Ref<Semaphore> MakeSemaphore(); // TODO: Rename this
+        FenceRef CreateFence(); // TODO: Rename this
     };
 
-    Ref<Context> CreateContext(b8 debug);
+    ContextRef CreateContext(bool debug);
 }

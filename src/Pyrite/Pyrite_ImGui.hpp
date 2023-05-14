@@ -1,6 +1,6 @@
 #pragma once
 
-#include <VulkanBackend/VulkanBackend.hpp>
+#include "Pyrite_Core.hpp"
 
 namespace pyr
 {
@@ -9,14 +9,14 @@ namespace pyr
         ImGuiContext* imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
-        Context* ctx = {};
+        nova::ContextRef ctx = {};
         VkRenderPass renderPass = {};
         std::vector<VkFramebuffer> framebuffers;
         VkDescriptorPool descriptorPool = {};
         VkSwapchainKHR lastSwapchain = {};
     public:
-        void Init(Context& ctx, Swapchain& swapchain, GLFWwindow* window, int imguiFlags);
+        void Init(nova::Context& ctx, nova::Swapchain& swapchain, GLFWwindow* window, int imguiFlags);
         void BeginFrame();
-        void EndFrame(Swapchain& swapchain);
+        void EndFrame(nova::Swapchain& swapchain);
     };
 }

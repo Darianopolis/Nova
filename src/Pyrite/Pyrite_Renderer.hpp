@@ -1,9 +1,11 @@
 #pragma once
 
-#include <VulkanBackend/VulkanBackend.hpp>
+#include "Pyrite_Core.hpp"
 
 namespace pyr
 {
+    using namespace nova::types;
+
     enum class MeshID         : u32 {};
     enum class MaterialTypeID : u32 {};
     enum class MaterialID     : u32 {};
@@ -12,36 +14,36 @@ namespace pyr
 
     struct RasterPushConstants
     {
-        mat4 viewProj;
+        Mat4 viewProj;
         u64 objectsVA;
     };
 
     struct Mesh
     {
-        Ref<Buffer> vertices;
-        Ref<Buffer> indices;
+        nova::BufferRef vertices;
+        nova::BufferRef indices;
         u32 indexCount;
         u64 vertexOffset;
         u32 vertexStride;
 
-        Ref<Buffer> accelBuffer;
+        nova::BufferRef accelBuffer;
         VkAccelerationStructureKHR accelStructure;
         u64 accelAddress;
     };
 
     struct MaterialType
     {
-        Ref<Shader> fragmentShader;
-        Ref<Shader> closestHitShader;
-        Ref<Shader> anyHitShader;
+        nova::ShaderRef fragmentShader;
+        nova::ShaderRef closestHitShader;
+        nova::ShaderRef anyHitShader;
         u32 sbtOffset;
-        b8 inlineData;
+        bool inlineData;
     };
 
     struct Material
     {
         MaterialTypeID materialTypeID;
-        Ref<Buffer> buffer;
+        nova::BufferRef buffer;
         u64 data;
     };
 
@@ -52,16 +54,16 @@ namespace pyr
 
     struct Object
     {
-        vec3 position;
-        quat rotation;
-        vec3 scale;
+        Vec3 position;
+        Quat rotation;
+        Vec3 scale;
         MeshID meshID;
         MaterialID materialID;
     };
 
     struct GpuObject
     {
-        mat4 matrix;
+        Mat4 matrix;
         u64 vertices;
         u64 material;
         u64 indices;
@@ -125,9 +127,9 @@ namespace pyr
 
     struct RayTracePC
     {
-        alignas(16) vec3 pos;
-        alignas(16) vec3 camX;
-        alignas(16) vec3 camY;
+        alignas(16) Vec3 pos;
+        alignas(16) Vec3 camX;
+        alignas(16) Vec3 camY;
         f32 camZOffset;
         u64 objectsVA;
         f32 rayConeGradient;
@@ -143,36 +145,36 @@ namespace pyr
         static constexpr u32 MaxMaterials = 65'536;
         static constexpr u32 MaterialSize = 64;
     public:
-        Context* ctx = {};
+        nova::Context* ctx = {};
 
-        Ref<Image> depthBuffer;
+        nova::ImageRef depthBuffer;
         // Image accumImage;
-        uvec3 lastExtent;
+        Vec3U lastExtent;
 
         VkPipelineLayout layout = {};
-        Ref<Shader> vertexShader;
+        nova::ShaderRef vertexShader;
 
-        Ref<Shader> compositeShader;
+        nova::ShaderRef compositeShader;
         VkPipelineLayout compositePipelineLayout = {};
         VkDescriptorSetLayout compositeDescriptorLayout = {};
 
-        Ref<Buffer> materialBuffer;
+        nova::BufferRef materialBuffer;
 
         VkDescriptorSetLayout textureDescriptorSetLayout = {};
         VkDescriptorSet textureDescriptorSet = {};
-        Ref<Buffer> textureDescriptorBuffer;
+        nova::BufferRef textureDescriptorBuffer;
 
-        Ref<Buffer> tlasScratchBuffer;
-        Ref<Buffer> tlasBuffer;
+        nova::BufferRef tlasScratchBuffer;
+        nova::BufferRef tlasBuffer;
         VkAccelerationStructureKHR tlas = {};
-        Ref<Buffer> instanceBuffer;
+        nova::BufferRef instanceBuffer;
 
-        Ref<Shader> rayGenShader;
-        Ref<Shader> rayMissShader;
+        nova::ShaderRef rayGenShader;
+        nova::ShaderRef rayMissShader;
         VkDescriptorSetLayout rtDescLayout = {};
         VkPipelineLayout rtPipelineLayout = {};
         VkPipeline rtPipeline = {};
-        Ref<Buffer> sbtBuffer;
+        nova::BufferRef sbtBuffer;
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
         VkStridedDeviceAddressRegionKHR rayHitRegion = {};
@@ -184,17 +186,17 @@ namespace pyr
         Registry<Material, MaterialID> materials;
         Registry<Texture, TextureID> textures;
 
-        Ref<Buffer> objectBuffer;
+        nova::BufferRef objectBuffer;
 
-        b8 rayTrace = false;
+        bool rayTrace = false;
 
-        vec3 viewPosition = vec3(0.f, 0.f, 0.f);
-        quat viewRotation = vec3(0.f);
+        Vec3 viewPosition = Vec3(0.f, 0.f, 0.f);
+        Quat viewRotation = Vec3(0.f);
         f32 viewFov = glm::radians(90.f);
 
         f32 rayConeGradient = 0.0005f;
     public:
-        void Init(Context& ctx);
+        void Init(nova::Context& ctx);
 
         MeshID CreateMesh(
             usz dataSize, const void* pData,
@@ -202,13 +204,13 @@ namespace pyr
             u32 indexCount, const u32* pIndices);
         void DeleteMesh(MeshID);
 
-        MaterialTypeID CreateMaterialType(const char* pShader, b8 inlineData);
+        MaterialTypeID CreateMaterialType(const char* pShader, bool inlineData);
         void DeleteMaterialType(MaterialTypeID);
 
         MaterialID CreateMaterial(MaterialTypeID matTypeID, const void* pData, usz size);
         void DeleteMaterial(MaterialID);
 
-        ObjectID CreateObject(MeshID meshID, MaterialID matID, vec3 position, quat rotation, vec3 scale);
+        ObjectID CreateObject(MeshID meshID, MaterialID matID, Vec3 position, Quat rotation, Vec3 scale);
         void DeleteObject(ObjectID);
 
         TextureID RegisterTexture(VkImageView view, VkSampler sampler);
@@ -216,7 +218,7 @@ namespace pyr
 
         void RebuildShaderBindingTable();
 
-        void SetCamera(vec3 position, quat rotation, f32 fov);
-        void Draw(Image& target);
+        void SetCamera(Vec3 position, Quat rotation, f32 fov);
+        void Draw(nova::Image& target);
     };
 }

@@ -1,8 +1,8 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
-namespace pyr
+namespace nova
 {
-    Ref<Context> CreateContext(b8 debug)
+    ContextRef CreateContext(bool debug)
     {
         Ref ctx = new Context;
 
@@ -32,7 +32,7 @@ namespace pyr
         volkLoadInstanceOnly(ctx->instance);
 
         std::vector<VkPhysicalDevice> gpus;
-        PYR_VKQUERY(gpus, vkEnumeratePhysicalDevices, ctx->instance);
+        NOVA_VKQUERY(gpus, vkEnumeratePhysicalDevices, ctx->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -162,11 +162,6 @@ namespace pyr
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &ctx->vma));
 
-        VkCall(vkCreateFence(ctx->device, Temp(VkFenceCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        }), nullptr, &ctx->fence));
-
         ctx->staging = ctx->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
 
         ctx->transferCommands = ctx->CreateCommands();
@@ -175,34 +170,13 @@ namespace pyr
         ctx->commands = ctx->CreateCommands();
         ctx->cmd = ctx->commands->Allocate();
 
-        ctx->semaphore = ctx->MakeSemaphore();
-
-        // auto createCommands = [&](VkCommandBuffer& cmd, VkCommandPool& pool) {
-        //     VkCall(vkCreateCommandPool(ctx->device, Temp(VkCommandPoolCreateInfo {
-        //         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        //         .queueFamilyIndex = ctx->queueFamily,
-        //     }), nullptr, &pool));
-
-        //     VkCall(vkAllocateCommandBuffers(ctx->device, Temp(VkCommandBufferAllocateInfo {
-        //         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        //         .commandPool = pool,
-        //         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        //         .commandBufferCount = 1
-        //     }), &cmd));
-
-        //     VkCall(vkBeginCommandBuffer(cmd, Temp(VkCommandBufferBeginInfo {
-        //         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        //     })));
-        // };
-
-        // createCommands(ctx->cmd, ctx->pool);
-        // createCommands(ctx->transferCmd, ctx->transferPool);
+        ctx->fence = ctx->CreateFence();
 
         return ctx;
     }
 
     Context::~Context()
     {
-        PYR_LOG("Destroying vulkan context");
+        NOVA_LOG("Destroying vulkan context");
     }
 }

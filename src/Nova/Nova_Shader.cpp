@@ -1,110 +1,110 @@
-#include "VulkanBackend.hpp"
+#include "Nova_RHI.hpp"
 
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/resource_limits_c.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 
-static std::string ReadFileString(const std::string& filename)
+namespace nova
 {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open())
-        PYR_THROW("Failed to open shader file: {}", filename);
-
-    std::string output;
-    output.reserve((size_t)file.tellg());
-    file.seekg(0);
-    output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-    return output;
-}
-
-class GlslangIncluder : public glslang::TShader::Includer
-{
-    struct ShaderIncludeUserData
+    static std::string ReadFileString(const std::string& filename)
     {
-        std::string name;
-        std::string content;
-    };
-public:
-    IncludeResult* include(
-        const char* requestedSource,
-        const char* requestingSource,
-        pyr::b8 isRelative)
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            NOVA_THROW("Failed to open shader file: {}", filename);
+
+        std::string output;
+        output.reserve((size_t)file.tellg());
+        file.seekg(0);
+        output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        return output;
+    }
+
+    class GlslangIncluder : public glslang::TShader::Includer
     {
-        std::filesystem::path requested = requestedSource;
-        std::filesystem::path current = requestingSource;
-
-        std::filesystem::path target;
-        pyr::b8 exists = false;
-
-        if (isRelative)
+        struct ShaderIncludeUserData
         {
-            target = current.parent_path() / requested;
-            exists = std::filesystem::exists(target);
-        }
-        else for (auto& dir : includeDirs)
+            std::string name;
+            std::string content;
+        };
+    public:
+        IncludeResult* include(
+            const char* requestedSource,
+            const char* requestingSource,
+            bool isRelative)
         {
-            target = dir / requested;
-            if (std::filesystem::exists(target))
+            std::filesystem::path requested = requestedSource;
+            std::filesystem::path current = requestingSource;
+
+            std::filesystem::path target;
+            bool exists = false;
+
+            if (isRelative)
             {
-                exists = true;
-                break;
+                target = current.parent_path() / requested;
+                exists = std::filesystem::exists(target);
             }
+            else for (auto& dir : includeDirs)
+            {
+                target = dir / requested;
+                if (std::filesystem::exists(target))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+
+            auto userData = new ShaderIncludeUserData{};
+
+            if (exists)
+            {
+                userData->name = target.string();
+                userData->content = ReadFileString(userData->name);
+            }
+            else
+            {
+                auto msg = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
+                userData->content = msg;
+                std::cout << msg << '\n';
+            }
+
+            return new IncludeResult(userData->name, userData->content.data(), userData->content.size(), userData);
         }
 
-        auto userData = new ShaderIncludeUserData{};
-
-        if (exists)
+        virtual IncludeResult* includeSystem(const char* headerName, const char* includerName, size_t /*inclusionDepth*/)
         {
-            userData->name = target.string();
-            userData->content = ReadFileString(userData->name);
+            return include(headerName, includerName, false);
         }
-        else
+
+        virtual IncludeResult* includeLocal(const char* headerName, const char* includerName, size_t /*inclusionDepth*/)
         {
-            auto msg = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
-            userData->content = msg;
-            std::cout << msg << '\n';
+            return include(headerName, includerName, true);
         }
 
-        return new IncludeResult(userData->name, userData->content.data(), userData->content.size(), userData);
-    }
+        virtual void releaseInclude(IncludeResult* data)
+        {
+            delete (ShaderIncludeUserData*)data->userData;
+            delete data;
+        }
 
-    virtual IncludeResult* includeSystem(const char* headerName, const char* includerName, size_t /*inclusionDepth*/)
-    {
-        return include(headerName, includerName, false);
-    }
+        void AddIncludeDir(std::filesystem::path path)
+        {
+            includeDirs.push_back(path);
+        }
 
-    virtual IncludeResult* includeLocal(const char* headerName, const char* includerName, size_t /*inclusionDepth*/)
-    {
-        return include(headerName, includerName, true);
-    }
+    private:
+        std::vector<std::filesystem::path> includeDirs;
+    };
 
-    virtual void releaseInclude(IncludeResult* data)
-    {
-        delete (ShaderIncludeUserData*)data->userData;
-        delete data;
-    }
-
-    void AddIncludeDir(std::filesystem::path path)
-    {
-        includeDirs.push_back(path);
-    }
-
-private:
-    std::vector<std::filesystem::path> includeDirs;
-};
-
-namespace pyr
-{
-    Ref<Shader> Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
+    ShaderRef Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
         const std::string& filename, const std::string& sourceCode,
         std::initializer_list<VkPushConstantRange> pushConstantRanges,
         std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts)
     {
-        PYR_DO_ONCE() { glslang::InitializeProcess(); };
-        PYR_ON_EXIT() { glslang::FinalizeProcess(); };
+        NOVA_DO_ONCE() { glslang::InitializeProcess(); };
+        NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
         EShLanguage stage;
-        b8 supportsShaderObjects = true;
+        bool supportsShaderObjects = true;
         switch (vkStage)
         {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  stage = EShLangVertex;
@@ -127,7 +127,7 @@ namespace pyr
                                                                 supportsShaderObjects = false;
         break;case VK_SHADER_STAGE_TASK_BIT_EXT:                stage = EShLangTask;
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                stage = EShLangMesh;
-        break;default: PYR_THROW("Unknown stage: {}", int(vkStage));
+        break;default: NOVA_THROW("Unknown stage: {}", int(vkStage));
         }
 
         glslang::TShader shader { stage };
@@ -163,7 +163,7 @@ namespace pyr
             &preprocessed,
             includer))
         {
-            PYR_THROW("GLSL preprocessing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
+            NOVA_THROW("GLSL preprocessing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
         }
 
         const char* preprocessedCStr = preprocessed.c_str();
@@ -178,9 +178,9 @@ namespace pyr
             u32 lineNum = 0;
             while (std::getline(iss, line))
             {
-                PYR_LOG("{:3} : {}", lineNum++, line);
+                NOVA_LOG("{:3} : {}", lineNum++, line);
             }
-            PYR_THROW("GLSL parsing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
+            NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
         }
 
         // ---- Linking ----
@@ -189,7 +189,7 @@ namespace pyr
         program.addShader(&shader);
 
         if (!program.link(EShMessages(int(EShMessages::EShMsgSpvRules) | int(EShMessages::EShMsgVulkanRules))))
-            PYR_THROW("GLSL linking failed {}\n{}\n{}", filename, program.getInfoLog(), program.getInfoDebugLog());
+            NOVA_THROW("GLSL linking failed {}\n{}\n{}", filename, program.getInfoLog(), program.getInfoDebugLog());
 
         // ---- SPIR-V Generation ----
 
@@ -214,7 +214,7 @@ namespace pyr
         glslang::GlslangToSpv(*intermediate, spirv, &spvOptions);
 
         if (!logger.getAllMessages().empty())
-            PYR_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
+            NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
 
         VkCall(vkCreateShaderModule(device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -245,7 +245,7 @@ namespace pyr
 
     Shader::~Shader()
     {
-        // PYR_LOG("Destroying shader");
+        // NOVA_LOG("Destroying shader");
 
         if (shader)
             vkDestroyShaderEXT(context->device, shader, nullptr);

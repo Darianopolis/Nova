@@ -1,13 +1,15 @@
-#include "Renderer.hpp"
+#include "Pyrite_Renderer.hpp"
+
+#include <Nova/Nova_Math.hpp>
 
 namespace pyr
 {
-    static mat4 ProjInfReversedZRH(f32 fovY, f32 aspectWbyH, f32 zNear)
+    static Mat4 ProjInfReversedZRH(f32 fovY, f32 aspectWbyH, f32 zNear)
     {
         // https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 
         f32 f = 1.f / glm::tan(fovY / 2.f);
-        mat4 proj{};
+        Mat4 proj{};
         proj[0][0] = f / aspectWbyH;
         proj[1][1] = f;
         proj[3][2] = zNear; // Right, middle-bottom
@@ -15,22 +17,22 @@ namespace pyr
         return proj;
     }
 
-    void Renderer::Init(Context& _ctx)
+    void Renderer::Init(nova::Context& _ctx)
     {
         ctx = &_ctx;
 
 // -----------------------------------------------------------------------------
 
-        VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+        nova::VkCall(vkCreateDescriptorSetLayout(ctx->device, nova::Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
+            .pNext = nova::Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
                 .bindingCount = 1,
-                .pBindingFlags = Temp<VkDescriptorBindingFlags>(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT),
+                .pBindingFlags = nova::Temp<VkDescriptorBindingFlags>(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT),
             }),
             .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
             .bindingCount = 1,
-            .pBindings = Temp(VkDescriptorSetLayoutBinding {
+            .pBindings = nova::Temp(VkDescriptorSetLayoutBinding {
                 .binding = 0,
                 .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .descriptorCount = 65'536,
@@ -41,7 +43,7 @@ namespace pyr
         VkDeviceSize descriptorSize;
         vkGetDescriptorSetLayoutSizeEXT(ctx->device, textureDescriptorSetLayout, &descriptorSize);
         textureDescriptorBuffer = ctx->CreateBuffer(descriptorSize,
-            VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
 
 // -----------------------------------------------------------------------------
 //                       Rasterization vertex shader
@@ -96,12 +98,12 @@ void main()
                 textureDescriptorSetLayout
             });
 
-        VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+        nova::VkCall(vkCreatePipelineLayout(ctx->device, nova::Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
             .pSetLayouts = &textureDescriptorSetLayout,
             .pushConstantRangeCount = 1,
-            .pPushConstantRanges = Temp(VkPushConstantRange {
+            .pPushConstantRanges = nova::Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                 .size = sizeof(RasterPushConstants),
             }),
@@ -111,7 +113,7 @@ void main()
 //                           Compositing shaders
 // -----------------------------------------------------------------------------
 
-        VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+        nova::VkCall(vkCreateDescriptorSetLayout(ctx->device, nova::Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
             .bindingCount = 2,
@@ -155,7 +157,7 @@ void main()
                 compositeDescriptorLayout,
             });
 
-        VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+        nova::VkCall(vkCreatePipelineLayout(ctx->device, nova::Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
             .pSetLayouts = &compositeDescriptorLayout,
@@ -164,7 +166,7 @@ void main()
 // -----------------------------------------------------------------------------
 
         materialBuffer = ctx->CreateBuffer(MaxMaterials * MaterialSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
 
 // -----------------------------------------------------------------------------
 //                   Prepare Top-Level acceleration structure
@@ -202,27 +204,27 @@ void main()
 
         sizes.buildScratchSize += AccelScratchAlignment;
 
-        PYR_LOG("TLAS Statistics - scratch = {}, storage = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
+        NOVA_LOG("TLAS Statistics - scratch = {}, storage = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
 
         tlasBuffer = ctx->CreateBuffer(sizes.accelerationStructureSize,
-            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, BufferFlags::DeviceLocal);
+            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, nova::BufferFlags::DeviceLocal);
 
         tlasScratchBuffer = ctx->CreateBuffer(sizes.buildScratchSize,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, nova::BufferFlags::DeviceLocal);
 
-        VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
+        nova::VkCall(vkCreateAccelerationStructureKHR(ctx->device, nova::Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = tlasBuffer->buffer,
             .size = tlasBuffer->size,
             .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         }), nullptr, &tlas));
 
-        PYR_LOG("Created TLAS: {}", (void*)tlas);
+        NOVA_LOG("Created TLAS: {}", (void*)tlas);
 
         instanceBuffer = ctx->CreateBuffer(MaxInstances * sizeof(VkAccelerationStructureInstanceKHR),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     }
 
 // -----------------------------------------------------------------------------
@@ -230,7 +232,7 @@ void main()
 // -----------------------------------------------------------------------------
 
         {
-            VkCall(vkCreateDescriptorSetLayout(ctx->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            nova::VkCall(vkCreateDescriptorSetLayout(ctx->device, nova::Temp(VkDescriptorSetLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                 .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                     | VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
@@ -363,7 +365,7 @@ void main()
                     textureDescriptorSetLayout,
                 });
 
-            VkCall(vkCreatePipelineLayout(ctx->device, Temp(VkPipelineLayoutCreateInfo {
+            nova::VkCall(vkCreatePipelineLayout(ctx->device, nova::Temp(VkPipelineLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                 .setLayoutCount = 2,
                 .pSetLayouts = std::array {
@@ -371,7 +373,7 @@ void main()
                     textureDescriptorSetLayout,
                 }.data(),
                 .pushConstantRangeCount = 1,
-                .pPushConstantRanges = Temp(VkPushConstantRange {
+                .pPushConstantRanges = nova::Temp(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR
                         | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
                         | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
@@ -380,7 +382,9 @@ void main()
             }), nullptr, &rtPipelineLayout));
         }
 
-        objectBuffer = ctx->CreateBuffer(MaxInstances * sizeof(GpuObject), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+        objectBuffer = ctx->CreateBuffer(MaxInstances * sizeof(GpuObject),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     }
 
     void Renderer::RebuildShaderBindingTable()
@@ -390,15 +394,15 @@ void main()
 
         struct HitShaderGroup
         {
-            Shader* closestHitShader;
-            Shader* anyHitShader;
-            Shader* intersectionShader;
+            nova::Shader* closestHitShader;
+            nova::Shader* anyHitShader;
+            nova::Shader* intersectionShader;
         };
 
-        std::vector<Shader*> rayGenShaders;
-        std::vector<Shader*> rayMissShaders;
+        std::vector<nova::Shader*> rayGenShaders;
+        std::vector<nova::Shader*> rayMissShaders;
         std::vector<HitShaderGroup> rayHitShaderGroups;
-        std::vector<Shader*> callableShaders;
+        std::vector<nova::Shader*> callableShaders;
 
         // Add shaders
 
@@ -419,7 +423,7 @@ void main()
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        auto getShaderIndex = [&](Shader* shader) {
+        auto getShaderIndex = [&](nova::Shader* shader) {
             if (!shader)
                 return VK_SHADER_UNUSED_KHR;
 
@@ -472,21 +476,21 @@ void main()
 
         // Debug
 
-        PYR_LOG("---- stages ----");
+        NOVA_LOG("---- stages ----");
         for (auto& stage : stages)
-            PYR_LOG(" - stage.module = {} -> {}", (void*)stage.module, stageIndices.at(stage.module));
-        PYR_LOG("---- groups ----");
+            NOVA_LOG(" - stage.module = {} -> {}", (void*)stage.module, stageIndices.at(stage.module));
+        NOVA_LOG("---- groups ----");
         for (auto& group : groups)
-            PYR_LOG(" - group.type = {}, general = {}, closest hit = {}, any hit = {}",
+            NOVA_LOG(" - group.type = {}, general = {}, closest hit = {}, any hit = {}",
                 (i32)group.type, group.generalShader, group.closestHitShader, group.anyHitShader);
-        PYR_LOG("---- hit group indices ----");
+        NOVA_LOG("---- hit group indices ----");
         for (auto& index : rayHitIndices)
-            PYR_LOG(" - index = {}", index);
-        PYR_LOG("----");
+            NOVA_LOG(" - index = {}", index);
+        NOVA_LOG("----");
 
         // Create pipeline
 
-        VkCall(vkCreateRayTracingPipelinesKHR(ctx->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
+        nova::VkCall(vkCreateRayTracingPipelinesKHR(ctx->device, 0, nullptr, 1, nova::Temp(VkRayTracingPipelineCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
             .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
             .stageCount = u32(stages.size()),
@@ -500,28 +504,28 @@ void main()
         // Compute table parameters
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayProperties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
-        vkGetPhysicalDeviceProperties2(ctx->gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(ctx->gpu, nova::Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &rayProperties,
         }));
 
         u32 handleSize = rayProperties.shaderGroupHandleSize;
-        u32 handleStride = u32(AlignUpPower2(handleSize, rayProperties.shaderGroupHandleAlignment));
+        u32 handleStride = u32(nova::AlignUpPower2(handleSize, rayProperties.shaderGroupHandleAlignment));
         u64 groupAlign = rayProperties.shaderGroupBaseAlignment;
-        u64 rayMissOffset = AlignUpPower2(rayGenIndices.size() * handleStride, groupAlign);
-        u64 rayHitOffset = rayMissOffset + AlignUpPower2(rayMissIndices.size() * handleStride, groupAlign);
-        u64 rayCallOffset = rayHitOffset + AlignUpPower2(rayHitIndices.size() * handleStride, groupAlign);
+        u64 rayMissOffset = nova::AlignUpPower2(rayGenIndices.size() * handleStride, groupAlign);
+        u64 rayHitOffset = rayMissOffset + nova::AlignUpPower2(rayMissIndices.size() * handleStride, groupAlign);
+        u64 rayCallOffset = rayHitOffset + nova::AlignUpPower2(rayHitIndices.size() * handleStride, groupAlign);
         u64 tableSize = rayCallOffset + rayCallIndices.size() * handleStride;
 
         // Allocate table and get groups from pipeline
 
         sbtBuffer = ctx->CreateBuffer(std::max(256ull, tableSize),
             VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
         auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->mapped + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
-        VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, u32(groups.size()), u32(handles.size()), handles.data()));
+        nova::VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, u32(groups.size()), u32(handles.size()), handles.data()));
         auto getHandle = [&](u32 i) { return handles.data() + i * handleSize; };
 
         // Gen
@@ -556,14 +560,14 @@ void main()
             std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
-    void Renderer::SetCamera(vec3 position, quat rotation, f32 fov)
+    void Renderer::SetCamera(Vec3 position, Quat rotation, f32 fov)
     {
         viewPosition = position;
         viewRotation = rotation;
         viewFov = fov;
     }
 
-    void Renderer::Draw(Image& target)
+    void Renderer::Draw(nova::Image& target)
     {
         auto cmd = ctx->cmd;
 
@@ -592,7 +596,7 @@ void main()
             // ctx->Transition(cmd, accumImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            vkCmdBeginRendering(cmd, Temp(VkRenderingInfo {
+            vkCmdBeginRendering(cmd, nova::Temp(VkRenderingInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
                 .renderArea = { {}, { target.extent.x, target.extent.y } },
                 .layerCount = 1,
@@ -609,7 +613,7 @@ void main()
                         .clearValue = {{{ 0.1f, 0.1f, 0.1f, 1.f }}},
                     },
                 }.data(),
-                .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
+                .pDepthAttachment = nova::Temp(VkRenderingAttachmentInfo {
                     .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                     .imageView = depthBuffer->view,
                     .imageLayout = depthBuffer->layout,
@@ -619,8 +623,8 @@ void main()
                 })
             }));
 
-            vkCmdSetScissorWithCount(cmd, 1, Temp(VkRect2D { {}, { target.extent.x, target.extent.y } }));
-            vkCmdSetViewportWithCount(cmd, 1, Temp(VkViewport {
+            vkCmdSetScissorWithCount(cmd, 1, nova::Temp(VkRect2D { {}, { target.extent.x, target.extent.y } }));
+            vkCmdSetViewportWithCount(cmd, 1, nova::Temp(VkViewport {
                 0.f, f32(target.extent.y),
                 f32(target.extent.x), -f32(target.extent.y),
                 0.f, 1.f
@@ -628,10 +632,10 @@ void main()
 
             // Set blend, depth, cull dynamic state
 
-            b8 blend = false;
-            b8 depth = true;
-            b8 cull = false;
-            b8 wireframe = false;
+            bool blend = false;
+            bool depth = true;
+            bool cull = false;
+            bool wireframe = false;
 
             if (depth)
             {
@@ -646,14 +650,14 @@ void main()
                 vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
             }
 
-            vkCmdSetColorWriteMaskEXT(cmd, 0, 1, Temp<VkColorComponentFlags>(
+            vkCmdSetColorWriteMaskEXT(cmd, 0, 1, nova::Temp<VkColorComponentFlags>(
                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
             ));
             if (blend)
             {
-                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(true));
-                vkCmdSetColorBlendEquationEXT(cmd, 0, 1, Temp(VkColorBlendEquationEXT {
+                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, nova::Temp<VkBool32>(true));
+                vkCmdSetColorBlendEquationEXT(cmd, 0, 1, nova::Temp(VkColorBlendEquationEXT {
                     .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
                     .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
                     .colorBlendOp = VK_BLEND_OP_ADD,
@@ -664,7 +668,7 @@ void main()
             }
             else
             {
-                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, Temp<VkBool32>(false));
+                vkCmdSetColorBlendEnableEXT(cmd, 0, 1, nova::Temp<VkBool32>(false));
             }
 
             if (wireframe)
@@ -676,18 +680,18 @@ void main()
             // Bind shaders and draw
 
             auto proj = ProjInfReversedZRH(viewFov, f32(target.extent.x) / f32(target.extent.y), 0.01f);
-            auto translate = glm::translate(mat4(1.f), viewPosition);
+            auto translate = glm::translate(Mat4(1.f), viewPosition);
             auto rotate = glm::mat4_cast(viewRotation);
             auto viewProj = proj * glm::affineInverse(translate * rotate);
 
             vkCmdSetPrimitiveTopology(cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-            vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, nova::Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
                 .address = textureDescriptorBuffer->address,
                 .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, nova::Temp(0u), nova::Temp(0ull));
 
             auto lastMaterialTypeID = MaterialTypeID(~0u);
 
@@ -708,7 +712,7 @@ void main()
                 vkCmdBindIndexBuffer(cmd, mesh.indices->buffer, 0, VK_INDEX_TYPE_UINT32);
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                    0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
+                    0, sizeof(RasterPushConstants), nova::Temp(RasterPushConstants {
                         .viewProj = viewProj,
                         .objectsVA = objectBuffer->address,
                     }));
@@ -802,16 +806,16 @@ void main()
                 .dstAccelerationStructure = tlas,
                 .geometryCount = 1,
                 .pGeometries = &geom,
-                .scratchData = {{ AlignUpPower2(tlasScratchBuffer->address, AccelScratchAlignment) }},
+                .scratchData = {{ nova::AlignUpPower2(tlasScratchBuffer->address, AccelScratchAlignment) }},
             };
 
-            vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, Temp(&buildRange));
+            vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, nova::Temp(&buildRange));
 
             ctx->Transition(cmd, target, VK_IMAGE_LAYOUT_GENERAL);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline);
 
-            vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, nova::Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
                 .address = textureDescriptorBuffer->address,
                 .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
@@ -826,14 +830,14 @@ void main()
                         .dstBinding = 0,
                         .descriptorCount = 1,
                         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                        .pImageInfo = Temp(VkDescriptorImageInfo {
+                        .pImageInfo = nova::Temp(VkDescriptorImageInfo {
                             .imageView = target.view,
                             .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                         })
                     },
                     VkWriteDescriptorSet {
                         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                        .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
+                        .pNext = nova::Temp(VkWriteDescriptorSetAccelerationStructureKHR {
                             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
                             .accelerationStructureCount = 1,
                             .pAccelerationStructures = &tlas,
@@ -844,7 +848,7 @@ void main()
                     },
                 }.data());
 
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipelineLayout, 1, 1, Temp(0u), Temp(0ull));
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipelineLayout, 1, 1, nova::Temp(0u), nova::Temp(0ull));
 
             auto camX = viewRotation * glm::vec3(1, 0, 0);
             auto camY = viewRotation * glm::vec3(0, 1, 0);
@@ -855,7 +859,7 @@ void main()
                 VK_SHADER_STAGE_RAYGEN_BIT_KHR
                     | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR
                     | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-                0, sizeof(RayTracePC), Temp(RayTracePC {
+                0, sizeof(RayTracePC), nova::Temp(RayTracePC {
                     .pos = viewPosition,
                     .camX = camX,
                     .camY = camY,
@@ -881,7 +885,7 @@ void main()
 
         mesh.vertices = ctx->CreateBuffer(dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, nova::BufferFlags::DeviceLocal);
         ctx->CopyToBuffer(*mesh.vertices, pData, dataSize);
 
         mesh.vertexOffset = vertexOffset;
@@ -891,7 +895,7 @@ void main()
         mesh.indices = ctx->CreateBuffer(indexSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, nova::BufferFlags::DeviceLocal);
         ctx->CopyToBuffer(*mesh.indices, pIndices, indexSize);
 
         mesh.indexCount = indexCount;
@@ -944,39 +948,39 @@ void main()
             constexpr VkDeviceSize accelScratchAlignment = 128;
             sizes.buildScratchSize += accelScratchAlignment;
 
-            PYR_LOG("Building BLAS for mesh, triangles = {}", buildRange.primitiveCount);
-            PYR_LOG("  scratch size = {}, storage size = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
+            NOVA_LOG("Building BLAS for mesh, triangles = {}", buildRange.primitiveCount);
+            NOVA_LOG("  scratch size = {}, storage size = {}", sizes.buildScratchSize, sizes.accelerationStructureSize);
 
             auto scratchBuffer = ctx->CreateBuffer(sizes.buildScratchSize,
-                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, BufferFlags::DeviceLocal);
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, nova::BufferFlags::DeviceLocal);
             mesh.accelBuffer = ctx->CreateBuffer(sizes.accelerationStructureSize,
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, BufferFlags::DeviceLocal);
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR, nova::BufferFlags::DeviceLocal);
 
             // Build
 
-            VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
+            nova::VkCall(vkCreateAccelerationStructureKHR(ctx->device, nova::Temp(VkAccelerationStructureCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
                 .buffer = mesh.accelBuffer->buffer,
                 .size = mesh.accelBuffer->size,
                 .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
             }), nullptr, &mesh.accelStructure));
 
-            mesh.accelAddress = vkGetAccelerationStructureDeviceAddressKHR(ctx->device, Temp(VkAccelerationStructureDeviceAddressInfoKHR {
+            mesh.accelAddress = vkGetAccelerationStructureDeviceAddressKHR(ctx->device, nova::Temp(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
                 .accelerationStructure = mesh.accelStructure,
             }));
 
             buildInfo.dstAccelerationStructure = mesh.accelStructure;
-            buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer->address, accelScratchAlignment);
+            buildInfo.scratchData.deviceAddress = nova::AlignUpPower2(scratchBuffer->address, accelScratchAlignment);
 
-            vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, Temp(&buildRange));
+            vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, nova::Temp(&buildRange));
 
-            ctx->transferCommands->Submit(ctx->transferCmd, nullptr, ctx->semaphore.Raw());
-            ctx->semaphore->Wait();
+            ctx->transferCommands->Submit(ctx->transferCmd, nullptr, ctx->fence.Raw());
+            ctx->fence->Wait();
             ctx->transferCommands->Clear();
             ctx->transferCmd = ctx->transferCommands->Allocate();
 
-            PYR_LOG("Built BLAS!");
+            NOVA_LOG("Built BLAS!");
         }
 
         return id;
@@ -991,7 +995,7 @@ void main()
         meshes.Return(id);
     }
 
-    MaterialTypeID Renderer::CreateMaterialType(const char* pShader, b8 inlineData)
+    MaterialTypeID Renderer::CreateMaterialType(const char* pShader, bool inlineData)
     {
         auto[id, materialType] = materialTypes.Acquire();
         materialType.fragmentShader = ctx->CreateShader(
@@ -1225,7 +1229,6 @@ void main()
 
     void Renderer::DeleteMaterialType(MaterialTypeID id)
     {
-        auto& material = materialTypes.Get(id);
         materialTypes.Return(id);
     }
 
@@ -1239,7 +1242,7 @@ void main()
             if (materialTypes.Get(matTypeID).inlineData)
             {
                 if (size > 8)
-                    PYR_THROW("Inline material data must not exceed 8 bytes");
+                    NOVA_THROW("Inline material data must not exceed 8 bytes");
 
                 std::memcpy(&material.data, pData, size);
             }
@@ -1259,7 +1262,7 @@ void main()
 
                 material.buffer = ctx->CreateBuffer(size,
                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                    BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+                    nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
                 ctx->CopyToBuffer(*material.buffer, pData, size);
                 material.data = material.buffer->address;
             }
@@ -1273,7 +1276,7 @@ void main()
         materials.Return(id);
     }
 
-    ObjectID Renderer::CreateObject(MeshID meshID, MaterialID materialID, vec3 position, quat rotation, vec3 scale)
+    ObjectID Renderer::CreateObject(MeshID meshID, MaterialID materialID, Vec3 position, Quat rotation, Vec3 scale)
     {
         auto[id, object] = objects.Acquire();
         object.meshID = meshID;
@@ -1313,11 +1316,11 @@ void main()
         texture.index = u32(id);
 
         vkGetDescriptorEXT(ctx->device,
-            Temp(VkDescriptorGetInfoEXT {
+            nova::Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .data = {
-                    .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
+                    .pCombinedImageSampler = nova::Temp(VkDescriptorImageInfo {
                         .sampler = sampler,
                         .imageView = view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // TODO: configurable?

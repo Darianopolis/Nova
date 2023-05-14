@@ -1,52 +1,53 @@
-#include "Mesh.hpp"
-
-static byte* GltfGetBase(cgltf_accessor* accessor)
-{
-    byte* data = (byte*)accessor->buffer_view->data;
-    if (!data)
-        data = (byte*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
-
-    return data + accessor->offset;
-}
+#include "Pyrite_Mesh.hpp"
 
 namespace pyr
 {
-    GltfMesh LoadMesh(Context& ctx, const char* file, const char* baseDir)
+    static
+    b8* GltfGetBase(cgltf_accessor* accessor)
+    {
+        b8* data = (b8*)accessor->buffer_view->data;
+        if (!data)
+            data = (b8*)accessor->buffer_view->buffer->data + accessor->buffer_view->offset;
+
+        return data + accessor->offset;
+    }
+
+    GltfMesh LoadMesh(nova::Context& ctx, const char* file, const char* baseDir)
     {
         GltfMesh loadedMesh;
 
-        PYR_LOG("Loading mesh: {}", file);
+        NOVA_LOG("Loading mesh: {}", file);
 
-        PYR_TIMEIT_RESET();
+        NOVA_TIMEIT_RESET();
 
         cgltf_options options = {};
         cgltf_data* data = nullptr;
         if (auto res = cgltf_parse_file(&options, file, &data); res != cgltf_result_success)
-            PYR_THROW("Failed to load glTF file: {}", int(res));
-        PYR_ON_SCOPE_EXIT(&) { cgltf_free(data); };
-        PYR_TIMEIT("glTF: Loaded file");
+            NOVA_THROW("Failed to load glTF file: {}", int(res));
+        NOVA_ON_SCOPE_EXIT(&) { cgltf_free(data); };
+        NOVA_TIMEIT("glTF: Loaded file");
 
         if (auto res = cgltf_load_buffers(&options, data, file); res != cgltf_result_success)
-            PYR_THROW("Failed to load buffers for glTF: {}", int(res));
-        PYR_TIMEIT("glTF: Loaded buffers");
+            NOVA_THROW("Failed to load buffers for glTF: {}", int(res));
+        NOVA_TIMEIT("glTF: Loaded buffers");
 
         if (auto res = cgltf_validate(data); res != cgltf_result_success)
-            PYR_THROW("Failed to validate glTF data: {}", int(res));
-        PYR_TIMEIT("glTF: Validated");
+            NOVA_THROW("Failed to validate glTF data: {}", int(res));
+        NOVA_TIMEIT("glTF: Validated");
 
 // -----------------------------------------------------------------------------
 
         loadedMesh.images.resize(data->textures_count);
 
-        auto intermediate = ctx.CreateImage(uvec3(4096, 4096, 0), 0, VK_FORMAT_R8G8B8A8_UNORM);
+        auto intermediate = ctx.CreateImage(Vec3U(4096, 4096, 0), 0, VK_FORMAT_R8G8B8A8_UNORM);
 
         std::cout << "Textures loaded: 0 / " << data->textures_count;
-        uint32_t texturesLoaded = 0;
+        u32 texturesLoaded = 0;
 
 #pragma omp parallel for
-        for (uint32_t textureId = 0; textureId < data->textures_count; ++textureId)
+        for (u32 textureId = 0; textureId < data->textures_count; ++textureId)
         {
-            // PYR_LOG("Textures[{}] = {}", textureId, data->textures[textureId].image->uri);
+            // NOVA_LOG("Textures[{}] = {}", textureId, data->textures[textureId].image->uri);
 
             auto& texture = data->textures[textureId];
 
@@ -79,7 +80,7 @@ namespace pyr
                 //     DestroyOptionsBC7(BC7Options);
                 // }
 
-                Ref<Image> loadedImage;
+                nova::ImageRef loadedImage;
 #pragma omp critical
                 {
                     // if (width == 4096 && height == 4096)
@@ -99,7 +100,7 @@ namespace pyr
                     // }
                     // else
                     {
-                        loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
+                        loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, nova::ImageFlags::Mips);
                         ctx.CopyToImage(*loadedImage, imageData, width * height * 4);
                         ctx.GenerateMips(*loadedImage);
 
@@ -108,8 +109,8 @@ namespace pyr
                     }
 
                     ctx.Transition(ctx.transferCmd, *loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                    ctx.transferCommands->Submit(ctx.transferCmd, nullptr, ctx.semaphore.Raw());
-                    ctx.semaphore->Wait();
+                    ctx.transferCommands->Submit(ctx.transferCmd, nullptr, ctx.fence.Raw());
+                    ctx.fence->Wait();
                     ctx.transferCommands->Clear();
                     ctx.transferCmd = ctx.transferCommands->Allocate();
 
@@ -123,7 +124,7 @@ namespace pyr
 
         std::cout << "\r\x1b[KTextures loaded: " << data->textures_count << '\n';
 
-        PYR_TIMEIT("glTF: Loaded textures");
+        NOVA_TIMEIT("glTF: Loaded textures");
 
 // -----------------------------------------------------------------------------
 
@@ -134,7 +135,7 @@ namespace pyr
             if (!mesh) // Non mesh nodes
                 continue;
 
-            mat4 tform(1.f);
+            Mat4 tform(1.f);
             if (node.has_matrix)
             {
                 std::memcpy(&tform, node.matrix, 16 * sizeof(float));
@@ -142,21 +143,21 @@ namespace pyr
             else
             {
                 if (node.has_translation)
-                    tform *= glm::translate(mat4(1.f), { node.translation[0], node.translation[1], node.translation[2] });
+                    tform *= glm::translate(Mat4(1.f), { node.translation[0], node.translation[1], node.translation[2] });
                 if (node.has_rotation)
-                    tform *= mat4_cast(quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]));
+                    tform *= glm::mat4_cast(glm::quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]));
                 if (node.has_scale)
-                    tform *= glm::scale(mat4(1.f), { node.scale[0], node.scale[1], node.scale[2] });
+                    tform *= glm::scale(Mat4(1.f), { node.scale[0], node.scale[1], node.scale[2] });
             }
 
             for (u32 primitiveId = 0; primitiveId < mesh->primitives_count; ++primitiveId)
             {
-                // PYR_LOG("Loading primitive, node = {}, prim = {}", nodeIdx, primitiveId);
+                // NOVA_LOG("Loading primitive, node = {}, prim = {}", nodeIdx, primitiveId);
 
                 auto& primitive = mesh->primitives[primitiveId];
 
                 u32 textureId = 0;
-                mat3 texTransform(1.f);
+                Mat3 texTransform(1.f);
                 u32 targetTexcoordSet = UINT32_MAX;
 
                 if (primitive.material)
@@ -169,7 +170,7 @@ namespace pyr
 
                         if (tview.has_transform)
                         {
-                            PYR_LOG("  Found transform, offset = ({}, {}), scale = ({}, {})",
+                            NOVA_LOG("  Found transform, offset = ({}, {}), scale = ({}, {})",
                                 tview.transform.offset[0], tview.transform.offset[1],
                                 tview.transform.scale[0], tview.transform.scale[1]);
                         }
@@ -195,7 +196,7 @@ namespace pyr
                         {
                             float* values = (float*)base + i * 3;
                             loadedMesh.vertices[vertexBaseOffset + i].position
-                                = vec3(tform * vec4(values[0], values[1], values[2], 1.f));
+                                = Vec3(tform * Vec4(values[0], values[1], values[2], 1.f));
                         }
                     break;case cgltf_attribute_type_texcoord:
                         if (targetTexcoordSet == currentTexcoordSet++)
@@ -229,13 +230,13 @@ namespace pyr
             }
         }
 
-        PYR_TIMEIT("glTF: Processed vertex attributes");
+        NOVA_TIMEIT("glTF: Processed vertex attributes");
 
         {
             std::vector<f32> summedAreas;
             summedAreas.resize(loadedMesh.vertices.size());
 
-            auto updateNormalTangent = [&](u32 i, vec3 normal, [[maybe_unused]] vec3 tangent, f32 area) {
+            auto updateNormalTangent = [&](u32 i, Vec3 normal, [[maybe_unused]] Vec3 tangent, f32 area) {
                 f32 lastArea = summedAreas[i];
                 summedAreas[i] += area;
 
@@ -247,7 +248,7 @@ namespace pyr
                 // v.tangent = (lastWeight * v.tangent) + (newWeight * tangent);
             };
 
-            std::vector<b8> keepPrim(loadedMesh.indices.size() / 3);
+            std::vector<bool> keepPrim(loadedMesh.indices.size() / 3);
 
             for (u32 i = 0; i < loadedMesh.indices.size(); i += 3)
             {
@@ -266,7 +267,7 @@ namespace pyr
                 auto u13 = v3.texCoord - v1.texCoord;
 
                 f32 f = 1.f / (u12.x * u13.y - u13.x * u12.y);
-                vec3 tangent = f * vec3 {
+                Vec3 tangent = f * Vec3 {
                     u13.y * v12.x - u12.y * v13.x,
                     u13.y * v12.y - u12.y * v13.y,
                     u13.y * v12.z - u12.y * v13.z,
@@ -290,7 +291,7 @@ namespace pyr
             std::vector<u32> vertexRemap(loadedMesh.vertices.size());
             auto culledVertices = std::erase_if(loadedMesh.vertices, [&](auto& v) {
                 usz i = (&v - loadedMesh.vertices.data());
-                b8 keep = summedAreas[i] > 0;
+                bool keep = summedAreas[i] > 0;
                 if (keep)
                     vertexRemap[i] = newVertexIndex++;
                 return !keep;
@@ -301,10 +302,10 @@ namespace pyr
                 return !keepPrim[(&i - loadedMesh.indices.data()) / 3];
             });
 
-            PYR_LOG("glTF: Cleaned up mesh, removed {} indices and {} vertices", culledIndices, culledVertices);
+            NOVA_LOG("glTF: Cleaned up mesh, removed {} indices and {} vertices", culledIndices, culledVertices);
         }
 
-        PYR_LOG("glTF: Mesh loaded, vertices = {} triangles = {}", loadedMesh.vertices.size(), loadedMesh.indices.size() / 3);
+        NOVA_LOG("glTF: Mesh loaded, vertices = {} triangles = {}", loadedMesh.vertices.size(), loadedMesh.indices.size() / 3);
 
         return std::move(loadedMesh);
     }

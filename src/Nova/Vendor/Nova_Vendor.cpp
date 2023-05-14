@@ -12,13 +12,3 @@
 #include <vk_mem_alloc.h>
 
 #pragma warning(pop)
-
-// -----------------------------------------------------------------------------
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
-// -----------------------------------------------------------------------------
-
-#define CGLTF_IMPLEMENTATION
-#include <cgltf.h>
