@@ -2,9 +2,9 @@
 
 namespace pyr
 {
-    Context CreateContext(b8 debug)
+    Ref<Context> CreateContext(b8 debug)
     {
-        Context ctx;
+        Ref ctx = new Context;
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -27,27 +27,27 @@ namespace pyr
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), nullptr, &ctx.instance));
+        }), nullptr, &ctx->instance));
 
-        volkLoadInstanceOnly(ctx.instance);
+        volkLoadInstanceOnly(ctx->instance);
 
         std::vector<VkPhysicalDevice> gpus;
-        PYR_VKQUERY(gpus, vkEnumeratePhysicalDevices, ctx.instance);
+        PYR_VKQUERY(gpus, vkEnumeratePhysicalDevices, ctx->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                ctx.gpu = _gpu;
+                ctx->gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(ctx.gpu, Temp(0u), nullptr);
-        ctx.queueFamily = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties2(ctx->gpu, Temp(0u), nullptr);
+        ctx->queueFamily = 0;
 
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
@@ -122,59 +122,59 @@ namespace pyr
             VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };
 
-        VkCall(vkCreateDevice(ctx.gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(ctx->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features2,
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = ctx.queueFamily,
+                    .queueFamilyIndex = ctx->queueFamily,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(deviceExtensions.size()),
             .ppEnabledExtensionNames = deviceExtensions.data(),
-        }), nullptr, &ctx.device));
+        }), nullptr, &ctx->device));
 
-        volkLoadDevice(ctx.device);
+        volkLoadDevice(ctx->device);
 
-        vkGetPhysicalDeviceProperties2(ctx.gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(ctx->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &ctx.descriptorSizes,
+            .pNext = &ctx->descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(ctx.device, ctx.queueFamily, 0, &ctx.queue);
+        vkGetDeviceQueue(ctx->device, ctx->queueFamily, 0, &ctx->queue);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = ctx.gpu,
-            .device = ctx.device,
+            .physicalDevice = ctx->gpu,
+            .device = ctx->device,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = ctx.instance,
+            .instance = ctx->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &ctx.vma));
+        }), &ctx->vma));
 
-        VkCall(vkCreateFence(ctx.device, Temp(VkFenceCreateInfo {
+        VkCall(vkCreateFence(ctx->device, Temp(VkFenceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-        }), nullptr, &ctx.fence));
+        }), nullptr, &ctx->fence));
 
-        ctx.staging = ctx.CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
+        ctx->staging = ctx->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
 
         auto createCommands = [&](VkCommandBuffer& cmd, VkCommandPool& pool) {
-            VkCall(vkCreateCommandPool(ctx.device, Temp(VkCommandPoolCreateInfo {
+            VkCall(vkCreateCommandPool(ctx->device, Temp(VkCommandPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .queueFamilyIndex = ctx.queueFamily,
+                .queueFamilyIndex = ctx->queueFamily,
             }), nullptr, &pool));
 
-            VkCall(vkAllocateCommandBuffers(ctx.device, Temp(VkCommandBufferAllocateInfo {
+            VkCall(vkAllocateCommandBuffers(ctx->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -186,9 +186,14 @@ namespace pyr
             })));
         };
 
-        createCommands(ctx.cmd, ctx.pool);
-        createCommands(ctx.transferCmd, ctx.transferPool);
+        createCommands(ctx->cmd, ctx->pool);
+        createCommands(ctx->transferCmd, ctx->transferPool);
 
         return ctx;
+    }
+
+    Context::~Context()
+    {
+        PYR_LOG("Destroying vulkan context");
     }
 }

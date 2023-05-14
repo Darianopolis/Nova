@@ -18,22 +18,22 @@ namespace pyr
 
     struct Mesh
     {
-        Buffer vertices;
-        Buffer indices;
+        Ref<Buffer> vertices;
+        Ref<Buffer> indices;
         u32 indexCount;
         u64 vertexOffset;
         u32 vertexStride;
 
-        Buffer accelBuffer;
+        Ref<Buffer> accelBuffer;
         VkAccelerationStructureKHR accelStructure;
         u64 accelAddress;
     };
 
     struct MaterialType
     {
-        Shader fragmentShader;
-        Shader closestHitShader;
-        Shader anyHitShader;
+        Ref<Shader> fragmentShader;
+        Ref<Shader> closestHitShader;
+        Ref<Shader> anyHitShader;
         u32 sbtOffset;
         b8 inlineData;
     };
@@ -41,7 +41,7 @@ namespace pyr
     struct Material
     {
         MaterialTypeID materialTypeID;
-        Buffer buffer;
+        Ref<Buffer> buffer;
         u64 data;
     };
 
@@ -145,34 +145,34 @@ namespace pyr
     public:
         Context* ctx = {};
 
-        Image depthBuffer;
+        Ref<Image> depthBuffer;
         // Image accumImage;
         uvec3 lastExtent;
 
         VkPipelineLayout layout = {};
-        Shader vertexShader;
+        Ref<Shader> vertexShader;
 
-        Shader compositeShader;
+        Ref<Shader> compositeShader;
         VkPipelineLayout compositePipelineLayout = {};
         VkDescriptorSetLayout compositeDescriptorLayout = {};
 
-        Buffer materialBuffer;
+        Ref<Buffer> materialBuffer;
 
         VkDescriptorSetLayout textureDescriptorSetLayout = {};
         VkDescriptorSet textureDescriptorSet = {};
-        Buffer textureDescriptorBuffer;
+        Ref<Buffer> textureDescriptorBuffer;
 
-        Buffer tlasScratchBuffer;
-        Buffer tlasBuffer;
+        Ref<Buffer> tlasScratchBuffer;
+        Ref<Buffer> tlasBuffer;
         VkAccelerationStructureKHR tlas = {};
-        Buffer instanceBuffer;
+        Ref<Buffer> instanceBuffer;
 
-        Shader rayGenShader;
-        Shader rayMissShader;
+        Ref<Shader> rayGenShader;
+        Ref<Shader> rayMissShader;
         VkDescriptorSetLayout rtDescLayout = {};
         VkPipelineLayout rtPipelineLayout = {};
         VkPipeline rtPipeline = {};
-        Buffer sbtBuffer;
+        Ref<Buffer> sbtBuffer;
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
         VkStridedDeviceAddressRegionKHR rayHitRegion = {};
@@ -184,7 +184,7 @@ namespace pyr
         Registry<Material, MaterialID> materials;
         Registry<Texture, TextureID> textures;
 
-        Buffer objectBuffer;
+        Ref<Buffer> objectBuffer;
 
         b8 rayTrace = false;
 

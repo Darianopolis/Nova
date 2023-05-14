@@ -138,14 +138,14 @@ namespace pyr
             lastSwapchain = swapchain.swapchain;
 
             framebuffers.resize(swapchain.images.size());
-            for (pyr::u32 i = 0; i < swapchain.images.size(); ++i)
+            for (u32 i = 0; i < swapchain.images.size(); ++i)
             {
                 vkDestroyFramebuffer(ctx->device, framebuffers[i], nullptr);
-                pyr::VkCall(vkCreateFramebuffer(ctx->device, pyr::Temp(VkFramebufferCreateInfo {
+                VkCall(vkCreateFramebuffer(ctx->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain.images[i].view,
+                    .pAttachments = &swapchain.images[i]->view,
                     .width = swapchain.extent.width,
                     .height = swapchain.extent.height,
                     .layers = 1,
@@ -154,7 +154,7 @@ namespace pyr
         }
 
         ctx->Transition(ctx->cmd, *swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkCmdBeginRenderPass(ctx->cmd, pyr::Temp(VkRenderPassBeginInfo {
+        vkCmdBeginRenderPass(ctx->cmd, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
             .framebuffer = framebuffers[swapchain.index],

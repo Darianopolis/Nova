@@ -2,10 +2,11 @@
 
 namespace pyr
 {
-    Buffer Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
+    Ref<Buffer> Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
     {
-        Buffer buffer;
-        buffer.flags = flags;
+        Ref buffer = new Buffer;
+        buffer->context = this;
+        buffer->flags = flags;
 
         usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (flags >= BufferFlags::Addressable)
@@ -30,37 +31,37 @@ namespace pyr
                     ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
                     : VkMemoryPropertyFlags(0),
             }),
-            &buffer.buffer,
-            &buffer.allocation,
+            &buffer->buffer,
+            &buffer->allocation,
             nullptr));
 
-        buffer.size = size;
+        buffer->size = size;
 
         if (flags >= BufferFlags::CreateMapped)
-            VkCall(vmaMapMemory(vma, buffer.allocation, (void**)&buffer.mapped));
+            VkCall(vmaMapMemory(vma, buffer->allocation, (void**)&buffer->mapped));
 
         if (flags >= BufferFlags::Addressable)
         {
-            buffer.address = vkGetBufferDeviceAddress(device, Temp(VkBufferDeviceAddressInfo {
+            buffer->address = vkGetBufferDeviceAddress(device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = buffer.buffer,
+                .buffer = buffer->buffer,
             }));
         }
 
         return buffer;
     }
 
-    void Context::DestroyBuffer(Buffer& buffer)
+    Buffer::~Buffer()
     {
-        if (buffer.mapped && buffer.flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(vma, buffer.allocation);
+        if (mapped && flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(context->vma, allocation);
     }
 
     void Context::CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset)
     {
         if (!data)
         {
-            vkCmdCopyBuffer(transferCmd, staging.buffer, buffer.buffer, 1, Temp(VkBufferCopy {
+            vkCmdCopyBuffer(transferCmd, staging->buffer, buffer.buffer, 1, Temp(VkBufferCopy {
                 .srcOffset = 0,
                 .dstOffset = offset,
                 .size = size,
@@ -74,13 +75,13 @@ namespace pyr
         }
         else
         {
-            for (u64 start = 0; start < size; start += staging.size)
+            for (u64 start = 0; start < size; start += staging->size)
             {
-                u64 chunkSize = std::min(size, start + staging.size) - start;
+                u64 chunkSize = std::min(size, start + staging->size) - start;
 
-                std::memcpy(staging.mapped, (byte*)data + start, chunkSize);
+                std::memcpy(staging->mapped, (byte*)data + start, chunkSize);
 
-                vkCmdCopyBuffer(transferCmd, staging.buffer, buffer.buffer, 1, Temp(VkBufferCopy {
+                vkCmdCopyBuffer(transferCmd, staging->buffer, buffer.buffer, 1, Temp(VkBufferCopy {
                     .srcOffset = 0,
                     .dstOffset = start + offset,
                     .size = chunkSize,

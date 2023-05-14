@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Core/Core.hpp>
+#include <Core/Ref.hpp>
 
 namespace pyr
 {
@@ -44,14 +45,33 @@ namespace pyr
     };
     PYR_DECORATE_FLAG_ENUM(BufferFlags)
 
-    struct Buffer
+    enum class BufferUsage
     {
+        Uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        Storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        AccelBuild = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+        AccelStorage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+        Indirect = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+        Vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        Index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        DescriptorSamplers = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+        DescriptorResources = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT,
+    };
+    PYR_DECORATE_FLAG_ENUM(BufferUsage)
+
+    struct Buffer : RefCounted
+    {
+        Ref<Context> context = {};
+
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
         VkDeviceSize        size = 0ull;
         VkDeviceAddress  address = 0ull;
         byte*             mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
+
+    public:
+        ~Buffer();
 
         template<class T>
         T& Get(u64 index, u64 offset = 0)
@@ -70,8 +90,31 @@ namespace pyr
     };
     PYR_DECORATE_FLAG_ENUM(ImageFlags)
 
-    struct Image
+    enum class ImageUsage
     {
+        Sampled    = 1 << 0,
+        Attachment = 1 << 1,
+        Storage    = 1 << 2,
+    };
+    PYR_DECORATE_FLAG_ENUM(ImageUsage)
+
+    enum class Format
+    {
+        RGBA8U,
+        RGBA16F,
+        RGBA32F,
+
+        R8U,
+        R32F,
+
+        D24U_X8,
+        D24U_S8,
+    };
+
+    struct Image : RefCounted
+    {
+        Ref<Context> context = {};
+
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
@@ -82,13 +125,18 @@ namespace pyr
         uvec3 extent = {};
         u32     mips = 0;
         u32   layers = 0;
+
+    public:
+        ~Image();
     };
 
 
 // -----------------------------------------------------------------------------
 
-    struct Shader
+    struct Shader : RefCounted
     {
+        Ref<Context> context = {};
+
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
 
@@ -97,21 +145,29 @@ namespace pyr
             .module = {},
             .pName = "main",
         };
+
+    public:
+        ~Shader();
     };
 
 // -----------------------------------------------------------------------------
 
-    struct Swapchain
+    struct Swapchain : RefCounted
     {
-        VkSurfaceKHR         surface = nullptr;
-        VkSwapchainKHR     swapchain = nullptr;
-        VkSurfaceFormatKHR    format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        VkImageUsageFlags      usage = 0;
-        VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Image>    images = {};
-        uint32_t               index = UINT32_MAX;
-        Image*                 image = nullptr;
-        VkExtent2D            extent = { 0, 0 };
+        Ref<Context>      context = {};
+
+        VkSurfaceKHR           surface = nullptr;
+        VkSwapchainKHR       swapchain = nullptr;
+        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        VkImageUsageFlags        usage = 0;
+        VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        std::vector<Ref<Image>> images = {};
+        uint32_t                 index = UINT32_MAX;
+        Image*                   image = nullptr;
+        VkExtent2D              extent = { 0, 0 };
+
+    public:
+        ~Swapchain();
     };
 
 // -----------------------------------------------------------------------------
@@ -125,7 +181,7 @@ namespace pyr
 
 // -----------------------------------------------------------------------------
 
-    struct Context
+    struct Context : RefCounted
     {
         VkInstance  instance = {};
         VkPhysicalDevice gpu = {};
@@ -145,29 +201,31 @@ namespace pyr
 
         VkFence fence;
 
-        Buffer staging;
+        Ref<Buffer> staging;
     public:
-        Buffer CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
-        void DestroyBuffer(Buffer& buffer);
+        ~Context();
+
+        Ref<Buffer> CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
+        // void DestroyBuffer(Buffer& buffer);
         void CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset = 0);
 
-        Image CreateImage(uvec3 size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
-        void DestroyImage(Image& image);
+        Ref<Image> CreateImage(uvec3 size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
+        // void DestroyImage(Image& image);
         void CopyToImage(Image& image, const void* data, size_t size);
         void GenerateMips(Image& image);
         void Transition(VkCommandBuffer cmd, Image& image, VkImageLayout newLayout);
         void TransitionMip(VkCommandBuffer cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
 
-        Shader CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
+        Ref<Shader> CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
             const std::string& filename, const std::string& sourceCode = {},
             std::initializer_list<VkPushConstantRange> pushConstantRanges = {},
             std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts = {});
-        void DestroyShader(Shader& shader);
+        // void DestroyShader(Shader& shader);
 
-        Swapchain CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
+        Ref<Swapchain> CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
         void Present(Swapchain& swapchain);
         bool GetNextImage(Swapchain& swapchain);
-        void DestroySwapchain(Swapchain& swapchain);
+        // void DestroySwapchain(Swapchain& swapchain);
 
         // Commands CreateCommands(Context* ctx, Queue* queue);
         // VkCommandBuffer AllocCmdBuf(Context* ctx, Commands* cmds);
@@ -175,5 +233,5 @@ namespace pyr
         void Flush(VkCommandBuffer commandBuffer = {});
     };
 
-    Context CreateContext(b8 debug);
+    Ref<Context> CreateContext(b8 debug);
 }

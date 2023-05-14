@@ -95,7 +95,7 @@ private:
 
 namespace pyr
 {
-    Shader Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
+    Ref<Shader> Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
         const std::string& filename, const std::string& sourceCode,
         std::initializer_list<VkPushConstantRange> pushConstantRanges,
         std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts)
@@ -205,8 +205,9 @@ namespace pyr
 
         const glslang::TIntermediate* intermediate = program.getIntermediate(stage);
 
-        Shader newShader;
-        newShader.stage = vkStage;
+        Ref newShader = new Shader;
+        newShader->context = this;
+        newShader->stage = vkStage;
 
         std::vector<u32> spirv;
         spv::SpvBuildLogger logger;
@@ -219,8 +220,8 @@ namespace pyr
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), nullptr, &newShader.info.module));
-        newShader.info.stage = vkStage;
+        }), nullptr, &newShader->info.module));
+        newShader->info.stage = vkStage;
 
         if (supportsShaderObjects)
         {
@@ -236,18 +237,20 @@ namespace pyr
                 .pSetLayouts = descriptorSetLayouts.begin(),
                 .pushConstantRangeCount = u32(pushConstantRanges.size()),
                 .pPushConstantRanges = pushConstantRanges.begin(),
-            }), nullptr, &newShader.shader));
+            }), nullptr, &newShader->shader));
         }
 
         return newShader;
     }
 
-    void Context::DestroyShader(Shader& shader)
+    Shader::~Shader()
     {
-        if (shader.shader)
-            vkDestroyShaderEXT(device, shader.shader, nullptr);
+        // PYR_LOG("Destroying shader");
 
-        if (shader.info.module)
-        vkDestroyShaderModule(device, shader.info.module, nullptr);
+        if (shader)
+            vkDestroyShaderEXT(context->device, shader, nullptr);
+
+        if (info.module)
+        vkDestroyShaderModule(context->device, info.module, nullptr);
     }
 }

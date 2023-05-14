@@ -2,9 +2,10 @@
 
 namespace pyr
 {
-    Swapchain Context::CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode)
+    Ref<Swapchain> Context::CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode)
     {
-        Swapchain swapchain = {};
+        Ref swapchain = new Swapchain;
+        swapchain->context = this;
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
         PYR_VKQUERY(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
@@ -14,24 +15,24 @@ namespace pyr
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {
-                swapchain.format = surfaceFormat;
+                swapchain->format = surfaceFormat;
                 break;
             }
         }
 
-        swapchain.usage = usage;
-        swapchain.presentMode = presentMode;
-        swapchain.surface = surface;
+        swapchain->usage = usage;
+        swapchain->presentMode = presentMode;
+        swapchain->surface = surface;
 
         return swapchain;
     }
 
-    void Context::DestroySwapchain(Swapchain& swapchain)
+    Swapchain::~Swapchain()
     {
-        for (auto& image : swapchain.images)
-            DestroyImage(image);
+        // PYR_LOG("Destroying swapchain");
 
-        vkDestroySwapchainKHR(device, swapchain.swapchain, nullptr);
+        images.clear();
+        vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     }
 
 // -----------------------------------------------------------------------------
@@ -94,29 +95,28 @@ namespace pyr
             std::vector<VkImage> vkImages;
             PYR_VKQUERY(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
 
-            for (auto& image : swapchain.images)
-                DestroyImage(image);
-
             swapchain.images.resize(vkImages.size());
             for (uint32_t i = 0; i < swapchain.images.size(); ++i)
             {
                 auto& image = swapchain.images[i];
-                image.image = vkImages[i];
+                image = new Image;
+                image->context = this;
+                image->image = vkImages[i];
                 VkCall(vkCreateImageView(device, Temp(VkImageViewCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                    .image = image.image,
+                    .image = image->image,
                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
                     .format = swapchain.format.format,
                     .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                }), nullptr, &image.view));
+                }), nullptr, &image->view));
 
-                image.extent.x = swapchain.extent.width;
-                image.extent.y = swapchain.extent.height;
-                image.format = swapchain.format.format;
-                image.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                image.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-                image.mips = 1;
-                image.layers = 1;
+                image->extent.x = swapchain.extent.width;
+                image->extent.y = swapchain.extent.height;
+                image->format = swapchain.format.format;
+                image->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+                image->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+                image->mips = 1;
+                image->layers = 1;
             }
         }
 
@@ -124,7 +124,7 @@ namespace pyr
         VkCall(vkAcquireNextImageKHR(device, swapchain.swapchain, UINT64_MAX, VK_NULL_HANDLE, fence, &swapchain.index));
         VkCall(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
 
-        swapchain.image = &swapchain.images[swapchain.index];
+        swapchain.image = swapchain.images[swapchain.index].Raw();
         swapchain.image->format = VK_FORMAT_UNDEFINED;
 
         return resized;

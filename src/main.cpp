@@ -21,9 +21,9 @@ int main()
     auto window = glfwCreateWindow(1920, 1080, "test", nullptr, nullptr);
 
     VkSurfaceKHR surface;
-    glfwCreateWindowSurface(ctx.instance, window, nullptr, &surface);
+    glfwCreateWindowSurface(ctx->instance, window, nullptr, &surface);
 
-    auto swapchain = ctx.CreateSwapchain(surface,
+    auto swapchain = ctx->CreateSwapchain(surface,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT
         | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
         | VK_IMAGE_USAGE_STORAGE_BIT
@@ -31,17 +31,17 @@ int main()
         VK_PRESENT_MODE_MAILBOX_KHR);
 
     pyr::Renderer renderer;
-    renderer.Init(ctx);
+    renderer.Init(*ctx);
 
     pyr::ImGuiBackend imgui;
-    imgui.Init(ctx, swapchain, window,
+    imgui.Init(*ctx, *swapchain, window,
         ImGuiConfigFlags_ViewportsEnable
         | ImGuiConfigFlags_DockingEnable);
 
 // -----------------------------------------------------------------------------
 
     VkSampler sampler;
-    pyr::VkCall(vkCreateSampler(ctx.device, pyr::Temp(VkSamplerCreateInfo {
+    pyr::VkCall(vkCreateSampler(ctx->device, pyr::Temp(VkSamplerCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
         .minFilter = VK_FILTER_LINEAR,
@@ -56,7 +56,7 @@ int main()
         .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
     }), nullptr, &sampler));
 
-    auto loadTexture = [&](const char* path) -> std::pair<pyr::Image, TextureID> {
+    auto loadTexture = [&](const char* path) -> std::pair<Ref<Image>, TextureID> {
         int width, height, channels;
         auto data = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
         PYR_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
@@ -65,13 +65,13 @@ int main()
 
         PYR_LOG("Loaded image [{}], size = ({}, {})", path, width, height);
 
-        pyr::Image texture = ctx.CreateImage(vec3(u32(width), u32(height), 0),
+        auto texture = ctx->CreateImage(vec3(u32(width), u32(height), 0),
             VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
-        ctx.CopyToImage(texture, data, width * height * 4);
-        ctx.GenerateMips(texture);
-        ctx.Transition(ctx.cmd, texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        ctx->CopyToImage(*texture, data, width * height * 4);
+        ctx->GenerateMips(*texture);
+        ctx->Transition(ctx->cmd, *texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        return { texture, renderer.RegisterTexture(texture.view, sampler) };
+        return { texture, renderer.RegisterTexture(texture->view, sampler) };
     };
 
     auto[missing, missingID] = loadTexture("assets/textures/missing.png");
@@ -203,7 +203,7 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
 // -----------------------------------------------------------------------------
 
     auto loadMesh = [&](const std::string& folder, const std::string& file = "scene.gltf", MaterialID* customMaterialID = nullptr) {
-        auto mesh = pyr::LoadMesh(ctx, (folder +"/"+ file).c_str(), folder.c_str());
+        auto mesh = pyr::LoadMesh(*ctx, (folder +"/"+ file).c_str(), folder.c_str());
 
         auto meshID = renderer.CreateMesh(
             sizeof(GltfVertex) * mesh.vertices.size(), mesh.vertices.data(),
@@ -215,23 +215,26 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
 
         std::vector<TextureID> textures;
         for (auto& image : mesh.images)
-            textures.push_back(renderer.RegisterTexture(image.view, sampler));
+            textures.push_back(renderer.RegisterTexture(image->view, sampler));
 
         auto materialID = customMaterialID
             ? *customMaterialID
             : renderer.CreateMaterial(materialTypeID, textures.data(), textures.size() * sizeof(TextureID));
 
         renderer.CreateObject(meshID, materialID, vec3(0.f), vec3(0.f), vec3(1.f));
+
+        return mesh;
     };
 
-    loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
-    loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf", &redMaterial);
-    loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf", &greenMaterial);
+    auto sponza = loadMesh("assets/models/SponzaMain", "NewSponza_Main_Blender_glTF.gltf");
+    auto sponzaCurtains = loadMesh("assets/models/SponzaCurtains", "NewSponza_Curtains_glTF.gltf", &redMaterial);
+    auto sponzaIvy = loadMesh("assets/models/SponzaIvy", "NewSponza_IvyGrowth_glTF.gltf", &greenMaterial);
 
     // loadMesh("assets/models/SciFiDragonWarrior");
     // loadMesh("assets/models/StationDemerzel");
     // loadMesh("assets/models", "monkey.gltf");
 
+PYR_DEBUG();
     renderer.RebuildShaderBindingTable();
 
 // -----------------------------------------------------------------------------
@@ -245,7 +248,7 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        ctx.GetNextImage(swapchain);
+        ctx->GetNextImage(*swapchain);
 
         static f32 moveSpeed = 1.f;
 
@@ -333,13 +336,13 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
             ImGui::Text("FPS: %.2f", fps);
         }
 
-        renderer.Draw(*swapchain.image);
+        renderer.Draw(*swapchain->image);
 
-        imgui.EndFrame(swapchain);
-        ctx.Present(swapchain);
+        imgui.EndFrame(*swapchain);
+        ctx->Present(*swapchain);
     }
 
-    vkDeviceWaitIdle(ctx.device);
+    vkDeviceWaitIdle(ctx->device);
 
     glfwDestroyWindow(window);
     glfwTerminate();

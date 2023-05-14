@@ -16,7 +16,7 @@ namespace pyr
     {
         std::vector<GltfVertex> vertices;
         std::vector<u32> indices;
-        std::vector<Image> images;
+        std::vector<Ref<Image>> images;
     };
 
     GltfMesh LoadMesh(Context& ctx, const char* file, const char* baseDir);

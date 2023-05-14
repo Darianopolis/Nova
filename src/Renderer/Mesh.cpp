@@ -79,7 +79,7 @@ namespace pyr
                 //     DestroyOptionsBC7(BC7Options);
                 // }
 
-                pyr::Image loadedImage;
+                Ref<Image> loadedImage;
 #pragma omp critical
                 {
                     // if (width == 4096 && height == 4096)
@@ -89,7 +89,7 @@ namespace pyr
                     //     ctx.CopyToImage(intermediate, imageData, width * height * 4);
                     //     ctx.Transition(ctx.transferCmd, intermediate, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
                     //     ctx.Transition(ctx.transferCmd, loadedImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-                    //     vkCmdBlitImage(ctx.transferCmd, intermediate.image, intermediate.layout, loadedImage.image, loadedImage.layout, 1, pyr::Temp(VkImageBlit {
+                    //     vkCmdBlitImage(ctx.transferCmd, intermediate.image, intermediate.layout, loadedImage.image, loadedImage.layout, 1, Temp(VkImageBlit {
                     //         .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
                     //         .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)intermediate.extent.x, (int32_t)intermediate.extent.y, 1} },
                     //         .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
@@ -100,14 +100,14 @@ namespace pyr
                     // else
                     {
                         loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM, ImageFlags::Mips);
-                        ctx.CopyToImage(loadedImage, imageData, width * height * 4);
-                        ctx.GenerateMips(loadedImage);
+                        ctx.CopyToImage(*loadedImage, imageData, width * height * 4);
+                        ctx.GenerateMips(*loadedImage);
 
                         // loadedImage = ctx.CreateImage({ uint32_t(width), uint32_t(height), 0u }, VK_IMAGE_USAGE_SAMPLED_BIT, VK_FORMAT_R8G8B8A8_UNORM);
                         // ctx.CopyToImage(loadedImage, imageData, width * height * 4);
                     }
 
-                    ctx.Transition(ctx.transferCmd, loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    ctx.Transition(ctx.transferCmd, *loadedImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                     ctx.Flush(ctx.transferCmd);
 
                     std::cout << "\r\x1b[KTextures loaded: " << ++texturesLoaded << " / " << data->textures_count << " [" << data->textures[textureId].image->uri << "]";
@@ -119,8 +119,6 @@ namespace pyr
         }
 
         std::cout << "\r\x1b[KTextures loaded: " << data->textures_count << '\n';
-
-        ctx.DestroyImage(intermediate);
 
         PYR_TIMEIT("glTF: Loaded textures");
 

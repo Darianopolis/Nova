@@ -212,8 +212,8 @@ void main()
 
         VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = tlasBuffer.buffer,
-            .size = tlasBuffer.size,
+            .buffer = tlasBuffer->buffer,
+            .size = tlasBuffer->size,
             .type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
         }), nullptr, &tlas));
 
@@ -387,7 +387,6 @@ void main()
     {
         if (rtPipeline)
             vkDestroyPipeline(ctx->device, rtPipeline, nullptr);
-        ctx->DestroyBuffer(sbtBuffer);
 
         struct HitShaderGroup
         {
@@ -403,15 +402,13 @@ void main()
 
         // Add shaders
 
-        rayGenShaders.push_back(&rayGenShader);
-        rayMissShaders.push_back(&rayMissShader);
+        rayGenShaders.push_back(rayGenShader.Raw());
+        rayMissShaders.push_back(rayMissShader.Raw());
         materialTypes.ForEach([&](auto, auto& materialType) {
             materialType.sbtOffset = u32(rayHitShaderGroups.size());
             rayHitShaderGroups.push_back(HitShaderGroup {
-                .closestHitShader = &materialType.closestHitShader,
-                .anyHitShader = materialType.anyHitShader.info.module
-                    ? &materialType.anyHitShader
-                    : nullptr,
+                .closestHitShader = materialType.closestHitShader.Raw(),
+                .anyHitShader = materialType.anyHitShader.Raw(),
             });
         });
 
@@ -521,7 +518,7 @@ void main()
         sbtBuffer = ctx->CreateBuffer(std::max(256ull, tableSize),
             VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer.mapped + offset + (i * handleStride); };
+        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->mapped + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
         VkCall(vkGetRayTracingShaderGroupHandlesKHR(ctx->device, rtPipeline, 0, u32(groups.size()), u32(handles.size()), handles.data()));
@@ -536,7 +533,7 @@ void main()
 
         // Miss
 
-        rayMissRegion.deviceAddress = sbtBuffer.address + rayMissOffset;
+        rayMissRegion.deviceAddress = sbtBuffer->address + rayMissOffset;
         rayMissRegion.size = rayHitOffset - rayMissOffset;
         rayMissRegion.stride = handleStride;
         for (u32 i = 0; i < rayMissIndices.size(); ++i)
@@ -544,7 +541,7 @@ void main()
 
         // Hit
 
-        rayHitRegion.deviceAddress = sbtBuffer.address + rayHitOffset;
+        rayHitRegion.deviceAddress = sbtBuffer->address + rayHitOffset;
         rayHitRegion.size = rayCallOffset - rayHitOffset;
         rayHitRegion.stride = handleStride;
         for (u32 i = 0; i < rayHitIndices.size(); ++i)
@@ -552,7 +549,7 @@ void main()
 
         // Call
 
-        rayCallRegion.deviceAddress = sbtBuffer.address + rayCallOffset;
+        rayCallRegion.deviceAddress = sbtBuffer->address + rayCallOffset;
         rayCallRegion.size = tableSize - rayCallOffset;
         rayCallRegion.stride = handleStride;
         for (u32 i = 0; i < rayCallIndices.size(); ++i)
@@ -582,11 +579,10 @@ void main()
             //     | VK_IMAGE_USAGE_STORAGE_BIT,
             //     VK_FORMAT_R16G16B16A16_SFLOAT);
 
-            ctx->DestroyImage(depthBuffer);
             depthBuffer = ctx->CreateImage(target.extent,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                 VK_FORMAT_X8_D24_UNORM_PACK32);
-            ctx->Transition(cmd, depthBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+            ctx->Transition(cmd, *depthBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         }
 
         // Begin rendering
@@ -615,8 +611,8 @@ void main()
                 }.data(),
                 .pDepthAttachment = Temp(VkRenderingAttachmentInfo {
                     .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                    .imageView = depthBuffer.view,
-                    .imageLayout = depthBuffer.layout,
+                    .imageView = depthBuffer->view,
+                    .imageLayout = depthBuffer->layout,
                     .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                     .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                     .clearValue = { .depthStencil = {{ 0.f }} },
@@ -688,7 +684,7 @@ void main()
 
             vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-                .address = textureDescriptorBuffer.address,
+                .address = textureDescriptorBuffer->address,
                 .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, Temp(0u), Temp(0ull));
@@ -705,16 +701,16 @@ void main()
                     auto& materialType = materialTypes.Get(material.materialTypeID);
 
                     vkCmdBindShadersEXT(cmd, 2,
-                        std::array { vertexShader.stage, materialType.fragmentShader.stage }.data(),
-                        std::array { vertexShader.shader, materialType.fragmentShader.shader }.data());
+                        std::array { vertexShader->stage, materialType.fragmentShader->stage }.data(),
+                        std::array { vertexShader->shader, materialType.fragmentShader->shader }.data());
                 }
 
-                vkCmdBindIndexBuffer(cmd, mesh.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(cmd, mesh.indices->buffer, 0, VK_INDEX_TYPE_UINT32);
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     0, sizeof(RasterPushConstants), Temp(RasterPushConstants {
                         .viewProj = viewProj,
-                        .objectsVA = objectBuffer.address,
+                        .objectsVA = objectBuffer->address,
                     }));
 
                 vkCmdDrawIndexed(cmd, mesh.indexCount, 1, 0, 0, u32(id));
@@ -759,7 +755,7 @@ void main()
                 .geometry = {
                     .instances =  {
                         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-                        .data = {{ instanceBuffer.address }},
+                        .data = {{ instanceBuffer->address }},
                     },
                 },
             };
@@ -781,7 +777,7 @@ void main()
 
                 auto& M = transform;
 
-                instanceBuffer.Get<VkAccelerationStructureInstanceKHR>(i) = VkAccelerationStructureInstanceKHR {
+                instanceBuffer->Get<VkAccelerationStructureInstanceKHR>(i) = VkAccelerationStructureInstanceKHR {
                     .transform = {
                         M[0][0], M[1][0], M[2][0], M[3][0],
                         M[0][1], M[1][1], M[2][1], M[3][1],
@@ -791,7 +787,7 @@ void main()
                     .mask = 0xFF,
                     .instanceShaderBindingTableRecordOffset = materialType.sbtOffset,
                     .flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR
-                        | (materialType.anyHitShader.info.module ? VkGeometryInstanceFlagsKHR(0) : VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR),
+                        | (materialType.anyHitShader ? VkGeometryInstanceFlagsKHR(0) : VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR),
                     .accelerationStructureReference = mesh.accelAddress,
                 };
 
@@ -806,7 +802,7 @@ void main()
                 .dstAccelerationStructure = tlas,
                 .geometryCount = 1,
                 .pGeometries = &geom,
-                .scratchData = {{ AlignUpPower2(tlasScratchBuffer.address, AccelScratchAlignment) }},
+                .scratchData = {{ AlignUpPower2(tlasScratchBuffer->address, AccelScratchAlignment) }},
             };
 
             vkCmdBuildAccelerationStructuresKHR(cmd, 1, &buildInfo, Temp(&buildRange));
@@ -819,7 +815,7 @@ void main()
 
             vkCmdBindDescriptorBuffersEXT(cmd, 1, Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-                .address = textureDescriptorBuffer.address,
+                .address = textureDescriptorBuffer->address,
                 .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
 
@@ -866,12 +862,12 @@ void main()
                     .camX = camX,
                     .camY = camY,
                     .camZOffset = camZOffset,
-                    .objectsVA = objectBuffer.address,
+                    .objectsVA = objectBuffer->address,
                     .rayConeGradient = rayConeGradient,
                 }));
 
             u32 activeRayGenShader = 0;
-            rayGenRegion.deviceAddress = sbtBuffer.address + (rayGenRegion.stride * activeRayGenShader);
+            rayGenRegion.deviceAddress = sbtBuffer->address + (rayGenRegion.stride * activeRayGenShader);
             vkCmdTraceRaysKHR(cmd,
                 &rayGenRegion, &rayMissRegion, &rayHitRegion, &rayCallRegion,
                 target.extent.x, target.extent.y, 1);
@@ -888,7 +884,7 @@ void main()
         mesh.vertices = ctx->CreateBuffer(dataSize,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
-        ctx->CopyToBuffer(mesh.vertices, pData, dataSize);
+        ctx->CopyToBuffer(*mesh.vertices, pData, dataSize);
 
         mesh.vertexOffset = vertexOffset;
         mesh.vertexStride = vertexStride;
@@ -898,7 +894,7 @@ void main()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
             | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, BufferFlags::DeviceLocal);
-        ctx->CopyToBuffer(mesh.indices, pIndices, indexSize);
+        ctx->CopyToBuffer(*mesh.indices, pIndices, indexSize);
 
         mesh.indexCount = indexCount;
 
@@ -916,11 +912,11 @@ void main()
                     .triangles = {
                         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
                         .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
-                        .vertexData = {{ mesh.vertices.address + vertexOffset }},
+                        .vertexData = {{ mesh.vertices->address + vertexOffset }},
                         .vertexStride = vertexStride,
                         .maxVertex = maxIndex,
                         .indexType = VK_INDEX_TYPE_UINT32,
-                        .indexData = {{ mesh.indices.address }},
+                        .indexData = {{ mesh.indices->address }},
                     },
                 },
             };
@@ -962,8 +958,8 @@ void main()
 
             VkCall(vkCreateAccelerationStructureKHR(ctx->device, Temp(VkAccelerationStructureCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-                .buffer = mesh.accelBuffer.buffer,
-                .size = mesh.accelBuffer.size,
+                .buffer = mesh.accelBuffer->buffer,
+                .size = mesh.accelBuffer->size,
                 .type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
             }), nullptr, &mesh.accelStructure));
 
@@ -973,12 +969,10 @@ void main()
             }));
 
             buildInfo.dstAccelerationStructure = mesh.accelStructure;
-            buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer.address, accelScratchAlignment);
+            buildInfo.scratchData.deviceAddress = AlignUpPower2(scratchBuffer->address, accelScratchAlignment);
 
             vkCmdBuildAccelerationStructuresKHR(ctx->transferCmd, 1, &buildInfo, Temp(&buildRange));
             ctx->Flush(ctx->transferCmd);
-
-            ctx->DestroyBuffer(scratchBuffer);
 
             PYR_LOG("Built BLAS!");
         }
@@ -989,11 +983,8 @@ void main()
     void Renderer::DeleteMesh(MeshID id)
     {
         auto& mesh = meshes.Get(id);
-        ctx->DestroyBuffer(mesh.vertices);
-        ctx->DestroyBuffer(mesh.indices);
 
         vkDestroyAccelerationStructureKHR(ctx->device, mesh.accelStructure, nullptr);
-        ctx->DestroyBuffer(mesh.accelBuffer);
 
         meshes.Return(id);
     }
@@ -1233,9 +1224,6 @@ void main()
     void Renderer::DeleteMaterialType(MaterialTypeID id)
     {
         auto& material = materialTypes.Get(id);
-        ctx->DestroyShader(material.fragmentShader);
-        ctx->DestroyShader(material.closestHitShader);
-        ctx->DestroyShader(material.anyHitShader);
         materialTypes.Return(id);
     }
 
@@ -1260,8 +1248,8 @@ void main()
                 //  - allow packaged varaible size materials (16, 32, 64)
 
                 u64 offset = MaterialSize * u32(id);
-                std::memcpy(materialBuffer.mapped + offset, pData, size);
-                material.data = materialBuffer.address + offset;
+                std::memcpy(materialBuffer->mapped + offset, pData, size);
+                material.data = materialBuffer->address + offset;
             }
             else
             {
@@ -1270,8 +1258,8 @@ void main()
                 material.buffer = ctx->CreateBuffer(size,
                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                     BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-                ctx->CopyToBuffer(material.buffer, pData, size);
-                material.data = material.buffer.address;
+                ctx->CopyToBuffer(*material.buffer, pData, size);
+                material.data = material.buffer->address;
             }
         }
 
@@ -1280,7 +1268,6 @@ void main()
 
     void Renderer::DeleteMaterial(MaterialID id)
     {
-        ctx->DestroyBuffer(materials.Get(id).buffer);
         materials.Return(id);
     }
 
@@ -1299,11 +1286,11 @@ void main()
 
         auto& mesh = meshes.Get(meshID);
 
-        objectBuffer.Get<GpuObject>(u32(id)) = GpuObject {
+        objectBuffer->Get<GpuObject>(u32(id)) = GpuObject {
             .matrix = transform,
-            .vertices = mesh.vertices.address,
+            .vertices = mesh.vertices->address,
             .material = materials.Get(materialID).data,
-            .indices = mesh.indices.address,
+            .indices = mesh.indices->address,
             .vertexOffset = mesh.vertexOffset,
             .vertexStride = mesh.vertexStride,
         };
@@ -1336,7 +1323,7 @@ void main()
                 },
             }),
             ctx->descriptorSizes.combinedImageSamplerDescriptorSize,
-            textureDescriptorBuffer.mapped + (u32(id) * ctx->descriptorSizes.combinedImageSamplerDescriptorSize));
+            textureDescriptorBuffer->mapped + (u32(id) * ctx->descriptorSizes.combinedImageSamplerDescriptorSize));
 
         return id;
     }
