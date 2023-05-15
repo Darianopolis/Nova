@@ -1,4 +1,4 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {

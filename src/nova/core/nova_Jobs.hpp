@@ -1,4 +1,4 @@
-#include "Nova_Core.hpp"
+#include "nova_Core.hpp"
 
 namespace nova
 {

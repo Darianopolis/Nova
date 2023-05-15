@@ -1,14 +1,14 @@
-#include <Nova/Nova_RHI.hpp>
+#include <nova/rhi/nova_RHI.hpp>
+#include <nova/imgui/nova_ImGui.hpp>
 
-#include <Pyrite/Pyrite_Mesh.hpp>
-#include <Pyrite/Pyrite_Renderer.hpp>
-#include <Pyrite/Pyrite_ImGui.hpp>
+#include <pyrite/pyrite_Mesh.hpp>
+#include <pyrite/pyrite_Renderer.hpp>
 
 using namespace nova::types;
 
 int main()
 {
-    auto context = nova::CreateContext(false);
+    auto context = nova::Context::Create(false);
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -32,8 +32,7 @@ int main()
     pyr::Renderer renderer;
     renderer.Init(*context);
 
-    pyr::ImGuiBackend imgui;
-    imgui.Init(*context, *swapchain, window,
+    auto imgui = nova::ImGuiWrapper::Create(*context, *swapchain, window,
         ImGuiConfigFlags_ViewportsEnable
         | ImGuiConfigFlags_DockingEnable);
 
@@ -294,7 +293,7 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
             renderer.SetCamera(position, rotation, fov);
         }
 
-        imgui.BeginFrame();
+        imgui->BeginFrame();
 
         {
             ImGui::Begin("Settings");
@@ -335,7 +334,7 @@ vec4 material_Shade(uint64_t vertices, uint64_t material, uvec3 i, vec3 w, vec3 
 
         renderer.Draw(*swapchain->image);
 
-        imgui.EndFrame(*swapchain);
+        imgui->EndFrame(*swapchain);
 
         context->Transition(context->cmd, *swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         context->commands->Submit(context->cmd, context->fence.Raw(), context->fence.Raw());

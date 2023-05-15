@@ -1,12 +1,13 @@
-#include "Pyrite_ImGui.hpp"
+#include "nova_ImGui.hpp"
 
-namespace pyr
+namespace nova
 {
-    void ImGuiBackend::Init(nova::Context& _ctx, nova::Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
+    ImGuiWrapperRef ImGuiWrapper::Create(Context& ctx, Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
     {
-        ctx = &_ctx;
+        Ref imgui = new ImGuiWrapper;
+        imgui->ctx = &ctx;
 
-        nova::VkCall(vkCreateRenderPass(ctx->device, nova::Temp(VkRenderPassCreateInfo {
+        nova::VkCall(vkCreateRenderPass(ctx.device, nova::Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
             .pAttachments = nova::Temp(VkAttachmentDescription {
@@ -36,41 +37,41 @@ namespace pyr
                 .srcAccessMask = 0,
                 .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             }),
-        }), nullptr, &renderPass));
+        }), nullptr, &imgui->renderPass));
 
         // Create fixed sampler only descriptor pool for ImGui
         // All application descriptor sets will be managed by descriptor buffers
 
         constexpr u32 MaxSamplers = 65'536;
-        nova::VkCall(vkCreateDescriptorPool(ctx->device, nova::Temp(VkDescriptorPoolCreateInfo {
+        nova::VkCall(vkCreateDescriptorPool(ctx.device, nova::Temp(VkDescriptorPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
             .pPoolSizes = nova::Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
-        }), nullptr, &descriptorPool));
+        }), nullptr, &imgui->descriptorPool));
 
         // Create ImGui context and initialize
 
-        imguiCtx = ImGui::CreateContext();
-        lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imguiCtx);
+        imgui->imguiCtx = ImGui::CreateContext();
+        imgui->lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imgui->imguiCtx);
 
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= imguiFlags;
         ImGui_ImplGlfw_InitForVulkan(window, true);
         ImGui_ImplVulkan_Init(nova::Temp(ImGui_ImplVulkan_InitInfo {
-            .Instance = ctx->instance,
-            .PhysicalDevice = ctx->gpu,
-            .Device = ctx->device,
-            .QueueFamily = ctx->graphics.family,
-            .Queue = ctx->graphics.handle,
-            .DescriptorPool = descriptorPool,
+            .Instance = ctx.instance,
+            .PhysicalDevice = ctx.gpu,
+            .Device = ctx.device,
+            .QueueFamily = ctx.graphics.family,
+            .Queue = ctx.graphics.handle,
+            .DescriptorPool = imgui->descriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
             .ImageCount = 2,
             .CheckVkResultFn = [](VkResult r) { nova::VkCall(r); },
-        }), renderPass);
+        }), imgui->renderPass);
 
         // Rescale UI and fonts
         // TODO: Don't hardcode 150%
@@ -80,16 +81,33 @@ namespace pyr
         fontConfig.GlyphOffset = ImVec2(1.f, 1.67f);
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
-        ImGui_ImplVulkan_CreateFontsTexture(ctx->cmd);
-        ctx->commands->Submit(ctx->cmd, nullptr, ctx->fence.Raw());
-        ctx->fence->Wait();
-        ctx->commands->Clear();
-        ctx->cmd = ctx->commands->Allocate();
+        ImGui_ImplVulkan_CreateFontsTexture(ctx.cmd);
+        ctx.commands->Submit(ctx.cmd, nullptr, ctx.fence.Raw());
+        ctx.fence->Wait();
+        ctx.commands->Clear();
+        ctx.cmd = ctx.commands->Allocate();
 
-        ImGui::SetCurrentContext(lastImguiCtx);
+        ImGui::SetCurrentContext(imgui->lastImguiCtx);
+
+        return imgui;
     }
 
-    void ImGuiBackend::BeginFrame()
+    ImGuiWrapper::~ImGuiWrapper()
+    {
+        for (auto framebuffer : framebuffers)
+            vkDestroyFramebuffer(ctx->device, framebuffer, ctx->pAlloc);
+        vkDestroyRenderPass(ctx->device, renderPass, ctx->pAlloc);
+        vkDestroyDescriptorPool(ctx->device, descriptorPool, ctx->pAlloc);
+
+        lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imguiCtx);
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::SetCurrentContext(lastImguiCtx);
+        ImGui::DestroyContext(imguiCtx);
+    }
+
+    void ImGuiWrapper::BeginFrame()
     {
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
@@ -132,7 +150,7 @@ namespace pyr
         }
     }
 
-    void ImGuiBackend::EndFrame(nova::Swapchain& swapchain)
+    void ImGuiWrapper::EndFrame(nova::Swapchain& swapchain)
     {
         ImGui::Render();
 

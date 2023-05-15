@@ -1,6 +1,6 @@
 #include "Pyrite_Renderer.hpp"
 
-#include <Nova/Nova_Math.hpp>
+#include <nova/core/nova_Math.hpp>
 
 namespace pyr
 {
@@ -1020,12 +1020,6 @@ layout(location = 0) out vec4 outAccum;
 
 layout(push_constant) uniform PushConstants
 {
-    // mat4 mvp;
-    // uint64_t vertices;
-    // uint64_t material;
-    // uint64_t vertexOffset;
-    // uint vertexStride;
-
     mat4 viewProj;
     uint64_t objectsVA;
 } pc;
@@ -1052,6 +1046,8 @@ void main()
         uvec3(vertexIndex[0], vertexIndex[1], vertexIndex[2]),
         gl_BaryCoordEXT, vec3(0), 0, // TODO: FIXME ray dir + radius
         gl_FrontFacing);
+
+    // outAccum = vec4((0.01 / gl_FragCoord.z) / 10.0, 0, 0, 1);
 
     if (outAccum.a == 0.0)
         discard;

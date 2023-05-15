@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Nova_Core.hpp"
+#include <nova/core/nova_Core.hpp>
 
 // #define NOVA_NOISY_REFS 1
 // #define NOVA_NOISY_REF_INC 1

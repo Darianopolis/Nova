@@ -1,4 +1,4 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {
@@ -11,14 +11,14 @@ namespace nova
         VkCall(vkCreateCommandPool(device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = cmds->queue->family,
-        }), nullptr, &cmds->pool));
+        }), pAlloc, &cmds->pool));
 
         return cmds;
     }
 
     Commands::~Commands()
     {
-        vkDestroyCommandPool(context->device, pool, nullptr);
+        vkDestroyCommandPool(context->device, pool, context->pAlloc);
     }
 
     VkCommandBuffer Commands::Allocate()

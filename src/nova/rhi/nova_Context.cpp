@@ -1,10 +1,12 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {
-    ContextRef CreateContext(bool debug)
+    std::atomic_int64_t Context::AllocationCount = 0;
+
+    ContextRef Context::Create(bool debug)
     {
-        Ref ctx = new Context;
+        Ref context = new Context;
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -27,27 +29,27 @@ namespace nova
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), nullptr, &ctx->instance));
+        }), context->pAlloc, &context->instance));
 
-        volkLoadInstanceOnly(ctx->instance);
+        volkLoadInstanceOnly(context->instance);
 
         std::vector<VkPhysicalDevice> gpus;
-        NOVA_VKQUERY(gpus, vkEnumeratePhysicalDevices, ctx->instance);
+        NOVA_VKQUERY(gpus, vkEnumeratePhysicalDevices, context->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                ctx->gpu = _gpu;
+                context->gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(ctx->gpu, Temp(0u), nullptr);
-        ctx->graphics.family = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties2(context->gpu, Temp(0u), nullptr);
+        context->graphics.family = 0;
 
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
@@ -123,56 +125,57 @@ namespace nova
             VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };
 
-        VkCall(vkCreateDevice(ctx->gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(context->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features2,
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = ctx->graphics.family,
+                    .queueFamilyIndex = context->graphics.family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(deviceExtensions.size()),
             .ppEnabledExtensionNames = deviceExtensions.data(),
-        }), nullptr, &ctx->device));
+        }), context->pAlloc, &context->device));
 
-        volkLoadDevice(ctx->device);
+        volkLoadDevice(context->device);
 
-        vkGetPhysicalDeviceProperties2(ctx->gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(context->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &ctx->descriptorSizes,
+            .pNext = &context->descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(ctx->device, ctx->graphics.family, 0, &ctx->graphics.handle);
+        vkGetDeviceQueue(context->device, context->graphics.family, 0, &context->graphics.handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = ctx->gpu,
-            .device = ctx->device,
+            .physicalDevice = context->gpu,
+            .device = context->device,
+            .pAllocationCallbacks = context->pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = ctx->instance,
+            .instance = context->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &ctx->vma));
+        }), &context->vma));
 
-        ctx->staging = ctx->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
+        context->staging = context->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
 
-        ctx->transferCommands = ctx->CreateCommands();
-        ctx->transferCmd = ctx->transferCommands->Allocate();
+        context->transferCommands = context->CreateCommands();
+        context->transferCmd = context->transferCommands->Allocate();
 
-        ctx->commands = ctx->CreateCommands();
-        ctx->cmd = ctx->commands->Allocate();
+        context->commands = context->CreateCommands();
+        context->cmd = context->commands->Allocate();
 
-        ctx->fence = ctx->CreateFence();
+        context->fence = context->CreateFence();
 
-        return ctx;
+        return context;
     }
 
     Context::~Context()

@@ -44,9 +44,10 @@
 #include <vector>
 #include <regex>
 #include <bitset>
+#include <cstdlib>
 #include <stacktrace>
 
-#include "Vendor/Nova_Vendor.hpp"
+#include "nova_Vendor.hpp"
 
 using namespace std::literals;
 

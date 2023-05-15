@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Nova_Core.hpp"
-#include "Nova_Ref.hpp"
+#include <nova/core/nova_Core.hpp>
+#include <nova/core/nova_Ref.hpp>
+
+// #define NOVA_NOISY_VULKAN_ALLOCATIONS
 
 namespace nova
 {
@@ -261,8 +263,51 @@ namespace nova
         BufferRef staging;
         CommandsRef transferCommands;
         VkCommandBuffer transferCmd;
+
+        static std::atomic_int64_t AllocationCount;
+
+        VkAllocationCallbacks alloc = {
+            .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
+                void* ptr = _aligned_malloc(size, align);
+#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
+                if (ptr)
+                {
+                    NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
+                    NOVA_LOG("    Allocations  + :: {}", ++AllocationCount);
+                }
+#endif
+                return ptr;
+            },
+            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) {
+                void* ptr = _aligned_realloc(orig, size, align);
+#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
+                NOVA_LOG("Reallocated, size = {}, align = {}, ptr = {} -> {}", size, align, orig, ptr);
+#endif
+                return ptr;
+            },
+            .pfnFree = +[](void*, void* ptr) {
+#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
+                if (ptr)
+                {
+                    NOVA_LOG("Freeing ptr = {}", ptr);
+                    NOVA_LOG("    Allocations - :: {}", --AllocationCount);
+                }
+#endif
+                _aligned_free(ptr);
+            },
+            .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
+                NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
+            },
+            .pfnInternalFree = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
+                NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
+            },
+        };
+        VkAllocationCallbacks* pAlloc = &alloc;
+        // VkAllocationCallbacks* pAlloc = nullptr;
     public:
         ~Context();
+
+        static ContextRef Create(bool debug);
 
         BufferRef CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
         void CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset = 0);
@@ -284,8 +329,6 @@ namespace nova
 
         CommandsRef CreateCommands();
 
-        FenceRef CreateFence(); // TODO: Rename this
+        FenceRef CreateFence();
     };
-
-    ContextRef CreateContext(bool debug);
 }

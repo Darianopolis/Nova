@@ -1,4 +1,4 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {
@@ -29,7 +29,7 @@ namespace nova
         {
             VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-            }), nullptr, &s));
+            }), pAlloc, &s));
         }
 
         return swapchain;
@@ -38,9 +38,9 @@ namespace nova
     Swapchain::~Swapchain()
     {
         for (auto semaphore : semaphores)
-            vkDestroySemaphore(context->device, semaphore, nullptr);
+            vkDestroySemaphore(context->device, semaphore, context->pAlloc);
 
-        vkDestroySwapchainKHR(context->device, swapchain, nullptr);
+        vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ namespace nova
                 .presentMode = swapchain.presentMode,
                 .clipped = VK_TRUE,
                 .oldSwapchain = swapchain.swapchain,
-            }), nullptr, &swapchain.swapchain));
+            }), pAlloc, &swapchain.swapchain));
 
             std::vector<VkImage> vkImages;
             NOVA_VKQUERY(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
@@ -139,7 +139,7 @@ namespace nova
                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
                     .format = swapchain.format.format,
                     .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                }), nullptr, &image->view));
+                }), pAlloc, &image->view));
 
                 image->extent.x = swapchain.extent.width;
                 image->extent.y = swapchain.extent.height;

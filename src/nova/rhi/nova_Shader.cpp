@@ -1,4 +1,6 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
+
+#include <nova/core/nova_Files.hpp>
 
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/resource_limits_c.h>
@@ -6,19 +8,6 @@
 
 namespace nova
 {
-    static std::string ReadFileString(const std::string& filename)
-    {
-        std::ifstream file(filename, std::ios::ate | std::ios::binary);
-        if (!file.is_open())
-            NOVA_THROW("Failed to open shader file: {}", filename);
-
-        std::string output;
-        output.reserve((size_t)file.tellg());
-        file.seekg(0);
-        output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-        return output;
-    }
-
     class GlslangIncluder : public glslang::TShader::Includer
     {
         struct ShaderIncludeUserData
@@ -58,7 +47,7 @@ namespace nova
             if (exists)
             {
                 userData->name = target.string();
-                userData->content = ReadFileString(userData->name);
+                userData->content = nova::ReadFileToString(userData->name);
             }
             else
             {
@@ -138,7 +127,7 @@ namespace nova
 
         // ---- Source ----
 
-        const std::string& glslCode = sourceCode.empty() ? ReadFileString(filename) : sourceCode;
+        const std::string& glslCode = sourceCode.empty() ? ReadFileToString(filename) : sourceCode;
         const char* source = glslCode.c_str();
         int sourceLength = (int)glslCode.size();
         const char* sourceName = filename.c_str();
@@ -220,7 +209,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), nullptr, &newShader->info.module));
+        }), pAlloc, &newShader->info.module));
         newShader->info.stage = vkStage;
 
         if (supportsShaderObjects)
@@ -237,7 +226,7 @@ namespace nova
                 .pSetLayouts = descriptorSetLayouts.begin(),
                 .pushConstantRangeCount = u32(pushConstantRanges.size()),
                 .pPushConstantRanges = pushConstantRanges.begin(),
-            }), nullptr, &newShader->shader));
+            }), pAlloc, &newShader->shader));
         }
 
         return newShader;
@@ -248,9 +237,9 @@ namespace nova
         // NOVA_LOG("Destroying shader");
 
         if (shader)
-            vkDestroyShaderEXT(context->device, shader, nullptr);
+            vkDestroyShaderEXT(context->device, shader, context->pAlloc);
 
         if (info.module)
-        vkDestroyShaderModule(context->device, info.module, nullptr);
+        vkDestroyShaderModule(context->device, info.module, context->pAlloc);
     }
 }

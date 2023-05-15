@@ -1,4 +1,4 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {
@@ -120,7 +120,7 @@ namespace nova
                 .viewType = viewType,
                 .format = format,
                 .subresourceRange = { image->aspect, 0, image->mips, 0, image->layers },
-            }), nullptr, &image->view));
+            }), pAlloc, &image->view));
         }
 
         return image;
@@ -129,7 +129,7 @@ namespace nova
     Image::~Image()
     {
         if (view)
-            vkDestroyImageView(context->device, view, nullptr);
+            vkDestroyImageView(context->device, view, context->pAlloc);
 
         if (allocation)
             vmaDestroyImage(context->vma, image, allocation);

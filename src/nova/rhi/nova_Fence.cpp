@@ -1,4 +1,4 @@
-#include "Nova_RHI.hpp"
+#include "nova_RHI.hpp"
 
 namespace nova
 {
@@ -14,14 +14,14 @@ namespace nova
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             })
-        }), nullptr, &_fence->semaphore));
+        }), pAlloc, &_fence->semaphore));
 
         return _fence;
     }
 
     Fence::~Fence()
     {
-        vkDestroySemaphore(context->device, semaphore, nullptr);
+        vkDestroySemaphore(context->device, semaphore, context->pAlloc);
     }
 
     void Fence::Wait(u64 waitValue)
