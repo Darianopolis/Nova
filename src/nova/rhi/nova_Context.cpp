@@ -34,7 +34,7 @@ namespace nova
         volkLoadInstanceOnly(context->instance);
 
         std::vector<VkPhysicalDevice> gpus;
-        NOVA_VKQUERY(gpus, vkEnumeratePhysicalDevices, context->instance);
+        VkQuery(gpus, vkEnumeratePhysicalDevices, context->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -44,6 +44,13 @@ namespace nova
                 context->gpu = _gpu;
                 break;
             }
+        }
+
+        std::vector<VkExtensionProperties> extensionProperties;
+        VkQuery(extensionProperties, vkEnumerateDeviceExtensionProperties, context->gpu, nullptr);
+        for (auto ep : extensionProperties)
+        {
+            NOVA_LOG(" - {}", ep.extensionName);
         }
 
         // ---- Logical Device ----

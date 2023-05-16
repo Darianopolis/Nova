@@ -247,11 +247,4 @@ namespace nova
     {
         return &v;
     }
-
-    inline
-    void Error(std::string msg)
-    {
-        std::cout << msg +"\n";
-        throw std::runtime_error(msg);
-    }
 }

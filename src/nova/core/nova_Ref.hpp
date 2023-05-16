@@ -89,6 +89,7 @@ namespace nova
             }
             return (value = other);
         }
+
     public:
 
 // ----------------  Default Construction and Destruction -------------------- //
@@ -269,4 +270,8 @@ namespace nova
         inline const T* Raw() const { return value; }
         inline T* Raw() { return value; }
     };
+
+#define NOVA_DECLARE_STRUCTURE(name) \
+    struct name; \
+    using name##Ref = Ref<name>;
 }

@@ -273,4 +273,15 @@ namespace nova
             })
         }));
     }
+
+// -----------------------------------------------------------------------------
+
+    void Commands::ClearColor(VkCommandBuffer cmd, Image& image, Vec4 color)
+    {
+        context->Transition(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkCmdClearColorImage(cmd,
+            image.image, image.layout,
+            nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
+            1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image.mips, 0, image.layers }));
+    }
 }

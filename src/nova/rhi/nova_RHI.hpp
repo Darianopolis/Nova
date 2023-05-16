@@ -8,18 +8,20 @@
 namespace nova
 {
     inline
-    void VkCall(VkResult res, std::source_location loc = std::source_location::current())
+    void VkCall(VkResult res)
     {
         if (res != VK_SUCCESS)
-            Error(std::format("Error: {} ({} @ {})\n", int(res), loc.line(), loc.file_name()));
+            NOVA_THROW("Error: {}", int(res));
     }
 
-    #define NOVA_VKQUERY(name, func, ...) do {                \
-        u32 count;                                           \
-        func(__VA_ARGS__ __VA_OPT__(,) &count, nullptr);     \
-        name.resize(count);                                  \
-        func(__VA_ARGS__ __VA_OPT__(,) &count, name.data()); \
-    } while(0)
+    template<class Container, class Fn, class ... Args>
+    void VkQuery(Container&& container, Fn&& fn, Args&& ... args)
+    {
+        u32 count;
+        fn(std::forward<Args>(args)..., &count, nullptr);
+        container.resize(count);
+        fn(std::forward<Args>(args)..., &count, container.data());
+    }
 
 // -----------------------------------------------------------------------------
 
@@ -28,10 +30,6 @@ namespace nova
         NOVA_LOG("Loaded fn [" #name "] - {}", (void*)name)
 
 // -----------------------------------------------------------------------------
-
-#define NOVA_DECLARE_STRUCTURE(name) \
-    struct name; \
-    using name##Ref = Ref<name>;
 
     NOVA_DECLARE_STRUCTURE(Image)
     NOVA_DECLARE_STRUCTURE(Buffer)
@@ -42,6 +40,7 @@ namespace nova
     NOVA_DECLARE_STRUCTURE(Context)
     NOVA_DECLARE_STRUCTURE(Fence)
     NOVA_DECLARE_STRUCTURE(ResourceTracker)
+    NOVA_DECLARE_STRUCTURE(Queue)
 
 // -----------------------------------------------------------------------------
 
@@ -186,11 +185,21 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Queue
+    struct Queue : RefCounted
     {
+        ContextRef context = {};
+
         VkQueue handle = {};
         u32     family = UINT32_MAX;
+
+    public:
+        void Submit(VkCommandBuffer cmd, FenceRef wait, FenceRef signal);
+
+        void Acquire(SwapchainRef swapchain, FenceRef fence);
+        void Present(SwapchainRef swapchain, FenceRef fence);
     };
+
+// -----------------------------------------------------------------------------
 
     struct ResourceTracker : RefCounted
     {
@@ -208,6 +217,8 @@ namespace nova
         ~ResourceTracker();
     };
 
+// -----------------------------------------------------------------------------
+
     struct Fence : RefCounted
     {
         ContextRef  context = {};
@@ -220,6 +231,8 @@ namespace nova
 
         void Wait(u64 waitValue = 0ull);
     };
+
+// -----------------------------------------------------------------------------
 
     struct Commands : RefCounted
     {
@@ -238,6 +251,8 @@ namespace nova
 
         void Clear();
         void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
+
+        void ClearColor(VkCommandBuffer cmd, Image& image, Vec4 color);
     };
 
 // -----------------------------------------------------------------------------
@@ -325,7 +340,7 @@ namespace nova
 
         SwapchainRef CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
         void Present(Swapchain& swapchain, Fence* wait);
-        bool GetNextImage(Swapchain& swapchain, Queue& queue, Fence* signal);
+        bool Acquire(Swapchain& swapchain, Queue& queue, Fence* signal);
 
         CommandsRef CreateCommands();
 

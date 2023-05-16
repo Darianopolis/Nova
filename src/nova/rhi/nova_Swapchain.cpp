@@ -8,7 +8,7 @@ namespace nova
         swapchain->context = this;
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        NOVA_VKQUERY(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
@@ -88,7 +88,7 @@ namespace nova
         }
     }
 
-    bool Context::GetNextImage(Swapchain& swapchain, Queue& queue, Fence* signal)
+    bool Context::Acquire(Swapchain& swapchain, Queue& queue, Fence* signal)
     {
         VkSurfaceCapabilitiesKHR caps;
         VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, swapchain.surface, &caps));
@@ -124,7 +124,7 @@ namespace nova
             }), pAlloc, &swapchain.swapchain));
 
             std::vector<VkImage> vkImages;
-            NOVA_VKQUERY(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
+            VkQuery(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
 
             swapchain.images.resize(vkImages.size());
             for (uint32_t i = 0; i < swapchain.images.size(); ++i)
