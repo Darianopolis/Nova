@@ -2,11 +2,11 @@
 
 namespace nova
 {
-    CommandsRef Context::CreateCommands()
+    Commands* Context::CreateCommands()
     {
-        Ref cmds = new Commands;
+        auto cmds = new Commands;
         cmds->context = this;
-        cmds->queue = &graphics;
+        cmds->queue = graphics;
 
         VkCall(vkCreateCommandPool(device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -16,9 +16,11 @@ namespace nova
         return cmds;
     }
 
-    Commands::~Commands()
+    void Context::DestroyCommands(Commands* commands)
     {
-        vkDestroyCommandPool(context->device, pool, context->pAlloc);
+        vkDestroyCommandPool(device, commands->pool, pAlloc);
+
+        delete commands;
     }
 
     VkCommandBuffer Commands::Allocate()
@@ -79,11 +81,11 @@ namespace nova
         VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
-    void Commands::Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal)
+    void Queue::Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal)
     {
         VkCall(vkEndCommandBuffer(cmd));
 
-        VkCall(vkQueueSubmit2(queue->handle, 1, Temp(VkSubmitInfo2 {
+        VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = wait ? 1u : 0u,
             .pWaitSemaphoreInfos = wait ? Temp(VkSemaphoreSubmitInfo {

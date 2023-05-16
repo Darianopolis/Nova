@@ -3,10 +3,11 @@
 namespace nova
 {
     std::atomic_int64_t Context::AllocationCount = 0;
+    std::atomic_int64_t Context::NewAllocationCount = 0;
 
-    ContextRef Context::Create(bool debug)
+    Context* Context::Create(bool debug)
     {
-        Ref context = new Context;
+        auto context = new Context;
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -46,17 +47,12 @@ namespace nova
             }
         }
 
-        std::vector<VkExtensionProperties> extensionProperties;
-        VkQuery(extensionProperties, vkEnumerateDeviceExtensionProperties, context->gpu, nullptr);
-        for (auto ep : extensionProperties)
-        {
-            NOVA_LOG(" - {}", ep.extensionName);
-        }
-
         // ---- Logical Device ----
 
         vkGetPhysicalDeviceQueueFamilyProperties2(context->gpu, Temp(0u), nullptr);
-        context->graphics.family = 0;
+        context->graphics = new Queue;
+        context->graphics->context = context;
+        context->graphics->family = 0;
 
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
@@ -139,7 +135,7 @@ namespace nova
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = context->graphics.family,
+                    .queueFamilyIndex = context->graphics->family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
@@ -157,7 +153,7 @@ namespace nova
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(context->device, context->graphics.family, 0, &context->graphics.handle);
+        vkGetDeviceQueue(context->device, context->graphics->family, 0, &context->graphics->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -173,20 +169,29 @@ namespace nova
         }), &context->vma));
 
         context->staging = context->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
-
         context->transferCommands = context->CreateCommands();
         context->transferCmd = context->transferCommands->Allocate();
-
-        context->commands = context->CreateCommands();
-        context->cmd = context->commands->Allocate();
-
-        context->fence = context->CreateFence();
+        context->transferFence = context->CreateFence();
 
         return context;
     }
 
-    Context::~Context()
+    void Context::Destroy(Context* context)
     {
-        NOVA_LOG("Destroying vulkan context");
+        context->DestroyCommands(context->transferCommands);
+        context->DestroyFence(context->transferFence);
+        context->DestroyBuffer(context->staging);
+        delete context->graphics;
+
+        vmaDestroyAllocator(context->vma);
+        vkDestroyDevice(context->device, context->pAlloc);
+        vkDestroyInstance(context->instance, context->pAlloc);
+
+        delete context;
+    }
+
+    void Context::WaitForIdle()
+    {
+        vkDeviceWaitIdle(device);
     }
 }

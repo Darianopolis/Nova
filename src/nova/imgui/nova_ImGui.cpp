@@ -2,16 +2,16 @@
 
 namespace nova
 {
-    ImGuiWrapperRef ImGuiWrapper::Create(Context& ctx, Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
+    ImGuiWrapper* ImGuiWrapper::Create(Context* context, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
     {
-        Ref imgui = new ImGuiWrapper;
-        imgui->ctx = &ctx;
+        auto imgui = new ImGuiWrapper;
+        imgui->context = context;
 
-        nova::VkCall(vkCreateRenderPass(ctx.device, nova::Temp(VkRenderPassCreateInfo {
+        VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
-            .pAttachments = nova::Temp(VkAttachmentDescription {
-                .format = swapchain.format.format,
+            .pAttachments = Temp(VkAttachmentDescription {
+                .format = swapchain->format.format,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -21,16 +21,16 @@ namespace nova
                 .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             }),
             .subpassCount = 1,
-            .pSubpasses = nova::Temp(VkSubpassDescription {
+            .pSubpasses = Temp(VkSubpassDescription {
                 .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
                 .colorAttachmentCount = 1,
-                .pColorAttachments = nova::Temp(VkAttachmentReference {
+                .pColorAttachments = Temp(VkAttachmentReference {
                     .attachment = 0,
                     .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 }),
             }),
             .dependencyCount = 1,
-            .pDependencies = nova::Temp(VkSubpassDependency {
+            .pDependencies = Temp(VkSubpassDependency {
                 .srcSubpass = VK_SUBPASS_EXTERNAL,
                 .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                 .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -43,12 +43,12 @@ namespace nova
         // All application descriptor sets will be managed by descriptor buffers
 
         constexpr u32 MaxSamplers = 65'536;
-        nova::VkCall(vkCreateDescriptorPool(ctx.device, nova::Temp(VkDescriptorPoolCreateInfo {
+        VkCall(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
-            .pPoolSizes = nova::Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
+            .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
         }), nullptr, &imgui->descriptorPool));
 
         // Create ImGui context and initialize
@@ -60,17 +60,17 @@ namespace nova
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= imguiFlags;
         ImGui_ImplGlfw_InitForVulkan(window, true);
-        ImGui_ImplVulkan_Init(nova::Temp(ImGui_ImplVulkan_InitInfo {
-            .Instance = ctx.instance,
-            .PhysicalDevice = ctx.gpu,
-            .Device = ctx.device,
-            .QueueFamily = ctx.graphics.family,
-            .Queue = ctx.graphics.handle,
+        ImGui_ImplVulkan_Init(Temp(ImGui_ImplVulkan_InitInfo {
+            .Instance = context->instance,
+            .PhysicalDevice = context->gpu,
+            .Device = context->device,
+            .QueueFamily = context->graphics->family,
+            .Queue = context->graphics->handle,
             .DescriptorPool = imgui->descriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
             .ImageCount = 2,
-            .CheckVkResultFn = [](VkResult r) { nova::VkCall(r); },
+            .CheckVkResultFn = [](VkResult r) { VkCall(r); },
         }), imgui->renderPass);
 
         // Rescale UI and fonts
@@ -81,30 +81,34 @@ namespace nova
         fontConfig.GlyphOffset = ImVec2(1.f, 1.67f);
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
-        ImGui_ImplVulkan_CreateFontsTexture(ctx.cmd);
-        ctx.commands->Submit(ctx.cmd, nullptr, ctx.fence.Raw());
-        ctx.fence->Wait();
-        ctx.commands->Clear();
-        ctx.cmd = ctx.commands->Allocate();
+        ImGui_ImplVulkan_CreateFontsTexture(context->transferCmd);
+        context->graphics->Submit(context->transferCmd, nullptr, context->transferFence);
+        context->transferFence->Wait();
+        context->transferCommands->Clear();
+        context->transferCmd = context->transferCommands->Allocate();
 
         ImGui::SetCurrentContext(imgui->lastImguiCtx);
 
         return imgui;
     }
 
-    ImGuiWrapper::~ImGuiWrapper()
+    void ImGuiWrapper::Destroy(ImGuiWrapper* imgui)
     {
-        for (auto framebuffer : framebuffers)
-            vkDestroyFramebuffer(ctx->device, framebuffer, ctx->pAlloc);
-        vkDestroyRenderPass(ctx->device, renderPass, ctx->pAlloc);
-        vkDestroyDescriptorPool(ctx->device, descriptorPool, ctx->pAlloc);
+        auto context = imgui->context;
 
-        lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imguiCtx);
+        for (auto framebuffer : imgui->framebuffers)
+            vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
+        vkDestroyRenderPass(context->device, imgui->renderPass, context->pAlloc);
+        vkDestroyDescriptorPool(context->device, imgui->descriptorPool, context->pAlloc);
+
+        imgui->lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imgui->imguiCtx);
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
-        ImGui::SetCurrentContext(lastImguiCtx);
-        ImGui::DestroyContext(imguiCtx);
+        ImGui::SetCurrentContext(imgui->lastImguiCtx);
+        ImGui::DestroyContext(imgui->imguiCtx);
+
+        delete imgui;
     }
 
     void ImGuiWrapper::BeginFrame()
@@ -143,14 +147,14 @@ namespace nova
             dockspaceFlags |= ImGuiDockNodeFlags_PassthruCentralNode;
 
             // Register dockspace
-            ImGui::Begin("Dockspace", nova::Temp(true), windowFlags);
+            ImGui::Begin("Dockspace", Temp(true), windowFlags);
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
             ImGui::End();
         }
     }
 
-    void ImGuiWrapper::EndFrame(nova::Swapchain& swapchain)
+    void ImGuiWrapper::EndFrame(VkCommandBuffer cmd, Swapchain& swapchain)
     {
         ImGui::Render();
 
@@ -161,8 +165,8 @@ namespace nova
             framebuffers.resize(swapchain.images.size());
             for (u32 i = 0; i < swapchain.images.size(); ++i)
             {
-                vkDestroyFramebuffer(ctx->device, framebuffers[i], nullptr);
-                nova::VkCall(vkCreateFramebuffer(ctx->device, nova::Temp(VkFramebufferCreateInfo {
+                vkDestroyFramebuffer(context->device, framebuffers[i], nullptr);
+                VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
@@ -174,15 +178,15 @@ namespace nova
             }
         }
 
-        ctx->Transition(ctx->cmd, *swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkCmdBeginRenderPass(ctx->cmd, nova::Temp(VkRenderPassBeginInfo {
+        context->Transition(cmd, swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkCmdBeginRenderPass(cmd, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
             .framebuffer = framebuffers[swapchain.index],
             .renderArea = { {}, swapchain.extent },
         }), VK_SUBPASS_CONTENTS_INLINE);
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ctx->cmd);
-        vkCmdEndRenderPass(ctx->cmd);
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+        vkCmdEndRenderPass(cmd);
 
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {

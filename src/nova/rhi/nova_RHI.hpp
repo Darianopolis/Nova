@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_Ref.hpp>
 
 // #define NOVA_NOISY_VULKAN_ALLOCATIONS
 
@@ -31,16 +30,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DECLARE_STRUCTURE(Image)
-    NOVA_DECLARE_STRUCTURE(Buffer)
-    NOVA_DECLARE_STRUCTURE(Shader)
-    NOVA_DECLARE_STRUCTURE(Context)
-    NOVA_DECLARE_STRUCTURE(Swapchain)
-    NOVA_DECLARE_STRUCTURE(Commands)
-    NOVA_DECLARE_STRUCTURE(Context)
-    NOVA_DECLARE_STRUCTURE(Fence)
-    NOVA_DECLARE_STRUCTURE(ResourceTracker)
-    NOVA_DECLARE_STRUCTURE(Queue)
+    struct Image;
+    struct Buffer;
+    struct Shader;
+    struct Context;
+    struct Swapchain;
+    struct Commands;
+    struct Context;
+    struct Fence;
+    struct ResourceTracker;
+    struct Queue;
 
 // -----------------------------------------------------------------------------
 
@@ -68,9 +67,9 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
-    struct Buffer : RefCounted
+    struct Buffer
     {
-        ContextRef context = {};
+        Context* context = {};
 
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
@@ -80,8 +79,6 @@ namespace nova
         BufferFlags        flags = BufferFlags::None;
 
     public:
-        ~Buffer();
-
         template<class T>
         T& Get(u64 index, u64 offset = 0)
         {
@@ -120,9 +117,9 @@ namespace nova
         D24U_S8,
     };
 
-    struct Image : RefCounted
+    struct Image
     {
-        ContextRef context = {};
+        Context* context = {};
 
         VkImage             image = {};
         VmaAllocation  allocation = {};
@@ -134,17 +131,14 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
-
-    public:
-        ~Image();
     };
 
 
 // -----------------------------------------------------------------------------
 
-    struct Shader : RefCounted
+    struct Shader
     {
-        ContextRef context = {};
+        Context* context = {};
 
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
@@ -154,23 +148,20 @@ namespace nova
             .module = {},
             .pName = "main",
         };
-
-    public:
-        ~Shader();
     };
 
 // -----------------------------------------------------------------------------
 
-    struct Swapchain : RefCounted
+    struct Swapchain
     {
-        ContextRef context = {};
+        Context* context = {};
 
         VkSurfaceKHR           surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<ImageRef> images = {};
+        std::vector<Image*>     images = {};
         uint32_t                 index = UINT32_MAX;
         Image*                   image = nullptr;
         VkExtent2D              extent = { 0, 0 };
@@ -178,86 +169,78 @@ namespace nova
         static constexpr u32 SemaphoreCount = 4;
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
-
-    public:
-        ~Swapchain();
     };
 
 // -----------------------------------------------------------------------------
 
-    struct Queue : RefCounted
+    struct Queue
     {
-        ContextRef context = {};
+        Context* context = {};
 
         VkQueue handle = {};
         u32     family = UINT32_MAX;
 
     public:
-        void Submit(VkCommandBuffer cmd, FenceRef wait, FenceRef signal);
+        void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
 
-        void Acquire(SwapchainRef swapchain, FenceRef fence);
-        void Present(SwapchainRef swapchain, FenceRef fence);
+        bool Acquire(Swapchain* swapchain, Fence* fence);
+        void Present(Swapchain* swapchain, Fence* fence);
     };
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTracker : RefCounted
-    {
-        ContextRef context = {};
+    // struct ResourceTracker
+    // {
+    //     Context* context = {};
 
-        struct ImageState
-        {
-            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
-            VkAccessFlags2       access = 0;
-        };
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+    //     struct ImageState
+    //     {
+    //         VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    //         VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
+    //         VkAccessFlags2       access = 0;
+    //     };
+    //     ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
 
-    public:
-        ~ResourceTracker();
-    };
+    // public:
+    //     ~ResourceTracker();
+    // };
 
 // -----------------------------------------------------------------------------
 
-    struct Fence : RefCounted
+    struct Fence
     {
-        ContextRef  context = {};
+        Context*  context = {};
 
         VkSemaphore semaphore = {};
         u64             value = 0;
 
     public:
-        ~Fence();
-
         void Wait(u64 waitValue = 0ull);
     };
 
 // -----------------------------------------------------------------------------
 
-    struct Commands : RefCounted
+    struct Commands
     {
-        ContextRef context = {};
-
-        Queue* queue = {};
+        Context* context = {};
+        Queue*     queue = {};
 
         VkCommandPool                   pool = {};
         std::vector<VkCommandBuffer> buffers = {};
         u32                            index = 0;
 
     public:
-        ~Commands();
-
         VkCommandBuffer Allocate();
 
         void Clear();
-        void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
+        // void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
 
-        void ClearColor(VkCommandBuffer cmd, Image& image, Vec4 color);
+        void ClearColor(VkCommandBuffer cmd, Image* image, Vec4 color);
     };
 
 // -----------------------------------------------------------------------------
 
-    struct Context : RefCounted
+    struct Context
     {
         VkInstance  instance = {};
         VkPhysicalDevice gpu = {};
@@ -268,27 +251,33 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
         };
 
-        FenceRef fence;
+        Fence* transferFence;
 
-        CommandsRef commands;
-        VkCommandBuffer cmd;
+        // Commands*  commands;
+        // VkCommandBuffer cmd;
 
-        Queue graphics;
+        Queue* graphics;
 
-        BufferRef staging;
-        CommandsRef transferCommands;
+        Buffer*             staging;
+        Commands*  transferCommands;
         VkCommandBuffer transferCmd;
 
         static std::atomic_int64_t AllocationCount;
+        static std::atomic_int64_t NewAllocationCount;
 
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
                 void* ptr = _aligned_malloc(size, align);
+                if (ptr)
+                {
+                    ++AllocationCount;
+                    ++NewAllocationCount;
+                }
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                 if (ptr)
                 {
+                    std::cout << '\n' << std::stacktrace::current() << '\n';
                     NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
-                    NOVA_LOG("    Allocations  + :: {}", ++AllocationCount);
                 }
 #endif
                 return ptr;
@@ -301,11 +290,13 @@ namespace nova
                 return ptr;
             },
             .pfnFree = +[](void*, void* ptr) {
+                if (ptr)
+                    --AllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                 if (ptr)
                 {
                     NOVA_LOG("Freeing ptr = {}", ptr);
-                    NOVA_LOG("    Allocations - :: {}", --AllocationCount);
+                    NOVA_LOG("    Allocations - :: {}", AllocationCount.load());
                 }
 #endif
                 _aligned_free(ptr);
@@ -320,30 +311,38 @@ namespace nova
         VkAllocationCallbacks* pAlloc = &alloc;
         // VkAllocationCallbacks* pAlloc = nullptr;
     public:
-        ~Context();
+        static Context* Create(bool debug);
+        static void Destroy(Context* context);
 
-        static ContextRef Create(bool debug);
+        Buffer* CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
+        void DestroyBuffer(Buffer* buffer);
+        void CopyToBuffer(Buffer* buffer, const void* data, size_t size, VkDeviceSize offset = 0);
 
-        BufferRef CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags = {});
-        void CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset = 0);
+        Image* CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
+        void DestroyImage(Image* image);
+        void CopyToImage(Image* image, const void* data, size_t size);
+        void GenerateMips(Image* image);
+        void Transition(VkCommandBuffer cmd, Image* image, VkImageLayout newLayout);
+        void TransitionMip(VkCommandBuffer cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
 
-        ImageRef CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags = {});
-        void CopyToImage(Image& image, const void* data, size_t size);
-        void GenerateMips(Image& image);
-        void Transition(VkCommandBuffer cmd, Image& image, VkImageLayout newLayout);
-        void TransitionMip(VkCommandBuffer cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
-
-        ShaderRef CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
+        Shader* CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
             const std::string& filename, const std::string& sourceCode = {},
             std::initializer_list<VkPushConstantRange> pushConstantRanges = {},
             std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts = {});
+        void DestroyShader(Shader* shader);
 
-        SwapchainRef CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
-        void Present(Swapchain& swapchain, Fence* wait);
-        bool Acquire(Swapchain& swapchain, Queue& queue, Fence* signal);
+        Swapchain* CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
+        void DestroySwapchain(Swapchain* swapchain);
 
-        CommandsRef CreateCommands();
+        VkSurfaceKHR CreateSurface(HWND hwnd);
+        void DestroySurface(VkSurfaceKHR surface);
 
-        FenceRef CreateFence();
+        Commands* CreateCommands();
+        void DestroyCommands(Commands* commands);
+
+        Fence* CreateFence();
+        void DestroyFence(Fence* fence);
+
+        void WaitForIdle();
     };
 }

@@ -2,12 +2,12 @@
 
 namespace nova
 {
-    WindowRef Window::Create()
+    Window* Window::Create()
     {
         NOVA_DO_ONCE() { glfwInit(); };
         NOVA_ON_EXIT() { glfwTerminate(); };
 
-        Ref window = new Window;
+        auto window = new Window;
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         window->window = glfwCreateWindow(1920, 1200, "test", nullptr, nullptr);

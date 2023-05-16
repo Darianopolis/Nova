@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    ImageRef Context::CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags)
+    Image* Context::CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags)
     {
-        Ref image = new Image;
+        auto image = new Image;
         image->context = this;
 
         bool makeView = usage != 0;
@@ -80,7 +80,7 @@ namespace nova
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
-                    graphics.family,
+                    graphics->family,
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
@@ -126,45 +126,47 @@ namespace nova
         return image;
     }
 
-    Image::~Image()
+    void Context::DestroyImage(Image* image)
     {
-        if (view)
-            vkDestroyImageView(context->device, view, context->pAlloc);
+        if (image->view)
+            vkDestroyImageView(device, image->view, pAlloc);
 
-        if (allocation)
-            vmaDestroyImage(context->vma, image, allocation);
+        if (image->allocation)
+            vmaDestroyImage(vma, image->image, image->allocation);
+
+        delete image;
     }
 
 // -----------------------------------------------------------------------------
 
-    void Context::CopyToImage(Image& image, const void* data, size_t size)
+    void Context::CopyToImage(Image* image, const void* data, size_t size)
     {
         Transition(transferCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         std::memcpy(staging->mapped, data, size);
 
-        vkCmdCopyBufferToImage(transferCmd, staging->buffer, image.image, image.layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(transferCmd, staging->buffer, image->image, image->layout, 1, Temp(VkBufferImageCopy {
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .imageExtent = { image.extent.x, image.extent.y,  1 },
+            .imageExtent = { image->extent.x, image->extent.y,  1 },
         }));
 
-        transferCommands->Submit(transferCmd, nullptr, fence.Raw());
-        fence->Wait();
+        graphics->Submit(transferCmd, nullptr, transferFence);
+        transferFence->Wait();
         transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }
 
-    void Context::GenerateMips(Image& image)
+    void Context::GenerateMips(Image* image)
     {
-        if (image.mips == 1)
+        if (image->mips == 1)
             return;
 
         Transition(transferCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        int32_t mipWidth = image.extent.x;
-        int32_t mipHeight = image.extent.y;
+        int32_t mipWidth = image->extent.x;
+        int32_t mipHeight = image->extent.y;
 
-        for (uint32_t mip = 1; mip < image.mips; ++mip)
+        for (uint32_t mip = 1; mip < image->mips; ++mip)
         {
             vkCmdPipelineBarrier2(transferCmd, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -179,14 +181,14 @@ namespace nova
 
                     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    .image = image.image,
-                    .subresourceRange = { image.aspect, mip - 1, 1, 0, 1 },
+                    .image = image->image,
+                    .subresourceRange = { image->aspect, mip - 1, 1, 0, 1 },
                 }),
             }));
 
             vkCmdBlitImage(transferCmd,
-                image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
                     .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 0, 1 },
                     .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)mipWidth, (int32_t)mipHeight, 1} },
@@ -212,22 +214,22 @@ namespace nova
 
                 .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .image = image.image,
-                .subresourceRange = { image.aspect, image.mips - 1, 1, 0, 1 },
+                .image = image->image,
+                .subresourceRange = { image->aspect, image->mips - 1, 1, 0, 1 },
             }),
         }));
 
-        image.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        image->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        transferCommands->Submit(transferCmd, nullptr, fence.Raw());
-        fence->Wait();
+        graphics->Submit(transferCmd, nullptr, transferFence);
+        transferFence->Wait();
         transferCommands->Clear();
         transferCmd = transferCommands->Allocate();
     }
 
-    void Context::Transition(VkCommandBuffer _cmd, Image& image, VkImageLayout newLayout)
+    void Context::Transition(VkCommandBuffer _cmd, Image* image, VkImageLayout newLayout)
     {
-        if (image.layout == newLayout)
+        if (image->layout == newLayout)
             return;
 
         vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
@@ -242,17 +244,17 @@ namespace nova
                 .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .dstAccessMask = 0,
 
-                .oldLayout = image.layout,
+                .oldLayout = image->layout,
                 .newLayout = newLayout,
-                .image = image.image,
-                .subresourceRange = { image.aspect, 0, image.mips, 0, image.layers },
+                .image = image->image,
+                .subresourceRange = { image->aspect, 0, image->mips, 0, image->layers },
             })
         }));
 
-        image.layout = newLayout;
+        image->layout = newLayout;
     }
 
-    void Context::TransitionMip(VkCommandBuffer _cmd, Image& image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
+    void Context::TransitionMip(VkCommandBuffer _cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
     {
         vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -268,20 +270,20 @@ namespace nova
 
                 .oldLayout = oldLayout,
                 .newLayout = newLayout,
-                .image = image.image,
-                .subresourceRange = { image.aspect, mip, 1, 0, 1 },
+                .image = image->image,
+                .subresourceRange = { image->aspect, mip, 1, 0, 1 },
             })
         }));
     }
 
 // -----------------------------------------------------------------------------
 
-    void Commands::ClearColor(VkCommandBuffer cmd, Image& image, Vec4 color)
+    void Commands::ClearColor(VkCommandBuffer cmd, Image* image, Vec4 color)
     {
         context->Transition(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         vkCmdClearColorImage(cmd,
-            image.image, image.layout,
+            image->image, image->layout,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
-            1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image.mips, 0, image.layers }));
+            1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image->mips, 0, image->layers }));
     }
 }

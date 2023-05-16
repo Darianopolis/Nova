@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    BufferRef Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
+    Buffer* Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
     {
-        Ref buffer = new Buffer;
+        auto buffer = new Buffer;
         buffer->context = this;
         buffer->flags = flags;
 
@@ -51,30 +51,34 @@ namespace nova
         return buffer;
     }
 
-    Buffer::~Buffer()
+    void Context::DestroyBuffer(Buffer* buffer)
     {
-        if (mapped && flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(context->vma, allocation);
+        if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(vma, buffer->allocation);
+
+        vmaDestroyBuffer(vma, buffer->buffer, buffer->allocation);
+
+        delete buffer;
     }
 
-    void Context::CopyToBuffer(Buffer& buffer, const void* data, size_t size, VkDeviceSize offset)
+    void Context::CopyToBuffer(Buffer* buffer, const void* data, size_t size, VkDeviceSize offset)
     {
         if (!data)
         {
-            vkCmdCopyBuffer(transferCmd, staging->buffer, buffer.buffer, 1, Temp(VkBufferCopy {
+            vkCmdCopyBuffer(transferCmd, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
                 .srcOffset = 0,
                 .dstOffset = offset,
                 .size = size,
             }));
 
-            transferCommands->Submit(transferCmd, nullptr, fence.Raw());
-            fence->Wait();
+            graphics->Submit(transferCmd, nullptr, transferFence);
+            transferFence->Wait();
             transferCommands->Clear();
             transferCmd = transferCommands->Allocate();
         }
-        else if (buffer.mapped)
+        else if (buffer->mapped)
         {
-            std::memcpy(buffer.mapped + offset, data, size);
+            std::memcpy(buffer->mapped + offset, data, size);
         }
         else
         {
@@ -84,14 +88,14 @@ namespace nova
 
                 std::memcpy(staging->mapped, (b8*)data + start, chunkSize);
 
-                vkCmdCopyBuffer(transferCmd, staging->buffer, buffer.buffer, 1, Temp(VkBufferCopy {
+                vkCmdCopyBuffer(transferCmd, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
                     .srcOffset = 0,
                     .dstOffset = start + offset,
                     .size = chunkSize,
                 }));
 
-                transferCommands->Submit(transferCmd, nullptr, fence.Raw());
-                fence->Wait();
+                graphics->Submit(transferCmd, nullptr, transferFence);
+                transferFence->Wait();
                 transferCommands->Clear();
                 transferCmd = transferCommands->Allocate();
             }

@@ -84,7 +84,7 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    ShaderRef Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
+    Shader* Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
         const std::string& filename, const std::string& sourceCode,
         std::initializer_list<VkPushConstantRange> pushConstantRanges,
         std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts)
@@ -194,7 +194,7 @@ namespace nova
 
         const glslang::TIntermediate* intermediate = program.getIntermediate(stage);
 
-        Ref newShader = new Shader;
+        auto newShader = new Shader;
         newShader->context = this;
         newShader->stage = vkStage;
 
@@ -232,14 +232,14 @@ namespace nova
         return newShader;
     }
 
-    Shader::~Shader()
+    void Context::DestroyShader(Shader* shader)
     {
-        // NOVA_LOG("Destroying shader");
+        if (shader->shader)
+            vkDestroyShaderEXT(device, shader->shader, pAlloc);
 
-        if (shader)
-            vkDestroyShaderEXT(context->device, shader, context->pAlloc);
+        if (shader->info.module)
+            vkDestroyShaderModule(device, shader->info.module, pAlloc);
 
-        if (info.module)
-        vkDestroyShaderModule(context->device, info.module, context->pAlloc);
+        delete shader;
     }
 }

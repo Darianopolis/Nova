@@ -4,23 +4,21 @@
 
 namespace nova
 {
-    NOVA_DECLARE_STRUCTURE(ImGuiWrapper)
-
-    struct ImGuiWrapper : RefCounted
+    struct ImGuiWrapper
     {
         ImGuiContext* imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
-        ContextRef ctx = {};
+        Context* context = {};
         VkRenderPass renderPass = {};
         std::vector<VkFramebuffer> framebuffers;
         VkDescriptorPool descriptorPool = {};
         VkSwapchainKHR lastSwapchain = {};
     public:
-        static ImGuiWrapperRef Create(Context& ctx, Swapchain& swapchain, GLFWwindow* window, int imguiFlags);
-        ~ImGuiWrapper();
+        static ImGuiWrapper* Create(Context* context, Swapchain* swapchain, GLFWwindow* window, int imguiFlags);
+        static void Destroy(ImGuiWrapper* imgui);
 
         void BeginFrame();
-        void EndFrame(Swapchain& swapchain);
+        void EndFrame(VkCommandBuffer cmd, Swapchain& swapchain);
     };
 }

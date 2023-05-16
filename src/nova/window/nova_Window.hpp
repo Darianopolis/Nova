@@ -1,11 +1,9 @@
 #pragma once
 
-#include <nova/core/nova_Ref.hpp>
+#include <nova/core/nova_Core.hpp>
 
 namespace nova
 {
-    NOVA_DECLARE_STRUCTURE(Window)
-
     enum class Key : u32
     {
         A = GLFW_KEY_A,
@@ -69,11 +67,11 @@ namespace nova
         RightSuper = GLFW_KEY_RIGHT_SUPER,
     };
 
-    struct Window : RefCounted
+    struct Window
     {
         GLFWwindow* window = {};
     public:
-        static WindowRef Create();
+        static Window* Create();
         ~Window();
 
         bool PollEvents();
