@@ -81,11 +81,11 @@ namespace nova
         fontConfig.GlyphOffset = ImVec2(1.f, 1.67f);
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
-        ImGui_ImplVulkan_CreateFontsTexture(context->transferCmd);
+        ImGui_ImplVulkan_CreateFontsTexture(context->transferCmd->buffer);
         context->graphics->Submit(context->transferCmd, nullptr, context->transferFence);
         context->transferFence->Wait();
-        context->transferCommands->Clear();
-        context->transferCmd = context->transferCommands->Allocate();
+        context->transferCommandPool->Reset();
+        context->transferCmd = context->transferCommandPool->Begin();
 
         ImGui::SetCurrentContext(imgui->lastImguiCtx);
 
@@ -154,7 +154,7 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(VkCommandBuffer cmd, Swapchain& swapchain)
+    void ImGuiWrapper::EndFrame(CommandList* cmd, Swapchain& swapchain)
     {
         ImGui::Render();
 
@@ -178,15 +178,15 @@ namespace nova
             }
         }
 
-        context->Transition(cmd, swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        vkCmdBeginRenderPass(cmd, Temp(VkRenderPassBeginInfo {
+        cmd->Transition(swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
             .framebuffer = framebuffers[swapchain.index],
             .renderArea = { {}, swapchain.extent },
         }), VK_SUBPASS_CONTENTS_INLINE);
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-        vkCmdEndRenderPass(cmd);
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
+        vkCmdEndRenderPass(cmd->buffer);
 
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {

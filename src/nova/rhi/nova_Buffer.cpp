@@ -65,16 +65,16 @@ namespace nova
     {
         if (!data)
         {
-            vkCmdCopyBuffer(transferCmd, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
+            vkCmdCopyBuffer(transferCmd->buffer, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
                 .srcOffset = 0,
                 .dstOffset = offset,
                 .size = size,
             }));
 
-            graphics->Submit(transferCmd, nullptr, transferFence);
+            graphics->Submit({transferCmd}, {}, {transferFence});
             transferFence->Wait();
-            transferCommands->Clear();
-            transferCmd = transferCommands->Allocate();
+            transferCommandPool->Reset();
+            transferCmd = transferCommandPool->Begin();
         }
         else if (buffer->mapped)
         {
@@ -88,16 +88,16 @@ namespace nova
 
                 std::memcpy(staging->mapped, (b8*)data + start, chunkSize);
 
-                vkCmdCopyBuffer(transferCmd, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
+                vkCmdCopyBuffer(transferCmd->buffer, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
                     .srcOffset = 0,
                     .dstOffset = start + offset,
                     .size = chunkSize,
                 }));
 
-                graphics->Submit(transferCmd, nullptr, transferFence);
+                graphics->Submit({transferCmd}, {}, {transferFence});
                 transferFence->Wait();
-                transferCommands->Clear();
-                transferCmd = transferCommands->Allocate();
+                transferCommandPool->Reset();
+                transferCmd = transferCommandPool->Begin();
             }
         }
     }

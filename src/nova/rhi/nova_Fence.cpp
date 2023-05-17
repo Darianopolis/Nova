@@ -4,8 +4,8 @@ namespace nova
 {
     Fence* Context::CreateFence()
     {
-        auto _fence = new Fence;
-        _fence->context = this;
+        auto fence = new Fence;
+        fence->context = this;
 
         VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -14,16 +14,16 @@ namespace nova
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             })
-        }), pAlloc, &_fence->semaphore));
+        }), pAlloc, &fence->semaphore));
 
-        return _fence;
+        return fence;
     }
 
-    void Context::DestroyFence(Fence* _fence)
+    void Context::Destroy(Fence* fence)
     {
-        vkDestroySemaphore(device, _fence->semaphore, pAlloc);
+        vkDestroySemaphore(device, fence->semaphore, pAlloc);
 
-        delete _fence;
+        delete fence;
     }
 
     void Fence::Wait(u64 waitValue)

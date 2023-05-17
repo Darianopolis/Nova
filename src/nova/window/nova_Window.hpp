@@ -72,7 +72,7 @@ namespace nova
         GLFWwindow* window = {};
     public:
         static Window* Create();
-        ~Window();
+        static void Destroy(Window* window);
 
         bool PollEvents();
         bool WaitEvents();

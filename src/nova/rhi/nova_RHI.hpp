@@ -35,7 +35,8 @@ namespace nova
     struct Shader;
     struct Context;
     struct Swapchain;
-    struct Commands;
+    struct CommandPool;
+    struct CommandList;
     struct Context;
     struct Fence;
     struct ResourceTracker;
@@ -181,7 +182,7 @@ namespace nova
         u32     family = UINT32_MAX;
 
     public:
-        void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
+        void Submit(CommandList* cmd, Fence* wait, Fence* signal);
 
         bool Acquire(Swapchain* swapchain, Fence* fence);
         void Present(Swapchain* swapchain, Fence* fence);
@@ -220,22 +221,29 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Commands
+    struct CommandPool
     {
         Context* context = {};
         Queue*     queue = {};
 
-        VkCommandPool                   pool = {};
-        std::vector<VkCommandBuffer> buffers = {};
-        u32                            index = 0;
+        VkCommandPool                pool = {};
+        std::vector<CommandList*> buffers = {};
+        u32                         index = 0;
 
     public:
-        VkCommandBuffer Allocate();
+        CommandList* Begin();
+        void Reset();
+    };
 
-        void Clear();
-        // void Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal);
+    struct CommandList
+    {
+        CommandPool*      pool = {};
+        VkCommandBuffer buffer = {};
 
-        void ClearColor(VkCommandBuffer cmd, Image* image, Vec4 color);
+    public:
+        void Clear(Image* image, Vec4 color);
+        void Transition(Image* image, VkImageLayout newLayout);
+        void TransitionMip(Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
     };
 
 // -----------------------------------------------------------------------------
@@ -251,16 +259,13 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
         };
 
-        Fence* transferFence;
+        Fence* transferFence = {};
 
-        // Commands*  commands;
-        // VkCommandBuffer cmd;
+        Queue* graphics = {};
 
-        Queue* graphics;
-
-        Buffer*             staging;
-        Commands*  transferCommands;
-        VkCommandBuffer transferCmd;
+        Buffer*                  staging = {};
+        CommandPool* transferCommandPool = {};
+        CommandList*         transferCmd = {};
 
         static std::atomic_int64_t AllocationCount;
         static std::atomic_int64_t NewAllocationCount;
@@ -322,8 +327,8 @@ namespace nova
         void DestroyImage(Image* image);
         void CopyToImage(Image* image, const void* data, size_t size);
         void GenerateMips(Image* image);
-        void Transition(VkCommandBuffer cmd, Image* image, VkImageLayout newLayout);
-        void TransitionMip(VkCommandBuffer cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
+        // void Transition(VkCommandBuffer cmd, Image* image, VkImageLayout newLayout);
+        // void TransitionMip(VkCommandBuffer cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
 
         Shader* CreateShader(VkShaderStageFlagBits stage, VkShaderStageFlags nextStage,
             const std::string& filename, const std::string& sourceCode = {},
@@ -332,17 +337,23 @@ namespace nova
         void DestroyShader(Shader* shader);
 
         Swapchain* CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode);
-        void DestroySwapchain(Swapchain* swapchain);
+        void Destroy(Swapchain* swapchain);
 
         VkSurfaceKHR CreateSurface(HWND hwnd);
-        void DestroySurface(VkSurfaceKHR surface);
+        void Destroy(VkSurfaceKHR surface);
 
-        Commands* CreateCommands();
-        void DestroyCommands(Commands* commands);
+        CommandPool* CreateCommands();
+        void Destroy(CommandPool* commands);
 
         Fence* CreateFence();
-        void DestroyFence(Fence* fence);
+        void Destroy(Fence* fence);
 
         void WaitForIdle();
+
+        template<class ...Objects>
+        void Destroy(Objects*... objects)
+        {
+            (Destroy(objects), ...);
+        }
     };
 }

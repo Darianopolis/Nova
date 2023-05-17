@@ -33,9 +33,9 @@ namespace nova
         return true;
     }
 
-    Window::~Window()
+    void Window::Destroy(Window* window)
     {
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(window->window);
     }
 
     Vec2 Window::GetCursorPos()

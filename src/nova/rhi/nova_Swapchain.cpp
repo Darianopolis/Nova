@@ -35,7 +35,7 @@ namespace nova
         return swapchain;
     }
 
-    void Context::DestroySwapchain(Swapchain* swapchain)
+    void Context::Destroy(Swapchain* swapchain)
     {
         for (auto semaphore : swapchain->semaphores)
             vkDestroySemaphore(device, semaphore, pAlloc);
@@ -203,7 +203,7 @@ namespace nova
         return surface;
     }
 
-    void Context::DestroySurface(VkSurfaceKHR surface)
+    void Context::Destroy(VkSurfaceKHR surface)
     {
         vkDestroySurfaceKHR(instance, surface, pAlloc);
     }

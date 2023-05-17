@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    Commands* Context::CreateCommands()
+    CommandPool* Context::CreateCommands()
     {
-        auto cmds = new Commands;
+        auto cmds = new CommandPool;
         cmds->context = this;
         cmds->queue = graphics;
 
@@ -16,27 +16,29 @@ namespace nova
         return cmds;
     }
 
-    void Context::DestroyCommands(Commands* commands)
+    void Context::Destroy(CommandPool* pool)
     {
-        vkDestroyCommandPool(device, commands->pool, pAlloc);
+        vkDestroyCommandPool(device, pool->pool, pAlloc);
 
-        delete commands;
+        for (auto& cmd : pool->buffers)
+            delete cmd;
+
+        delete pool;
     }
 
-    VkCommandBuffer Commands::Allocate()
+    CommandList* CommandPool::Begin()
     {
-        VkCommandBuffer cmd;
+        CommandList* cmd;
         if (index >= buffers.size())
         {
-            VkCommandBuffer& newCmd = buffers.emplace_back();
+            cmd = buffers.emplace_back(new CommandList);
+            cmd->pool = this;
             VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = 1,
-            }), &newCmd));
-
-            cmd = newCmd;
+            }), &cmd->buffer));
             index++;
         }
         else
@@ -44,46 +46,22 @@ namespace nova
             cmd = buffers[index++];
         }
 
-        VkCall(vkBeginCommandBuffer(cmd, Temp(VkCommandBufferBeginInfo {
+        VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
         return cmd;
     }
 
-    void Commands::Clear()
+    void CommandPool::Reset()
     {
-        // if (queue && index)
-        // {
-        //     auto bufferInfos = (VkCommandBufferSubmitInfo*)_alloca(index * sizeof(VkCommandBufferSubmitInfo));
-        //     for (u32 i = 0; i < index; ++i)
-        //     {
-        //         bufferInfos[i] = {
-        //             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-        //             .commandBuffer = buffers[i],
-        //         };
-
-        //         VkCall(vkEndCommandBuffer(buffers[i]));
-        //     }
-
-        //     VkCall(vkQueueSubmit2(queue->handle, 1, Temp(VkSubmitInfo2 {
-        //         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        //         .commandBufferInfoCount = index,
-        //         .pCommandBufferInfos = bufferInfos,
-        //     }), VK_NULL_HANDLE));
-
-        //     _freea(bufferInfos);
-
-        //     VkCall(vkQueueWaitIdle(queue->handle));
-        // }
-
         index = 0;
         VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
-    void Queue::Submit(VkCommandBuffer cmd, Fence* wait, Fence* signal)
+    void Queue::Submit(CommandList* cmd, Fence* wait, Fence* signal)
     {
-        VkCall(vkEndCommandBuffer(cmd));
+        VkCall(vkEndCommandBuffer(cmd->buffer));
 
         VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
@@ -97,7 +75,7 @@ namespace nova
             .commandBufferInfoCount = 1,
             .pCommandBufferInfos = Temp(VkCommandBufferSubmitInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-                .commandBuffer = cmd,
+                .commandBuffer = cmd->buffer,
             }),
             .signalSemaphoreInfoCount = signal ? 1u : 0u,
             .pSignalSemaphoreInfos = signal ? Temp(VkSemaphoreSubmitInfo {

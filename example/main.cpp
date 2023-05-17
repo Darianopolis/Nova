@@ -5,9 +5,9 @@ using namespace nova::types;
 
 int main()
 {
-    auto context = nova::Context::Create(true);
-    auto window = nova::Window::Create();
+    auto context = nova::Context::Create(false);
 
+    auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT
@@ -15,8 +15,11 @@ int main()
         VK_PRESENT_MODE_FIFO_KHR);
 
     auto queue = context->graphics;
-    auto fence = context->CreateFence();
-    auto commands = context->CreateCommands();
+
+    nova::Fence*             fences[] = { context->CreateFence(),    context->CreateFence()    };
+    nova::CommandPool* commandPools[] = { context->CreateCommands(), context->CreateCommands() };
+
+    u64 frame = 0;
 
     auto last = std::chrono::steady_clock::now();
     auto frames = 0;
@@ -29,14 +32,18 @@ int main()
             frames = 0;
         }
 
+        auto fence = fences[frame % 2];
+        auto commandPool = commandPools[frame % 2];
+        frame++;
+
         fence->Wait();
         queue->Acquire(swapchain, fence);
 
-        commands->Clear();
-        auto cmd = commands->Allocate();
+        commandPool->Reset();
+        auto cmd = commandPool->Begin();
 
-        commands->ClearColor(cmd, swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
-        context->Transition(cmd, swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        cmd->Clear(swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         queue->Submit(cmd, fence, fence);
         queue->Present(swapchain, fence);
@@ -50,13 +57,13 @@ int main()
     while (window->PollEvents())
         update();
 
-    fence->Wait();
-    context->WaitForIdle();
-    context->DestroyFence(fence);
-    context->DestroyCommands(commands);
-    context->DestroySwapchain(swapchain);
-    context->DestroySurface(surface);
+    fences[0]->Wait();
+    fences[1]->Wait();
+    context->Destroy(fences[0], fences[1]);
+    context->Destroy(commandPools[0], commandPools[1]);
+    context->Destroy(swapchain, surface);
     nova::Context::Destroy(context);
+    nova::Window::Destroy(window);
 
     NOVA_LOG("Allocations = {}", nova::Context::AllocationCount.load());
 }

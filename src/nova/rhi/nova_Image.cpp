@@ -141,19 +141,19 @@ namespace nova
 
     void Context::CopyToImage(Image* image, const void* data, size_t size)
     {
-        Transition(transferCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        transferCmd->Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         std::memcpy(staging->mapped, data, size);
 
-        vkCmdCopyBufferToImage(transferCmd, staging->buffer, image->image, image->layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(transferCmd->buffer, staging->buffer, image->image, image->layout, 1, Temp(VkBufferImageCopy {
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
             .imageExtent = { image->extent.x, image->extent.y,  1 },
         }));
 
-        graphics->Submit(transferCmd, nullptr, transferFence);
+        graphics->Submit({transferCmd}, {}, {transferFence});
         transferFence->Wait();
-        transferCommands->Clear();
-        transferCmd = transferCommands->Allocate();
+        transferCommandPool->Reset();
+        transferCmd = transferCommandPool->Begin();
     }
 
     void Context::GenerateMips(Image* image)
@@ -161,14 +161,14 @@ namespace nova
         if (image->mips == 1)
             return;
 
-        Transition(transferCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        transferCmd->Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         int32_t mipWidth = image->extent.x;
         int32_t mipHeight = image->extent.y;
 
         for (uint32_t mip = 1; mip < image->mips; ++mip)
         {
-            vkCmdPipelineBarrier2(transferCmd, Temp(VkDependencyInfo {
+            vkCmdPipelineBarrier2(transferCmd->buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .imageMemoryBarrierCount = 1,
                 .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -186,7 +186,7 @@ namespace nova
                 }),
             }));
 
-            vkCmdBlitImage(transferCmd,
+            vkCmdBlitImage(transferCmd->buffer,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
@@ -201,7 +201,7 @@ namespace nova
             mipHeight = std::max(mipHeight / 2, 1);
         }
 
-        vkCmdPipelineBarrier2(transferCmd, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(transferCmd->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -221,18 +221,18 @@ namespace nova
 
         image->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        graphics->Submit(transferCmd, nullptr, transferFence);
+        graphics->Submit({transferCmd}, {}, {transferFence});
         transferFence->Wait();
-        transferCommands->Clear();
-        transferCmd = transferCommands->Allocate();
+        transferCommandPool->Reset();
+        transferCmd = transferCommandPool->Begin();
     }
 
-    void Context::Transition(VkCommandBuffer _cmd, Image* image, VkImageLayout newLayout)
+    void CommandList::Transition(Image* image, VkImageLayout newLayout)
     {
         if (image->layout == newLayout)
             return;
 
-        vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -254,9 +254,9 @@ namespace nova
         image->layout = newLayout;
     }
 
-    void Context::TransitionMip(VkCommandBuffer _cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
+    void CommandList::TransitionMip(Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
     {
-        vkCmdPipelineBarrier2(_cmd, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -278,10 +278,10 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void Commands::ClearColor(VkCommandBuffer cmd, Image* image, Vec4 color)
+    void CommandList::Clear(Image* image, Vec4 color)
     {
-        context->Transition(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        vkCmdClearColorImage(cmd,
+        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkCmdClearColorImage(buffer,
             image->image, image->layout,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
             1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image->mips, 0, image->layers }));

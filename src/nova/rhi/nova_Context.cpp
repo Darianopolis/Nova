@@ -169,8 +169,8 @@ namespace nova
         }), &context->vma));
 
         context->staging = context->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
-        context->transferCommands = context->CreateCommands();
-        context->transferCmd = context->transferCommands->Allocate();
+        context->transferCommandPool = context->CreateCommands();
+        context->transferCmd = context->transferCommandPool->Begin();
         context->transferFence = context->CreateFence();
 
         return context;
@@ -178,8 +178,8 @@ namespace nova
 
     void Context::Destroy(Context* context)
     {
-        context->DestroyCommands(context->transferCommands);
-        context->DestroyFence(context->transferFence);
+        context->Destroy(context->transferCommandPool);
+        context->Destroy(context->transferFence);
         context->DestroyBuffer(context->staging);
         delete context->graphics;
 
