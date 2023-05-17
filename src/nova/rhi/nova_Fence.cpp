@@ -35,4 +35,20 @@ namespace nova
             .pValues = waitValue ? &waitValue : &value,
         }), UINT64_MAX));
     }
+
+
+    u64 Fence::Advance()
+    {
+        return ++value;
+    }
+
+    void Fence::Signal(u64 _value)
+    {
+        auto res = vkSignalSemaphore(context->device, Temp(VkSemaphoreSignalInfo {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
+            .semaphore = semaphore,
+            .value = _value,
+        }));
+        VkCall(res);
+    }
 }

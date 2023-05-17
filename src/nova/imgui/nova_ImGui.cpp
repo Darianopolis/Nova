@@ -82,7 +82,7 @@ namespace nova
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(context->transferCmd->buffer);
-        context->graphics->Submit(context->transferCmd, nullptr, context->transferFence);
+        context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
         context->transferFence->Wait();
         context->transferCommandPool->Reset();
         context->transferCmd = context->transferCommandPool->Begin();

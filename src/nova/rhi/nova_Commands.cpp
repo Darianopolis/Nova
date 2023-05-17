@@ -59,31 +59,53 @@ namespace nova
         VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
-    void Queue::Submit(CommandList* cmd, Fence* wait, Fence* signal)
+    NOVA_NO_INLINE
+    void Queue::Submit(std::initializer_list<CommandList*> commandLists, std::initializer_list<Fence*> waits, std::initializer_list<Fence*> signals)
     {
-        VkCall(vkEndCommandBuffer(cmd->buffer));
+        auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, commandLists.size());
+        for (u32 i = 0; i < commandLists.size(); ++i)
+        {
+            auto cmd = commandLists.begin()[i];
+            bufferInfos[i] = {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+                .commandBuffer = cmd->buffer,
+            };
 
-        VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .waitSemaphoreInfoCount = wait ? 1u : 0u,
-            .pWaitSemaphoreInfos = wait ? Temp(VkSemaphoreSubmitInfo {
+            VkCall(vkEndCommandBuffer(cmd->buffer));
+        }
+
+        auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
+        for (u32 i = 0; i < waits.size(); ++i)
+        {
+            auto wait = waits.begin()[i];
+            waitInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = wait->semaphore,
                 .value = wait->value,
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-            }) : nullptr,
-            .commandBufferInfoCount = 1,
-            .pCommandBufferInfos = Temp(VkCommandBufferSubmitInfo {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-                .commandBuffer = cmd->buffer,
-            }),
-            .signalSemaphoreInfoCount = signal ? 1u : 0u,
-            .pSignalSemaphoreInfos = signal ? Temp(VkSemaphoreSubmitInfo {
+            };
+        }
+
+        auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
+        for (u32 i = 0; i < signals.size(); ++i)
+        {
+            auto signal = signals.begin()[i];
+            signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
                 .value = ++signal->value,
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-            }): nullptr,
+            };
+        }
+
+        VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = u32(waits.size()),
+            .pWaitSemaphoreInfos = waitInfos,
+            .commandBufferInfoCount = u32(commandLists.size()),
+            .pCommandBufferInfos = bufferInfos,
+            .signalSemaphoreInfoCount = u32(signals.size()),
+            .pSignalSemaphoreInfos = signalInfos,
         }), nullptr));
     }
 }

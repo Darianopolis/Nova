@@ -182,10 +182,9 @@ namespace nova
         u32     family = UINT32_MAX;
 
     public:
-        void Submit(CommandList* cmd, Fence* wait, Fence* signal);
-
-        bool Acquire(Swapchain* swapchain, Fence* fence);
-        void Present(Swapchain* swapchain, Fence* fence);
+        void Submit(std::initializer_list<CommandList*> commandLists, std::initializer_list<Fence*> waits, std::initializer_list<Fence*> signals);
+        bool Acquire(std::initializer_list<Swapchain*> swapchains, std::initializer_list<Fence*> signals);
+        void Present(std::initializer_list<Swapchain*> swapchains, std::initializer_list<Fence*> waits);
     };
 
 // -----------------------------------------------------------------------------
@@ -217,6 +216,8 @@ namespace nova
 
     public:
         void Wait(u64 waitValue = 0ull);
+        u64 Advance();
+        void Signal(u64 value);
     };
 
 // -----------------------------------------------------------------------------

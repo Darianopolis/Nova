@@ -247,4 +247,14 @@ namespace nova
     {
         return &v;
     }
+
+// -----------------------------------------------------------------------------
+
+#define NOVA_NO_INLINE __declspec(noinline)
+#define NOVA_FORCE_INLINE __forceinline
+
+// -----------------------------------------------------------------------------
+
+#define NOVA_ALLOC_STACK(type, count) \
+    (type*)alloca(sizeof(type) * count)
 }
