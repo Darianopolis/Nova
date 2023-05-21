@@ -24,3 +24,7 @@
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
+
+// -----------------------------------------------------------------------------
+
+#include <mimalloc-new-delete.h>

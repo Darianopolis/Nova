@@ -136,7 +136,7 @@ namespace nova
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                     .queueFamilyIndex = context->graphics->family,
-                    .queueCount = 1,
+                    .queueCount = 2,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
@@ -154,6 +154,7 @@ namespace nova
         // ---- Shared resources ----
 
         vkGetDeviceQueue(context->device, context->graphics->family, 0, &context->graphics->handle);
+        vkGetDeviceQueue(context->device, context->graphics->family, 1, &context->graphics->handle2);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -168,9 +169,10 @@ namespace nova
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &context->vma));
 
-        context->staging = context->CreateBuffer(256ull * 1024 * 1024, 0, BufferFlags::CreateMapped);
+        context->transferTracker = context->CreateResourceTracker();
+        context->staging = context->CreateBuffer(256ull * 1024 * 1024, BufferUsage::TransferSrc, BufferFlags::CreateMapped);
         context->transferCommandPool = context->CreateCommands();
-        context->transferCmd = context->transferCommandPool->Begin();
+        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
         context->transferFence = context->CreateFence();
 
         return context;
@@ -178,6 +180,7 @@ namespace nova
 
     void Context::Destroy(Context* context)
     {
+        context->Destroy(context->transferTracker);
         context->Destroy(context->transferCommandPool);
         context->Destroy(context->transferFence);
         context->DestroyBuffer(context->staging);

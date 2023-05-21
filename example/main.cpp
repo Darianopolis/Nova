@@ -1,35 +1,45 @@
 #include <nova/window/nova_Window.hpp>
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/core/nova_Timer.hpp>
 
 using namespace nova::types;
 
 int main()
 {
-    auto context = nova::Context::Create(true);
+    NOVA_LOGEXPR(mi_version());
 
-    // auto presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    auto presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    auto context = nova::Context::Create(false);
+
+    auto presentMode = nova::PresentMode::Mailbox;
+    // auto presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    // auto presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
     auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT
-        | VK_IMAGE_USAGE_STORAGE_BIT,
+        nova::ImageUsage::TransferDst
+        | nova::ImageUsage::Storage,
         presentMode);
 
     auto window2 = nova::Window::Create();
     auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
     auto swapchain2 = context->CreateSwapchain(surface2,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT
-        | VK_IMAGE_USAGE_STORAGE_BIT,
+        nova::ImageUsage::TransferDst
+        | nova::ImageUsage::Storage,
         presentMode);
 
     auto queue = context->graphics;
 
+    auto tracker = context->CreateResourceTracker();
+
     nova::Fence*             fences[] = { context->CreateFence(),    context->CreateFence()    };
     nova::CommandPool* commandPools[] = { context->CreateCommands(), context->CreateCommands() };
 
+    auto hostFence = context->CreateFence();
+
     u64 frame = 0;
+
+    nova::Timer timer;
 
     auto last = std::chrono::steady_clock::now();
     auto frames = 0;
@@ -42,15 +52,15 @@ int main()
             frames = 0;
         }
 
-        auto fence = fences[frame % 1];
-        auto commandPool = commandPools[frame % 1];
+        auto fence = fences[frame % 2];
+        auto commandPool = commandPools[frame % 2];
         frame++;
 
         fence->Wait();
         queue->Acquire({swapchain, swapchain2}, {fence});
 
         commandPool->Reset();
-        auto cmd = commandPool->Begin();
+        auto cmd = commandPool->BeginPrimary(tracker);
 
         cmd->Clear(swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
         cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -58,8 +68,18 @@ int main()
         cmd->Clear(swapchain2->image, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd->Transition(swapchain2->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({swapchain, swapchain2}, {fence});
+        // auto value = hostFence->Advance();
+        // std::thread([=] {
+        //     std::this_thread::sleep_for(5ms);
+        //     hostFence->Signal(value);
+        // }).detach();
+
+        // NOVA_TIMEIT_RESET();
+        // std::this_thread::sleep_for(5ms);
+        // NOVA_TIMEIT("sleep");
+
+        queue->Submit({cmd}, {hostFence, fence}, {fence});
+        queue->Present({swapchain, swapchain2}, {fence}, true);
     };
 
     glfwSetWindowUserPointer(window->window, &update);
@@ -72,13 +92,19 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
+    auto lastFrame = std::chrono::steady_clock::now();
     while (window->PollEvents() && window2->PollEvents())
+    {
+        // while (timer.Wait(lastFrame + (1000ms / 120.0) - std::chrono::steady_clock::now(), true))
+        //     std::this_thread::yield();
+        // lastFrame = std::chrono::steady_clock::now();
         update();
+    }
 
     fences[0]->Wait();
     fences[1]->Wait();
-    context->Destroy(fences[0], fences[1]);
-    context->Destroy(commandPools[0], commandPools[1]);
+    context->Destroy(fences[0], fences[1], hostFence);
+    context->Destroy(commandPools[0], commandPools[1], tracker);
     context->Destroy(swapchain, surface);
     context->Destroy(swapchain2, surface2);
     nova::Context::Destroy(context);

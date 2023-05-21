@@ -2,13 +2,13 @@
 
 namespace nova
 {
-    Buffer* Context::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, BufferFlags flags)
+    Buffer* Context::CreateBuffer(u64 size, BufferUsage _usage, BufferFlags flags)
     {
         auto buffer = new Buffer;
         buffer->context = this;
         buffer->flags = flags;
 
-        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        auto usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (flags >= BufferFlags::Addressable)
             usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
@@ -61,7 +61,7 @@ namespace nova
         delete buffer;
     }
 
-    void Context::CopyToBuffer(Buffer* buffer, const void* data, size_t size, VkDeviceSize offset)
+    void Context::CopyToBuffer(Buffer* buffer, const void* data, usz size, u64 offset)
     {
         if (!data)
         {
@@ -74,7 +74,7 @@ namespace nova
             graphics->Submit({transferCmd}, {}, {transferFence});
             transferFence->Wait();
             transferCommandPool->Reset();
-            transferCmd = transferCommandPool->Begin();
+            transferCmd = transferCommandPool->BeginPrimary(transferTracker);
         }
         else if (buffer->mapped)
         {
@@ -97,7 +97,7 @@ namespace nova
                 graphics->Submit({transferCmd}, {}, {transferFence});
                 transferFence->Wait();
                 transferCommandPool->Reset();
-                transferCmd = transferCommandPool->Begin();
+                transferCmd = transferCommandPool->BeginPrimary(transferTracker);
             }
         }
     }

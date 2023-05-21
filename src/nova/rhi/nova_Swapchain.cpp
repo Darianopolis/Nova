@@ -2,10 +2,13 @@
 
 namespace nova
 {
-    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, VkImageUsageFlags usage, VkPresentModeKHR presentMode)
+    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, ImageUsage _usage, PresentMode _presentMode)
     {
         auto swapchain = new Swapchain;
         swapchain->context = this;
+
+        auto usage = VkImageUsageFlags(_usage);
+        auto presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
         VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
@@ -51,10 +54,28 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     NOVA_NO_INLINE
-    void Queue::Present(std::initializer_list<Swapchain*> swapchains, std::initializer_list<Fence*> waits)
+    void Queue::Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait)
     {
         VkSemaphore* binaryWaits = nullptr;
 
+        if (hostWait && waits.size())
+        {
+            auto semaphores = NOVA_ALLOC_STACK(VkSemaphore, waits.size());
+            auto values = NOVA_ALLOC_STACK(u64, waits.size());
+            for (u32 i = 0; i < waits.size(); ++i)
+            {
+                semaphores[i] = waits.begin()[i]->semaphore;
+                values[i] = waits.begin()[i]->value;
+            }
+
+            VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+                .semaphoreCount = u32(waits.size()),
+                .pSemaphores = semaphores,
+                .pValues = values,
+            }), UINT64_MAX));
+        }
+        else
         if (waits.size())
         {
             auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
@@ -104,28 +125,25 @@ namespace nova
             indices[i] = swapchain->index;
         }
 
-        // std::this_thread::sleep_for(200ms);
+        // NOVA_TIMEIT_RESET();
         auto result = vkQueuePresentKHR(handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            .waitSemaphoreCount = waits.size() ? u32(swapchains.size()) : 0u,
+            .waitSemaphoreCount = binaryWaits ? u32(swapchains.size()) : 0u,
             .pWaitSemaphores = binaryWaits,
             .swapchainCount = u32(swapchains.size()),
             .pSwapchains = vkSwapchains,
             .pImageIndices = indices,
         }));
+        // NOVA_TIMEIT("present");
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-        {
             NOVA_LOG("Suboptimal / out of date swapchain!\n");
-        }
         else
-        {
             VkCall(result);
-        }
     }
 
     NOVA_NO_INLINE
-    bool Queue::Acquire(std::initializer_list<Swapchain*> swapchains, std::initializer_list<Fence*> signals)
+    bool Queue::Acquire(Span<Swapchain*> swapchains, Span<Fence*> signals)
     {
         bool anyResized = false;
 
@@ -231,7 +249,7 @@ namespace nova
                 };
             }
 
-            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(handle2, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = waitInfos,

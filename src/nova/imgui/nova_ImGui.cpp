@@ -85,7 +85,7 @@ namespace nova
         context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
         context->transferFence->Wait();
         context->transferCommandPool->Reset();
-        context->transferCmd = context->transferCommandPool->Begin();
+        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
 
         ImGui::SetCurrentContext(imgui->lastImguiCtx);
 
@@ -154,36 +154,36 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(CommandList* cmd, Swapchain& swapchain)
+    void ImGuiWrapper::EndFrame(CommandList* cmd, Swapchain* swapchain)
     {
         ImGui::Render();
 
-        if (lastSwapchain != swapchain.swapchain)
+        if (lastSwapchain != swapchain->swapchain)
         {
-            lastSwapchain = swapchain.swapchain;
+            lastSwapchain = swapchain->swapchain;
 
-            framebuffers.resize(swapchain.images.size());
-            for (u32 i = 0; i < swapchain.images.size(); ++i)
+            framebuffers.resize(swapchain->images.size());
+            for (u32 i = 0; i < swapchain->images.size(); ++i)
             {
                 vkDestroyFramebuffer(context->device, framebuffers[i], nullptr);
                 VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain.images[i]->view,
-                    .width = swapchain.extent.width,
-                    .height = swapchain.extent.height,
+                    .pAttachments = &swapchain->images[i]->view,
+                    .width = swapchain->extent.width,
+                    .height = swapchain->extent.height,
                     .layers = 1,
                 }), nullptr, &framebuffers[i]));
             }
         }
 
-        cmd->Transition(swapchain.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
-            .framebuffer = framebuffers[swapchain.index],
-            .renderArea = { {}, swapchain.extent },
+            .framebuffer = framebuffers[swapchain->index],
+            .renderArea = { {}, swapchain->extent },
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
         vkCmdEndRenderPass(cmd->buffer);

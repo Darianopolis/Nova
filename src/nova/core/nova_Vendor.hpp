@@ -61,3 +61,7 @@
 #include <cgltf.h>
 
 #include <meshoptimizer.h>
+
+// -----------------------------------------------------------------------------
+
+#include <mimalloc.h>

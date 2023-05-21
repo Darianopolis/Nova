@@ -19,6 +19,6 @@ namespace nova
         static void Destroy(ImGuiWrapper* imgui);
 
         void BeginFrame();
-        void EndFrame(CommandList* cmd, Swapchain& swapchain);
+        void EndFrame(CommandList* cmd, Swapchain* swapchain);
     };
 }

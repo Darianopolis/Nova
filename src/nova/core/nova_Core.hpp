@@ -94,6 +94,11 @@ namespace nova
 
         using Mat3 = glm::mat3;
         using Mat4 = glm::mat4;
+
+// -----------------------------------------------------------------------------
+
+        template<class T>
+        using Span = std::initializer_list<T>;
     }
 
     using namespace types;

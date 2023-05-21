@@ -51,9 +51,8 @@ namespace nova
             }
             else
             {
-                auto msg = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
-                userData->content = msg;
-                std::cout << msg << '\n';
+                userData->content = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
+                NOVA_LOG("{}", userData->content);
             }
 
             return new IncludeResult(userData->name, userData->content.data(), userData->content.size(), userData);
@@ -84,13 +83,16 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader* Context::CreateShader(VkShaderStageFlagBits vkStage, VkShaderStageFlags nextStage,
+    Shader* Context::CreateShader(ShaderStage _stage, ShaderStage _nextStage,
         const std::string& filename, const std::string& sourceCode,
-        std::initializer_list<VkPushConstantRange> pushConstantRanges,
-        std::initializer_list<VkDescriptorSetLayout> descriptorSetLayouts)
+        Span<VkPushConstantRange> pushConstantRanges,
+        Span<VkDescriptorSetLayout> descriptorSetLayouts)
     {
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
+
+        auto vkStage = VkShaderStageFlagBits(_stage);
+        auto nextStage = VkShaderStageFlags(_nextStage);
 
         EShLanguage stage;
         bool supportsShaderObjects = true;

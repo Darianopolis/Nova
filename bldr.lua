@@ -1,6 +1,7 @@
 if Project "nova" then
     Compile "src/**"
     Include "src"
+    Define "NOVA_PLATFORM_WINDOWS"
     Import {
         "glfw",
         "vulkan",
@@ -18,6 +19,7 @@ if Project "nova" then
         "imguizmo",
         "jolt",
         "Compressonator",
+        "mimalloc",
     }
 end
 

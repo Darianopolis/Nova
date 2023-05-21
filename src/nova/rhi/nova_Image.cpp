@@ -2,11 +2,13 @@
 
 namespace nova
 {
-    Image* Context::CreateImage(Vec3U size, VkImageUsageFlags usage, VkFormat format, ImageFlags flags)
+    Image* Context::CreateImage(Vec3U size, ImageUsage _usage, Format _format, ImageFlags flags)
     {
         auto image = new Image;
         image->context = this;
 
+        auto usage = VkImageUsageFlags(_usage);
+        auto format = VkFormat(_format);
         bool makeView = usage != 0;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
@@ -153,7 +155,7 @@ namespace nova
         graphics->Submit({transferCmd}, {}, {transferFence});
         transferFence->Wait();
         transferCommandPool->Reset();
-        transferCmd = transferCommandPool->Begin();
+        transferCmd = transferCommandPool->BeginPrimary(transferTracker);
     }
 
     void Context::GenerateMips(Image* image)
@@ -224,7 +226,7 @@ namespace nova
         graphics->Submit({transferCmd}, {}, {transferFence});
         transferFence->Wait();
         transferCommandPool->Reset();
-        transferCmd = transferCommandPool->Begin();
+        transferCmd = transferCommandPool->BeginPrimary(transferTracker);
     }
 
     void CommandList::Transition(Image* image, VkImageLayout newLayout)
@@ -285,5 +287,17 @@ namespace nova
             image->image, image->layout,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
             1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image->mips, 0, image->layers }));
+    }
+
+// -----------------------------------------------------------------------------
+
+    ResourceTracker* Context::CreateResourceTracker()
+    {
+        return new ResourceTracker;
+    }
+
+    void Context::Destroy(ResourceTracker* tracker)
+    {
+        delete tracker;
     }
 }
