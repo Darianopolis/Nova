@@ -402,11 +402,11 @@ namespace nova
         static void Destroy(Context* context);
 
         Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
-        void DestroyBuffer(Buffer* buffer);
+        void Destroy(Buffer* buffer);
         void CopyToBuffer(Buffer* buffer, const void* data, usz size, u64 offset = 0);
 
         Image* CreateImage(Vec3U size, ImageUsage usage, Format format, ImageFlags flags = {});
-        void DestroyImage(Image* image);
+        void Destroy(Image* image);
         void CopyToImage(Image* image, const void* data, usz size);
         void GenerateMips(Image* image);
 

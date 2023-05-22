@@ -24,7 +24,8 @@ if Project "nova" then
 end
 
 if Project "nova-example" then
-    Compile "example/main.cpp"
+    -- Compile "example/MultiPresentTest.cpp"
+    Compile "example/BoxOverlayTest.cpp"
     Import "nova"
     Artifact { "out/main", type = "Console" }
 end

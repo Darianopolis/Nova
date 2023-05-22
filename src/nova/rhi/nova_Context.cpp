@@ -183,7 +183,7 @@ namespace nova
         context->Destroy(context->transferTracker);
         context->Destroy(context->transferCommandPool);
         context->Destroy(context->transferFence);
-        context->DestroyBuffer(context->staging);
+        context->Destroy(context->staging);
         delete context->graphics;
 
         vmaDestroyAllocator(context->vma);

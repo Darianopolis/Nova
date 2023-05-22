@@ -128,7 +128,7 @@ namespace nova
         return image;
     }
 
-    void Context::DestroyImage(Image* image)
+    void Context::Destroy(Image* image)
     {
         if (image->view)
             vkDestroyImageView(device, image->view, pAlloc);

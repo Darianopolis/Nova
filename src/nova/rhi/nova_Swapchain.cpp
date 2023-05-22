@@ -36,7 +36,7 @@ namespace nova
             vkDestroySemaphore(device, semaphore, pAlloc);
 
         for (auto image : swapchain->images)
-            DestroyImage(image);
+            Destroy(image);
 
         vkDestroySwapchainKHR(device, swapchain->swapchain, pAlloc);
 
@@ -190,7 +190,7 @@ namespace nova
                 }
 
                 for (auto image : swapchain->images)
-                    context->DestroyImage(image);
+                    context->Destroy(image);
 
                 swapchain->images.resize(vkImages.size());
                 for (uint32_t i = 0; i < swapchain->images.size(); ++i)
