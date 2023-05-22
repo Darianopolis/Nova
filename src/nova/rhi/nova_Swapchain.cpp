@@ -27,14 +27,6 @@ namespace nova
         swapchain->presentMode = presentMode;
         swapchain->surface = surface;
 
-        swapchain->semaphores.resize(Swapchain::SemaphoreCount);
-        for (auto& s : swapchain->semaphores)
-        {
-            VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-            }), pAlloc, &s));
-        }
-
         return swapchain;
     }
 
@@ -188,6 +180,14 @@ namespace nova
 
                 std::vector<VkImage> vkImages;
                 VkQuery(vkImages, vkGetSwapchainImagesKHR, context->device, swapchain->swapchain);
+
+                while (swapchain->semaphores.size() < vkImages.size() * 2)
+                {
+                    auto& semaphore = swapchain->semaphores.emplace_back();
+                    VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+                    }), context->pAlloc, &semaphore));
+                }
 
                 for (auto image : swapchain->images)
                     context->DestroyImage(image);

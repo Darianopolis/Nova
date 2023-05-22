@@ -123,6 +123,14 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    thread_local inline std::string NovaFormatOutput;
+
+#define NOVA_FORMAT(fmt, ...) ([&]() -> const std::string& {                                     \
+    ::nova::NovaFormatOutput.clear();                                                            \
+    std::format_to(std::back_inserter(::nova::NovaFormatOutput), fmt __VA_OPT__(,) __VA_ARGS__); \
+    return ::nova::NovaFormatOutput;                                                             \
+}())
+
 #define NOVA_DEBUG() std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
 
 #define NOVA_LOG(fmt, ...) \
@@ -136,22 +144,30 @@ namespace nova
 #define NOVA_THROW(fmt, ...) do {                          \
     auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
     std::cout << std::stacktrace::current();               \
-    std::cout << std::format("\nERROR: {}\n", msg);        \
+    NOVA_LOG("\nERROR: {}", msg);                            \
     throw std::runtime_error(std::move(msg));              \
 } while (0)
 
+#define NOVA_ASSERT(condition, fmt, ...) do { \
+    if (!(condition)) [[unlikely]]            \
+        NOVA_THROW(fmt, __VA_ARGS__);         \
+} while (0)
+
+#define NOVA_ASSERT_NONULL(condition) \
+    NOVA_ASSERT(condition, "Expected non-null: " #condition)
+
 // -----------------------------------------------------------------------------
 
-    thread_local inline std::chrono::steady_clock::time_point PyrTimeitLast;
+    thread_local inline std::chrono::steady_clock::time_point NovaTimeitLast;
 
-#define NOVA_TIMEIT_RESET() ::nova::PyrTimeitLast = std::chrono::steady_clock::now()
+#define NOVA_TIMEIT_RESET() ::nova::NovaTimeitLast = std::chrono::steady_clock::now()
 
-#define NOVA_TIMEIT(...) do {                                                       \
-    using namespace std::chrono;                                                    \
-    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",   \
-        duration_cast<milliseconds>(steady_clock::now()                             \
-            - ::nova::PyrTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
-    ::nova::PyrTimeitLast = steady_clock::now();                                    \
+#define NOVA_TIMEIT(...) do {                                                        \
+    using namespace std::chrono;                                                     \
+    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",    \
+        duration_cast<milliseconds>(steady_clock::now()                              \
+            - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+    ::nova::NovaTimeitLast = steady_clock::now();                                    \
 } while (0)
 
 // -----------------------------------------------------------------------------

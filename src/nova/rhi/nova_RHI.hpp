@@ -211,7 +211,6 @@ namespace nova
         Image*                   image = nullptr;
         VkExtent2D              extent = { 0, 0 };
 
-        static constexpr u32 SemaphoreCount = 4;
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
     };
@@ -410,8 +409,6 @@ namespace nova
         void DestroyImage(Image* image);
         void CopyToImage(Image* image, const void* data, usz size);
         void GenerateMips(Image* image);
-        // void Transition(VkCommandBuffer cmd, Image* image, VkImageLayout newLayout);
-        // void TransitionMip(VkCommandBuffer cmd, Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
 
         Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode = {},
