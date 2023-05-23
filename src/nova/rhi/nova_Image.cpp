@@ -10,7 +10,7 @@ namespace nova
 
         auto usage = VkImageUsageFlags(_usage);
         auto format = VkFormat(_format);
-        bool makeView = usage != 0;
+        bool makeView = (usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         image->mips = flags >= ImageFlags::Mips
@@ -131,6 +131,9 @@ namespace nova
 
     void Context::DestroyImage(Image* image)
     {
+        if (!image)
+            return;
+
         if (image->view)
             vkDestroyImageView(device, image->view, pAlloc);
 

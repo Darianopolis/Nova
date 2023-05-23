@@ -38,7 +38,7 @@ namespace nova
                 .srcAccessMask = 0,
                 .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             }),
-        }), nullptr, &imgui->renderPass));
+        }), context->pAlloc, &imgui->renderPass));
 
         // Create fixed sampler only descriptor pool for ImGui
         // All application descriptor sets will be managed by descriptor buffers
@@ -50,7 +50,7 @@ namespace nova
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
             .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
-        }), nullptr, &imgui->descriptorPool));
+        }), context->pAlloc, &imgui->descriptorPool));
 
         // Create ImGui context and initialize
 
@@ -171,7 +171,7 @@ namespace nova
                     .width = swapchain->extent.width,
                     .height = swapchain->extent.height,
                     .layers = 1,
-                }), nullptr, &framebuffers[i]));
+                }), context->pAlloc, &framebuffers[i]));
             }
         }
 

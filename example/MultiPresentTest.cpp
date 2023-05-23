@@ -2,13 +2,15 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/core/nova_Timer.hpp>
 
+#include <nova/imgui/nova_ImGui.hpp>
+
 using namespace nova::types;
 
 int main()
 {
     NOVA_LOGEXPR(mi_version());
 
-    auto context = nova::Context::Create(false);
+    auto context = nova::Context::Create(true);
 
     auto presentMode = nova::PresentMode::Mailbox;
     // auto presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -18,6 +20,7 @@ int main()
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface,
         nova::ImageUsage::TransferDst
+        | nova::ImageUsage::ColorAttach
         | nova::ImageUsage::Storage,
         presentMode);
 
@@ -34,6 +37,14 @@ int main()
 
     nova::Fence*             fences[] = { context->CreateFence(),    context->CreateFence()    };
     nova::CommandPool* commandPools[] = { context->CreateCommandPool(), context->CreateCommandPool() };
+
+    nova::ImGuiWrapper* imgui;
+    {
+        auto cmd = commandPools[0]->BeginPrimary(tracker);
+        imgui = nova::ImGuiWrapper::Create(context, cmd, swapchain, window->window, ImGuiConfigFlags_ViewportsEnable);
+        queue->Submit({cmd}, {}, {fences[0]});
+        fences[0]->Wait();
+    }
 
     auto hostFence = context->CreateFence();
 
@@ -63,6 +74,11 @@ int main()
         auto cmd = commandPool->BeginPrimary(tracker);
 
         cmd->Clear(swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+
+        imgui->BeginFrame();
+        ImGui::ShowDemoWindow();
+        imgui->EndFrame(cmd, swapchain);
+
         cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         cmd->Clear(swapchain2->image, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
@@ -79,7 +95,7 @@ int main()
         // NOVA_TIMEIT("sleep");
 
         queue->Submit({cmd}, {hostFence, fence}, {fence});
-        queue->Present({swapchain, swapchain2}, {fence}, false);
+        queue->Present({swapchain, swapchain2}, {fence}, true);
     };
 
     glfwSetWindowUserPointer(window->window, &update);
@@ -113,9 +129,13 @@ int main()
     context->DestroySwapchain(swapchain2);
     context->DestroySurface(surface);
     context->DestroySurface(surface2);
-    nova::Context::Destroy(context);
+
+    nova::ImGuiWrapper::Destroy(imgui);
+
     nova::Window::Destroy(window);
     nova::Window::Destroy(window2);
+
+    nova::Context::Destroy(context);
 
     NOVA_LOG("Allocations = {}", nova::Context::AllocationCount.load());
 }

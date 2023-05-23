@@ -33,6 +33,9 @@ namespace nova
 
     void Context::DestroySwapchain(Swapchain* swapchain)
     {
+        if (!swapchain)
+            return;
+
         for (auto semaphore : swapchain->semaphores)
             vkDestroySemaphore(device, semaphore, pAlloc);
 
@@ -118,7 +121,6 @@ namespace nova
             indices[i] = swapchain->index;
         }
 
-        // NOVA_TIMEIT_RESET();
         auto result = vkQueuePresentKHR(handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binaryWaits ? u32(swapchains.size()) : 0u,
@@ -127,7 +129,6 @@ namespace nova
             .pSwapchains = vkSwapchains,
             .pImageIndices = indices,
         }));
-        // NOVA_TIMEIT("present");
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
             NOVA_LOG("Suboptimal / out of date swapchain!\n");

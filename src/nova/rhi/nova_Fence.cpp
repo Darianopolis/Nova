@@ -22,6 +22,9 @@ namespace nova
 
     void Context::DestroyFence(Fence* fence)
     {
+        if (!fence)
+            return;
+
         vkDestroySemaphore(device, fence->semaphore, pAlloc);
 
         delete fence;

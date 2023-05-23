@@ -237,6 +237,9 @@ namespace nova
 
     void Context::DestroyShader(Shader* shader)
     {
+        if (!shader)
+            return;
+
         if (shader->shader)
             vkDestroyShaderEXT(device, shader->shader, pAlloc);
 

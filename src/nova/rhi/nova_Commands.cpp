@@ -19,6 +19,9 @@ namespace nova
 
     void Context::DestroyCommandPool(CommandPool* pool)
     {
+        if (!pool)
+            return;
+
         vkDestroyCommandPool(device, pool->pool, pAlloc);
 
         for (auto& cmd : pool->buffers)

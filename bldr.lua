@@ -22,16 +22,11 @@ if Project "nova" then
         "mimalloc",
         "freetype",
     }
-
-    -- Compile "example/MultiPresentTest.cpp"
-    Compile "example/BoxOverlayTest.cpp"
-
-    Artifact { "out/main", type = "Console" }
 end
 
--- if Project "nova-example" then
---     Compile "example/MultiPresentTest.cpp"
---     -- Compile "example/BoxOverlayTest.cpp"
---     Import "nova"
---     Artifact { "out/main", type = "Console" }
--- end
+if Project "nova-example" then
+    Compile "example/MultiPresentTest.cpp"
+    -- Compile "example/BoxOverlayTest.cpp"
+    Import "nova"
+    Artifact { "out/main", type = "Console" }
+end

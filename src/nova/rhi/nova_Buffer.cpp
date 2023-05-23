@@ -54,6 +54,9 @@ namespace nova
 
     void Context::DestroyBuffer(Buffer* buffer)
     {
+        if (!buffer)
+            return;
+
         if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
             vmaUnmapMemory(vma, buffer->allocation);
 
