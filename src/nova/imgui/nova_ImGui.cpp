@@ -5,6 +5,7 @@ namespace nova
     ImGuiWrapper* ImGuiWrapper::Create(Context* context, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
     {
         auto imgui = new ImGuiWrapper;
+        NOVA_ON_SCOPE_FAILURE(&) { Destroy(imgui); };
         imgui->context = context;
 
         VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {

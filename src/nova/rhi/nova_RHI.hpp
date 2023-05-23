@@ -402,11 +402,11 @@ namespace nova
         static void Destroy(Context* context);
 
         Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
-        void Destroy(Buffer* buffer);
+        void DestroyBuffer(Buffer* buffer);
         void CopyToBuffer(Buffer* buffer, const void* data, usz size, u64 offset = 0);
 
         Image* CreateImage(Vec3U size, ImageUsage usage, Format format, ImageFlags flags = {});
-        void Destroy(Image* image);
+        void DestroyImage(Image* image);
         void CopyToImage(Image* image, const void* data, usz size);
         void GenerateMips(Image* image);
 
@@ -417,26 +417,20 @@ namespace nova
         void DestroyShader(Shader* shader);
 
         Swapchain* CreateSwapchain(VkSurfaceKHR surface, ImageUsage usage, PresentMode presentMode);
-        void Destroy(Swapchain* swapchain);
+        void DestroySwapchain(Swapchain* swapchain);
 
         VkSurfaceKHR CreateSurface(HWND hwnd);
-        void Destroy(VkSurfaceKHR surface);
+        void DestroySurface(VkSurfaceKHR surface);
 
-        CommandPool* CreateCommands();
-        void Destroy(CommandPool* commands);
+        CommandPool* CreateCommandPool();
+        void DestroyCommandPool(CommandPool* commands);
 
         ResourceTracker* CreateResourceTracker();
-        void Destroy(ResourceTracker* tracker);
+        void DestroyResourceTracker(ResourceTracker* tracker);
 
         Fence* CreateFence();
-        void Destroy(Fence* fence);
+        void DestroyFence(Fence* fence);
 
         void WaitForIdle();
-
-        template<class ...Objects>
-        void Destroy(Objects*... objects)
-        {
-            (Destroy(objects), ...);
-        }
     };
 }

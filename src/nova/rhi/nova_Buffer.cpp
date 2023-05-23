@@ -5,6 +5,7 @@ namespace nova
     Buffer* Context::CreateBuffer(u64 size, BufferUsage _usage, BufferFlags flags)
     {
         auto buffer = new Buffer;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyBuffer(buffer); };
         buffer->context = this;
         buffer->flags = flags;
 
@@ -51,7 +52,7 @@ namespace nova
         return buffer;
     }
 
-    void Context::Destroy(Buffer* buffer)
+    void Context::DestroyBuffer(Buffer* buffer)
     {
         if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
             vmaUnmapMemory(vma, buffer->allocation);

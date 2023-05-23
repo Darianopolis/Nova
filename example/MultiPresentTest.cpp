@@ -33,7 +33,7 @@ int main()
     auto tracker = context->CreateResourceTracker();
 
     nova::Fence*             fences[] = { context->CreateFence(),    context->CreateFence()    };
-    nova::CommandPool* commandPools[] = { context->CreateCommands(), context->CreateCommands() };
+    nova::CommandPool* commandPools[] = { context->CreateCommandPool(), context->CreateCommandPool() };
 
     auto hostFence = context->CreateFence();
 
@@ -79,7 +79,7 @@ int main()
         // NOVA_TIMEIT("sleep");
 
         queue->Submit({cmd}, {hostFence, fence}, {fence});
-        queue->Present({swapchain, swapchain2}, {fence}, true);
+        queue->Present({swapchain, swapchain2}, {fence}, false);
     };
 
     glfwSetWindowUserPointer(window->window, &update);
@@ -103,10 +103,16 @@ int main()
 
     fences[0]->Wait();
     fences[1]->Wait();
-    context->Destroy(fences[0], fences[1], hostFence);
-    context->Destroy(commandPools[0], commandPools[1], tracker);
-    context->Destroy(swapchain, surface);
-    context->Destroy(swapchain2, surface2);
+    context->DestroyFence(fences[0]);
+    context->DestroyFence(fences[1]);
+    context->DestroyFence(hostFence);
+    context->DestroyCommandPool(commandPools[0]);
+    context->DestroyCommandPool(commandPools[1]);
+    context->DestroyResourceTracker(tracker);
+    context->DestroySwapchain(swapchain);
+    context->DestroySwapchain(swapchain2);
+    context->DestroySurface(surface);
+    context->DestroySurface(surface2);
     nova::Context::Destroy(context);
     nova::Window::Destroy(window);
     nova::Window::Destroy(window2);

@@ -5,6 +5,7 @@ namespace nova
     Image* Context::CreateImage(Vec3U size, ImageUsage _usage, Format _format, ImageFlags flags)
     {
         auto image = new Image;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyImage(image); };
         image->context = this;
 
         auto usage = VkImageUsageFlags(_usage);
@@ -128,7 +129,7 @@ namespace nova
         return image;
     }
 
-    void Context::Destroy(Image* image)
+    void Context::DestroyImage(Image* image)
     {
         if (image->view)
             vkDestroyImageView(device, image->view, pAlloc);
@@ -296,7 +297,7 @@ namespace nova
         return new ResourceTracker;
     }
 
-    void Context::Destroy(ResourceTracker* tracker)
+    void Context::DestroyResourceTracker(ResourceTracker* tracker)
     {
         delete tracker;
     }

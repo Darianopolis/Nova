@@ -1,8 +1,13 @@
 #include "nova_ImDraw2D.hpp"
 
+#define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
+#include <ft2build.h>
+#include <freetype/freetype.h>
+
+#include <freetype/ftlcdfil.h>
+
 namespace nova
 {
-
     ImDraw2D* ImDraw2D::Create(Context* context)
     {
         auto imDraw = new ImDraw2D;
@@ -158,7 +163,6 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    {
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VK_FILTER_LINEAR,
@@ -174,23 +178,33 @@ void main()
             .borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
         }), nullptr, &imDraw->defaultSampler));
 
-        i32 w, h, c;
-        auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
-        NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
+        return imDraw;
+    }
 
-        imDraw->defaultImage = context->CreateImage(
-            Vec3(f32(w), f32(h), 0.f),
-            ImageUsage::Sampled,
-            Format::RGBA8U);
+    void ImDraw2D::Destroy(ImDraw2D* imDraw)
+    {
+        imDraw->context->DestroyBuffer(imDraw->rectBuffer);
+        imDraw->context->DestroyShader(imDraw->rectVertShader);
+        imDraw->context->DestroyShader(imDraw->rectFragShader);
+        vkDestroyPipelineLayout(imDraw->context->device, imDraw->pipelineLayout, imDraw->context->pAlloc);
 
-        context->CopyToImage(imDraw->defaultImage, data, w * h * 4);
-        context->GenerateMips(imDraw->defaultImage);
+        delete imDraw;
+    }
 
-        context->transferCmd->Transition(imDraw->defaultImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
-        context->transferFence->Wait();
-        context->transferCommandPool->Reset();
-        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+// -----------------------------------------------------------------------------
+
+    ImTextureID ImDraw2D::RegisterTexture(Image* image, VkSampler sampler)
+    {
+        u32 index;
+        if (textureSlotFreelist.empty())
+        {
+            index = nextTextureSlot++;
+        }
+        else
+        {
+            index = textureSlotFreelist.back();
+            textureSlotFreelist.pop_back();
+        }
 
         vkGetDescriptorEXT(context->device,
             Temp(VkDescriptorGetInfoEXT {
@@ -198,33 +212,108 @@ void main()
                 .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .data = {
                     .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
-                        .sampler = imDraw->defaultSampler,
-                        .imageView = imDraw->defaultImage->view,
+                        .sampler = sampler,
+                        .imageView = image->view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 },
             }),
             context->descriptorSizes.combinedImageSamplerDescriptorSize,
-            imDraw->descriptorBuffer->mapped);
+            descriptorBuffer->mapped + (index * context->descriptorSizes.combinedImageSamplerDescriptorSize));
+
+        return ImTextureID(index);
+    }
+
+    void ImDraw2D::UnregisterTexture(ImTextureID textureSlot)
+    {
+        textureSlotFreelist.push_back(u32(textureSlot));
     }
 
 // -----------------------------------------------------------------------------
 
-        return imDraw;
+    ImFont* ImDraw2D::LoadFont(const char* file, f32 size)
+    {
+        // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
+
+        FT_Library ft;
+        if (auto ec = FT_Init_FreeType(&ft))
+            NOVA_THROW("Failed to init freetype - {}", int(ec));
+
+        FT_Face face;
+        if (auto ec = FT_New_Face(ft, file, 0, &face))
+            NOVA_THROW("Failed to load font - {}", int(ec));
+
+        FT_Set_Pixel_Sizes(face, 0, u32(size));
+
+        struct Pixel { u8 r, g, b, a; };
+        std::vector<Pixel> pixels;
+
+        auto font = new ImFont;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
+
+        font->glyphs.resize(128);
+        for (u32 c = 0; c < 128; ++c)
+        {
+            FT_Load_Char(face, c, FT_LOAD_RENDER);
+            u32 w = face->glyph->bitmap.width;
+            u32 h = face->glyph->bitmap.rows;
+
+            auto& glyph = font->glyphs[c];
+            glyph.width = f32(w);
+            glyph.height = f32(h);
+            glyph.advance = face->glyph->advance.x / 64.f;
+            glyph.offset = {
+                face->glyph->bitmap_left,
+                face->glyph->bitmap_top,
+            };
+
+            if (w == 0 || h == 0)
+                continue;
+
+            pixels.resize(w * h);
+            for (u32 i = 0; i < w * h; ++i)
+                pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
+
+            glyph.image = context->CreateImage(
+                Vec3(f32(w), f32(h), 0.f),
+                ImageUsage::Sampled,
+                Format::RGBA8U);
+
+            context->CopyToImage(glyph.image, pixels.data(), w * h * 4);
+            context->GenerateMips(glyph.image);
+
+            context->transferCmd->Transition(glyph.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
+            context->transferFence->Wait();
+            context->transferCommandPool->Reset();
+            context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+
+            glyph.index = RegisterTexture(glyph.image, defaultSampler);
+        }
+
+        FT_Done_Face(face);
+        FT_Done_FreeType(ft);
+
+        return font;
     }
 
-    void ImDraw2D::Destroy(ImDraw2D* imDraw)
+    void ImDraw2D::DestroyFont(ImFont* font)
     {
-        imDraw->context->Destroy(imDraw->rectBuffer, imDraw->rectVertShader, imDraw->rectFragShader);
-        vkDestroyPipelineLayout(imDraw->context->device, imDraw->pipelineLayout, imDraw->context->pAlloc);
+        for (auto& glyph : font->glyphs)
+        {
+            if (glyph.image)
+            {
+                UnregisterTexture(glyph.index);
+                context->DestroyImage(glyph.image);
+            }
+        }
 
-        delete imDraw;
+        delete font;
     }
 
     void ImDraw2D::Reset()
     {
         rectIndex = 0;
-        textureIndex = 0;
 
         minBounds = Vec2(INFINITY, INFINITY);
         maxBounds = Vec2(-INFINITY, -INFINITY);
@@ -246,6 +335,25 @@ void main()
         maxBounds.y = std::max(maxBounds.y, rect.centerPos.y + rect.halfExtent.y);
 
         cmd.count++;
+    }
+
+    void ImDraw2D::DrawString(std::string_view str, Vec2 pos, ImFont* font)
+    {
+        for (auto c : str)
+        {
+            auto g = font->glyphs[c];
+
+            DrawRect(nova::ImRoundRect {
+                .centerPos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
+                .halfExtent = { g.width / 2.f, g.height / 2.f },
+                .texTint = { 1.f, 1.f, 1.f, 1.f, },
+                .texIndex = g.index,
+                .texCenterPos = { 0.5f, 0.5f },
+                .texHalfExtent = { 0.5f, 0.5f },
+            });
+
+            pos.x += g.advance;
+        }
     }
 
     void ImDraw2D::Record(CommandList* cmd)

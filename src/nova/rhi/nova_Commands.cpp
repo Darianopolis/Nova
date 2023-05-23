@@ -2,9 +2,10 @@
 
 namespace nova
 {
-    CommandPool* Context::CreateCommands()
+    CommandPool* Context::CreateCommandPool()
     {
         auto cmds = new CommandPool;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyCommandPool(cmds); };
         cmds->context = this;
         cmds->queue = graphics;
 
@@ -16,7 +17,7 @@ namespace nova
         return cmds;
     }
 
-    void Context::Destroy(CommandPool* pool)
+    void Context::DestroyCommandPool(CommandPool* pool)
     {
         vkDestroyCommandPool(device, pool->pool, pAlloc);
 
@@ -287,12 +288,12 @@ namespace nova
             shaderObjects[i] = shaders.begin()[i]->shader;
         }
 
-        vkCmdBindShadersEXT(buffer, shaders.size(), stageFlags, shaderObjects);
+        vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 
     void CommandList::PushConstants(VkPipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data)
     {
-        vkCmdPushConstants(buffer, layout, VkShaderStageFlags(stages), offset, size, data);
+        vkCmdPushConstants(buffer, layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
     }
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance)
@@ -305,7 +306,7 @@ namespace nova
         vkCmdClearAttachments(
             buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .colorAttachment = 0,
+                .colorAttachment = attachment,
                 .clearValue = {{{ color.r, color.g, color.b, color.a }}},
             }),
             1, nova::Temp(VkClearRect {
@@ -321,6 +322,6 @@ namespace nova
         for (u32 i = 0; i < commands.size(); ++i)
             buffers[i] = commands.begin()[i]->buffer;
 
-        vkCmdExecuteCommands(buffer, commands.size(), buffers);
+        vkCmdExecuteCommands(buffer, u32(commands.size()), buffers);
     }
 }

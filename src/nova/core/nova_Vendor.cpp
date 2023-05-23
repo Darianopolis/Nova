@@ -27,4 +27,7 @@
 
 // -----------------------------------------------------------------------------
 
+#pragma warning(push)
+#pragma warning(disable: 4559)
 #include <mimalloc-new-delete.h>
+#pragma warning(pop)

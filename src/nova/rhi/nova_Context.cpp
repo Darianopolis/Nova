@@ -8,6 +8,7 @@ namespace nova
     Context* Context::Create(bool debug)
     {
         auto context = new Context;
+        NOVA_ON_SCOPE_FAILURE(&) { Destroy(context); };
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -171,7 +172,7 @@ namespace nova
 
         context->transferTracker = context->CreateResourceTracker();
         context->staging = context->CreateBuffer(256ull * 1024 * 1024, BufferUsage::TransferSrc, BufferFlags::CreateMapped);
-        context->transferCommandPool = context->CreateCommands();
+        context->transferCommandPool = context->CreateCommandPool();
         context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
         context->transferFence = context->CreateFence();
 
@@ -180,10 +181,10 @@ namespace nova
 
     void Context::Destroy(Context* context)
     {
-        context->Destroy(context->transferTracker);
-        context->Destroy(context->transferCommandPool);
-        context->Destroy(context->transferFence);
-        context->Destroy(context->staging);
+        context->DestroyResourceTracker(context->transferTracker);
+        context->DestroyCommandPool(context->transferCommandPool);
+        context->DestroyFence(context->transferFence);
+        context->DestroyBuffer(context->staging);
         delete context->graphics;
 
         vmaDestroyAllocator(context->vma);

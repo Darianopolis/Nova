@@ -33,14 +33,39 @@ void TryMain()
         nova::PresentMode::Fifo);
 
     auto queue = context->graphics;
-    auto commandPool = context->CreateCommands();
+    auto commandPool = context->CreateCommandPool();
     auto fence = context->CreateFence();
     auto tracker = context->CreateResourceTracker();
 
 // -----------------------------------------------------------------------------
 
-
     auto imDraw = nova::ImDraw2D::Create(context);
+
+// -----------------------------------------------------------------------------
+
+    nova::Image* image;
+    nova::ImTextureID imageID;
+    {
+        i32 w, h, c;
+        auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
+        NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
+
+        image = context->CreateImage(
+            Vec3(f32(w), f32(h), 0.f),
+            nova::ImageUsage::Sampled,
+            nova::Format::RGBA8U);
+
+        context->CopyToImage(image, data, w * h * 4);
+        context->GenerateMips(image);
+
+        context->transferCmd->Transition(image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
+        context->transferFence->Wait();
+        context->transferCommandPool->Reset();
+        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+
+        imageID = imDraw->RegisterTexture(image, imDraw->defaultSampler);
+    }
 
 // -----------------------------------------------------------------------------
 
@@ -51,6 +76,8 @@ void TryMain()
 
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
+    auto font = imDraw->LoadFont("assets/fonts/arial.ttf", 20.f);
+
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },
         .borderColor = { 0.2f, 0.2f, 0.2f, 1.f },
@@ -60,7 +87,7 @@ void TryMain()
         .borderWidth = 5.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = 0,
+        .texIndex = imageID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 1.f },
     };
@@ -74,7 +101,7 @@ void TryMain()
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = 0,
+        .texIndex = imageID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 0.5f },
     };
@@ -88,7 +115,7 @@ void TryMain()
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = 0,
+        .texIndex = imageID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 1.f, 0.5f },
     };
@@ -134,9 +161,15 @@ void TryMain()
 // -----------------------------------------------------------------------------
 
         imDraw->Reset();
+
         imDraw->DrawRect(box1);
         imDraw->DrawRect(box2);
         imDraw->DrawRect(box3);
+
+        imDraw->DrawString(
+            "C:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive/BeamNG.drive.exe",
+            Vec2(mWidth * 0.25f, mHeight * 0.4f),
+            font);
 
 // -----------------------------------------------------------------------------
 

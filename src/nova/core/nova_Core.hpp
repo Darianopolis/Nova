@@ -278,4 +278,43 @@ namespace nova
 
 #define NOVA_ALLOC_STACK(type, count) \
     (type*)alloca(sizeof(type) * count)
+
+//     struct Stack
+//     {
+//         std::array<byte, 1024 * 1024> stack;
+//         byte* ptr = &stack[0];
+//     };
+
+//     inline thread_local Stack NovaStack;
+
+//     template<class T>
+//     class StackPtr
+//     {
+//         T* ptr;
+//     public:
+//         StackPtr(usz count)
+//         {
+//             ptr = (T*)NovaStack.ptr;
+//             NovaStack.ptr += sizeof(T) * count;
+//         }
+
+//         ~StackPtr()
+//         {
+//             // NOVA_ASSERT(NovaStack.ptr >= (byte*)ptr, "Out of order stack free");
+//             NovaStack.ptr = (byte*)ptr;
+//         }
+
+//         StackPtr(const StackPtr<T>&) = delete;
+//         auto operator=(const StackPtr<T>&) = delete;
+//         StackPtr(StackPtr<T>&&) = delete;
+//         auto operator=(StackPtr<T>&&) = delete;
+
+//         T& operator*() { return *ptr; }
+//         T* operator->() { return ptr; }
+//         T& operator[](usz i) { return ptr[i]; }
+
+//         operator T*() { return ptr; }
+//     };
+
+// #define NOVA_ALLOC_STACK(type, count) StackPtr<type>(count)
 }

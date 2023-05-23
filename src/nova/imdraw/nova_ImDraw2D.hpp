@@ -4,6 +4,8 @@
 
 namespace nova
 {
+    enum class ImTextureID : u32 {};
+
     struct ImRoundRect
     {
         Vec4 centerColor;
@@ -16,7 +18,7 @@ namespace nova
         f32 borderWidth;
 
         Vec4 texTint;
-        u32 texIndex;
+        ImTextureID texIndex;
         Vec2 texCenterPos;
         Vec2 texHalfExtent;
     };
@@ -32,6 +34,25 @@ namespace nova
         u32 first;
         u32 count;
     };
+
+// -----------------------------------------------------------------------------
+
+    struct ImGlyph
+    {
+        Image* image;
+        ImTextureID index;
+        f32 width;
+        f32 height;
+        f32 advance;
+        Vec2 offset;
+    };
+
+    struct ImFont
+    {
+        std::vector<ImGlyph> glyphs;
+    };
+
+// -----------------------------------------------------------------------------
 
     struct ImDraw2D
     {
@@ -53,13 +74,13 @@ namespace nova
         Context* context = {};
 
         VkSampler defaultSampler = {};
-        Image*      defaultImage = {};
 
         VkPipelineLayout pipelineLayout = {};
 
         VkDescriptorSetLayout descriptorSetLayout = {};
         Buffer*                  descriptorBuffer = {};
-        u32                          textureIndex = 0;
+        u32                       nextTextureSlot = 0;
+        std::vector<u32>      textureSlotFreelist = {};
 
         Shader* rectVertShader = {};
         Shader* rectFragShader = {};
@@ -74,8 +95,15 @@ namespace nova
         static ImDraw2D* Create(Context* context);
         static void Destroy(ImDraw2D* imDraw);
 
+        ImTextureID RegisterTexture(Image* image, VkSampler sampler);
+        void UnregisterTexture(ImTextureID textureSlot);
+
+        ImFont* LoadFont(const char* file, f32 size);
+        void DestroyFont(ImFont* font);
+
         void Reset();
         void DrawRect(const ImRoundRect& rect);
+        void DrawString(std::string_view str, Vec2 pos, ImFont* font);
 
         void Record(CommandList* commandList);
     };

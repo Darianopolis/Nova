@@ -5,6 +5,7 @@ namespace nova
     Fence* Context::CreateFence()
     {
         auto fence = new Fence;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyFence(fence); };
         fence->context = this;
 
         VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
@@ -19,7 +20,7 @@ namespace nova
         return fence;
     }
 
-    void Context::Destroy(Fence* fence)
+    void Context::DestroyFence(Fence* fence)
     {
         vkDestroySemaphore(device, fence->semaphore, pAlloc);
 

@@ -197,6 +197,7 @@ namespace nova
         const glslang::TIntermediate* intermediate = program.getIntermediate(stage);
 
         auto newShader = new Shader;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyShader(newShader); };
         newShader->context = this;
         newShader->stage = vkStage;
 

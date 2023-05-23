@@ -20,12 +20,18 @@ if Project "nova" then
         "jolt",
         "Compressonator",
         "mimalloc",
+        "freetype",
     }
-end
 
-if Project "nova-example" then
-    -- Compile "example/MultiPresentTest.cpp"
-    Compile "example/BoxOverlayTest.cpp"
-    Import "nova"
+    Compile "example/MultiPresentTest.cpp"
+    -- Compile "example/BoxOverlayTest.cpp"
+
     Artifact { "out/main", type = "Console" }
 end
+
+-- if Project "nova-example" then
+--     Compile "example/MultiPresentTest.cpp"
+--     -- Compile "example/BoxOverlayTest.cpp"
+--     Import "nova"
+--     Artifact { "out/main", type = "Console" }
+-- end

@@ -5,6 +5,7 @@ namespace nova
     Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, ImageUsage _usage, PresentMode _presentMode)
     {
         auto swapchain = new Swapchain;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroySwapchain(swapchain); };
         swapchain->context = this;
 
         auto usage = VkImageUsageFlags(_usage);
@@ -30,13 +31,13 @@ namespace nova
         return swapchain;
     }
 
-    void Context::Destroy(Swapchain* swapchain)
+    void Context::DestroySwapchain(Swapchain* swapchain)
     {
         for (auto semaphore : swapchain->semaphores)
             vkDestroySemaphore(device, semaphore, pAlloc);
 
         for (auto image : swapchain->images)
-            Destroy(image);
+            DestroyImage(image);
 
         vkDestroySwapchainKHR(device, swapchain->swapchain, pAlloc);
 
@@ -190,7 +191,7 @@ namespace nova
                 }
 
                 for (auto image : swapchain->images)
-                    context->Destroy(image);
+                    context->DestroyImage(image);
 
                 swapchain->images.resize(vkImages.size());
                 for (uint32_t i = 0; i < swapchain->images.size(); ++i)
@@ -274,7 +275,7 @@ namespace nova
         return surface;
     }
 
-    void Context::Destroy(VkSurfaceKHR surface)
+    void Context::DestroySurface(VkSurfaceKHR surface)
     {
         vkDestroySurfaceKHR(instance, surface, pAlloc);
     }
