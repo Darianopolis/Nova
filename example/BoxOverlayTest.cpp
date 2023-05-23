@@ -198,7 +198,7 @@ void TryMain()
         imDraw->Record(cmd);
         cmd->EndRendering();
 
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});

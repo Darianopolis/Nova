@@ -176,6 +176,27 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    void ResourceTracker::Undefine(Image* image)
+    {
+        Get(image) = {};
+    }
+
+    void ResourceTracker::Set(Image* image, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
+    {
+        Get(image) = {
+            .layout = layout,
+            .stage = stage,
+            .access = access,
+        };
+    }
+
+    ResourceTracker::ImageState& ResourceTracker::Get(Image* image)
+    {
+        return imageStates[image->image];
+    }
+
+// -----------------------------------------------------------------------------
+
     void CommandList::SetViewport(Vec2U size, bool flipVertical)
     {
         if (flipVertical)
@@ -244,12 +265,14 @@ namespace nova
         {
             auto image = colorAttachments.begin()[i];
 
-            Transition(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            Transition(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
             colorAttachmentInfos[i] = VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = image->view,
-                .imageLayout = image->layout,
+                .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 .loadOp = clearColors.size()
                     ? VK_ATTACHMENT_LOAD_OP_CLEAR
                     : VK_ATTACHMENT_LOAD_OP_LOAD,

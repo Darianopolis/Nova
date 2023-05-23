@@ -147,9 +147,11 @@ namespace nova
 
     void CommandList::CopyToImage(Image* dst, Buffer* src, u64 srcOffset)
     {
-        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_2_COPY_BIT,
+            VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-        vkCmdCopyBufferToImage(buffer, src->buffer, dst->image, dst->layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(buffer, src->buffer, dst->image, tracker->Get(dst).layout, 1, Temp(VkBufferImageCopy {
             .bufferOffset = srcOffset,
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
             .imageExtent = { dst->extent.x, dst->extent.y,  1 },
@@ -161,7 +163,11 @@ namespace nova
         if (image->mips == 1)
             return;
 
-        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+            VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
+
+        auto& state = tracker->Get(image);
 
         int32_t mipWidth = image->extent.x;
         int32_t mipHeight = image->extent.y;
@@ -219,12 +225,14 @@ namespace nova
             }),
         }));
 
-        image->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        state.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    void CommandList::Transition(Image* image, VkImageLayout newLayout)
+    void CommandList::Transition(Image* image, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess)
     {
-        if (image->layout == newLayout)
+        auto& state = tracker->Get(image);
+
+        if (state.layout == newLayout && state.stage == newStages && state.access == newAccess)
             return;
 
         vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
@@ -233,51 +241,33 @@ namespace nova
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
-                // TODO: Standard transition sets
-                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .srcAccessMask = 0,
-                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .dstAccessMask = 0,
+                .srcStageMask = state.stage,
+                .srcAccessMask = state.access,
+                .dstStageMask = newStages,
+                .dstAccessMask = newAccess,
 
-                .oldLayout = image->layout,
+                .oldLayout = state.layout,
                 .newLayout = newLayout,
                 .image = image->image,
                 .subresourceRange = { image->aspect, 0, image->mips, 0, image->layers },
             })
         }));
 
-        image->layout = newLayout;
-    }
-
-    void CommandList::TransitionMip(Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip)
-    {
-        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-
-                // TODO: Standard transition sets
-                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .srcAccessMask = 0,
-                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .dstAccessMask = 0,
-
-                .oldLayout = oldLayout,
-                .newLayout = newLayout,
-                .image = image->image,
-                .subresourceRange = { image->aspect, mip, 1, 0, 1 },
-            })
-        }));
+        state.layout = newLayout;
+        state.stage = newStages;
+        state.access = newAccess;
     }
 
 // -----------------------------------------------------------------------------
 
     void CommandList::Clear(Image* image, Vec4 color)
     {
-        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_2_CLEAR_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT);
+
         vkCmdClearColorImage(buffer,
-            image->image, image->layout,
+            image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
             1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, image->mips, 0, image->layers }));
     }

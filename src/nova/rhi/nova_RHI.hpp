@@ -141,7 +141,6 @@ namespace nova
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
-        VkImageLayout      layout = VK_IMAGE_LAYOUT_UNDEFINED;
         VkFormat           format = VK_FORMAT_UNDEFINED;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
@@ -319,8 +318,7 @@ namespace nova
         void GenerateMips(Image* image);
 
         void Clear(Image* image, Vec4 color);
-        void Transition(Image* image, VkImageLayout newLayout);
-        void TransitionMip(Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
+        void Transition(Image* image, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
 
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(VkPrimitiveTopology topology);

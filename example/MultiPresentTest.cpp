@@ -70,6 +70,9 @@ int main()
         fence->Wait();
         queue->Acquire({swapchain, swapchain2}, {fence});
 
+        tracker->Undefine(swapchain->image);
+        tracker->Undefine(swapchain2->image);
+
         commandPool->Reset();
         auto cmd = commandPool->BeginPrimary(tracker);
 
@@ -79,10 +82,10 @@ int main()
         ImGui::ShowDemoWindow();
         imgui->EndFrame(cmd, swapchain);
 
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         cmd->Clear(swapchain2->image, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Transition(swapchain2->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        cmd->Transition(swapchain2->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         // auto value = hostFence->Advance();
         // std::thread([=] {

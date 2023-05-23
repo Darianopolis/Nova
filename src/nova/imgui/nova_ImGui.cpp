@@ -175,7 +175,10 @@ namespace nova
             }
         }
 
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
+
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,

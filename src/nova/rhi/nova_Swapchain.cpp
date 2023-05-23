@@ -213,14 +213,18 @@ namespace nova
                     image->extent.y = swapchain->extent.height;
                     image->format = swapchain->format.format;
                     image->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                    image->layout = VK_IMAGE_LAYOUT_UNDEFINED;
                     image->mips = 1;
                     image->layers = 1;
                 }
             }
 
-            VkCall(vkAcquireNextImageKHR(context->device, swapchain->swapchain, UINT64_MAX,
-                signals.size() ? swapchain->semaphores[swapchain->semaphoreIndex] : nullptr, nullptr, &swapchain->index));
+            VkCall(vkAcquireNextImage2KHR(context->device, Temp(VkAcquireNextImageInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
+                .swapchain = swapchain->swapchain,
+                .timeout = UINT64_MAX,
+                .semaphore = signals.size() ? swapchain->semaphores[swapchain->semaphoreIndex] : nullptr,
+                .deviceMask = 1,
+            }), &swapchain->index));
 
             swapchain->image = swapchain->images[swapchain->index];
             swapchain->image->format = VK_FORMAT_UNDEFINED;
