@@ -105,8 +105,8 @@ namespace nova
             image->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         break;case VK_FORMAT_D16_UNORM_S8_UINT:
-            case VK_FORMAT_D24_UNORM_S8_UINT:
-            case VK_FORMAT_D32_SFLOAT_S8_UINT:
+              case VK_FORMAT_D24_UNORM_S8_UINT:
+              case VK_FORMAT_D32_SFLOAT_S8_UINT:
             image->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;default:
@@ -142,36 +142,30 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void Context::CopyToImage(Image* image, const void* data, size_t size)
+    void CommandList::CopyToImage(Image* dst, Buffer* src, u64 srcOffset)
     {
-        transferCmd->Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-        std::memcpy(staging->mapped, data, size);
-
-        vkCmdCopyBufferToImage(transferCmd->buffer, staging->buffer, image->image, image->layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(buffer, src->buffer, dst->image, dst->layout, 1, Temp(VkBufferImageCopy {
+            .bufferOffset = srcOffset,
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .imageExtent = { image->extent.x, image->extent.y,  1 },
+            .imageExtent = { dst->extent.x, dst->extent.y,  1 },
         }));
-
-        graphics->Submit({transferCmd}, {}, {transferFence});
-        transferFence->Wait();
-        transferCommandPool->Reset();
-        transferCmd = transferCommandPool->BeginPrimary(transferTracker);
     }
 
-    void Context::GenerateMips(Image* image)
+    void CommandList::GenerateMips(Image* image)
     {
         if (image->mips == 1)
             return;
 
-        transferCmd->Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         int32_t mipWidth = image->extent.x;
         int32_t mipHeight = image->extent.y;
 
         for (uint32_t mip = 1; mip < image->mips; ++mip)
         {
-            vkCmdPipelineBarrier2(transferCmd->buffer, Temp(VkDependencyInfo {
+            vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .imageMemoryBarrierCount = 1,
                 .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -189,7 +183,7 @@ namespace nova
                 }),
             }));
 
-            vkCmdBlitImage(transferCmd->buffer,
+            vkCmdBlitImage(buffer,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
@@ -204,7 +198,7 @@ namespace nova
             mipHeight = std::max(mipHeight / 2, 1);
         }
 
-        vkCmdPipelineBarrier2(transferCmd->buffer, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
@@ -223,11 +217,6 @@ namespace nova
         }));
 
         image->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-
-        graphics->Submit({transferCmd}, {}, {transferFence});
-        transferFence->Wait();
-        transferCommandPool->Reset();
-        transferCmd = transferCommandPool->BeginPrimary(transferTracker);
     }
 
     void CommandList::Transition(Image* image, VkImageLayout newLayout)

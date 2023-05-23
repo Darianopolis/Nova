@@ -231,7 +231,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImFont* ImDraw2D::LoadFont(const char* file, f32 size)
+    ImFont* ImDraw2D::LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -250,6 +250,10 @@ void main()
 
         auto font = new ImFont;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
+
+        auto staging = context->CreateBuffer(size * size * 4ull,
+            BufferUsage::TransferSrc,
+            BufferFlags::CreateMapped);
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)
@@ -279,17 +283,19 @@ void main()
                 ImageUsage::Sampled,
                 Format::RGBA8U);
 
-            context->CopyToImage(glyph.image, pixels.data(), w * h * 4);
-            context->GenerateMips(glyph.image);
+            usz size = w * h * 4;
+            std::memcpy(staging->mapped, pixels.data(), size);
 
-            context->transferCmd->Transition(glyph.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
-            context->transferFence->Wait();
-            context->transferCommandPool->Reset();
-            context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+            auto cmd = cmdPool->BeginPrimary(tracker);
+            cmd->CopyToImage(glyph.image, staging);
+            cmd->GenerateMips(glyph.image);
+            queue->Submit({cmd}, {}, {fence});
+            fence->Wait();
 
             glyph.index = RegisterTexture(glyph.image, defaultSampler);
         }
+
+        context->DestroyBuffer(staging);
 
         FT_Done_Face(face);
         FT_Done_FreeType(ft);

@@ -170,21 +170,11 @@ namespace nova
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &context->vma));
 
-        context->transferTracker = context->CreateResourceTracker();
-        context->staging = context->CreateBuffer(256ull * 1024 * 1024, BufferUsage::TransferSrc, BufferFlags::CreateMapped);
-        context->transferCommandPool = context->CreateCommandPool();
-        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
-        context->transferFence = context->CreateFence();
-
         return context;
     }
 
     void Context::Destroy(Context* context)
     {
-        context->DestroyResourceTracker(context->transferTracker);
-        context->DestroyCommandPool(context->transferCommandPool);
-        context->DestroyFence(context->transferFence);
-        context->DestroyBuffer(context->staging);
         delete context->graphics;
 
         vmaDestroyAllocator(context->vma);

@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    ImGuiWrapper* ImGuiWrapper::Create(Context* context, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
+    ImGuiWrapper* ImGuiWrapper::Create(Context* context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
     {
         auto imgui = new ImGuiWrapper;
         NOVA_ON_SCOPE_FAILURE(&) { Destroy(imgui); };
@@ -82,11 +82,7 @@ namespace nova
         fontConfig.GlyphOffset = ImVec2(1.f, 1.67f);
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
-        ImGui_ImplVulkan_CreateFontsTexture(context->transferCmd->buffer);
-        context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
-        context->transferFence->Wait();
-        context->transferCommandPool->Reset();
-        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+        ImGui_ImplVulkan_CreateFontsTexture(cmd->buffer);
 
         ImGui::SetCurrentContext(imgui->lastImguiCtx);
 

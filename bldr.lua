@@ -23,8 +23,8 @@ if Project "nova" then
         "freetype",
     }
 
-    Compile "example/MultiPresentTest.cpp"
-    -- Compile "example/BoxOverlayTest.cpp"
+    -- Compile "example/MultiPresentTest.cpp"
+    Compile "example/BoxOverlayTest.cpp"
 
     Artifact { "out/main", type = "Console" }
 end

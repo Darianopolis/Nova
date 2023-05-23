@@ -62,44 +62,19 @@ namespace nova
         delete buffer;
     }
 
-    void Context::CopyToBuffer(Buffer* buffer, const void* data, usz size, u64 offset)
+    void CommandList::CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset, u64 srcOffset)
     {
-        if (!data)
-        {
-            vkCmdCopyBuffer(transferCmd->buffer, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
-                .srcOffset = 0,
-                .dstOffset = offset,
+        vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {
+            .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+            .srcBuffer = src->buffer,
+            .dstBuffer = dst->buffer,
+            .regionCount = 1,
+            .pRegions = Temp(VkBufferCopy2 {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+                .srcOffset = srcOffset,
+                .dstOffset = dstOffset,
                 .size = size,
-            }));
-
-            graphics->Submit({transferCmd}, {}, {transferFence});
-            transferFence->Wait();
-            transferCommandPool->Reset();
-            transferCmd = transferCommandPool->BeginPrimary(transferTracker);
-        }
-        else if (buffer->mapped)
-        {
-            std::memcpy(buffer->mapped + offset, data, size);
-        }
-        else
-        {
-            for (u64 start = 0; start < size; start += staging->size)
-            {
-                u64 chunkSize = std::min(size, start + staging->size) - start;
-
-                std::memcpy(staging->mapped, (b8*)data + start, chunkSize);
-
-                vkCmdCopyBuffer(transferCmd->buffer, staging->buffer, buffer->buffer, 1, Temp(VkBufferCopy {
-                    .srcOffset = 0,
-                    .dstOffset = start + offset,
-                    .size = chunkSize,
-                }));
-
-                graphics->Submit({transferCmd}, {}, {transferFence});
-                transferFence->Wait();
-                transferCommandPool->Reset();
-                transferCmd = transferCommandPool->BeginPrimary(transferTracker);
-            }
-        }
+            }),
+        }));
     }
 }

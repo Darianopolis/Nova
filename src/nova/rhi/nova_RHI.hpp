@@ -314,6 +314,10 @@ namespace nova
     public:
         void End();
 
+        void CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
+        void CopyToImage(Image* dst, Buffer* src, u64 srcOffset = 0);
+        void GenerateMips(Image* image);
+
         void Clear(Image* image, Vec4 color);
         void Transition(Image* image, VkImageLayout newLayout);
         void TransitionMip(Image* image, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip);
@@ -344,14 +348,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
         };
 
-        Fence* transferFence = {};
-
         Queue* graphics = {};
-
-        Buffer*                  staging = {};
-        CommandPool* transferCommandPool = {};
-        CommandList*         transferCmd = {};
-        ResourceTracker* transferTracker = {};
 
         static std::atomic_int64_t    AllocationCount;
         static std::atomic_int64_t NewAllocationCount;
@@ -403,12 +400,9 @@ namespace nova
 
         Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
         void DestroyBuffer(Buffer* buffer);
-        void CopyToBuffer(Buffer* buffer, const void* data, usz size, u64 offset = 0);
 
         Image* CreateImage(Vec3U size, ImageUsage usage, Format format, ImageFlags flags = {});
         void DestroyImage(Image* image);
-        void CopyToImage(Image* image, const void* data, usz size);
-        void GenerateMips(Image* image);
 
         Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode = {},

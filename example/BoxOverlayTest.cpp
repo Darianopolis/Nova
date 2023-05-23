@@ -55,14 +55,18 @@ void TryMain()
             nova::ImageUsage::Sampled,
             nova::Format::RGBA8U);
 
-        context->CopyToImage(image, data, w * h * 4);
-        context->GenerateMips(image);
+        usz size = w * h * 4;
+        auto staging = context->CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
+        std::memcpy(staging->mapped, data, size);
 
-        context->transferCmd->Transition(image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        context->graphics->Submit({context->transferCmd}, {}, {context->transferFence});
-        context->transferFence->Wait();
-        context->transferCommandPool->Reset();
-        context->transferCmd = context->transferCommandPool->BeginPrimary(context->transferTracker);
+        auto cmd = commandPool->BeginPrimary(tracker);
+        cmd->CopyToImage(image, staging);
+        cmd->GenerateMips(image);
+
+        queue->Submit({cmd}, {}, {fence});
+        fence->Wait();
+
+        context->DestroyBuffer(staging);
 
         imageID = imDraw->RegisterTexture(image, imDraw->defaultSampler);
     }
@@ -76,7 +80,7 @@ void TryMain()
 
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
-    auto font = imDraw->LoadFont("assets/fonts/arial.ttf", 20.f);
+    auto font = imDraw->LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, tracker, fence, queue);
 
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },

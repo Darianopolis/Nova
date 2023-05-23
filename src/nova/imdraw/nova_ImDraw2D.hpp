@@ -98,7 +98,7 @@ namespace nova
         ImTextureID RegisterTexture(Image* image, VkSampler sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
-        ImFont* LoadFont(const char* file, f32 size);
+        ImFont* LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);
         void DestroyFont(ImFont* font);
 
         void Reset();
