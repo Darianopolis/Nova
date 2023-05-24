@@ -162,7 +162,7 @@ namespace nova
             framebuffers.resize(swapchain->images.size());
             for (u32 i = 0; i < swapchain->images.size(); ++i)
             {
-                vkDestroyFramebuffer(context->device, framebuffers[i], nullptr);
+                vkDestroyFramebuffer(context->device, framebuffers[i], context->pAlloc);
                 VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,

@@ -251,7 +251,7 @@ void main()
         auto font = new ImFont;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
 
-        auto staging = context->CreateBuffer(size * size * 4ull,
+        auto staging = context->CreateBuffer(u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc,
             BufferFlags::CreateMapped);
 
@@ -283,8 +283,8 @@ void main()
                 ImageUsage::Sampled,
                 Format::RGBA8U);
 
-            usz size = w * h * 4;
-            std::memcpy(staging->mapped, pixels.data(), size);
+            usz dataSize = w * h * 4;
+            std::memcpy(staging->mapped, pixels.data(), dataSize);
 
             auto cmd = cmdPool->BeginPrimary(tracker);
             cmd->CopyToImage(glyph.image, staging);

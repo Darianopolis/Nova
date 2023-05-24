@@ -209,6 +209,7 @@ namespace nova
         uint32_t                 index = UINT32_MAX;
         Image*                   image = nullptr;
         VkExtent2D              extent = { 0, 0 };
+        bool                   invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
@@ -241,16 +242,24 @@ namespace nova
     {
         Context* context = {};
 
+        u64 version = 0;
+
         struct ImageState
         {
             VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
             VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
             VkAccessFlags2       access = 0;
+
+            u64 version = 0;
         };
         ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+        std::vector<VkImage> clearList;
 
     public:
-        void Undefine(Image* image);
+        void Clear(u32 maxAge);
+
+        void Reset(Image* image);
+        void Persist(Image* image);
         void Set(Image* image, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
 
         ImageState& Get(Image* image);

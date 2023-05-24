@@ -12,9 +12,7 @@ int main()
 
     auto context = nova::Context::Create(true);
 
-    auto presentMode = nova::PresentMode::Mailbox;
-    // auto presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    // auto presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    auto presentMode = nova::PresentMode::Fifo;
 
     auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
@@ -46,15 +44,12 @@ int main()
         fences[0]->Wait();
     }
 
-    auto hostFence = context->CreateFence();
-
     u64 frame = 0;
-
-    nova::Timer timer;
-
     auto last = std::chrono::steady_clock::now();
     auto frames = 0;
     auto update = [&] {
+
+        // Debug output statistics
         frames++;
         if (std::chrono::steady_clock::now() - last > 1s)
         {
@@ -63,41 +58,43 @@ int main()
             frames = 0;
         }
 
+        // Pick fence and commandPool for frame in flight
         auto fence = fences[frame % 2];
         auto commandPool = commandPools[frame % 2];
         frame++;
 
+        // Wait for previous commands in frame to complete
         fence->Wait();
+
+        // Acquire new images from swapchains
         queue->Acquire({swapchain, swapchain2}, {fence});
 
-        tracker->Undefine(swapchain->image);
-        tracker->Undefine(swapchain2->image);
+        // Clear resource state tracking
+        tracker->Clear(3);
 
+        // Reset command pool and begin new command list
         commandPool->Reset();
         auto cmd = commandPool->BeginPrimary(tracker);
 
+        // Clear screen
         cmd->Clear(swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
+        // Draw ImGui demo window
         imgui->BeginFrame();
         ImGui::ShowDemoWindow();
         imgui->EndFrame(cmd, swapchain);
 
+        // Transition ready for present
         cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
+        // Clear second screen and transition
         cmd->Clear(swapchain2->image, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd->Transition(swapchain2->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
-        // auto value = hostFence->Advance();
-        // std::thread([=] {
-        //     std::this_thread::sleep_for(5ms);
-        //     hostFence->Signal(value);
-        // }).detach();
+        // Submit work
+        queue->Submit({cmd}, {fence}, {fence});
 
-        // NOVA_TIMEIT_RESET();
-        // std::this_thread::sleep_for(5ms);
-        // NOVA_TIMEIT("sleep");
-
-        queue->Submit({cmd}, {hostFence, fence}, {fence});
+        // Present both swapchains
         queue->Present({swapchain, swapchain2}, {fence}, true);
     };
 
@@ -111,20 +108,13 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    auto lastFrame = std::chrono::steady_clock::now();
     while (window->PollEvents() && window2->PollEvents())
-    {
-        // while (timer.Wait(lastFrame + (1000ms / 120.0) - std::chrono::steady_clock::now(), true))
-        //     std::this_thread::yield();
-        // lastFrame = std::chrono::steady_clock::now();
         update();
-    }
 
     fences[0]->Wait();
     fences[1]->Wait();
     context->DestroyFence(fences[0]);
     context->DestroyFence(fences[1]);
-    context->DestroyFence(hostFence);
     context->DestroyCommandPool(commandPools[0]);
     context->DestroyCommandPool(commandPools[1]);
     context->DestroyResourceTracker(tracker);

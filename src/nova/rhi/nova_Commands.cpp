@@ -176,9 +176,35 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void ResourceTracker::Undefine(Image* image)
+    void ResourceTracker::Clear(u32 maxAge)
+    {
+        clearList.clear();
+        for (auto&[image, state] : imageStates)
+        {
+            if (state.version + maxAge < version)
+            {
+                clearList.emplace_back(image);
+            }
+            else if (state.version <= version)
+            {
+                state.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+            }
+        }
+
+        for (auto image : clearList)
+            imageStates.erase(image);
+
+        version++;
+    }
+
+    void ResourceTracker::Reset(Image* image)
     {
         Get(image) = {};
+    }
+
+    void ResourceTracker::Persist(Image* image)
+    {
+        Get(image).version = version + 1;
     }
 
     void ResourceTracker::Set(Image* image, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
@@ -192,7 +218,9 @@ namespace nova
 
     ResourceTracker::ImageState& ResourceTracker::Get(Image* image)
     {
-        return imageStates[image->image];
+        auto& state = imageStates[image->image];
+        state.version = std::max(state.version, version);
+        return state;
     }
 
 // -----------------------------------------------------------------------------
