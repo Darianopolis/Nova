@@ -283,7 +283,7 @@ namespace nova
                 };
             }
 
-            VkCall(vkQueueSubmit2(handle2, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = waitInfos,

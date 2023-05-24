@@ -18,11 +18,26 @@ namespace nova
     #ifdef _WIN32
         instanceExtensions.push_back("VK_KHR_win32_surface");
     #endif
+        if (debug)
+            instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         volkInitialize();
 
+        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                                | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                                | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+            .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                            | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+            .pfnUserCallback = DebugCallback,
+            .pUserData = context,
+        };
+
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pNext = &debugMessengerCreateInfo,
             .pApplicationInfo = Temp(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
@@ -34,6 +49,8 @@ namespace nova
         }), context->pAlloc, &context->instance));
 
         volkLoadInstanceOnly(context->instance);
+
+        VkCall(vkCreateDebugUtilsMessengerEXT(context->instance, &debugMessengerCreateInfo, context->pAlloc, &context->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
         VkQuery(gpus, vkEnumeratePhysicalDevices, context->instance);
@@ -137,7 +154,7 @@ namespace nova
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                     .queueFamilyIndex = context->graphics->family,
-                    .queueCount = 2,
+                    .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
@@ -155,7 +172,6 @@ namespace nova
         // ---- Shared resources ----
 
         vkGetDeviceQueue(context->device, context->graphics->family, 0, &context->graphics->handle);
-        vkGetDeviceQueue(context->device, context->graphics->family, 1, &context->graphics->handle2);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -177,11 +193,38 @@ namespace nova
     {
         delete context->graphics;
 
+        vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
         vmaDestroyAllocator(context->vma);
         vkDestroyDevice(context->device, context->pAlloc);
         vkDestroyInstance(context->instance, context->pAlloc);
 
         delete context;
+    }
+
+    VkBool32 VKAPI_CALL Context::DebugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+        VkDebugUtilsMessageTypeFlagsEXT type,
+        const VkDebugUtilsMessengerCallbackDataEXT* data,
+        [[maybe_unused]] void* userData)
+    {
+        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+            return VK_FALSE;
+
+        NOVA_LOG(R"(
+--------------------------------------------------------------------------------)");
+        std::cout << std::stacktrace::current();
+        NOVA_LOG(R"(
+--------------------------------------------------------------------------------
+Validation: {} ({})
+--------------------------------------------------------------------------------
+{}
+--------------------------------------------------------------------------------
+)",
+            data->pMessageIdName,
+            data->messageIdNumber,
+            data->pMessage);
+
+        return VK_FALSE;
     }
 
     void Context::WaitForIdle()

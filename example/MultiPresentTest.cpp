@@ -1,7 +1,6 @@
 #include <nova/window/nova_Window.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/core/nova_Timer.hpp>
-
 #include <nova/imgui/nova_ImGui.hpp>
 
 using namespace nova::types;
@@ -13,21 +12,17 @@ int main()
     auto context = nova::Context::Create(true);
 
     auto presentMode = nova::PresentMode::Fifo;
+    auto swapchainUsage = nova::ImageUsage::TransferDst
+        | nova::ImageUsage::ColorAttach
+        | nova::ImageUsage::Storage;
 
     auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
-    auto swapchain = context->CreateSwapchain(surface,
-        nova::ImageUsage::TransferDst
-        | nova::ImageUsage::ColorAttach
-        | nova::ImageUsage::Storage,
-        presentMode);
+    auto swapchain = context->CreateSwapchain(surface, swapchainUsage, presentMode);
 
     auto window2 = nova::Window::Create();
     auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
-    auto swapchain2 = context->CreateSwapchain(surface2,
-        nova::ImageUsage::TransferDst
-        | nova::ImageUsage::Storage,
-        presentMode);
+    auto swapchain2 = context->CreateSwapchain(surface2, swapchainUsage, presentMode);
 
     auto queue = context->graphics;
 

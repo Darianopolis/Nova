@@ -110,12 +110,12 @@ namespace nova
         return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
             | static_cast<std::underlying_type_t<enumType>>(r));         \
     }                                                                    \
-    inline bool operator>=(enumType l, enumType r) {               \
+    inline bool operator>=(enumType l, enumType r) {                     \
         return static_cast<std::underlying_type_t<enumType>>(r)          \
             == (static_cast<std::underlying_type_t<enumType>>(l)         \
                 & static_cast<std::underlying_type_t<enumType>>(r));     \
     }                                                                    \
-    inline bool operator&(enumType l, enumType r) {                \
+    inline bool operator&(enumType l, enumType r) {                      \
         return static_cast<std::underlying_type_t<enumType>>(0)          \
             != (static_cast<std::underlying_type_t<enumType>>(l)         \
                 & static_cast<std::underlying_type_t<enumType>>(r));     \
@@ -144,7 +144,7 @@ namespace nova
 #define NOVA_THROW(fmt, ...) do {                          \
     auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
     std::cout << std::stacktrace::current();               \
-    NOVA_LOG("\nERROR: {}", msg);                            \
+    NOVA_LOG("\nERROR: {}", msg);                          \
     throw std::runtime_error(std::move(msg));              \
 } while (0)
 

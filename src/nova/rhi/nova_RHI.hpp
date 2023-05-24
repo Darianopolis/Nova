@@ -222,7 +222,6 @@ namespace nova
         Context* context = {};
 
         VkQueue handle = {};
-        VkQueue handle2 = {};
         u32     family = UINT32_MAX;
 
     public:
@@ -350,6 +349,14 @@ namespace nova
         VkPhysicalDevice gpu = {};
         VkDevice      device = {};
         VmaAllocator     vma = {};
+
+        VkDebugUtilsMessengerEXT debugMessenger = {};
+
+        static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+            VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+            VkDebugUtilsMessageTypeFlagsEXT type,
+            const VkDebugUtilsMessengerCallbackDataEXT* data,
+            void* userData);
 
         VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
