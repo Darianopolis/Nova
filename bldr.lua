@@ -24,9 +24,14 @@ if Project "nova" then
     }
 end
 
-if Project "nova-example" then
+if Project "nova-present-test" then
     Compile "example/MultiPresentTest.cpp"
-    -- Compile "example/BoxOverlayTest.cpp"
     Import "nova"
-    Artifact { "out/main", type = "Console" }
+    Artifact { "out/present-test", type = "Console" }
+end
+
+if Project "nova-draw-test" then
+    Compile "example/BoxOverlayTest.cpp"
+    Import "nova"
+    Artifact { "out/draw-test", type = "Console" }
 end

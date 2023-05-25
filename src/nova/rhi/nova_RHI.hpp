@@ -321,6 +321,7 @@ namespace nova
     public:
         void End();
 
+        void UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset = 0);
         void CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
         void CopyToImage(Image* dst, Buffer* src, u64 srcOffset = 0);
         void GenerateMips(Image* image);

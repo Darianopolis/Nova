@@ -321,7 +321,7 @@ void main()
     {
         rectIndex = 0;
 
-        minBounds = Vec2(INFINITY, INFINITY);
+        minBounds = Vec2( INFINITY,  INFINITY);
         maxBounds = Vec2(-INFINITY, -INFINITY);
 
         drawCommands.clear();
@@ -347,9 +347,10 @@ void main()
     {
         for (auto c : str)
         {
-            auto g = font->glyphs[c];
+            auto& g = font->glyphs[c];
 
             DrawRect(nova::ImRoundRect {
+                // .centerColor = { 0.f, 1.f, 0.f, 0.4f },
                 .centerPos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                 .halfExtent = { g.width / 2.f, g.height / 2.f },
                 .texTint = { 1.f, 1.f, 1.f, 1.f, },
@@ -360,6 +361,36 @@ void main()
 
             pos.x += g.advance;
         }
+    }
+
+    Vec2 ImDraw2D::MeasureString(std::string_view str, ImFont* font)
+    {
+        if (str.empty())
+            return Vec2(0.f);
+
+        Vec2 strMinBounds {  INFINITY,  INFINITY };
+        Vec2 strMaxBounds { -INFINITY, -INFINITY };
+
+        Vec2 pos = Vec2(0);
+
+        for (auto c : str)
+        {
+            auto& g = font->glyphs[c];
+            Vec2 centerPos = pos + Vec2(g.width / 2.f, g.height / 2.f) + Vec2(g.offset.x -g.offset.y);
+            Vec2 halfExtent = Vec2(g.width / 2.f, g.height / 2.f);
+
+            Vec2 topLeft = centerPos - halfExtent;
+            Vec2 botRight = centerPos + halfExtent;
+
+            strMinBounds.x = std::min(strMinBounds.x, topLeft.x);
+            strMinBounds.y = std::min(strMinBounds.y, topLeft.y);
+            strMaxBounds.x = std::max(strMaxBounds.x, botRight.x);
+            strMaxBounds.y = std::max(strMaxBounds.y, botRight.y);
+
+            pos.x += g.advance;
+        }
+
+        return Vec2(strMaxBounds.x - strMinBounds.x, strMaxBounds.y - strMinBounds.y);
     }
 
     void ImDraw2D::Record(CommandList* cmd)

@@ -105,6 +105,8 @@ namespace nova
         void DrawRect(const ImRoundRect& rect);
         void DrawString(std::string_view str, Vec2 pos, ImFont* font);
 
+        Vec2 MeasureString(std::string_view str, ImFont* font);
+
         void Record(CommandList* commandList);
     };
 }

@@ -65,6 +65,12 @@ namespace nova
         delete buffer;
     }
 
+
+    void CommandList::UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset)
+    {
+        vkCmdUpdateBuffer(buffer, dst->buffer, dstOffset, size, pData);
+    }
+
     void CommandList::CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset, u64 srcOffset)
     {
         vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {

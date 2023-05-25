@@ -20,6 +20,9 @@ int main()
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface, swapchainUsage, presentMode);
 
+    glfwSetWindowAttrib(window->window, GLFW_DECORATED, GLFW_FALSE);
+    glfwMaximizeWindow(window->window);
+
     auto window2 = nova::Window::Create();
     auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
     auto swapchain2 = context->CreateSwapchain(surface2, swapchainUsage, presentMode);
