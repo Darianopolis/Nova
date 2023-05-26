@@ -9,7 +9,9 @@ int main()
 {
     NOVA_LOGEXPR(mi_version());
 
-    auto context = nova::Context::Create(true);
+    auto context = nova::Context::Create({
+        .debug = false,
+    });
 
     auto presentMode = nova::PresentMode::Fifo;
     auto swapchainUsage = nova::ImageUsage::TransferDst
@@ -19,9 +21,6 @@ int main()
     auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface, swapchainUsage, presentMode);
-
-    glfwSetWindowAttrib(window->window, GLFW_DECORATED, GLFW_FALSE);
-    glfwMaximizeWindow(window->window);
 
     auto window2 = nova::Window::Create();
     auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
@@ -106,7 +105,7 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    while (window->PollEvents() && window2->PollEvents())
+    while (window->WaitEvents() && window2->PollEvents())
         update();
 
     fences[0]->Wait();

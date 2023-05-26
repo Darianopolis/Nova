@@ -6,6 +6,45 @@ namespace nova
 {
     enum class ImTextureID : u32 {};
 
+    struct ImBounds2D
+    {
+        Vec2 min {  INFINITY,  INFINITY };
+        Vec2 max { -INFINITY, -INFINITY };
+
+        void Expand(const ImBounds2D& other)
+        {
+            min.x = std::min(min.x, other.min.x);
+            min.y = std::min(min.y, other.min.y);
+            max.x = std::max(max.x, other.max.x);
+            max.y = std::max(max.y, other.max.y);
+        }
+
+        Vec2 Size() const
+        {
+            return max - min;
+        }
+
+        Vec2 Center() const
+        {
+            return 0.5f * (max + min);
+        }
+
+        float Width() const
+        {
+            return max.x - min.x;
+        }
+
+        float Height() const
+        {
+            return max.y - min.y;
+        }
+
+        bool Empty() const
+        {
+            return min.y == INFINITY;
+        }
+    };
+
     struct ImRoundRect
     {
         Vec4 centerColor;
@@ -87,7 +126,7 @@ namespace nova
         Buffer*     rectBuffer = {};
         u32          rectIndex = 0;
 
-        Vec2 minBounds, maxBounds;
+        ImBounds2D bounds;
 
         std::vector<ImDrawCommand> drawCommands;
 
@@ -105,7 +144,7 @@ namespace nova
         void DrawRect(const ImRoundRect& rect);
         void DrawString(std::string_view str, Vec2 pos, ImFont* font);
 
-        Vec2 MeasureString(std::string_view str, ImFont* font);
+        ImBounds2D MeasureString(std::string_view str, ImFont* font);
 
         void Record(CommandList* commandList);
     };

@@ -65,6 +65,7 @@ namespace nova
         using i32 = int32_t;
         using i64 = int64_t;
 
+        using uc8 = unsigned char;
         using c8  = char;
         using c16 = wchar_t;
         using c32 = char32_t;

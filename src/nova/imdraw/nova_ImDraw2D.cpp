@@ -93,13 +93,8 @@ layout(push_constant) uniform PushConstants {
         "vertex",
         preamble + R"(
 const vec2[6] deltas = vec2[] (
-    vec2(-1, -1),
-    vec2(-1,  1),
-    vec2( 1, -1),
-
-    vec2(-1,  1),
-    vec2( 1,  1),
-    vec2( 1, -1)
+    vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
+    vec2(-1,  1), vec2( 1,  1), vec2( 1, -1)
 );
 
 layout(location = 0) out vec2 outTex;
@@ -107,10 +102,13 @@ layout(location = 1) out uint outInstanceID;
 
 void main()
 {
-    ImRoundRect box = ImRoundRectRef(pc.rectInstancesVA).data[gl_InstanceIndex];
-    vec2 delta = deltas[gl_VertexIndex % 6];
+    uint instanceID = gl_VertexIndex / 6;
+    uint vertexID = gl_VertexIndex % 6;
+
+    ImRoundRect box = ImRoundRectRef(pc.rectInstancesVA).data[instanceID];
+    vec2 delta = deltas[vertexID];
     outTex = delta * box.halfExtent;
-    outInstanceID = gl_InstanceIndex;
+    outInstanceID = instanceID;
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
         )",
@@ -135,7 +133,9 @@ void main()
     vec2 absPos = abs(inTex);
     vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
-    vec4 sampled = box.texTint * texture(textures[nonuniformEXT(box.texIndex)], (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos);
+    vec4 sampled = box.texTint.a > 0
+        ? box.texTint * texture(textures[nonuniformEXT(box.texIndex)], (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
+        : vec4(0);
     vec4 centerColor = vec4(
         sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
         sampled.a + box.centerColor.a * (1 - sampled.a));
@@ -320,9 +320,7 @@ void main()
     void ImDraw2D::Reset()
     {
         rectIndex = 0;
-
-        minBounds = Vec2( INFINITY,  INFINITY);
-        maxBounds = Vec2(-INFINITY, -INFINITY);
+        bounds = {};
 
         drawCommands.clear();
     }
@@ -335,10 +333,7 @@ void main()
 
         rectBuffer->Get<ImRoundRect>(cmd.first + cmd.count) = rect;
 
-        minBounds.x = std::min(minBounds.x, rect.centerPos.x - rect.halfExtent.x);
-        minBounds.y = std::min(minBounds.y, rect.centerPos.y - rect.halfExtent.y);
-        maxBounds.x = std::max(maxBounds.x, rect.centerPos.x + rect.halfExtent.x);
-        maxBounds.y = std::max(maxBounds.y, rect.centerPos.y + rect.halfExtent.y);
+        bounds.Expand({{rect.centerPos - rect.halfExtent}, {rect.centerPos + rect.halfExtent}});
 
         cmd.count++;
     }
@@ -363,13 +358,9 @@ void main()
         }
     }
 
-    Vec2 ImDraw2D::MeasureString(std::string_view str, ImFont* font)
+    ImBounds2D ImDraw2D::MeasureString(std::string_view str, ImFont* font)
     {
-        if (str.empty())
-            return Vec2(0.f);
-
-        Vec2 strMinBounds {  INFINITY,  INFINITY };
-        Vec2 strMaxBounds { -INFINITY, -INFINITY };
+        ImBounds2D strBounds = {};
 
         Vec2 pos = Vec2(0);
 
@@ -379,18 +370,12 @@ void main()
             Vec2 centerPos = pos + Vec2(g.width / 2.f, g.height / 2.f) + Vec2(g.offset.x -g.offset.y);
             Vec2 halfExtent = Vec2(g.width / 2.f, g.height / 2.f);
 
-            Vec2 topLeft = centerPos - halfExtent;
-            Vec2 botRight = centerPos + halfExtent;
-
-            strMinBounds.x = std::min(strMinBounds.x, topLeft.x);
-            strMinBounds.y = std::min(strMinBounds.y, topLeft.y);
-            strMaxBounds.x = std::max(strMaxBounds.x, botRight.x);
-            strMaxBounds.y = std::max(strMaxBounds.y, botRight.y);
+            strBounds.Expand({{centerPos - halfExtent}, {centerPos + halfExtent}});
 
             pos.x += g.advance;
         }
 
-        return Vec2(strMaxBounds.x - strMinBounds.x, strMaxBounds.y - strMinBounds.y);
+        return strBounds;
     }
 
     void ImDraw2D::Record(CommandList* cmd)
@@ -400,10 +385,12 @@ void main()
             ShaderStage::Vertex | ShaderStage::Fragment,
             PushConstantsRange.offset, PushConstantsRange.size,
             Temp(PushConstants {
-                .invHalfExtent = 2.f / (maxBounds - minBounds),
-                .centerPos = (minBounds + maxBounds) / 2.f,
+                .invHalfExtent = 2.f / bounds.Size(),
+                .centerPos = bounds.Center(),
                 .rectInstancesVA = rectBuffer->address,
             }));
+
+        cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
         vkCmdBindDescriptorBuffersEXT(cmd->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
@@ -418,7 +405,7 @@ void main()
             {
             break;case ImDrawType::RoundRect:
                 cmd->BindShaders({rectVertShader, rectFragShader});
-                cmd->Draw(6, command.count, 0, command.first);
+                cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }
     }

@@ -5,8 +5,10 @@ namespace nova
     std::atomic_int64_t Context::AllocationCount = 0;
     std::atomic_int64_t Context::NewAllocationCount = 0;
 
-    Context* Context::Create(bool debug)
+    Context* Context::Create(const ContextConfig& config)
     {
+        bool debug = config.debug;
+
         auto context = new Context;
         NOVA_ON_SCOPE_FAILURE(&) { Destroy(context); };
 
@@ -37,7 +39,7 @@ namespace nova
 
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pNext = &debugMessengerCreateInfo,
+            .pNext = debug ? &debugMessengerCreateInfo : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
@@ -50,7 +52,8 @@ namespace nova
 
         volkLoadInstanceOnly(context->instance);
 
-        VkCall(vkCreateDebugUtilsMessengerEXT(context->instance, &debugMessengerCreateInfo, context->pAlloc, &context->debugMessenger));
+        if (debug)
+            VkCall(vkCreateDebugUtilsMessengerEXT(context->instance, &debugMessengerCreateInfo, context->pAlloc, &context->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
         VkQuery(gpus, vkEnumeratePhysicalDevices, context->instance);
@@ -72,15 +75,13 @@ namespace nova
         context->graphics->context = context;
         context->graphics->family = 0;
 
+        // Ray tracing features
+
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
 
-        VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
-        barycentricFeatures.pNext = &rtPosFetchFeatures;
-        barycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
-
         VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV rtInvocationReorderFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV };
-        rtInvocationReorderFeatures.pNext = &barycentricFeatures;
+        rtInvocationReorderFeatures.pNext = &rtPosFetchFeatures;
         rtInvocationReorderFeatures.rayTracingInvocationReorder = VK_TRUE;
 
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
@@ -95,8 +96,13 @@ namespace nova
         rtPipelineFeatures.pNext = &asFeatures;
         rtPipelineFeatures.rayTracingPipeline = VK_TRUE;
 
+        // Standard features
+
+        VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
+        barycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
+
         VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
-        descriptorBufferFeatures.pNext = &rtPipelineFeatures;
+        descriptorBufferFeatures.pNext = &barycentricFeatures;
         descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
         descriptorBufferFeatures.descriptorBufferPushDescriptors = VK_TRUE;
 
@@ -129,22 +135,27 @@ namespace nova
         features2.features.multiDrawIndirect = VK_TRUE;
         features2.features.fillModeNonSolid = VK_TRUE;
 
-        auto deviceExtensions = std::array {
+        auto deviceExtensions = std::vector {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
             VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
             VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 
-            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
             VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-            VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME,
-
-            VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME,
 
             VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };
+
+        if (config.rayTracing)
+        {
+            barycentricFeatures.pNext = &rtPipelineFeatures;
+
+            deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+            deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+            deviceExtensions.push_back(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+            deviceExtensions.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+        }
 
         VkCall(vkCreateDevice(context->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -193,7 +204,8 @@ namespace nova
     {
         delete context->graphics;
 
-        vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
+        if (context->debugMessenger)
+            vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
         vmaDestroyAllocator(context->vma);
         vkDestroyDevice(context->device, context->pAlloc);
         vkDestroyInstance(context->instance, context->pAlloc);

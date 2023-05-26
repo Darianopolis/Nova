@@ -344,6 +344,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct ContextConfig
+    {
+        bool debug = false;
+        bool rayTracing = false;
+    };
+
     struct Context
     {
         VkInstance  instance = {};
@@ -410,7 +416,7 @@ namespace nova
         VkAllocationCallbacks* pAlloc = &alloc;
         // VkAllocationCallbacks* pAlloc = nullptr;
     public:
-        static Context* Create(bool debug);
+        static Context* Create(const ContextConfig& config);
         static void Destroy(Context* context);
 
         Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});

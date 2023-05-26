@@ -10,7 +10,7 @@ namespace nova
         auto window = new Window;
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        window->window = glfwCreateWindow(1920, 1200, "test", nullptr, nullptr);
+        window->window = glfwCreateWindow(800, 600, "test", nullptr, nullptr);
 
         return window;
     }

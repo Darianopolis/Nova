@@ -17,14 +17,15 @@ void TryMain()
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    // glfwWindowHint(GLFW_MOUSE_PASSTHROUGH, GLFW_TRUE);
     auto window = glfwCreateWindow(1920, 1200, "next", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
 
-    auto context = nova::Context::Create(true);
+    auto context = nova::Context::Create({
+        .debug = true,
+    });
 
     auto surface = context->CreateSurface(glfwGetWin32Window(window));
     auto swapchain = context->CreateSwapchain(surface,
@@ -183,14 +184,14 @@ void TryMain()
         commandPool->Reset();
 
         auto cmd = commandPool->BeginPrimary(tracker);
-        cmd->SetViewport({ imDraw->maxBounds.x - imDraw->minBounds.x, imDraw->maxBounds.y - imDraw->minBounds.y }, false);
+        cmd->SetViewport(imDraw->bounds.Size(), false);
         cmd->SetBlendState(1, true);
         cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
         // Update window size, record primary buffer and present
 
-        glfwSetWindowSize(window, i32(imDraw->maxBounds.x - imDraw->minBounds.x), i32(imDraw->maxBounds.y - imDraw->minBounds.y));
-        glfwSetWindowPos(window, i32(imDraw->minBounds.x), i32(imDraw->minBounds.y));
+        glfwSetWindowSize(window, i32(imDraw->bounds.Width()), i32(imDraw->bounds.Height()));
+        glfwSetWindowPos(window, i32(imDraw->bounds.min.x), i32(imDraw->bounds.min.y));
 
         queue->Acquire({swapchain}, {fence});
 
