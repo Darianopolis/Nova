@@ -29,8 +29,8 @@ void TryMain()
 
     auto surface = context->CreateSurface(glfwGetWin32Window(window));
     auto swapchain = context->CreateSwapchain(surface,
-        nova::ImageUsage::TransferDst
-        | nova::ImageUsage::ColorAttach,
+        nova::TextureUsage::TransferDst
+        | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
     auto queue = context->graphics;
@@ -44,16 +44,16 @@ void TryMain()
 
 // -----------------------------------------------------------------------------
 
-    nova::Image* image;
-    nova::ImTextureID imageID;
+    nova::Texture* texture;
+    nova::ImTextureID texID;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        image = context->CreateImage(
+        texture = context->CreateTexture(
             Vec3(f32(w), f32(h), 0.f),
-            nova::ImageUsage::Sampled,
+            nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
@@ -61,15 +61,15 @@ void TryMain()
         std::memcpy(staging->mapped, data, size);
 
         auto cmd = commandPool->BeginPrimary(tracker);
-        cmd->CopyToImage(image, staging);
-        cmd->GenerateMips(image);
+        cmd->CopyToTexture(texture, staging);
+        cmd->GenerateMips(texture);
 
         queue->Submit({cmd}, {}, {fence});
         fence->Wait();
 
         context->DestroyBuffer(staging);
 
-        imageID = imDraw->RegisterTexture(image, imDraw->defaultSampler);
+        texID = imDraw->RegisterTexture(texture, imDraw->defaultSampler);
     }
 
 // -----------------------------------------------------------------------------
@@ -92,7 +92,7 @@ void TryMain()
         .borderWidth = 5.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = imageID,
+        .texIndex = texID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 1.f },
     };
@@ -106,7 +106,7 @@ void TryMain()
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = imageID,
+        .texIndex = texID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 0.5f },
     };
@@ -120,7 +120,7 @@ void TryMain()
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = imageID,
+        .texIndex = texID,
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 1.f, 0.5f },
     };
@@ -195,12 +195,12 @@ void TryMain()
 
         queue->Acquire({swapchain}, {fence});
 
-        cmd->BeginRendering({swapchain->image});
+        cmd->BeginRendering({swapchain->texture});
         cmd->ClearColor(0, Vec4(0.f), imDraw->bounds.Size());
         imDraw->Record(cmd);
         cmd->EndRendering();
 
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        cmd->Transition(swapchain->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});

@@ -14,9 +14,9 @@ int main()
     });
 
     auto presentMode = nova::PresentMode::Fifo;
-    auto swapchainUsage = nova::ImageUsage::TransferDst
-        | nova::ImageUsage::ColorAttach
-        | nova::ImageUsage::Storage;
+    auto swapchainUsage = nova::TextureUsage::TransferDst
+        | nova::TextureUsage::ColorAttach
+        | nova::TextureUsage::Storage;
 
     auto window = nova::Window::Create();
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
@@ -74,7 +74,7 @@ int main()
         auto cmd = commandPool->BeginPrimary(tracker);
 
         // Clear screen
-        cmd->Clear(swapchain->image, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Clear(swapchain->texture, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui->BeginFrame();
@@ -82,11 +82,11 @@ int main()
         imgui->EndFrame(cmd, swapchain);
 
         // Transition ready for present
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        cmd->Transition(swapchain->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         // Clear second screen and transition
-        cmd->Clear(swapchain2->image, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Transition(swapchain2->image, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        cmd->Clear(swapchain2->texture, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd->Transition(swapchain2->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
 
         // Submit work
         queue->Submit({cmd}, {fence}, {fence});

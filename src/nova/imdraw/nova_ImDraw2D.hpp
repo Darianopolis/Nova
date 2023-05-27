@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        Image* image;
+        Texture* texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -134,7 +134,7 @@ namespace nova
         static ImDraw2D* Create(Context* context);
         static void Destroy(ImDraw2D* imDraw);
 
-        ImTextureID RegisterTexture(Image* image, VkSampler sampler);
+        ImTextureID RegisterTexture(Texture* texture, VkSampler sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
         ImFont* LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);

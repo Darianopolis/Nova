@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, ImageUsage _usage, PresentMode _presentMode)
+    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, TextureUsage _usage, PresentMode _presentMode)
     {
         auto swapchain = new Swapchain;
         NOVA_ON_SCOPE_FAILURE(&) { DestroySwapchain(swapchain); };
@@ -39,8 +39,8 @@ namespace nova
         for (auto semaphore : swapchain->semaphores)
             vkDestroySemaphore(device, semaphore, pAlloc);
 
-        for (auto image : swapchain->images)
-            DestroyImage(image);
+        for (auto texture : swapchain->textures)
+            DestroyTexture(texture);
 
         vkDestroySwapchainKHR(device, swapchain->swapchain, pAlloc);
 
@@ -206,30 +206,30 @@ namespace nova
                         }), context->pAlloc, &semaphore));
                     }
 
-                    for (auto image : swapchain->images)
-                        context->DestroyImage(image);
+                    for (auto texture : swapchain->textures)
+                        context->DestroyTexture(texture);
 
-                    swapchain->images.resize(vkImages.size());
-                    for (uint32_t i = 0; i < swapchain->images.size(); ++i)
+                    swapchain->textures.resize(vkImages.size());
+                    for (uint32_t i = 0; i < swapchain->textures.size(); ++i)
                     {
-                        auto& image = swapchain->images[i];
-                        image = new Image;
-                        image->context = context;
-                        image->image = vkImages[i];
+                        auto& texture = swapchain->textures[i];
+                        texture = new Texture;
+                        texture->context = context;
+                        texture->image = vkImages[i];
                         VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                            .image = image->image,
+                            .image = texture->image,
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
                             .format = swapchain->format.format,
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                        }), context->pAlloc, &image->view));
+                        }), context->pAlloc, &texture->view));
 
-                        image->extent.x = swapchain->extent.width;
-                        image->extent.y = swapchain->extent.height;
-                        image->format = swapchain->format.format;
-                        image->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                        image->mips = 1;
-                        image->layers = 1;
+                        texture->extent.x = swapchain->extent.width;
+                        texture->extent.y = swapchain->extent.height;
+                        texture->format = swapchain->format.format;
+                        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+                        texture->mips = 1;
+                        texture->layers = 1;
                     }
                 }
 
@@ -243,7 +243,7 @@ namespace nova
 
                 if (result == VK_SUCCESS)
                 {
-                    swapchain->image = swapchain->images[swapchain->index];
+                    swapchain->texture = swapchain->textures[swapchain->index];
                 }
                 else if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                 {

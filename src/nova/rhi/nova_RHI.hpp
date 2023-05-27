@@ -30,7 +30,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Image;
+    struct Texture;
     struct Buffer;
     struct Shader;
     struct Context;
@@ -99,14 +99,14 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class ImageFlags
+    enum class TextureFlags
     {
         Array = 1 << 0,
         Mips  = 1 << 1,
     };
-    NOVA_DECORATE_FLAG_ENUM(ImageFlags)
+    NOVA_DECORATE_FLAG_ENUM(TextureFlags)
 
-    enum class ImageUsage
+    enum class TextureUsage
     {
         TransferSrc        = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         TransferDst        = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
@@ -117,7 +117,7 @@ namespace nova
         ColorAttach        = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         DepthStencilAttach = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
     };
-    NOVA_DECORATE_FLAG_ENUM(ImageUsage)
+    NOVA_DECORATE_FLAG_ENUM(TextureUsage)
 
     enum class Format
     {
@@ -134,7 +134,7 @@ namespace nova
         D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
     };
 
-    struct Image
+    struct Texture
     {
         Context* context = {};
 
@@ -148,7 +148,6 @@ namespace nova
         u32     mips = 0;
         u32   layers = 0;
     };
-
 
 // -----------------------------------------------------------------------------
 
@@ -205,9 +204,9 @@ namespace nova
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Image*>     images = {};
+        std::vector<Texture*> textures = {};
         uint32_t                 index = UINT32_MAX;
-        Image*                   image = nullptr;
+        Texture*               texture = nullptr;
         VkExtent2D              extent = { 0, 0 };
         bool                   invalid = false;
 
@@ -251,17 +250,18 @@ namespace nova
 
             u64 version = 0;
         };
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+        ankerl::unordered_dense::map<VkImage, ImageState> textureStates;
+
         std::vector<VkImage> clearList;
 
     public:
         void Clear(u32 maxAge);
 
-        void Reset(Image* image);
-        void Persist(Image* image);
-        void Set(Image* image, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
+        void Reset(Texture* texture);
+        void Persist(Texture* texture);
+        void Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
 
-        ImageState& Get(Image* image);
+        ImageState& Get(Texture* texture);
     };
 
 // -----------------------------------------------------------------------------
@@ -284,8 +284,8 @@ namespace nova
     struct RenderingDescription
     {
         Span<Format> colorFormats;
-        Format depthFormat = {};
-        Format stencilFormat = {};
+        Format        depthFormat = {};
+        Format      stencilFormat = {};
     };
 
     struct CommandPool
@@ -323,17 +323,17 @@ namespace nova
 
         void UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset = 0);
         void CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
-        void CopyToImage(Image* dst, Buffer* src, u64 srcOffset = 0);
-        void GenerateMips(Image* image);
+        void CopyToTexture(Texture* dst, Buffer* src, u64 srcOffset = 0);
+        void GenerateMips(Texture* texture);
 
-        void Clear(Image* image, Vec4 color);
-        void Transition(Image* image, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Clear(Texture* texture, Vec4 color);
+        void Transition(Texture* texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
 
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(VkPrimitiveTopology topology);
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
 
-        void BeginRendering(Span<Image*> colorAttachments, Image* depthAttachment = nullptr, Image* stencilAttachment = nullptr, bool allowSecondary = false);
+        void BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
         void EndRendering();
         void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
@@ -425,8 +425,8 @@ namespace nova
         Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
         void DestroyBuffer(Buffer* buffer);
 
-        Image* CreateImage(Vec3U size, ImageUsage usage, Format format, ImageFlags flags = {});
-        void DestroyImage(Image* image);
+        Texture* CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+        void DestroyTexture(Texture* texture);
 
         Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode = {},
@@ -434,7 +434,7 @@ namespace nova
             Span<VkDescriptorSetLayout> descriptorSetLayouts = {});
         void DestroyShader(Shader* shader);
 
-        Swapchain* CreateSwapchain(VkSurfaceKHR surface, ImageUsage usage, PresentMode presentMode);
+        Swapchain* CreateSwapchain(VkSurfaceKHR surface, TextureUsage usage, PresentMode presentMode);
         void DestroySwapchain(Swapchain* swapchain);
 
         VkSurfaceKHR CreateSurface(HWND hwnd);

@@ -159,15 +159,15 @@ namespace nova
         {
             lastSwapchain = swapchain->swapchain;
 
-            framebuffers.resize(swapchain->images.size());
-            for (u32 i = 0; i < swapchain->images.size(); ++i)
+            framebuffers.resize(swapchain->textures.size());
+            for (u32 i = 0; i < swapchain->textures.size(); ++i)
             {
                 vkDestroyFramebuffer(context->device, framebuffers[i], context->pAlloc);
                 VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain->images[i]->view,
+                    .pAttachments = &swapchain->textures[i]->view,
                     .width = swapchain->extent.width,
                     .height = swapchain->extent.height,
                     .layers = 1,
@@ -175,7 +175,7 @@ namespace nova
             }
         }
 
-        cmd->Transition(swapchain->image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        cmd->Transition(swapchain->texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 

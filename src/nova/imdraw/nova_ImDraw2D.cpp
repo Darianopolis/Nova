@@ -193,7 +193,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Image* image, VkSampler sampler)
+    ImTextureID ImDraw2D::RegisterTexture(Texture* texture, VkSampler sampler)
     {
         u32 index;
         if (textureSlotFreelist.empty())
@@ -213,7 +213,7 @@ void main()
                 .data = {
                     .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
                         .sampler = sampler,
-                        .imageView = image->view,
+                        .imageView = texture->view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 },
@@ -278,21 +278,21 @@ void main()
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.image = context->CreateImage(
+            glyph.texture = context->CreateTexture(
                 Vec3(f32(w), f32(h), 0.f),
-                ImageUsage::Sampled,
+                TextureUsage::Sampled,
                 Format::RGBA8U);
 
             usz dataSize = w * h * 4;
             std::memcpy(staging->mapped, pixels.data(), dataSize);
 
             auto cmd = cmdPool->BeginPrimary(tracker);
-            cmd->CopyToImage(glyph.image, staging);
-            cmd->GenerateMips(glyph.image);
+            cmd->CopyToTexture(glyph.texture, staging);
+            cmd->GenerateMips(glyph.texture);
             queue->Submit({cmd}, {}, {fence});
             fence->Wait();
 
-            glyph.index = RegisterTexture(glyph.image, defaultSampler);
+            glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
 
         context->DestroyBuffer(staging);
@@ -307,10 +307,10 @@ void main()
     {
         for (auto& glyph : font->glyphs)
         {
-            if (glyph.image)
+            if (glyph.texture)
             {
                 UnregisterTexture(glyph.index);
-                context->DestroyImage(glyph.image);
+                context->DestroyTexture(glyph.texture);
             }
         }
 

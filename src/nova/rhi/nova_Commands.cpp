@@ -179,11 +179,11 @@ namespace nova
     void ResourceTracker::Clear(u32 maxAge)
     {
         clearList.clear();
-        for (auto&[image, state] : imageStates)
+        for (auto&[texture, state] : textureStates)
         {
             if (state.version + maxAge < version)
             {
-                clearList.emplace_back(image);
+                clearList.emplace_back(texture);
             }
             else if (state.version <= version)
             {
@@ -191,34 +191,34 @@ namespace nova
             }
         }
 
-        for (auto image : clearList)
-            imageStates.erase(image);
+        for (auto texture : clearList)
+            textureStates.erase(texture);
 
         version++;
     }
 
-    void ResourceTracker::Reset(Image* image)
+    void ResourceTracker::Reset(Texture* texture)
     {
-        Get(image) = {};
+        Get(texture) = {};
     }
 
-    void ResourceTracker::Persist(Image* image)
+    void ResourceTracker::Persist(Texture* texture)
     {
-        Get(image).version = version + 1;
+        Get(texture).version = version + 1;
     }
 
-    void ResourceTracker::Set(Image* image, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
+    void ResourceTracker::Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
     {
-        Get(image) = {
+        Get(texture) = {
             .layout = layout,
             .stage = stage,
             .access = access,
         };
     }
 
-    ResourceTracker::ImageState& ResourceTracker::Get(Image* image)
+    ResourceTracker::ImageState& ResourceTracker::Get(Texture* texture)
     {
-        auto& state = imageStates[image->image];
+        auto& state = textureStates[texture->image];
         state.version = std::max(state.version, version);
         return state;
     }
@@ -286,20 +286,20 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Image*> colorAttachments, Image* depthAttachment, Image* stencilAttachment, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment, Texture* stencilAttachment, bool allowSecondary)
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
-            auto* image = colorAttachments.begin()[i];
+            auto* texture = colorAttachments.begin()[i];
 
-            Transition(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                 VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
             colorAttachmentInfos[i] = VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .imageView = image->view,
+                .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
         }
