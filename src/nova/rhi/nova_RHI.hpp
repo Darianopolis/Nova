@@ -332,12 +332,16 @@ namespace nova
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(VkPrimitiveTopology topology);
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
-        // TODO: Depth/stencil attachments
-        void BeginRendering(Span<Image*> colorAttachments, Span<Vec4> clearColors, bool allowSecondary = false);
+
+        void BeginRendering(Span<Image*> colorAttachments, Image* depthAttachment = nullptr, Image* stencilAttachment = nullptr, bool allowSecondary = false);
         void EndRendering();
+        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
+        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
+        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
+
         void BindShaders(Span<Shader*> shaders);
-        void ClearAttachment(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
         void PushConstants(VkPipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data);
+
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
         void ExecuteCommands(Span<CommandList*> commands);
     };
@@ -414,7 +418,6 @@ namespace nova
             },
         };
         VkAllocationCallbacks* pAlloc = &alloc;
-        // VkAllocationCallbacks* pAlloc = nullptr;
     public:
         static Context* Create(const ContextConfig& config);
         static void Destroy(Context* context);

@@ -286,12 +286,12 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Image*> colorAttachments, Span<Vec4> clearColors, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Image*> colorAttachments, Image* depthAttachment, Image* stencilAttachment, bool allowSecondary)
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
-            auto image = colorAttachments.begin()[i];
+            auto* image = colorAttachments.begin()[i];
 
             Transition(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -301,20 +301,10 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = image->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .loadOp = clearColors.size()
-                    ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                    : VK_ATTACHMENT_LOAD_OP_LOAD,
-                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             };
-
-            if (clearColors.size())
-            {
-                auto& c = clearColors.begin()[i];
-                colorAttachmentInfos[i].clearValue = {{{ c.r, c.g, c.b, c.a }}};
-            }
         }
 
-        vkCmdBeginRendering(buffer, Temp(VkRenderingInfo {
+        VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
             .flags = allowSecondary
                 ? VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT
@@ -323,7 +313,60 @@ namespace nova
             .layerCount = 1,
             .colorAttachmentCount = u32(colorAttachments.size()),
             .pColorAttachments = colorAttachmentInfos,
-        }));
+        };
+
+        VkRenderingAttachmentInfo depthInfo = {};
+        VkRenderingAttachmentInfo stencilInfo = {};
+
+        if (depthAttachment == stencilAttachment)
+        {
+            if (depthAttachment)
+            {
+                Transition(depthAttachment,
+                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+
+                depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                depthInfo.imageView = depthAttachment->view;
+                depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+                info.pDepthAttachment = &depthInfo;
+                info.pStencilAttachment = &depthInfo;
+            }
+        }
+        else
+        {
+            if (depthAttachment)
+            {
+                Transition(depthAttachment,
+                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+
+                depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                depthInfo.imageView = depthAttachment->view;
+                depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
+                info.pDepthAttachment = &depthInfo;
+            }
+
+            if (stencilAttachment)
+            {
+                Transition(stencilAttachment,
+                    VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+
+                stencilInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                stencilInfo.imageView = stencilAttachment->view;
+                stencilInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
+                info.pStencilAttachment = &stencilInfo;
+            }
+        }
+
+        vkCmdBeginRendering(buffer, &info);
     }
 
     void CommandList::EndRendering()
@@ -355,13 +398,41 @@ namespace nova
         vkCmdDraw(buffer, vertices, instances, firstVertex, firstInstance);
     }
 
-    void CommandList::ClearAttachment(u32 attachment, Vec4 color, Vec2U size, Vec2I offset)
+    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset)
     {
         vkCmdClearAttachments(
             buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .colorAttachment = attachment,
                 .clearValue = {{{ color.r, color.g, color.b, color.a }}},
+            }),
+            1, nova::Temp(VkClearRect {
+                .rect = { { offset.x, offset.y }, { size.x, size.y } },
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            }));
+    }
+
+    void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset)
+    {
+        vkCmdClearAttachments(
+            buffer, 1, nova::Temp(VkClearAttachment {
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .clearValue = { .depthStencil = { .depth = depth } },
+            }),
+            1, nova::Temp(VkClearRect {
+                .rect = { { offset.x, offset.y }, { size.x, size.y } },
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            }));
+    }
+
+    void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset)
+    {
+        vkCmdClearAttachments(
+            buffer, 1, nova::Temp(VkClearAttachment {
+                .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
+                .clearValue = { .depthStencil = { .stencil = value } },
             }),
             1, nova::Temp(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },

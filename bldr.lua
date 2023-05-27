@@ -21,6 +21,7 @@ if Project "nova" then
         "Compressonator",
         "mimalloc",
         "freetype",
+        "sqlite3",
     }
 end
 

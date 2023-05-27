@@ -195,7 +195,8 @@ void TryMain()
 
         queue->Acquire({swapchain}, {fence});
 
-        cmd->BeginRendering({swapchain->image}, {Vec4(0.f)}, true);
+        cmd->BeginRendering({swapchain->image});
+        cmd->ClearColor(0, Vec4(0.f), imDraw->bounds.Size());
         imDraw->Record(cmd);
         cmd->EndRendering();
 
