@@ -15,37 +15,19 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        VkCall(vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-                .bindingCount = 1,
-                .pBindingFlags = Temp<VkDescriptorBindingFlags>(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT),
-            }),
-            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
-            .bindingCount = 1,
-            .pBindings = Temp(VkDescriptorSetLayoutBinding {
-                .binding = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .descriptorCount = 65'536,
-                .stageFlags = VK_SHADER_STAGE_ALL,
-            }),
-        }), nullptr, &imDraw->descriptorSetLayout));
+        imDraw->descriptorSetLayout = context->CreateDescriptorLayout({
+            { DescriptorType::SampledTexture, 65'536 }
+        });
 
-        VkDeviceSize descriptorSize;
-        vkGetDescriptorSetLayoutSizeEXT(context->device, imDraw->descriptorSetLayout, &descriptorSize);
         imDraw->descriptorBuffer = context->CreateBuffer(
-            descriptorSize,
+            imDraw->descriptorSetLayout->size,
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
-        VkCall(vkCreatePipelineLayout(context->device, Temp(VkPipelineLayoutCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &imDraw->descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &PushConstantsRange,
-        }), context->pAlloc, &imDraw->pipelineLayout));
+        imDraw->pipelineLayout = context->CreatePipelineLayout(
+            {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(PushConstants)}},
+            {imDraw->descriptorSetLayout},
+            VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 // -----------------------------------------------------------------------------
 
@@ -112,8 +94,7 @@ void main()
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
         )",
-        {PushConstantsRange},
-        {imDraw->descriptorSetLayout});
+        imDraw->pipelineLayout);
 
     imDraw->rectFragShader = context->CreateShader(
         ShaderStage::Fragment, {},
@@ -158,25 +139,15 @@ void main()
     }
 }
         )",
-        {PushConstantsRange},
-        {imDraw->descriptorSetLayout});
+        imDraw->pipelineLayout);
 
 // -----------------------------------------------------------------------------
 
-        VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .magFilter = VK_FILTER_LINEAR,
-            .minFilter = VK_FILTER_LINEAR,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-            .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-            .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-            .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-            .anisotropyEnable = VK_TRUE,
-            .maxAnisotropy = 16.f,
-            .minLod = -1000.f,
-            .maxLod = 1000.f,
-            .borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-        }), nullptr, &imDraw->defaultSampler));
+        imDraw->defaultSampler = context->CreateSampler(
+            Filter::Linear,
+            AddressMode::Border,
+            BorderColor::TransparentBlack,
+            16.f);
 
         return imDraw;
     }
@@ -186,14 +157,14 @@ void main()
         imDraw->context->DestroyBuffer(imDraw->rectBuffer);
         imDraw->context->DestroyShader(imDraw->rectVertShader);
         imDraw->context->DestroyShader(imDraw->rectFragShader);
-        vkDestroyPipelineLayout(imDraw->context->device, imDraw->pipelineLayout, imDraw->context->pAlloc);
+        imDraw->context->DestroyPipelineLayout(imDraw->pipelineLayout);
 
         delete imDraw;
     }
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Texture* texture, VkSampler sampler)
+    ImTextureID ImDraw2D::RegisterTexture(Texture* texture, Sampler* sampler)
     {
         u32 index;
         if (textureSlotFreelist.empty())
@@ -206,20 +177,7 @@ void main()
             textureSlotFreelist.pop_back();
         }
 
-        vkGetDescriptorEXT(context->device,
-            Temp(VkDescriptorGetInfoEXT {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
-                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .data = {
-                    .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
-                        .sampler = sampler,
-                        .imageView = texture->view,
-                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    }),
-                },
-            }),
-            context->descriptorSizes.combinedImageSamplerDescriptorSize,
-            descriptorBuffer->mapped + (index * context->descriptorSizes.combinedImageSamplerDescriptorSize));
+        descriptorSetLayout->WriteSampledTexture(descriptorBuffer->mapped, 0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -392,12 +350,8 @@ void main()
 
         cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
-        vkCmdBindDescriptorBuffersEXT(cmd->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-            .address = descriptorBuffer->address,
-            .usage = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
-        }));
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, Temp(0u), Temp(0ull));
+        cmd->BindDescriptorBuffers({descriptorBuffer});
+        cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
 
         for (auto& command : drawCommands)
         {

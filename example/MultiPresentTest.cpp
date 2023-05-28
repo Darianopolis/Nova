@@ -10,7 +10,7 @@ int main()
     NOVA_LOGEXPR(mi_version());
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
 
     auto presentMode = nova::PresentMode::Fifo;

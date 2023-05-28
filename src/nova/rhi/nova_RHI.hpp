@@ -87,6 +87,7 @@ namespace nova
         VkDeviceAddress  address = 0ull;
         b8*               mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
+        VkBufferUsageFlags usage = {};
 
     public:
         template<class T>
@@ -147,6 +148,36 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
+    };
+
+// -----------------------------------------------------------------------------
+
+    enum class Filter : u32
+    {
+        Linear = VK_FILTER_LINEAR,
+        Nearest = VK_FILTER_NEAREST,
+    };
+
+    enum class AddressMode : u32
+    {
+        Repeat = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        RepeatMirrored = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
+        Edge = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        Border = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    };
+
+    enum class BorderColor : u32
+    {
+        TransparentBlack = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+        Black = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+        White = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    };
+
+    struct Sampler
+    {
+        Context* context = {};
+
+        VkSampler sampler = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -230,7 +261,7 @@ namespace nova
         // Present a set of swapchains, waiting on a number of fences.
         // If any wait dependency includes a wait-before-signal operation
         // (including indirectly) then hostWait must be set to true, as WSI
-        // operations are incompatible with wait-before signal.
+        // operations are incompatible with wait-before-signal.
         void Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait = false);
     };
 
@@ -250,7 +281,7 @@ namespace nova
 
             u64 version = 0;
         };
-        ankerl::unordered_dense::map<VkImage, ImageState> textureStates;
+        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
 
         std::vector<VkImage> clearList;
 
@@ -277,6 +308,55 @@ namespace nova
         void Wait(u64 waitValue = 0ull);
         u64 Advance();
         void Signal(u64 value);
+    };
+
+// -----------------------------------------------------------------------------
+
+    enum class DescriptorType : u32
+    {
+        SampledTexture = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        StorageTexture = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        AccelerationStructure = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+    };
+
+    struct DescriptorBinding
+    {
+        DescriptorType type;
+        u32           count = 1;
+    };
+
+    struct DescriptorLayout
+    {
+        Context* context = {};
+
+        VkDescriptorSetLayout layout = {};
+        u64                     size = 0;
+        std::vector<u64>     offsets = {};
+    public:
+
+        void WriteSampledTexture(b8* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
+    };
+
+    struct PipelineLayout
+    {
+        Context* context = {};
+
+        VkPipelineLayout layout = {};
+
+        // TODO: Pipeline layout used in multiple bind points?
+        VkPipelineBindPoint bindPoint = {};
+
+        std::vector<VkPushConstantRange> ranges;
+        std::vector<VkDescriptorSetLayout> sets;
+    };
+
+    struct PushConstantRange
+    {
+        ShaderStage stages;
+        u32           size;
+        u32         offset = 0;
     };
 
 // -----------------------------------------------------------------------------
@@ -312,6 +392,12 @@ namespace nova
         void Reset();
     };
 
+    struct DescriptorSetBindingOffset
+    {
+        u32 buffer;
+        u64 offset = {};
+    };
+
     struct CommandList
     {
         CommandPool*        pool = {};
@@ -331,7 +417,10 @@ namespace nova
 
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(VkPrimitiveTopology topology);
+        void SetCullState(VkCullModeFlags mode, VkFrontFace frontFace);
+        void SetPolyState(VkPolygonMode poly, f32 lineWidth);
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
+        void SetDepthState(bool enable, bool write, VkCompareOp compareOp);
 
         void BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
         void EndRendering();
@@ -339,10 +428,15 @@ namespace nova
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
 
+        void BindDescriptorBuffers(Span<Buffer*> buffers);
+        void SetDescriptorSetOffsets(PipelineLayout* layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets);
+
         void BindShaders(Span<Shader*> shaders);
-        void PushConstants(VkPipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data);
+        void BindIndexBuffer(Buffer* buffer, VkIndexType indexType, u64 offset = 0);
+        void PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data);
 
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
+        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
         void ExecuteCommands(Span<CommandList*> commands);
     };
 
@@ -428,11 +522,22 @@ namespace nova
         Texture* CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
         void DestroyTexture(Texture* texture);
 
+        Sampler* CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
+        void DestroySampler(Sampler* sampler);
+
         Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
-            const std::string& filename, const std::string& sourceCode = {},
-            Span<VkPushConstantRange> pushConstantRanges = {},
-            Span<VkDescriptorSetLayout> descriptorSetLayouts = {});
+            const std::string& filename, const std::string& sourceCode,
+            PipelineLayout* layout);
         void DestroyShader(Shader* shader);
+
+        DescriptorLayout* CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor = false);
+        void DestroyDescriptorLayout(DescriptorLayout* layout);
+
+        PipelineLayout* CreatePipelineLayout(
+            Span<PushConstantRange> pushConstantRanges,
+            Span<DescriptorLayout*> descriptorLayouts,
+            VkPipelineBindPoint bindPoint);
+        void DestroyPipelineLayout(PipelineLayout* layout);
 
         Swapchain* CreateSwapchain(VkSurfaceKHR surface, TextureUsage usage, PresentMode presentMode);
         void DestroySwapchain(Swapchain* swapchain);

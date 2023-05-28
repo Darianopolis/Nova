@@ -9,16 +9,16 @@ namespace nova
         buffer->context = this;
         buffer->flags = flags;
 
-        auto usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        buffer->usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (flags >= BufferFlags::Addressable)
-            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            buffer->usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         VkCall(vmaCreateBuffer(
             vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = size,
-                .usage = usage,
+                .usage = buffer->usage,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             }),
             Temp(VmaAllocationCreateInfo {

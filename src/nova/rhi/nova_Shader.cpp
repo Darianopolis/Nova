@@ -85,8 +85,7 @@ namespace nova
 
     Shader* Context::CreateShader(ShaderStage _stage, ShaderStage _nextStage,
         const std::string& filename, const std::string& sourceCode,
-        Span<VkPushConstantRange> pushConstantRanges,
-        Span<VkDescriptorSetLayout> descriptorSetLayouts)
+        PipelineLayout* layout)
     {
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
@@ -217,6 +216,8 @@ namespace nova
 
         if (supportsShaderObjects)
         {
+            // TODO: Only use ranges and descriptor sets that are included in this shader stage?
+            //   Vulkan should already handle this?
             VkCall(vkCreateShadersEXT(device, 1, Temp(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = vkStage,
@@ -225,10 +226,10 @@ namespace nova
                 .codeSize = spirv.size() * 4,
                 .pCode = spirv.data(),
                 .pName = "main",
-                .setLayoutCount = u32(descriptorSetLayouts.size()),
-                .pSetLayouts = descriptorSetLayouts.begin(),
-                .pushConstantRangeCount = u32(pushConstantRanges.size()),
-                .pPushConstantRanges = pushConstantRanges.begin(),
+                .setLayoutCount = u32(layout->sets.size()),
+                .pSetLayouts = layout->sets.data(),
+                .pushConstantRangeCount = u32(layout->ranges.size()),
+                .pPushConstantRanges = layout->ranges.data(),
             }), pAlloc, &newShader->shader));
         }
 

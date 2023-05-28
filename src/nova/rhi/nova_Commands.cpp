@@ -179,7 +179,7 @@ namespace nova
     void ResourceTracker::Clear(u32 maxAge)
     {
         clearList.clear();
-        for (auto&[texture, state] : textureStates)
+        for (auto&[texture, state] : imageStates)
         {
             if (state.version + maxAge < version)
             {
@@ -192,7 +192,7 @@ namespace nova
         }
 
         for (auto texture : clearList)
-            textureStates.erase(texture);
+            imageStates.erase(texture);
 
         version++;
     }
@@ -218,7 +218,7 @@ namespace nova
 
     ResourceTracker::ImageState& ResourceTracker::Get(Texture* texture)
     {
-        auto& state = textureStates[texture->image];
+        auto& state = imageStates[texture->image];
         state.version = std::max(state.version, version);
         return state;
     }
@@ -231,7 +231,7 @@ namespace nova
         {
             vkCmdSetViewportWithCount(buffer, 1, nova::Temp(VkViewport {
                 .y = f32(size.y),
-                .width = f32(size.x), .height = -f32(size.x),
+                .width = f32(size.x), .height = -f32(size.y),
                 .minDepth = 0.f, .maxDepth = 1.f,
             }));
         }
@@ -250,6 +250,18 @@ namespace nova
     void CommandList::SetTopology(VkPrimitiveTopology topology)
     {
         vkCmdSetPrimitiveTopology(buffer, topology);
+    }
+
+    void CommandList::SetCullState(VkCullModeFlags mode, VkFrontFace frontFace)
+    {
+        vkCmdSetCullMode(buffer, mode);
+        vkCmdSetFrontFace(buffer, frontFace);
+    }
+
+    void CommandList::SetPolyState(VkPolygonMode poly, f32 lineWidth)
+    {
+        vkCmdSetPolygonModeEXT(buffer, poly);
+        vkCmdSetLineWidth(buffer, lineWidth);
     }
 
     NOVA_NO_INLINE
@@ -283,6 +295,16 @@ namespace nova
         vkCmdSetColorBlendEnableEXT(buffer, 0, colorAttachmentCount, blendEnableBools);
         if (blendEnable)
             vkCmdSetColorBlendEquationEXT(buffer, 0, colorAttachmentCount, blendEquations);
+    }
+
+    void CommandList::SetDepthState(bool enable, bool write, VkCompareOp compareOp)
+    {
+        vkCmdSetDepthTestEnable(buffer, enable);
+        if (enable)
+        {
+            vkCmdSetDepthWriteEnable(buffer, write);
+            vkCmdSetDepthCompareOp(buffer, compareOp);
+        }
     }
 
     NOVA_NO_INLINE
@@ -388,14 +410,24 @@ namespace nova
         vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 
-    void CommandList::PushConstants(VkPipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data)
+    void CommandList::BindIndexBuffer(Buffer* indexBuffer, VkIndexType indexType, u64 offset)
     {
-        vkCmdPushConstants(buffer, layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
+        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, indexType);
+    }
+
+    void CommandList::PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data)
+    {
+        vkCmdPushConstants(buffer, layout->layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
     }
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance)
     {
         vkCmdDraw(buffer, vertices, instances, firstVertex, firstInstance);
+    }
+
+    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance)
+    {
+        vkCmdDrawIndexed(buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 
     void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset)

@@ -137,6 +137,7 @@ namespace nova
 
         auto deviceExtensions = std::vector {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
             VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
             VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
             VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
@@ -204,10 +205,10 @@ namespace nova
     {
         delete context->graphics;
 
-        if (context->debugMessenger)
-            vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
         vmaDestroyAllocator(context->vma);
         vkDestroyDevice(context->device, context->pAlloc);
+        if (context->debugMessenger)
+            vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
         vkDestroyInstance(context->instance, context->pAlloc);
 
         delete context;

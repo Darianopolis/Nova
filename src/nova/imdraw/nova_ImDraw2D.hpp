@@ -112,11 +112,11 @@ namespace nova
     public:
         Context* context = {};
 
-        VkSampler defaultSampler = {};
+        Sampler* defaultSampler = {};
 
-        VkPipelineLayout pipelineLayout = {};
+        PipelineLayout* pipelineLayout = {};
 
-        VkDescriptorSetLayout descriptorSetLayout = {};
+        DescriptorLayout*     descriptorSetLayout = {};
         Buffer*                  descriptorBuffer = {};
         u32                       nextTextureSlot = 0;
         std::vector<u32>      textureSlotFreelist = {};
@@ -134,7 +134,7 @@ namespace nova
         static ImDraw2D* Create(Context* context);
         static void Destroy(ImDraw2D* imDraw);
 
-        ImTextureID RegisterTexture(Texture* texture, VkSampler sampler);
+        ImTextureID RegisterTexture(Texture* texture, Sampler* sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
         ImFont* LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);
