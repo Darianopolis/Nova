@@ -76,6 +76,44 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    void AccelerationStructure::WriteInstance(
+        void* bufferAddress, u32 index,
+        AccelerationStructure* instanceStructure,
+        const Mat4& M,
+        u32 customIndex, u8 mask,
+        u32 sbtOffset, GeometryInstanceFlags geomFlags)
+    {
+        VkGeometryInstanceFlagsKHR vkFlags = 0;
+
+        if (geomFlags >= GeometryInstanceFlags::TriangleCullCounterClockwise)
+        {
+            vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
+        }
+        else
+        if (!(geomFlags >= GeometryInstanceFlags::TriangleCullClockwise))
+        {
+            vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        }
+
+        if (geomFlags >= GeometryInstanceFlags::InstanceForceOpaque)
+            vkFlags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+
+        static_cast<VkAccelerationStructureInstanceKHR*>(bufferAddress)[index] = VkAccelerationStructureInstanceKHR {
+            .transform = {
+                M[0][0], M[1][0], M[2][0], M[3][0],
+                M[0][1], M[1][1], M[2][1], M[3][1],
+                M[0][2], M[1][2], M[2][2], M[3][2],
+            },
+            .instanceCustomIndex = customIndex,
+            .mask = mask,
+            .instanceShaderBindingTableRecordOffset = sbtOffset,
+            .flags = vkFlags,
+            .accelerationStructureReference = instanceStructure->address,
+        };
+    }
+
+// -----------------------------------------------------------------------------
+
     bool AccelerationStructure::Resize()
     {
         VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };

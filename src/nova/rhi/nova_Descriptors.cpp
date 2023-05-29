@@ -80,6 +80,43 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    void CommandList::PushStorageTexture(PipelineLayout* layout, u32 setIndex, u32 binding, Texture* texture, u32 arrayIndex)
+    {
+        vkCmdPushDescriptorSetKHR(buffer,
+            layout->bindPoint, layout->layout, setIndex,
+            1, Temp(VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstBinding = binding,
+                .dstArrayElement = arrayIndex,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .pImageInfo = Temp(VkDescriptorImageInfo {
+                    .imageView = texture->view,
+                    .imageLayout = tracker->Get(texture).layout,
+                }),
+            }));
+    }
+
+    void CommandList::PushAccelerationStructure(PipelineLayout* layout, u32 setIndex, u32 binding, AccelerationStructure* accelerationStructure, u32 arrayIndex)
+    {
+        vkCmdPushDescriptorSetKHR(buffer,
+            layout->bindPoint, layout->layout, setIndex,
+            1, Temp(VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
+                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                    .accelerationStructureCount = 1,
+                    .pAccelerationStructures = &accelerationStructure->structure,
+                }),
+                .dstBinding = binding,
+                .dstArrayElement = arrayIndex,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            }));
+    }
+
+// -----------------------------------------------------------------------------
+
     PipelineLayout* Context::CreatePipelineLayout(
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,

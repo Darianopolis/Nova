@@ -310,6 +310,14 @@ namespace nova
         TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
     };
 
+    enum class GeometryInstanceFlags : u32
+    {
+        TriangleCullClockwise        = 1 << 0,
+        TriangleCullCounterClockwise = 1 << 1,
+        InstanceForceOpaque          = 1 << 2,
+    };
+    NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
+
     struct AccelerationStructure
     {
         Context* context = {};
@@ -331,8 +339,16 @@ namespace nova
     public:
         void ClearGeometries();
         void PushInstances(u64 deviceAddress, u32 count);
-        void PushTriangles(u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
+        void PushTriangles(
+            u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
             u64 indexAddress, VkIndexType indexType, u32 triangleCount);
+
+        void WriteInstance(
+            void* bufferAddress, u32 index,
+            AccelerationStructure* structure,
+            const Mat4& matrix,
+            u32 customIndex, u8 mask,
+            u32 sbtOffset, GeometryInstanceFlags flags);
 
         bool Resize();
     };
@@ -506,6 +522,9 @@ namespace nova
         void BindShaders(Span<Shader*> shaders);
         void BindIndexBuffer(Buffer* buffer, VkIndexType indexType, u64 offset = 0);
         void PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data);
+
+        void PushStorageTexture(PipelineLayout* layout, u32 setIndex, u32 binding, Texture* texture, u32 arrayIndex = 0);
+        void PushAccelerationStructure(PipelineLayout* layout, u32 setIndex, u32 binding, AccelerationStructure* accelerationStructure, u32 arrayIndex = 0);
 
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
