@@ -67,11 +67,17 @@ namespace nova
         RightSuper = GLFW_KEY_RIGHT_SUPER,
     };
 
+    struct WindowConfig
+    {
+        Vec2U size;
+        std::string title;
+    };
+
     struct Window
     {
         GLFWwindow* window = {};
     public:
-        static Window* Create();
+        static Window* Create(const WindowConfig& config);
         static void Destroy(Window* window);
 
         bool PollEvents();

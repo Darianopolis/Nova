@@ -10,7 +10,7 @@ int main()
     NOVA_LOGEXPR(mi_version());
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
 
     auto presentMode = nova::PresentMode::Fifo;
@@ -18,11 +18,17 @@ int main()
         | nova::TextureUsage::ColorAttach
         | nova::TextureUsage::Storage;
 
-    auto window = nova::Window::Create();
+    auto window = nova::Window::Create({
+        .size = Vec2U(1920, 1200),
+        .title = "Present Test Window #1",
+    });
     auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
     auto swapchain = context->CreateSwapchain(surface, swapchainUsage, presentMode);
 
-    auto window2 = nova::Window::Create();
+    auto window2 = nova::Window::Create({
+        .size = Vec2U(1920, 1200),
+        .title = "Present Test Window #2",
+    });
     auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
     auto swapchain2 = context->CreateSwapchain(surface2, swapchainUsage, presentMode);
 
@@ -42,16 +48,24 @@ int main()
     }
 
     u64 frame = 0;
-    auto last = std::chrono::steady_clock::now();
+    auto lastTime = std::chrono::steady_clock::now();
     auto frames = 0;
     auto update = [&] {
 
         // Debug output statistics
         frames++;
-        if (std::chrono::steady_clock::now() - last > 1s)
+        auto newTime = std::chrono::steady_clock::now();
+        if (newTime - lastTime > 1s)
         {
-            NOVA_LOG("Allocations = {} Fps = {:3} New = {}", nova::Context::AllocationCount.load(), frames, nova::Context::NewAllocationCount.exchange(0));
-            last = std::chrono::steady_clock::now();
+            NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)", frames, nova::Context::AllocationCount.load(), nova::Context::NewAllocationCount.exchange(0));
+
+            NOVA_LOG("submit :: clear     = {}\nsubmit :: adapting1 = {}\nsubmit :: adapting2 = {}\npresent             = {}",
+                nova::submitting.exchange(0) / frames,
+                nova::adapting1.exchange(0) / frames,
+                nova::adapting2.exchange(0) / frames,
+                nova::presenting.exchange(0) / frames);
+
+            lastTime = std::chrono::steady_clock::now();
             frames = 0;
         }
 
@@ -92,7 +106,7 @@ int main()
         queue->Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue->Present({swapchain, swapchain2}, {fence}, true);
+        queue->Present({swapchain, swapchain2}, {fence}, false);
     };
 
     glfwSetWindowUserPointer(window->window, &update);
@@ -105,7 +119,7 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    while (window->WaitEvents() && window2->PollEvents())
+    while (window->PollEvents() && window2->PollEvents())
         update();
 
     fences[0]->Wait();

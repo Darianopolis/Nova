@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Window* Window::Create()
+    Window* Window::Create(const WindowConfig& config)
     {
         NOVA_DO_ONCE() { glfwInit(); };
         NOVA_ON_EXIT() { glfwTerminate(); };
@@ -10,7 +10,10 @@ namespace nova
         auto window = new Window;
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        window->window = glfwCreateWindow(800, 600, "test", nullptr, nullptr);
+        window->window = glfwCreateWindow(
+            i32(config.size.x), i32(config.size.y),
+            config.title.c_str(),
+            nullptr, nullptr);
 
         return window;
     }

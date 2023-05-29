@@ -99,7 +99,35 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         template<class T>
-        using Span = std::initializer_list<T>;
+        struct Span
+        {
+            std::span<const T> span;
+
+        public:
+            Span(std::initializer_list<T>&& init)
+                : span(init.begin(), init.end())
+            {}
+
+            Span(const std::vector<T>& container)
+                : span(container.begin(), container.end())
+            {}
+
+            template<usz Size>
+            Span(const std::array<T, Size>& container)
+                : span(container.begin(), container.end())
+            {}
+
+            Span(const std::span<const T>& container)
+                : span(container.begin(), container.end())
+            {}
+
+            Span(const Span& other): span(other.span) {}
+            Span& operator=(const Span& other) { span = other.span; }
+
+            decltype(auto) begin() const { return span.data(); }
+            decltype(auto) end() const { return span.data() + span.size(); }
+            usz size() const { return span.size(); }
+        };
     }
 
     using namespace types;

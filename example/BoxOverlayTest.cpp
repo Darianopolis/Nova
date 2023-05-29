@@ -17,7 +17,7 @@ void TryMain()
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    auto window = glfwCreateWindow(1920, 1200, "next", nullptr, nullptr);
+    auto window = glfwCreateWindow(1920, 1200, "Box Overlay Test Window", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) {
         glfwDestroyWindow(window);
         glfwTerminate();

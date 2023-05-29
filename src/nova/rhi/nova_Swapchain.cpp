@@ -95,6 +95,7 @@ namespace nova
                 };
             }
 
+            auto start = std::chrono::steady_clock::now();
             VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
@@ -102,6 +103,7 @@ namespace nova
                 .signalSemaphoreInfoCount = u32(swapchains.size()),
                 .pSignalSemaphoreInfos = signalInfos,
             }), nullptr));
+            adapting2 += std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::steady_clock::now() - start).count();
 
             binaryWaits = NOVA_ALLOC_STACK(VkSemaphore, swapchains.size());
             for (u32 i = 0; i < swapchains.size(); ++i)
@@ -122,6 +124,7 @@ namespace nova
         }
 
         auto results = NOVA_ALLOC_STACK(VkResult, swapchains.size());
+        auto start = std::chrono::steady_clock::now();
         vkQueuePresentKHR(handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binaryWaits ? u32(swapchains.size()) : 0u,
@@ -131,6 +134,7 @@ namespace nova
             .pImageIndices = indices,
             .pResults = results,
         }));
+        presenting += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
 
         for (u32 i = 0; i < swapchains.size(); ++i)
         {
@@ -283,6 +287,7 @@ namespace nova
                 };
             }
 
+            auto start = std::chrono::steady_clock::now();
             VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
@@ -290,7 +295,7 @@ namespace nova
                 .signalSemaphoreInfoCount = u32(signals.size()),
                 .pSignalSemaphoreInfos = signalInfos,
             }), nullptr));
-
+            adapting1 += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
         }
 
         return anyResized;

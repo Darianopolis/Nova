@@ -163,6 +163,7 @@ namespace nova
             };
         }
 
+        auto start = std::chrono::steady_clock::now();
         VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
@@ -172,6 +173,7 @@ namespace nova
             .signalSemaphoreInfoCount = u32(signals.size()),
             .pSignalSemaphoreInfos = signalInfos,
         }), nullptr));
+        submitting += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
     }
 
 // -----------------------------------------------------------------------------

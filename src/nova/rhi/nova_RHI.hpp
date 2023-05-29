@@ -6,6 +6,11 @@
 
 namespace nova
 {
+    inline std::atomic<u64> submitting = 0;
+    inline std::atomic<u64> adapting1 = 0;
+    inline std::atomic<u64> adapting2 = 0;
+    inline std::atomic<u64> presenting = 0;
+
     inline
     void VkCall(VkResult res)
     {
@@ -30,17 +35,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Texture;
+    struct AccelerationStructure;
     struct Buffer;
-    struct Shader;
-    struct Context;
-    struct Swapchain;
-    struct CommandPool;
     struct CommandList;
+    struct CommandPool;
     struct Context;
+    struct DescriptorLayout;
     struct Fence;
-    struct ResourceTracker;
+    struct PipelineLayout;
     struct Queue;
+    struct ResourceTracker;
+    struct Sampler;
+    struct Shader;
+    struct Swapchain;
+    struct Texture;
 
 // -----------------------------------------------------------------------------
 
@@ -96,7 +104,6 @@ namespace nova
             return reinterpret_cast<T*>(mapped + offset)[index];
         }
     };
-
 
 // -----------------------------------------------------------------------------
 
@@ -310,15 +317,15 @@ namespace nova
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
 
-        VkAccelerationStructureTypeKHR type;
-        VkBuildAccelerationStructureFlagsKHR flags;
+        VkAccelerationStructureTypeKHR        type = {};
+        VkBuildAccelerationStructureFlagsKHR flags = {};
 
         Buffer*        buffer = {};
         u64  buildScratchSize = 0;
         u64 updateScratchSize = 0;
 
-        std::vector<VkAccelerationStructureGeometryKHR> geometries;
-        std::vector<u32> primitiveCounts;
+        std::vector<VkAccelerationStructureGeometryKHR>   geometries;
+        std::vector<u32>                             primitiveCounts;
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
 
     public:
@@ -328,6 +335,36 @@ namespace nova
             u64 indexAddress, VkIndexType indexType, u32 triangleCount);
 
         bool Resize();
+    };
+
+// -----------------------------------------------------------------------------
+
+    struct HitShaderGroup
+    {
+        Shader* closestHitShader;
+        Shader* anyHitShader;
+        Shader* intersectionShader;
+    };
+
+    struct RayTracingPipeline
+    {
+        Context* context = {};
+
+        VkPipeline pipeline = {};
+        Buffer*   sbtBuffer = {};
+
+        VkStridedDeviceAddressRegionKHR rayGenRegion = {};
+        VkStridedDeviceAddressRegionKHR rayMissRegion = {};
+        VkStridedDeviceAddressRegionKHR rayHitRegion = {};
+        VkStridedDeviceAddressRegionKHR rayCallRegion = {};
+
+    public:
+        void Update(
+            PipelineLayout* layout,
+            Span<Shader*> rayGenShaders,
+            Span<Shader*> rayMissShaders,
+            Span<HitShaderGroup> rayHitShaderGroup,
+            Span<Shader*> callableShaders);
     };
 
 // -----------------------------------------------------------------------------
@@ -475,6 +512,8 @@ namespace nova
         void ExecuteCommands(Span<CommandList*> commands);
 
         void BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch);
+        void BindPipeline(RayTracingPipeline* pipeline);
+        void TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex);
     };
 
 // -----------------------------------------------------------------------------
@@ -500,8 +539,13 @@ namespace nova
             const VkDebugUtilsMessengerCallbackDataEXT* data,
             void* userData);
 
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+        };
+
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelStructureProperties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
+            .pNext = &rayTracingPipelineProperties,
         };
         VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
@@ -597,6 +641,9 @@ namespace nova
 
         AccelerationStructure* CreateAccelerationStructure(AccelerationStructureType type);
         void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
+
+        RayTracingPipeline* CreateRayTracingPipeline();
+        void DestroyRayTracingPipeline(RayTracingPipeline* pipeline);
 
         void WaitForIdle();
     };
