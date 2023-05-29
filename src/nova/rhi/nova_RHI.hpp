@@ -297,6 +297,41 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    enum class AccelerationStructureType
+    {
+        BottomLevel = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+        TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+    };
+
+    struct AccelerationStructure
+    {
+        Context* context = {};
+
+        VkAccelerationStructureKHR structure = {};
+        u64                          address = {};
+
+        VkAccelerationStructureTypeKHR type;
+        VkBuildAccelerationStructureFlagsKHR flags;
+
+        Buffer*        buffer = {};
+        u64  buildScratchSize = 0;
+        u64 updateScratchSize = 0;
+
+        std::vector<VkAccelerationStructureGeometryKHR> geometries;
+        std::vector<u32> primitiveCounts;
+        std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
+
+    public:
+        void ClearGeometries();
+        void PushInstances(u64 deviceAddress, u32 count);
+        void PushTriangles(u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, VkIndexType indexType, u32 triangleCount);
+
+        bool Resize();
+    };
+
+// -----------------------------------------------------------------------------
+
     struct Fence
     {
         Context*  context = {};
@@ -438,6 +473,8 @@ namespace nova
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
         void ExecuteCommands(Span<CommandList*> commands);
+
+        void BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch);
     };
 
 // -----------------------------------------------------------------------------
@@ -463,8 +500,12 @@ namespace nova
             const VkDebugUtilsMessengerCallbackDataEXT* data,
             void* userData);
 
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelStructureProperties = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
+        };
         VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
+            .pNext = &accelStructureProperties,
         };
 
         Queue* graphics = {};
@@ -553,6 +594,9 @@ namespace nova
 
         Fence* CreateFence();
         void DestroyFence(Fence* fence);
+
+        AccelerationStructure* CreateAccelerationStructure(AccelerationStructureType type);
+        void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
 
         void WaitForIdle();
     };
