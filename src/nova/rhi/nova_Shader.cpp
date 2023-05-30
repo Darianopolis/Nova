@@ -32,7 +32,8 @@ namespace nova
                 target = current.parent_path() / requested;
                 exists = std::filesystem::exists(target);
             }
-            else for (auto& dir : includeDirs)
+            else
+            for (auto& dir : includeDirs)
             {
                 target = dir / requested;
                 if (std::filesystem::exists(target))

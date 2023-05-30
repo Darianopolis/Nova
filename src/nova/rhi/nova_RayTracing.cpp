@@ -4,49 +4,53 @@
 
 namespace nova
 {
-    AccelerationStructure* Context::CreateAccelerationStructure(
-        AccelerationStructureType type, AccelerationStructureFlags flags)
+    AccelerationStructureBuilder* Context::CreateAccelerationStructureBuilder()
     {
-        auto* accelStructure = new AccelerationStructure;
-        accelStructure->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(accelStructure); };
+        auto* builder = new AccelerationStructureBuilder;
+        builder->context = this;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructureBuilder(builder); };
 
-        accelStructure->type = VkAccelerationStructureTypeKHR(type);
+        // accelStructure->type = VkAccelerationStructureTypeKHR(type);
 
-        // TODO: Configurable build flags
-        accelStructure->flags = VkBuildAccelerationStructureFlagsKHR(flags);
+        // // TODO: Configurable build flags
+        // accelStructure->flags = VkBuildAccelerationStructureFlagsKHR(flags);
 
-        if (accelStructure->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
-        {
-            // Don't create a query pool for *every* acceleration structure
-            VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
-                .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
-                .queryCount = 1,
-            }), pAlloc, &accelStructure->queryPool));
-        }
+        // if (accelStructure->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
+        // {
+        VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+            .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+            .queryCount = 1,
+        }), pAlloc, &builder->queryPool));
+        // }
 
-        return accelStructure;
+        return builder;
     }
 
-    void Context::DestroyAccelerationStructure(AccelerationStructure* accelStructure)
+    void Context::DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* builder)
     {
-        vkDestroyQueryPool(device, accelStructure->queryPool, pAlloc);
-        vkDestroyAccelerationStructureKHR(device, accelStructure->structure, pAlloc);
-        DestroyBuffer(accelStructure->buffer);
+        vkDestroyQueryPool(device, builder->queryPool, pAlloc);
+        vkDestroyAccelerationStructureKHR(device, builder->structure, pAlloc);
 
-        delete accelStructure;
+        delete builder;
     }
 
 // -----------------------------------------------------------------------------
 
-    void AccelerationStructure::ClearGeometries()
+    void AccelerationStructureBuilder::SetFlags(nova::AccelerationStructureType _type, nova::AccelerationStructureFlags _flags)
+    {
+        type = VkAccelerationStructureTypeKHR(_type);
+        flags = VkBuildAccelerationStructureFlagsKHR(_flags);
+    }
+
+    void AccelerationStructureBuilder::ClearGeometries()
     {
         geometries.clear();
         ranges.clear();
+        primitiveCounts.clear();
     }
 
-    void AccelerationStructure::PushInstances(u64 deviceAddress, u32 count)
+    void AccelerationStructureBuilder::PushInstances(u64 deviceAddress, u32 count)
     {
         auto& instances = geometries.emplace_back();
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -62,7 +66,7 @@ namespace nova
         primitiveCounts.emplace_back(count);
     }
 
-    void AccelerationStructure::PushTriangles(
+    void AccelerationStructureBuilder::PushTriangles(
         u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
         u64 indexAddress, VkIndexType indexType, u32 triangleCount)
     {
@@ -87,7 +91,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void AccelerationStructure::WriteInstance(
+    u64 AccelerationStructureBuilder::GetInstanceSize()
+    {
+        return sizeof(VkAccelerationStructureInstanceKHR);
+    }
+
+    void AccelerationStructureBuilder::WriteInstance(
         void* bufferAddress, u32 index,
         AccelerationStructure* instanceStructure,
         const Mat4& M,
@@ -125,88 +134,55 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    bool AccelerationStructure::Resize(u64 size)
+    void AccelerationStructureBuilder::ComputeSizes()
     {
-        if (!size)
-        {
-            VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+        VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 
-            vkGetAccelerationStructureBuildSizesKHR(
-                context->device,
-                VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-                Temp(VkAccelerationStructureBuildGeometryInfoKHR {
-                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                    .type = type,
-                    .flags = flags,
-                    .geometryCount = u32(geometries.size()),
-                    .pGeometries = geometries.data(),
-                }), primitiveCounts.data(), &sizes);
-
-            u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-            updateScratchSize = sizes.updateScratchSize + scratchAlign;
-            buildScratchSize = sizes.buildScratchSize + scratchAlign;
-
-            size = sizes.accelerationStructureSize;
-        }
-
-        if (!buffer || size > buffer->size)
-        {
-            if (buffer)
-                context->DestroyBuffer(buffer);
-
-            if (structure)
-                vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
-
-            buffer = context->CreateBuffer(size,
-                nova::BufferUsage::AccelStorage,
-                nova::BufferFlags::DeviceLocal);
-
-            VkCall(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
-                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-                .buffer = buffer->buffer,
-                .size = buffer->size,
+        vkGetAccelerationStructureBuildSizesKHR(
+            context->device,
+            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+            Temp(VkAccelerationStructureBuildGeometryInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = type,
-            }), context->pAlloc, &structure));
+                .flags = flags,
+                .geometryCount = u32(geometries.size()),
+                .pGeometries = geometries.data(),
+            }), primitiveCounts.data(), &sizes);
 
-            address = vkGetAccelerationStructureDeviceAddressKHR(
-                context->device,
-                Temp(VkAccelerationStructureDeviceAddressInfoKHR {
-                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-                    .accelerationStructure = structure
-                }));
+        buildSize = sizes.accelerationStructureSize;
 
-            return true;
-        }
-
-        return false;
+        u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+        updateScratchSize = sizes.updateScratchSize + scratchAlign;
+        buildScratchSize = sizes.buildScratchSize + scratchAlign;
     }
 
-    u64 AccelerationStructure::GetCompactedSize()
+    u64 AccelerationStructureBuilder::GetCompactSize()
     {
         VkDeviceSize size = {};
         VkCall(vkGetQueryPoolResults(context->device, queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
         return size;
     }
 
-    void CommandList::BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch)
+    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder* builder, AccelerationStructure* structure, Buffer* scratch)
     {
-        if (structure->queryPool)
-            vkCmdResetQueryPool(buffer, structure->queryPool, 0, 1);
+        bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+        if (compact)
+            vkCmdResetQueryPool(buffer, builder->queryPool, 0, 1);
 
         vkCmdBuildAccelerationStructuresKHR(
             buffer,
             1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                .type = structure->type,
-                .flags = structure->flags,
+                .type = builder->type,
+                .flags = builder->flags,
                 .dstAccelerationStructure = structure->structure,
-                .geometryCount = u32(structure->geometries.size()),
-                .pGeometries = structure->geometries.data(),
+                .geometryCount = u32(builder->geometries.size()),
+                .pGeometries = builder->geometries.data(),
                 .scratchData = {{ AlignUpPower2(scratch->address,
                     pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
-            }), Temp(structure->ranges.data()));
+            }), Temp(builder->ranges.data()));
 
-        if (structure->queryPool)
+        if (compact)
         {
             vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -220,7 +196,7 @@ namespace nova
 
             vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
                 1, &structure->structure,
-                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, structure->queryPool, 0);
+                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, builder->queryPool, 0);
         }
     }
 
@@ -232,6 +208,43 @@ namespace nova
             .dst = dst->structure,
             .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR,
         }));
+    }
+
+// -----------------------------------------------------------------------------
+
+    AccelerationStructure* Context::CreateAccelerationStructure(usz size, AccelerationStructureType type)
+    {
+        auto* structure = new AccelerationStructure;
+        structure->context = this;
+        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(structure); };
+
+        structure->buffer = CreateBuffer(size,
+            nova::BufferUsage::AccelStorage,
+            nova::BufferFlags::DeviceLocal);
+
+        VkCall(vkCreateAccelerationStructureKHR(device, Temp(VkAccelerationStructureCreateInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+            .buffer = structure->buffer->buffer,
+            .size = structure->buffer->size,
+            .type = VkAccelerationStructureTypeKHR(type),
+        }), pAlloc, &structure->structure));
+
+        structure->address = vkGetAccelerationStructureDeviceAddressKHR(
+            device,
+            Temp(VkAccelerationStructureDeviceAddressInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+                .accelerationStructure = structure->structure
+                }));
+
+        return structure;
+    }
+
+    void Context::DestroyAccelerationStructure(AccelerationStructure* structure)
+    {
+        DestroyBuffer(structure->buffer);
+        vkDestroyAccelerationStructureKHR(device, structure->structure, pAlloc);
+
+        delete structure;
     }
 
 // -----------------------------------------------------------------------------
@@ -317,20 +330,6 @@ namespace nova
             rayCallIndices.push_back(u32(groups.size()));
             createGroup().generalShader = getShaderIndex(shader);
         }
-
-        // Debug
-
-        NOVA_LOG("---- stages ----");
-        for (auto& stage : stages)
-            NOVA_LOG(" - stage.module = {} -> {}", (void*)stage.module, stageIndices.at(stage.module));
-        NOVA_LOG("---- groups ----");
-        for (auto& group : groups)
-            NOVA_LOG(" - group.type = {}, general = {}, closest hit = {}, any hit = {}",
-                (i32)group.type, group.generalShader, group.closestHitShader, group.anyHitShader);
-        NOVA_LOG("---- hit group indices ----");
-        for (auto& index : rayHitIndices)
-            NOVA_LOG(" - index = {}", index);
-        NOVA_LOG("----");
 
         // Create pipeline
 

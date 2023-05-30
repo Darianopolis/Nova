@@ -95,12 +95,12 @@ int main()
         ImGui::ShowDemoWindow();
         imgui->EndFrame(cmd, swapchain);
 
-        // Transition ready for present
-        cmd->Transition(swapchain->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        // Present #1
+        cmd->Present(swapchain->texture);
 
-        // Clear second screen and transition
+        // Clear and present #2
         cmd->Clear(swapchain2->texture, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Transition(swapchain2->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        cmd->Present(swapchain2->texture);
 
         // Submit work
         queue->Submit({cmd}, {fence}, {fence});

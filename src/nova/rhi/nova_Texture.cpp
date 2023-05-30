@@ -30,7 +30,8 @@ namespace nova
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
             }
-            else if (size.y > 0)
+            else
+            if (size.y > 0)
             {
                 texture->layers = size.y;
                 size.y = 1;
@@ -49,12 +50,14 @@ namespace nova
                 imageType = VK_IMAGE_TYPE_3D;
                 viewType = VK_IMAGE_VIEW_TYPE_3D;
             }
-            else if (size.y > 0)
+            else
+            if (size.y > 0)
             {
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D;
             }
-            else if (size.z > 0)
+            else
+            if (size.z > 0)
             {
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D;

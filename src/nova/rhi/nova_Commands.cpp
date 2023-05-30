@@ -187,7 +187,8 @@ namespace nova
             {
                 clearList.emplace_back(texture);
             }
-            else if (state.version <= version)
+            else
+            if (state.version <= version)
             {
                 state.layout = VK_IMAGE_LAYOUT_UNDEFINED;
             }

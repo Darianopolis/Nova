@@ -200,7 +200,7 @@ void TryMain()
         imDraw->Record(cmd);
         cmd->EndRendering();
 
-        cmd->Transition(swapchain->texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+        cmd->Present(swapchain->texture);
 
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});

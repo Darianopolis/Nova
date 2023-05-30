@@ -328,12 +328,8 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
 
-    struct AccelerationStructure
+    struct AccelerationStructureBuilder
     {
-        // TODO: Make this an AccelerationStructureBuilder?
-        //   Compaction process requires multiple acceleration structures
-        //   Should give control to user over allocating and reusing structures
-
         Context* context = {};
 
         VkAccelerationStructureKHR structure = {};
@@ -342,7 +338,7 @@ namespace nova
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
-        Buffer*        buffer = {};
+        u64         buildSize = 0;
         u64  buildScratchSize = 0;
         u64 updateScratchSize = 0;
 
@@ -353,12 +349,14 @@ namespace nova
         VkQueryPool queryPool = {};
 
     public:
+        void SetFlags(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags);
         void ClearGeometries();
         void PushInstances(u64 deviceAddress, u32 count);
         void PushTriangles(
             u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
             u64 indexAddress, VkIndexType indexType, u32 triangleCount);
 
+        u64 GetInstanceSize();
         void WriteInstance(
             void* bufferAddress, u32 index,
             AccelerationStructure* structure,
@@ -366,9 +364,19 @@ namespace nova
             u32 customIndex, u8 mask,
             u32 sbtOffset, GeometryInstanceFlags flags);
 
-        u64 GetCompactedSize();
+        void ComputeSizes();
+        u64 GetCompactSize();
+    };
 
-        bool Resize(u64 size = 0);
+    struct AccelerationStructure
+    {
+        Context* context = {};
+
+        VkAccelerationStructureKHR structure = {};
+        u64                          address = {};
+        VkAccelerationStructureTypeKHR  type = {};
+
+        Buffer* buffer = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -520,6 +528,7 @@ namespace nova
 
         void Clear(Texture* texture, Vec4 color);
         void Transition(Texture* texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Present(Texture* texture);
 
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(VkPrimitiveTopology topology);
@@ -548,7 +557,7 @@ namespace nova
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
         void ExecuteCommands(Span<CommandList*> commands);
 
-        void BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch);
+        void BuildAccelerationStructure(AccelerationStructureBuilder* builder, AccelerationStructure* structure, Buffer* scratch);
         void CompactAccelerationStructure(AccelerationStructure* dst, AccelerationStructure* src);
         void BindPipeline(RayTracingPipeline* pipeline);
         void TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex);
@@ -677,8 +686,10 @@ namespace nova
         Fence* CreateFence();
         void DestroyFence(Fence* fence);
 
-        AccelerationStructure* CreateAccelerationStructure(
-            AccelerationStructureType type, AccelerationStructureFlags flags);
+        AccelerationStructureBuilder* CreateAccelerationStructureBuilder();
+        void DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* accelStructure);
+
+        AccelerationStructure* CreateAccelerationStructure(usz size, AccelerationStructureType type);
         void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
 
         RayTracingPipeline* CreateRayTracingPipeline();

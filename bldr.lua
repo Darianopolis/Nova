@@ -36,3 +36,15 @@ if Project "nova-draw-test" then
     Import "nova"
     Artifact { "out/draw-test", type = "Console" }
 end
+
+if Project "nova-rt-test" then
+    Compile "example/HelloTriangleRT.cpp"
+    Import "nova"
+    Artifact { "out/rt-test", type = "Console" }
+end
+
+if Project "nova-tri-test" then
+    Compile "example/HelloTriangle.cpp"
+    Import "nova"
+    Artifact { "out/tri-test", type = "Console" }
+end

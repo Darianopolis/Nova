@@ -49,6 +49,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    void CommandList::Present(Texture* texture)
+    {
+        Transition(texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
+    }
+
     NOVA_NO_INLINE
     void Queue::Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait)
     {
