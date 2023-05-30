@@ -4,7 +4,8 @@
 
 namespace nova
 {
-    AccelerationStructure* Context::CreateAccelerationStructure(AccelerationStructureType type)
+    AccelerationStructure* Context::CreateAccelerationStructure(
+        AccelerationStructureType type, AccelerationStructureFlags flags)
     {
         auto* accelStructure = new AccelerationStructure;
         accelStructure->context = this;
@@ -13,14 +14,24 @@ namespace nova
         accelStructure->type = VkAccelerationStructureTypeKHR(type);
 
         // TODO: Configurable build flags
-        accelStructure->flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR;
+        accelStructure->flags = VkBuildAccelerationStructureFlagsKHR(flags);
+
+        if (accelStructure->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
+        {
+            // Don't create a query pool for *every* acceleration structure
+            VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+                .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+                .queryCount = 1,
+            }), pAlloc, &accelStructure->queryPool));
+        }
 
         return accelStructure;
     }
 
     void Context::DestroyAccelerationStructure(AccelerationStructure* accelStructure)
     {
+        vkDestroyQueryPool(device, accelStructure->queryPool, pAlloc);
         vkDestroyAccelerationStructureKHR(device, accelStructure->structure, pAlloc);
         DestroyBuffer(accelStructure->buffer);
 
@@ -98,7 +109,7 @@ namespace nova
         if (geomFlags >= GeometryInstanceFlags::InstanceForceOpaque)
             vkFlags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 
-        static_cast<VkAccelerationStructureInstanceKHR*>(bufferAddress)[index] = VkAccelerationStructureInstanceKHR {
+        static_cast<VkAccelerationStructureInstanceKHR*>(bufferAddress)[index] = {
             .transform = {
                 M[0][0], M[1][0], M[2][0], M[3][0],
                 M[0][1], M[1][1], M[2][1], M[3][1],
@@ -114,26 +125,31 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    bool AccelerationStructure::Resize()
+    bool AccelerationStructure::Resize(u64 size)
     {
-        VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+        if (!size)
+        {
+            VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 
-        vkGetAccelerationStructureBuildSizesKHR(
-            context->device,
-            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-            Temp(VkAccelerationStructureBuildGeometryInfoKHR {
-                .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                .type = type,
-                .flags = flags,
-                .geometryCount = u32(geometries.size()),
-                .pGeometries = geometries.data(),
-            }), primitiveCounts.data(), &sizes);
+            vkGetAccelerationStructureBuildSizesKHR(
+                context->device,
+                VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                Temp(VkAccelerationStructureBuildGeometryInfoKHR {
+                    .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+                    .type = type,
+                    .flags = flags,
+                    .geometryCount = u32(geometries.size()),
+                    .pGeometries = geometries.data(),
+                }), primitiveCounts.data(), &sizes);
 
-        u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-        updateScratchSize = sizes.updateScratchSize + scratchAlign;
-        buildScratchSize = sizes.buildScratchSize + scratchAlign;
+            u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+            updateScratchSize = sizes.updateScratchSize + scratchAlign;
+            buildScratchSize = sizes.buildScratchSize + scratchAlign;
 
-        if (!buffer || sizes.accelerationStructureSize > buffer->size)
+            size = sizes.accelerationStructureSize;
+        }
+
+        if (!buffer || size > buffer->size)
         {
             if (buffer)
                 context->DestroyBuffer(buffer);
@@ -141,7 +157,7 @@ namespace nova
             if (structure)
                 vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
 
-            buffer = context->CreateBuffer(sizes.accelerationStructureSize,
+            buffer = context->CreateBuffer(size,
                 nova::BufferUsage::AccelStorage,
                 nova::BufferFlags::DeviceLocal);
 
@@ -165,8 +181,18 @@ namespace nova
         return false;
     }
 
+    u64 AccelerationStructure::GetCompactedSize()
+    {
+        VkDeviceSize size = {};
+        VkCall(vkGetQueryPoolResults(context->device, queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
+        return size;
+    }
+
     void CommandList::BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch)
     {
+        if (structure->queryPool)
+            vkCmdResetQueryPool(buffer, structure->queryPool, 0, 1);
+
         vkCmdBuildAccelerationStructuresKHR(
             buffer,
             1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
@@ -179,6 +205,33 @@ namespace nova
                 .scratchData = {{ AlignUpPower2(scratch->address,
                     pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
             }), Temp(structure->ranges.data()));
+
+        if (structure->queryPool)
+        {
+            vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
+                .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                .memoryBarrierCount = 1,
+                .pMemoryBarriers = Temp(VkMemoryBarrier2 {
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                    .srcStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                    .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                })
+            }));
+
+            vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
+                1, &structure->structure,
+                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, structure->queryPool, 0);
+        }
+    }
+
+    void CommandList::CompactAccelerationStructure(AccelerationStructure* dst, AccelerationStructure* src)
+    {
+        vkCmdCopyAccelerationStructureKHR(buffer, Temp(VkCopyAccelerationStructureInfoKHR {
+            .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
+            .src = src->structure,
+            .dst = dst->structure,
+            .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR,
+        }));
     }
 
 // -----------------------------------------------------------------------------
@@ -307,13 +360,16 @@ namespace nova
 
         // Allocate table and get groups from pipeline
 
-        if (sbtBuffer)
-            context->DestroyBuffer(sbtBuffer);
+        if (!sbtBuffer || tableSize > sbtBuffer->size)
+        {
+            if (sbtBuffer)
+                context->DestroyBuffer(sbtBuffer);
 
-        sbtBuffer = context->CreateBuffer(
-            std::max(256ull, tableSize),
-            BufferUsage::ShaderBindingTable,
-            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            sbtBuffer = context->CreateBuffer(
+                std::max(256ull, tableSize),
+                BufferUsage::ShaderBindingTable,
+                BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+        }
 
         auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->mapped + offset + (i * handleStride); };
 

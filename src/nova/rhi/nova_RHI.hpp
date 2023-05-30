@@ -35,7 +35,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct AccelerationStructure;
     struct Buffer;
     struct CommandList;
     struct CommandPool;
@@ -49,6 +48,8 @@ namespace nova
     struct Shader;
     struct Swapchain;
     struct Texture;
+    struct AccelerationStructure;
+    struct RayTracingPipeline;
 
 // -----------------------------------------------------------------------------
 
@@ -304,11 +305,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class AccelerationStructureType
+    enum class AccelerationStructureType : u32
     {
         BottomLevel = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
         TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
     };
+
+    enum class AccelerationStructureFlags : u32
+    {
+        PreferFastTrace = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+        PreferFastBuild = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
+        AllowDataAccess = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
+        AllowCompaction = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR,
+    };
+    NOVA_DECORATE_FLAG_ENUM(AccelerationStructureFlags)
 
     enum class GeometryInstanceFlags : u32
     {
@@ -320,6 +330,10 @@ namespace nova
 
     struct AccelerationStructure
     {
+        // TODO: Make this an AccelerationStructureBuilder?
+        //   Compaction process requires multiple acceleration structures
+        //   Should give control to user over allocating and reusing structures
+
         Context* context = {};
 
         VkAccelerationStructureKHR structure = {};
@@ -336,6 +350,8 @@ namespace nova
         std::vector<u32>                             primitiveCounts;
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
 
+        VkQueryPool queryPool = {};
+
     public:
         void ClearGeometries();
         void PushInstances(u64 deviceAddress, u32 count);
@@ -350,7 +366,9 @@ namespace nova
             u32 customIndex, u8 mask,
             u32 sbtOffset, GeometryInstanceFlags flags);
 
-        bool Resize();
+        u64 GetCompactedSize();
+
+        bool Resize(u64 size = 0);
     };
 
 // -----------------------------------------------------------------------------
@@ -424,7 +442,7 @@ namespace nova
         std::vector<u64>     offsets = {};
     public:
 
-        void WriteSampledTexture(b8* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
+        void WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
     };
 
     struct PipelineLayout
@@ -531,6 +549,7 @@ namespace nova
         void ExecuteCommands(Span<CommandList*> commands);
 
         void BuildAccelerationStructure(AccelerationStructure* structure, Buffer* scratch);
+        void CompactAccelerationStructure(AccelerationStructure* dst, AccelerationStructure* src);
         void BindPipeline(RayTracingPipeline* pipeline);
         void TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex);
     };
@@ -658,7 +677,8 @@ namespace nova
         Fence* CreateFence();
         void DestroyFence(Fence* fence);
 
-        AccelerationStructure* CreateAccelerationStructure(AccelerationStructureType type);
+        AccelerationStructure* CreateAccelerationStructure(
+            AccelerationStructureType type, AccelerationStructureFlags flags);
         void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
 
         RayTracingPipeline* CreateRayTracingPipeline();

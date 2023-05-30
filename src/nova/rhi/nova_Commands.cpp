@@ -130,7 +130,7 @@ namespace nova
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, commandLists.size());
         for (u32 i = 0; i < commandLists.size(); ++i)
         {
-            auto cmd = commandLists.begin()[i];
+            auto cmd = commandLists[i];
             bufferInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
                 .commandBuffer = cmd->buffer,
@@ -142,7 +142,7 @@ namespace nova
         auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
         for (u32 i = 0; i < waits.size(); ++i)
         {
-            auto wait = waits.begin()[i];
+            auto wait = waits[i];
             waitInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = wait->semaphore,
@@ -154,7 +154,7 @@ namespace nova
         auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
         for (u32 i = 0; i < signals.size(); ++i)
         {
-            auto signal = signals.begin()[i];
+            auto signal = signals[i];
             signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
@@ -315,7 +315,7 @@ namespace nova
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
-            auto* texture = colorAttachments.begin()[i];
+            auto* texture = colorAttachments[i];
 
             Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -333,7 +333,7 @@ namespace nova
             .flags = allowSecondary
                 ? VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT
                 : VkRenderingFlags(0),
-            .renderArea = { {}, { colorAttachments.begin()[0]->extent.x, colorAttachments.begin()[0]->extent.y } },
+            .renderArea = { {}, { colorAttachments[0]->extent.x, colorAttachments[0]->extent.y } },
             .layerCount = 1,
             .colorAttachmentCount = u32(colorAttachments.size()),
             .pColorAttachments = colorAttachmentInfos,
@@ -405,8 +405,8 @@ namespace nova
         auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
         for (u32 i = 0; i < shaders.size(); ++i)
         {
-            stageFlags[i] = shaders.begin()[i]->stage;
-            shaderObjects[i] = shaders.begin()[i]->shader;
+            stageFlags[i] = shaders[i]->stage;
+            shaderObjects[i] = shaders[i]->shader;
         }
 
         vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
@@ -479,7 +479,7 @@ namespace nova
     {
         auto buffers = NOVA_ALLOC_STACK(VkCommandBuffer, commands.size());
         for (u32 i = 0; i < commands.size(); ++i)
-            buffers[i] = commands.begin()[i]->buffer;
+            buffers[i] = commands[i]->buffer;
 
         vkCmdExecuteCommands(buffer, u32(commands.size()), buffers);
     }

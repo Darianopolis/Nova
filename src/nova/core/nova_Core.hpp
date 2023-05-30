@@ -125,6 +125,8 @@ namespace nova
                 : span(first, count)
             {}
 
+            const T& operator[](usz i) const { return span.begin()[i]; }
+
             Span(const Span& other): span(other.span) {}
             Span& operator=(const Span& other) { span = other.span; }
 

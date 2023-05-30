@@ -60,8 +60,8 @@ namespace nova
             auto values = NOVA_ALLOC_STACK(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i)
             {
-                semaphores[i] = waits.begin()[i]->semaphore;
-                values[i] = waits.begin()[i]->value;
+                semaphores[i] = waits[i]->semaphore;
+                values[i] = waits[i]->value;
             }
 
             VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
@@ -79,8 +79,8 @@ namespace nova
             {
                 waitInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = waits.begin()[i]->semaphore,
-                    .value = waits.begin()[i]->value,
+                    .semaphore = waits[i]->semaphore,
+                    .value = waits[i]->value,
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
@@ -88,7 +88,7 @@ namespace nova
             auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, swapchains.size());
             for (u32 i = 0; i < swapchains.size(); ++i)
             {
-                auto swapchain = swapchains.begin()[i];
+                auto swapchain = swapchains[i];
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = swapchain->semaphores[swapchain->semaphoreIndex],
@@ -108,7 +108,7 @@ namespace nova
             binaryWaits = NOVA_ALLOC_STACK(VkSemaphore, swapchains.size());
             for (u32 i = 0; i < swapchains.size(); ++i)
             {
-                auto swapchain = swapchains.begin()[i];
+                auto swapchain = swapchains[i];
                 binaryWaits[i] = swapchain->semaphores[swapchain->semaphoreIndex];
                 swapchain->semaphoreIndex = (swapchain->semaphoreIndex + 1) % swapchain->semaphores.size();
             }
@@ -118,7 +118,7 @@ namespace nova
         auto indices = NOVA_ALLOC_STACK(u32, swapchains.size());
         for (u32 i = 0; i < swapchains.size(); ++i)
         {
-            auto swapchain = swapchains.begin()[i];
+            auto swapchain = swapchains[i];
             vkSwapchains[i] = swapchain->swapchain;
             indices[i] = swapchain->index;
         }
@@ -140,8 +140,8 @@ namespace nova
         {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
             {
-                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains.begin()[i], int(results[i]));
-                swapchains.begin()[i]->invalid = true;
+                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i], int(results[i]));
+                swapchains[i]->invalid = true;
             }
             else
             {
@@ -220,6 +220,7 @@ namespace nova
                         texture = new Texture;
                         texture->context = context;
                         texture->image = vkImages[i];
+
                         VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                             .image = texture->image,
@@ -249,7 +250,8 @@ namespace nova
                 {
                     swapchain->texture = swapchain->textures[swapchain->index];
                 }
-                else if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
+                else
+                if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                 {
                     NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain, int(result));
                     swapchain->invalid = true;
@@ -267,7 +269,7 @@ namespace nova
             auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, swapchains.size());
             for (u32 i = 0; i < swapchains.size(); ++i)
             {
-                auto swapchain = swapchains.begin()[i];
+                auto swapchain = swapchains[i];
                 waitInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = swapchain->semaphores[swapchain->semaphoreIndex],
@@ -278,7 +280,7 @@ namespace nova
             auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
             for (u32 i = 0; i < signals.size(); ++i)
             {
-                auto signal = signals.begin()[i];
+                auto signal = signals[i];
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = signal->semaphore,

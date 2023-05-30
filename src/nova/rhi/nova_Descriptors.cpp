@@ -14,7 +14,7 @@ namespace nova
 
         for (u32 i = 0; i < bindings.size(); ++i)
         {
-            auto& binding = bindings.begin()[i];
+            auto& binding = bindings[i];
 
             vkBindings[i] = {
                 .binding = i,
@@ -59,7 +59,7 @@ namespace nova
         delete layout;
     }
 
-    void DescriptorLayout::WriteSampledTexture(b8* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex)
+    void DescriptorLayout::WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex)
     {
         vkGetDescriptorEXT(context->device,
             Temp(VkDescriptorGetInfoEXT {
@@ -74,7 +74,7 @@ namespace nova
                 },
             }),
             context->descriptorSizes.combinedImageSamplerDescriptorSize,
-            dst + offsets[binding]
+            static_cast<b8*>(dst) + offsets[binding]
                 + (arrayIndex * context->descriptorSizes.combinedImageSamplerDescriptorSize));
     }
 
@@ -160,7 +160,7 @@ namespace nova
         auto* bindings = NOVA_ALLOC_STACK(VkDescriptorBufferBindingInfoEXT, buffers.size());
         for (u32 i = 0; i < buffers.size(); ++i)
         {
-            auto& descBuffer = buffers.begin()[i];
+            auto& descBuffer = buffers[i];
 
             bindings[i] = VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
@@ -180,7 +180,7 @@ namespace nova
 
         for (u32 i = 0; i < offsets.size(); ++i)
         {
-            auto& offset = offsets.begin()[i];
+            auto& offset = offsets[i];
 
             bufferIndices[i] = offset.buffer;
             bufferOffsets[i] = offset.offset;
