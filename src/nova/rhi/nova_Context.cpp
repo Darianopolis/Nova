@@ -5,12 +5,10 @@ namespace nova
     std::atomic_int64_t Context::AllocationCount = 0;
     std::atomic_int64_t Context::NewAllocationCount = 0;
 
-    Context* Context::Create(const ContextConfig& config)
+    Rc<Context> Context::Create(const ContextConfig& config)
     {
         bool debug = config.debug;
-
-        auto context = new Context;
-        NOVA_ON_SCOPE_FAILURE(&) { Destroy(context); };
+        Rc context = new Context;
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -201,17 +199,15 @@ namespace nova
         return context;
     }
 
-    void Context::Destroy(Context* context)
+    Context::~Context()
     {
-        delete context->graphics;
+        delete graphics;
 
-        vmaDestroyAllocator(context->vma);
-        vkDestroyDevice(context->device, context->pAlloc);
-        if (context->debugMessenger)
-            vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
-        vkDestroyInstance(context->instance, context->pAlloc);
-
-        delete context;
+        vmaDestroyAllocator(vma);
+        vkDestroyDevice(device, pAlloc);
+        if (debugMessenger)
+            vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAlloc);
+        vkDestroyInstance(instance, pAlloc);
     }
 
     VkBool32 VKAPI_CALL Context::DebugCallback(

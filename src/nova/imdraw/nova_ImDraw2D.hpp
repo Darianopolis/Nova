@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        Texture* texture;
+        Rc<Texture> texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -86,14 +86,20 @@ namespace nova
         Vec2 offset;
     };
 
-    struct ImFont
+    struct ImDraw2D;
+
+    struct ImFont : RefCounted
     {
+        Rc<ImDraw2D> imDraw;
+
         std::vector<ImGlyph> glyphs;
+    public:
+        ~ImFont();
     };
 
 // -----------------------------------------------------------------------------
 
-    struct ImDraw2D
+    struct ImDraw2D : RefCounted
     {
         struct PushConstants
         {
@@ -110,35 +116,34 @@ namespace nova
         static constexpr u32 MaxPrimitives = 65'536;
 
     public:
-        Context* context = {};
+        Rc<Context> context = {};
 
-        Sampler* defaultSampler = {};
+        Rc<Sampler> defaultSampler = {};
 
-        PipelineLayout* pipelineLayout = {};
+        Rc<PipelineLayout> pipelineLayout = {};
 
-        DescriptorLayout*     descriptorSetLayout = {};
-        Buffer*                  descriptorBuffer = {};
+        Rc<DescriptorLayout>  descriptorSetLayout = {};
+        Rc<Buffer>               descriptorBuffer = {};
         u32                       nextTextureSlot = 0;
         std::vector<u32>      textureSlotFreelist = {};
 
-        Shader* rectVertShader = {};
-        Shader* rectFragShader = {};
-        Buffer*     rectBuffer = {};
-        u32          rectIndex = 0;
+        Rc<Shader> rectVertShader = {};
+        Rc<Shader> rectFragShader = {};
+        Rc<Buffer>     rectBuffer = {};
+        u32             rectIndex = 0;
 
         ImBounds2D bounds;
 
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        static ImDraw2D* Create(Context* context);
-        static void Destroy(ImDraw2D* imDraw);
+        static Rc<ImDraw2D> Create(Context* context);
+        ~ImDraw2D();
 
         ImTextureID RegisterTexture(Texture* texture, Sampler* sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
-        ImFont* LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);
-        void DestroyFont(ImFont* font);
+        Rc<ImFont> LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);
 
         void Reset();
         void DrawRect(const ImRoundRect& rect);

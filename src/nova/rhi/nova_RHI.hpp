@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
+#include <nova/core/nova_Ref.hpp>
 
 // #define NOVA_NOISY_VULKAN_ALLOCATIONS
 
@@ -86,9 +87,9 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
-    struct Buffer
+    struct Buffer : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
@@ -99,6 +100,8 @@ namespace nova
         VkBufferUsageFlags usage = {};
 
     public:
+        ~Buffer();
+
         template<class T>
         T& Get(u64 index, u64 offset = 0)
         {
@@ -143,9 +146,9 @@ namespace nova
         D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
     };
 
-    struct Texture
+    struct Texture : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkImage             image = {};
         VmaAllocation  allocation = {};
@@ -156,6 +159,8 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
+    public:
+        ~Texture();
     };
 
 // -----------------------------------------------------------------------------
@@ -181,11 +186,13 @@ namespace nova
         White = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
     };
 
-    struct Sampler
+    struct Sampler : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkSampler sampler = {};
+    public:
+        ~Sampler();
     };
 
 // -----------------------------------------------------------------------------
@@ -210,9 +217,9 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(ShaderStage)
 
-    struct Shader
+    struct Shader : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
@@ -222,6 +229,8 @@ namespace nova
             .module = {},
             .pName = "main",
         };
+    public:
+        ~Shader();
     };
 
 // -----------------------------------------------------------------------------
@@ -234,23 +243,33 @@ namespace nova
         FifoRelaxed = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
     };
 
-    struct Swapchain
+    struct Surface : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
-        VkSurfaceKHR           surface = nullptr;
-        VkSwapchainKHR       swapchain = nullptr;
-        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        VkImageUsageFlags        usage = 0;
-        VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Texture*> textures = {};
-        uint32_t                 index = UINT32_MAX;
-        Texture*               current = nullptr;
-        VkExtent2D              extent = { 0, 0 };
-        bool                   invalid = false;
+        VkSurfaceKHR surface = {};
+    public:
+        ~Surface();
+    };
+
+    struct Swapchain : RefCounted
+    {
+        Rc<Surface> surface = {};
+
+        VkSwapchainKHR          swapchain = nullptr;
+        VkSurfaceFormatKHR         format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        VkImageUsageFlags           usage = 0;
+        VkPresentModeKHR      presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        std::vector<Rc<Texture>> textures = {};
+        uint32_t                    index = UINT32_MAX;
+        Texture*                  current = nullptr;
+        VkExtent2D                 extent = { 0, 0 };
+        bool                      invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
+    public:
+        ~Swapchain();
     };
 
 // -----------------------------------------------------------------------------
@@ -275,9 +294,9 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTracker
+    struct ResourceTracker : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         u64 version = 0;
 
@@ -294,6 +313,8 @@ namespace nova
         std::vector<VkImage> clearList;
 
     public:
+        ~ResourceTracker();
+
         void Clear(u32 maxAge);
 
         void Reset(Texture* texture);
@@ -328,9 +349,9 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
 
-    struct AccelerationStructureBuilder
+    struct AccelerationStructureBuilder : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
@@ -349,6 +370,8 @@ namespace nova
         VkQueryPool queryPool = {};
 
     public:
+        ~AccelerationStructureBuilder();
+
         void SetFlags(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags);
         void ClearGeometries();
         void PushInstances(u64 deviceAddress, u32 count);
@@ -368,15 +391,17 @@ namespace nova
         u64 GetCompactSize();
     };
 
-    struct AccelerationStructure
+    struct AccelerationStructure : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer* buffer = {};
+        Rc<Buffer> buffer = {};
+    public:
+        ~AccelerationStructure();
     };
 
 // -----------------------------------------------------------------------------
@@ -388,12 +413,12 @@ namespace nova
         Shader* intersectionShader;
     };
 
-    struct RayTracingPipeline
+    struct RayTracingPipeline : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkPipeline pipeline = {};
-        Buffer*   sbtBuffer = {};
+        Rc<Buffer>   sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
@@ -401,6 +426,8 @@ namespace nova
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
 
     public:
+        ~RayTracingPipeline();
+
         void Update(
             PipelineLayout* layout,
             Span<Shader*> rayGenShaders,
@@ -411,14 +438,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Fence
+    struct Fence : RefCounted
     {
-        Context*  context = {};
+        Rc<Context>  context = {};
 
         VkSemaphore semaphore = {};
         u64             value = 0;
 
     public:
+        ~Fence();
+
         void Wait(u64 waitValue = 0ull);
         u64 Advance();
         void Signal(u64 value);
@@ -441,21 +470,23 @@ namespace nova
         u32           count = 1;
     };
 
-    struct DescriptorLayout
+    struct DescriptorLayout : RefCounted
     {
         Context* context = {};
 
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
         std::vector<u64>     offsets = {};
+
     public:
+        ~DescriptorLayout();
 
         void WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
     };
 
-    struct PipelineLayout
+    struct PipelineLayout : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
 
         VkPipelineLayout layout = {};
 
@@ -464,6 +495,8 @@ namespace nova
 
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
+    public:
+        ~PipelineLayout();
     };
 
     struct PushConstantRange
@@ -482,9 +515,9 @@ namespace nova
         Format      stencilFormat = {};
     };
 
-    struct CommandPool
+    struct CommandPool : RefCounted
     {
-        Context* context = {};
+        Rc<Context> context = {};
         Queue*     queue = {};
 
         VkCommandPool                pool = {};
@@ -495,6 +528,8 @@ namespace nova
         u32                         secondaryIndex = 0;
 
     public:
+        ~CommandPool();
+
         CommandList* BeginPrimary(ResourceTracker* tracker);
 
         CommandList* BeginSecondary(ResourceTracker* tracker, const RenderingDescription* renderingDescription = nullptr);
@@ -571,7 +606,7 @@ namespace nova
         bool rayTracing = false;
     };
 
-    struct Context
+    struct Context : RefCounted
     {
         VkInstance  instance = {};
         VkPhysicalDevice gpu = {};
@@ -645,55 +680,56 @@ namespace nova
         };
         VkAllocationCallbacks* pAlloc = &alloc;
     public:
-        static Context* Create(const ContextConfig& config);
-        static void Destroy(Context* context);
+        static Rc<Context> Create(const ContextConfig& config);
+        // static void Destroy(Context* context);
+        ~Context();
 
-        Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
-        void DestroyBuffer(Buffer* buffer);
+        Rc<Buffer> CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
+        // void DestroyBuffer(Buffer* buffer);
 
-        Texture* CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
-        void DestroyTexture(Texture* texture);
+        Rc<Texture> CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+        // void DestroyTexture(Texture* texture);
 
-        Sampler* CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
-        void DestroySampler(Sampler* sampler);
+        Rc<Sampler> CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
+        // void DestroySampler(Sampler* sampler);
 
-        Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
+        Rc<Shader> CreateShader(ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode,
             PipelineLayout* layout);
-        void DestroyShader(Shader* shader);
+        // void DestroyShader(Shader* shader);
 
-        DescriptorLayout* CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor = false);
-        void DestroyDescriptorLayout(DescriptorLayout* layout);
+        Rc<DescriptorLayout> CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor = false);
+        // void DestroyDescriptorLayout(DescriptorLayout* layout);
 
-        PipelineLayout* CreatePipelineLayout(
+        Rc<PipelineLayout> CreatePipelineLayout(
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,
             VkPipelineBindPoint bindPoint);
-        void DestroyPipelineLayout(PipelineLayout* layout);
+        // void DestroyPipelineLayout(PipelineLayout* layout);
 
-        Swapchain* CreateSwapchain(VkSurfaceKHR surface, TextureUsage usage, PresentMode presentMode);
-        void DestroySwapchain(Swapchain* swapchain);
+        Rc<Swapchain> CreateSwapchain(Rc<Surface> surface, TextureUsage usage, PresentMode presentMode);
+        // void DestroySwapchain(Swapchain* swapchain);
 
-        VkSurfaceKHR CreateSurface(HWND hwnd);
-        void DestroySurface(VkSurfaceKHR surface);
+        Rc<Surface> CreateSurface(HWND hwnd);
+        // void DestroySurface(VkSurfaceKHR surface);
 
-        CommandPool* CreateCommandPool();
-        void DestroyCommandPool(CommandPool* commands);
+        Rc<CommandPool> CreateCommandPool();
+        // void DestroyCommandPool(CommandPool* commands);
 
-        ResourceTracker* CreateResourceTracker();
-        void DestroyResourceTracker(ResourceTracker* tracker);
+        Rc<ResourceTracker> CreateResourceTracker();
+        // void DestroyResourceTracker(ResourceTracker* tracker);
 
-        Fence* CreateFence();
-        void DestroyFence(Fence* fence);
+        Rc<Fence> CreateFence();
+        // void DestroyFence(Fence* fence);
 
-        AccelerationStructureBuilder* CreateAccelerationStructureBuilder();
-        void DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* accelStructure);
+        Rc<AccelerationStructureBuilder> CreateAccelerationStructureBuilder();
+        // void DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* accelStructure);
 
-        AccelerationStructure* CreateAccelerationStructure(usz size, AccelerationStructureType type);
-        void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
+        Rc<AccelerationStructure> CreateAccelerationStructure(usz size, AccelerationStructureType type);
+        // void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
 
-        RayTracingPipeline* CreateRayTracingPipeline();
-        void DestroyRayTracingPipeline(RayTracingPipeline* pipeline);
+        Rc<RayTracingPipeline> CreateRayTracingPipeline();
+        // void DestroyRayTracingPipeline(RayTracingPipeline* pipeline);
 
         void WaitForIdle();
     };

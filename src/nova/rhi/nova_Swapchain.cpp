@@ -2,17 +2,16 @@
 
 namespace nova
 {
-    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, TextureUsage _usage, PresentMode _presentMode)
+    Rc<Swapchain> Context::CreateSwapchain(Rc<Surface> surface, TextureUsage _usage, PresentMode _presentMode)
     {
-        auto swapchain = new Swapchain;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroySwapchain(swapchain); };
-        swapchain->context = this;
+        Rc swapchain = new Swapchain;
+        swapchain->surface = surface;
 
         auto usage = VkImageUsageFlags(_usage);
         auto presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface->surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
@@ -31,20 +30,14 @@ namespace nova
         return swapchain;
     }
 
-    void Context::DestroySwapchain(Swapchain* swapchain)
+    Swapchain::~Swapchain()
     {
-        if (!swapchain)
-            return;
+        auto* context = surface->context.Get();
 
-        for (auto semaphore : swapchain->semaphores)
-            vkDestroySemaphore(device, semaphore, pAlloc);
+        for (auto semaphore : semaphores)
+            vkDestroySemaphore(context->device, semaphore, context->pAlloc);
 
-        for (auto texture : swapchain->textures)
-            DestroyTexture(texture);
-
-        vkDestroySwapchainKHR(device, swapchain->swapchain, pAlloc);
-
-        delete swapchain;
+        vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------
@@ -165,7 +158,7 @@ namespace nova
             do
             {
                 VkSurfaceCapabilitiesKHR caps;
-                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface, &caps));
+                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface->surface, &caps));
 
                 bool recreate = swapchain->invalid
                     || !swapchain->swapchain
@@ -183,7 +176,7 @@ namespace nova
                     swapchain->extent = caps.currentExtent;
                     VkCall(vkCreateSwapchainKHR(context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                        .surface = swapchain->surface,
+                        .surface = swapchain->surface->surface,
                         .minImageCount = caps.minImageCount,
                         .imageFormat = swapchain->format.format,
                         .imageColorSpace = swapchain->format.colorSpace,
@@ -215,10 +208,9 @@ namespace nova
                         }), context->pAlloc, &semaphore));
                     }
 
-                    for (auto texture : swapchain->textures)
-                        context->DestroyTexture(texture);
-
+                    swapchain->textures.clear();
                     swapchain->textures.resize(vkImages.size());
+
                     for (uint32_t i = 0; i < swapchain->textures.size(); ++i)
                     {
                         auto& texture = swapchain->textures[i];
@@ -308,20 +300,22 @@ namespace nova
         return anyResized;
     }
 
-    VkSurfaceKHR Context::CreateSurface(HWND hwnd)
+    Rc<Surface> Context::CreateSurface(HWND hwnd)
     {
-        VkSurfaceKHR surface;
+        Rc surface = new Surface;
+        surface->context = this;
+
         VkCall(vkCreateWin32SurfaceKHR(instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = hwnd,
-        }), pAlloc, &surface));
+        }), pAlloc, &surface->surface));
 
         return surface;
     }
 
-    void Context::DestroySurface(VkSurfaceKHR surface)
+    Surface::~Surface()
     {
-        vkDestroySurfaceKHR(instance, surface, pAlloc);
+        vkDestroySurfaceKHR(context->instance, surface, context->pAlloc);
     }
 }

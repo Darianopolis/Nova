@@ -9,7 +9,7 @@ int main()
     NOVA_LOGEXPR(mi_version());
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
 
     auto presentMode = nova::PresentMode::Fifo;
@@ -32,8 +32,8 @@ int main()
 
     auto tracker = context->CreateResourceTracker();
 
-    nova::Fence*             fences[] = { context->CreateFence(),    context->CreateFence()    };
-    nova::CommandPool* commandPools[] = { context->CreateCommandPool(), context->CreateCommandPool() };
+    Rc<nova::Fence>             fences[] = { context->CreateFence(),       context->CreateFence()       };
+    Rc<nova::CommandPool> commandPools[] = { context->CreateCommandPool(), context->CreateCommandPool() };
 
     nova::ImGuiWrapper* imgui;
     {
@@ -66,8 +66,8 @@ int main()
         }
 
         // Pick fence and commandPool for frame in flight
-        auto fence = fences[frame % 2];
-        auto commandPool = commandPools[frame % 2];
+        auto* fence = fences[frame % 2].Get();
+        auto* commandPool = commandPools[frame % 2].Get();
         frame++;
 
         // Wait for previous commands in frame to complete
@@ -123,19 +123,23 @@ int main()
 
     fences[0]->Wait();
     fences[1]->Wait();
-    context->DestroyFence(fences[0]);
-    context->DestroyFence(fences[1]);
-    context->DestroyCommandPool(commandPools[0]);
-    context->DestroyCommandPool(commandPools[1]);
-    context->DestroyResourceTracker(tracker);
-    context->DestroySwapchain(swapchain);
-    context->DestroySwapchain(swapchain2);
-    context->DestroySurface(surface);
-    context->DestroySurface(surface2);
+    fences[0] = nullptr;
+    fences[1] = nullptr;
+    commandPools[0] = nullptr;
+    commandPools[1] = nullptr;
+    tracker = nullptr;
+    swapchain = nullptr;
+
+    swapchain2 = nullptr;
+    // context->DestroySurface(surface);
+    surface = nullptr;
+    // context->DestroySurface(surface2);
+    surface2 = nullptr;
 
     nova::ImGuiWrapper::Destroy(imgui);
 
-    nova::Context::Destroy(context);
+    // nova::Context::Destroy(context);
+    context = nullptr;
 
     glfwDestroyWindow(window);
     glfwDestroyWindow(window2);

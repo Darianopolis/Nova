@@ -84,7 +84,7 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader* Context::CreateShader(ShaderStage _stage, ShaderStage _nextStage,
+    Rc<Shader> Context::CreateShader(ShaderStage _stage, ShaderStage _nextStage,
         const std::string& filename, const std::string& sourceCode,
         PipelineLayout* layout)
     {
@@ -196,8 +196,7 @@ namespace nova
 
         const glslang::TIntermediate* intermediate = program.getIntermediate(stage);
 
-        auto newShader = new Shader;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyShader(newShader); };
+        Rc newShader = new Shader;
         newShader->context = this;
         newShader->stage = vkStage;
 
@@ -237,17 +236,12 @@ namespace nova
         return newShader;
     }
 
-    void Context::DestroyShader(Shader* shader)
+    Shader::~Shader()
     {
-        if (!shader)
-            return;
+        if (shader)
+            vkDestroyShaderEXT(context->device, shader, context->pAlloc);
 
-        if (shader->shader)
-            vkDestroyShaderEXT(device, shader->shader, pAlloc);
-
-        if (shader->info.module)
-            vkDestroyShaderModule(device, shader->info.module, pAlloc);
-
-        delete shader;
+        if (info.module)
+            vkDestroyShaderModule(context->device, info.module, context->pAlloc);
     }
 }

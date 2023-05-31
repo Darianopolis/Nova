@@ -4,11 +4,10 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder* Context::CreateAccelerationStructureBuilder()
+    Rc<AccelerationStructureBuilder> Context::CreateAccelerationStructureBuilder()
     {
-        auto* builder = new AccelerationStructureBuilder;
+        Rc builder = new AccelerationStructureBuilder;
         builder->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructureBuilder(builder); };
 
         VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
@@ -19,12 +18,10 @@ namespace nova
         return builder;
     }
 
-    void Context::DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* builder)
+    AccelerationStructureBuilder::~AccelerationStructureBuilder()
     {
-        vkDestroyQueryPool(device, builder->queryPool, pAlloc);
-        vkDestroyAccelerationStructureKHR(device, builder->structure, pAlloc);
-
-        delete builder;
+        vkDestroyQueryPool(context->device, queryPool, context->pAlloc);
+        vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------
@@ -205,11 +202,10 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    AccelerationStructure* Context::CreateAccelerationStructure(usz size, AccelerationStructureType type)
+    Rc<AccelerationStructure> Context::CreateAccelerationStructure(usz size, AccelerationStructureType type)
     {
-        auto* structure = new AccelerationStructure;
+        Rc structure = new AccelerationStructure;
         structure->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(structure); };
 
         structure->buffer = CreateBuffer(size,
             nova::BufferUsage::AccelStorage,
@@ -232,29 +228,23 @@ namespace nova
         return structure;
     }
 
-    void Context::DestroyAccelerationStructure(AccelerationStructure* structure)
+    AccelerationStructure::~AccelerationStructure()
     {
-        DestroyBuffer(structure->buffer);
-        vkDestroyAccelerationStructureKHR(device, structure->structure, pAlloc);
-
-        delete structure;
+        vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------
 
-    RayTracingPipeline* Context::CreateRayTracingPipeline()
+    Rc<RayTracingPipeline> Context::CreateRayTracingPipeline()
     {
-        auto* pipeline = new RayTracingPipeline;
+        Rc pipeline = new RayTracingPipeline;
         pipeline->context = this;
         return pipeline;
     }
 
-    void Context::DestroyRayTracingPipeline(RayTracingPipeline* pipeline)
+    RayTracingPipeline::~RayTracingPipeline()
     {
-        DestroyBuffer(pipeline->sbtBuffer);
-        vkDestroyPipeline(device, pipeline->pipeline, pAlloc);
-
-        delete pipeline;
+        vkDestroyPipeline(context->device, pipeline, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------
@@ -354,9 +344,6 @@ namespace nova
 
         if (!sbtBuffer || tableSize > sbtBuffer->size)
         {
-            if (sbtBuffer)
-                context->DestroyBuffer(sbtBuffer);
-
             sbtBuffer = context->CreateBuffer(
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,

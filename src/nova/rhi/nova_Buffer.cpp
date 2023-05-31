@@ -2,10 +2,9 @@
 
 namespace nova
 {
-    Buffer* Context::CreateBuffer(u64 size, BufferUsage _usage, BufferFlags flags)
+    Rc<Buffer> Context::CreateBuffer(u64 size, BufferUsage _usage, BufferFlags flags)
     {
-        auto buffer = new Buffer;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyBuffer(buffer); };
+        Rc buffer = new Buffer;
         buffer->context = this;
         buffer->flags = flags;
 
@@ -52,17 +51,12 @@ namespace nova
         return buffer;
     }
 
-    void Context::DestroyBuffer(Buffer* buffer)
+    Buffer::~Buffer()
     {
-        if (!buffer)
-            return;
+        if (mapped && flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(context->vma, allocation);
 
-        if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(vma, buffer->allocation);
-
-        vmaDestroyBuffer(vma, buffer->buffer, buffer->allocation);
-
-        delete buffer;
+        vmaDestroyBuffer(context->vma, buffer, allocation);
     }
 
 

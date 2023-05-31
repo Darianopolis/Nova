@@ -2,10 +2,9 @@
 
 namespace nova
 {
-    Texture* Context::CreateTexture(Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
+    Rc<Texture> Context::CreateTexture(Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
     {
-        auto texture = new Texture;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyTexture(texture); };
+        Rc texture = new Texture;
         texture->context = this;
 
         auto usage = VkImageUsageFlags(_usage);
@@ -132,18 +131,13 @@ namespace nova
         return texture;
     }
 
-    void Context::DestroyTexture(Texture* texture)
+    Texture::~Texture()
     {
-        if (!texture)
-            return;
+        if (view)
+            vkDestroyImageView(context->device, view, context->pAlloc);
 
-        if (texture->view)
-            vkDestroyImageView(device, texture->view, pAlloc);
-
-        if (texture->allocation)
-            vmaDestroyImage(vma, texture->image, texture->allocation);
-
-        delete texture;
+        if (allocation)
+            vmaDestroyImage(context->vma, image, allocation);
     }
 
 // -----------------------------------------------------------------------------
@@ -297,13 +291,10 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    ResourceTracker* Context::CreateResourceTracker()
+    Rc<ResourceTracker> Context::CreateResourceTracker()
     {
         return new ResourceTracker;
     }
 
-    void Context::DestroyResourceTracker(ResourceTracker* tracker)
-    {
-        delete tracker;
-    }
+    ResourceTracker::~ResourceTracker() {}
 }

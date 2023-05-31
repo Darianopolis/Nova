@@ -3,11 +3,10 @@
 namespace nova
 {
     NOVA_NO_INLINE
-    DescriptorLayout* Context::CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor)
+    Rc<DescriptorLayout> Context::CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor)
     {
-        auto* layout = new DescriptorLayout;
+        Rc layout = new DescriptorLayout;
         layout->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyDescriptorLayout(layout); };
 
         auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
         auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
@@ -53,10 +52,9 @@ namespace nova
         return layout;
     }
 
-    void Context::DestroyDescriptorLayout(DescriptorLayout* layout)
+    DescriptorLayout::~DescriptorLayout()
     {
-        vkDestroyDescriptorSetLayout(device, layout->layout, pAlloc);
-        delete layout;
+        vkDestroyDescriptorSetLayout(context->device, layout, context->pAlloc);
     }
 
     void DescriptorLayout::WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex)
@@ -117,14 +115,13 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    PipelineLayout* Context::CreatePipelineLayout(
+    Rc<PipelineLayout> Context::CreatePipelineLayout(
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,
             VkPipelineBindPoint bindPoint)
     {
-        auto* layout = new PipelineLayout;
+        Rc layout = new PipelineLayout;
         layout->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyPipelineLayout(layout); };
 
         for (auto& range : pushConstantRanges)
             layout->ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
@@ -145,11 +142,9 @@ namespace nova
         return layout;
     }
 
-    void Context::DestroyPipelineLayout(PipelineLayout* layout)
+    PipelineLayout::~PipelineLayout()
     {
-        vkDestroyPipelineLayout(device, layout->layout, pAlloc);
-
-        delete layout;
+        vkDestroyPipelineLayout(context->device, layout, context->pAlloc);
     }
 
 // -----------------------------------------------------------------------------

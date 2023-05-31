@@ -8,9 +8,9 @@
 
 namespace nova
 {
-    ImDraw2D* ImDraw2D::Create(Context* context)
+    Rc<ImDraw2D> ImDraw2D::Create(Context* context)
     {
-        auto imDraw = new ImDraw2D;
+        Rc imDraw = new ImDraw2D;
         imDraw->context = context;
 
 // -----------------------------------------------------------------------------
@@ -152,15 +152,7 @@ void main()
         return imDraw;
     }
 
-    void ImDraw2D::Destroy(ImDraw2D* imDraw)
-    {
-        imDraw->context->DestroyBuffer(imDraw->rectBuffer);
-        imDraw->context->DestroyShader(imDraw->rectVertShader);
-        imDraw->context->DestroyShader(imDraw->rectFragShader);
-        imDraw->context->DestroyPipelineLayout(imDraw->pipelineLayout);
-
-        delete imDraw;
-    }
+    ImDraw2D::~ImDraw2D() {}
 
 // -----------------------------------------------------------------------------
 
@@ -189,7 +181,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImFont* ImDraw2D::LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue)
+    Rc<ImFont> ImDraw2D::LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -206,8 +198,8 @@ void main()
         struct Pixel { u8 r, g, b, a; };
         std::vector<Pixel> pixels;
 
-        auto font = new ImFont;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
+        Rc font = new ImFont;
+        font->imDraw = this;
 
         auto staging = context->CreateBuffer(u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc,
@@ -253,26 +245,19 @@ void main()
             glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
 
-        context->DestroyBuffer(staging);
-
         FT_Done_Face(face);
         FT_Done_FreeType(ft);
 
         return font;
     }
 
-    void ImDraw2D::DestroyFont(ImFont* font)
+    ImFont::~ImFont()
     {
-        for (auto& glyph : font->glyphs)
+        for (auto& glyph : glyphs)
         {
             if (glyph.texture)
-            {
-                UnregisterTexture(glyph.index);
-                context->DestroyTexture(glyph.texture);
-            }
+                imDraw->UnregisterTexture(glyph.index);
         }
-
-        delete font;
     }
 
     void ImDraw2D::Reset()

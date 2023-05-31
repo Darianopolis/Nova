@@ -4,22 +4,25 @@
 
 namespace nova
 {
-    struct IBase
+    struct RefCounted
     {
-    private:
         std::atomic_uint32_t referenceCount = 0;
 
     public:
-        virtual ~IBase() {};
+        virtual ~RefCounted() {};
 
         void Acquire()
         {
+            // std::cout << '\n' << std::stacktrace::current() << '\n';
+            // NOVA_LOGEXPR(this);
             NOVA_LOG("Acquiring, {} -> {}", referenceCount.load(), referenceCount.load() + 1);
             referenceCount++;
         }
 
         void Release()
         {
+            // std::cout << '\n' << std::stacktrace::current() << '\n';
+            // NOVA_LOGEXPR(this);
             NOVA_LOG("Releasing, {} -> {}", referenceCount.load(), referenceCount.load() - 1);
             if (--referenceCount == 0)
             {
@@ -29,76 +32,84 @@ namespace nova
         }
     };
 
-    template<class T>
-    class Ptr
+    namespace types
     {
-        T* t = nullptr;
-
-    public:
-        Ptr() = default;
-
-        Ptr(T* _t)
-            : t(_t)
+        template<class T>
+        class Rc
         {
-            t->Acquire();
-        }
+            T* t = nullptr;
 
-        Ptr(const Ptr& other)
-            : t(other.t)
-        {
-            if (t) t->Acquire();
-        }
+        public:
+            Rc() = default;
 
-        Ptr& operator=(const Ptr& other)
-        {
-            if (t != other.t)
+            Rc(T* _t)
+                : t(_t)
             {
-                if (t) t->Release();
-                t = other.t;
                 if (t) t->Acquire();
             }
 
-            return *this;
-        }
-
-        Ptr(Ptr&& other)
-            : t(other.t)
-        {
-            other.t = nullptr;
-        }
-
-        Ptr& operator=(Ptr&& other)
-        {
-            if (t != other.t)
+            Rc(const Rc& other)
+                : t(other.t)
             {
-                if (t) t->Release();
-                t = other.t;
+                if (t) t->Acquire();
+            }
+
+            Rc& operator=(const Rc& other)
+            {
+                if (t != other.t)
+                {
+                    if (t) t->Release();
+                    t = other.t;
+                    if (t) t->Acquire();
+                }
+
+                return *this;
+            }
+
+            Rc(Rc&& other)
+                : t(other.t)
+            {
                 other.t = nullptr;
             }
 
-            return *this;
-        }
+            Rc& operator=(Rc&& other)
+            {
+                if (t != other.t)
+                {
+                    if (t) t->Release();
+                    t = other.t;
+                    other.t = nullptr;
+                }
 
-        ~Ptr()
-        {
-            NOVA_LOG("Destroying, t = {}", (void*)t);
-            if (t)
-                t->Release();
-        }
+                return *this;
+            }
 
-        operator T*()
-        {
-            return t;
-        }
+            ~Rc()
+            {
+                NOVA_LOG("Destroying, t = {}", (void*)t);
+                if (t)
+                    t->Release();
+            }
 
-        T* operator->()
-        {
-            return t;
-        }
+            operator T*() &
+            {
+                return t;
+            }
 
-        T& operator*()
-        {
-            return *t;
-        }
-    };
+            T* Get()
+            {
+                return t;
+            }
+
+            T* operator->()
+            {
+                return t;
+            }
+
+            T& operator*()
+            {
+                return *t;
+            }
+        };
+    }
 }

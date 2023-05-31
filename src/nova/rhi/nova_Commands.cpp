@@ -2,10 +2,9 @@
 
 namespace nova
 {
-    CommandPool* Context::CreateCommandPool()
+    Rc<CommandPool> Context::CreateCommandPool()
     {
-        auto cmds = new CommandPool;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyCommandPool(cmds); };
+        Rc cmds = new CommandPool;
         cmds->context = this;
         cmds->queue = graphics;
 
@@ -17,17 +16,12 @@ namespace nova
         return cmds;
     }
 
-    void Context::DestroyCommandPool(CommandPool* pool)
+    CommandPool::~CommandPool()
     {
-        if (!pool)
-            return;
+        vkDestroyCommandPool(context->device, pool, context->pAlloc);
 
-        vkDestroyCommandPool(device, pool->pool, pAlloc);
-
-        for (auto& cmd : pool->buffers)
+        for (auto& cmd : buffers)
             delete cmd;
-
-        delete pool;
     }
 
     CommandList* CommandPool::BeginPrimary(ResourceTracker* tracker)
