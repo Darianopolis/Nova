@@ -253,7 +253,7 @@ namespace nova
 
                 if (result == VK_SUCCESS)
                 {
-                    swapchain->texture = swapchain->textures[swapchain->index];
+                    swapchain->current = swapchain->textures[swapchain->index];
                 }
                 else
                 if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)

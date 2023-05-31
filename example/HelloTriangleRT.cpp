@@ -4,19 +4,37 @@ using namespace nova;
 
 int main()
 {
+// -----------------------------------------------------------------------------
+//                             GLFW Initialization
+// -----------------------------------------------------------------------------
+
+    // Initial window setup
+
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Hello Nova RT Triangle", nullptr, nullptr);
+    auto window = glfwCreateWindow(1920, 1200,
+        "Hello Nova RT Triangle", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
 
+    i32 width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+// -----------------------------------------------------------------------------
+//                             Nova Initialization
+// -----------------------------------------------------------------------------
+
+    // Create Nova context with ray tracing enabled
+
     auto context = Context::Create({
-        .debug = false,
+        .debug = true,
         .rayTracing = true,
     });
     NOVA_ON_SCOPE_EXIT(&) { Context::Destroy(context); };
+
+    // Create surface and swapchain for GLFW window
 
     auto surface = context->CreateSurface(glfwGetWin32Window(window));
     auto swapchain = context->CreateSwapchain(surface,
@@ -27,6 +45,8 @@ int main()
         context->DestroySwapchain(swapchain);
         context->DestroySurface(surface);
     };
+
+    // Create required Nova objects
 
     auto queue = context->graphics;
     auto cmdPool = context->CreateCommandPool();
@@ -40,7 +60,11 @@ int main()
         context->DestroyAccelerationStructureBuilder(builder);
     };
 
-    // Descriptors & Pipeline
+// -----------------------------------------------------------------------------
+//                        Descriptors & Pipeline
+// -----------------------------------------------------------------------------
+
+    // Create descriptor layout to hold one storage image and acceleration structure
 
     auto descLayout = context->CreateDescriptorLayout({
         {DescriptorType::StorageTexture},
@@ -48,9 +72,13 @@ int main()
     }, true);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyDescriptorLayout(descLayout); };
 
+    // Create a pipeline layout for the above set layout
+
     auto pipelineLayout = context->CreatePipelineLayout({}, {descLayout},
         VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyPipelineLayout(pipelineLayout); };
+
+    // Create the ray gen shader to draw an shaded triangle based on barycentric interpolation
 
     auto rayGenShader = context->CreateShader(
         ShaderStage::RayGen, {},
@@ -90,30 +118,34 @@ void main()
         pipelineLayout);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyShader(rayGenShader); };
 
+    // Create a ray tracing pipeline with one ray gen shader
+
     auto pipeline = context->CreateRayTracingPipeline();
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyRayTracingPipeline(pipeline); };
     pipeline->Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
-    // Triangle BLAS
+// -----------------------------------------------------------------------------
+//                              Triangle BLAS
+// -----------------------------------------------------------------------------
 
-    i32 width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+    // Vertex data
 
     auto vertices = context->CreateBuffer(3 * sizeof(Vec3),
-        BufferUsage::AccelBuild,
-        BufferFlags::DeviceLocal
-        | BufferFlags::CreateMapped);
+        BufferUsage::AccelBuild, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(vertices); };
     vertices->Get<Vec3>(0) = { width * 0.5f, height * 0.2f, 0.f };
     vertices->Get<Vec3>(1) = { width * 0.2f, height * 0.8f, 0.f };
     vertices->Get<Vec3>(2) = { width * 0.8f, height * 0.8f, 0.f };
 
+    // Index data
+
     auto indices = context->CreateBuffer(3 * sizeof(u32),
         BufferUsage::AccelBuild,
-        BufferFlags::DeviceLocal
-        | BufferFlags::CreateMapped);
+        BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(indices); };
     std::memcpy(indices->mapped, std::array { 0u, 1u, 2u }.data(), indices->size);
+
+    // Configure BLAS build
 
     builder->SetFlags(AccelerationStructureType::BottomLevel, {});
     builder->PushTriangles(
@@ -121,65 +153,101 @@ void main()
         indices->address, VK_INDEX_TYPE_UINT32, 1);
     builder->ComputeSizes();
 
-    auto blas = context->CreateAccelerationStructure(builder->buildSize, AccelerationStructureType::BottomLevel);
+    // Create BLAS and scratch buffer
+
+    auto blas = context->CreateAccelerationStructure(builder->buildSize,
+        AccelerationStructureType::BottomLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(blas); };
-    auto scratch = context->CreateBuffer(builder->buildScratchSize, BufferUsage::Storage, BufferFlags::DeviceLocal);
+    auto scratch = context->CreateBuffer(builder->buildScratchSize,
+        BufferUsage::Storage, BufferFlags::DeviceLocal);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(scratch); };
+
+    // Build BLAS
 
     auto cmd = cmdPool->BeginPrimary(tracker);
     cmd->BuildAccelerationStructure(builder, blas, scratch);
     queue->Submit({cmd}, {}, {fence});
     fence->Wait();
 
-    // Scene TLAS
+// -----------------------------------------------------------------------------
+//                                Scene TLAS
+// -----------------------------------------------------------------------------
 
-    auto instances = context->CreateBuffer(builder->GetInstanceSize(), BufferUsage::AccelBuild, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+    // Instance data
+
+    auto instances = context->CreateBuffer(builder->GetInstanceSize(),
+        BufferUsage::AccelBuild,
+        BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(instances); };
     builder->WriteInstance(instances->mapped, 0, blas, Mat4{1}, 0, 0xFF, 0, {});
+
+    // Configure TLAS build
 
     builder->SetFlags(AccelerationStructureType::TopLevel, {});
     builder->ClearGeometries();
     builder->PushInstances(instances->address, 1);
     builder->ComputeSizes();
 
-    auto tlas = context->CreateAccelerationStructure(builder->buildSize, AccelerationStructureType::TopLevel);
+    // Create TLAS and resize scratch buffer
+
+    auto tlas = context->CreateAccelerationStructure(builder->buildSize,
+        AccelerationStructureType::TopLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(tlas); };
     if (builder->buildScratchSize > scratch->size)
     {
         context->DestroyBuffer(scratch);
-        scratch = context->CreateBuffer(builder->buildScratchSize, BufferUsage::Storage, BufferFlags::DeviceLocal);
+        scratch = context->CreateBuffer(builder->buildScratchSize,
+            BufferUsage::Storage, BufferFlags::DeviceLocal);
     }
+
+    // Build TLAS
 
     cmd = cmdPool->BeginPrimary(tracker);
     cmd->BuildAccelerationStructure(builder, tlas, scratch);
     queue->Submit({cmd}, {}, {fence});
     fence->Wait();
 
-    // Draw
+// -----------------------------------------------------------------------------
+//                               Main Loop
+// -----------------------------------------------------------------------------
 
     NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
     while (!glfwWindowShouldClose(window))
     {
+        // Wait for previous frame and acquire new swapchain image
+
         fence->Wait();
         queue->Acquire({swapchain}, {fence});
 
+        // Start new command buffer
+
         cmdPool->Reset();
         cmd = cmdPool->BeginPrimary(tracker);
-        cmd->BindPipeline(pipeline);
 
-        cmd->Transition(swapchain->texture,
+        // Transition ready for writing ray trace output
+
+        cmd->Transition(swapchain->current,
             VK_IMAGE_LAYOUT_GENERAL,
             VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
             VK_ACCESS_2_SHADER_WRITE_BIT);
 
-        cmd->PushStorageTexture(pipelineLayout, 0, 0, swapchain->texture);
+        // Push swapchain image and TLAS descriptors
+
+        cmd->PushStorageTexture(pipelineLayout, 0, 0, swapchain->current);
         cmd->PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
 
-        cmd->TraceRays(pipeline, Vec3U(Vec2U(swapchain->texture->extent), 1), 0);
+        // Trace rays
 
-        cmd->Present(swapchain->texture);
+        cmd->BindPipeline(pipeline);
+        cmd->TraceRays(pipeline, Vec3U(Vec2U(swapchain->current->extent), 1), 0);
+
+        // Submit and present work
+
+        cmd->Present(swapchain->current);
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});
+
+        // Wait for window events
 
         glfwWaitEvents();
     }

@@ -195,12 +195,12 @@ void TryMain()
 
         queue->Acquire({swapchain}, {fence});
 
-        cmd->BeginRendering({swapchain->texture});
+        cmd->BeginRendering({swapchain->current});
         cmd->ClearColor(0, Vec4(0.f), imDraw->bounds.Size());
         imDraw->Record(cmd);
         cmd->EndRendering();
 
-        cmd->Present(swapchain->texture);
+        cmd->Present(swapchain->current);
 
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});

@@ -1,4 +1,3 @@
-#include <nova/window/nova_Window.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/imgui/nova_ImGui.hpp>
@@ -18,18 +17,15 @@ int main()
         | nova::TextureUsage::ColorAttach
         | nova::TextureUsage::Storage;
 
-    auto window = nova::Window::Create({
-        .size = Vec2U(1920, 1200),
-        .title = "Present Test Window #1",
-    });
-    auto surface = context->CreateSurface(glfwGetWin32Window(window->window));
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    auto window = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
+    auto surface = context->CreateSurface(glfwGetWin32Window(window));
     auto swapchain = context->CreateSwapchain(surface, swapchainUsage, presentMode);
 
-    auto window2 = nova::Window::Create({
-        .size = Vec2U(1920, 1200),
-        .title = "Present Test Window #2",
-    });
-    auto surface2 = context->CreateSurface(glfwGetWin32Window(window2->window));
+    auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
+    auto surface2 = context->CreateSurface(glfwGetWin32Window(window2));
     auto swapchain2 = context->CreateSwapchain(surface2, swapchainUsage, presentMode);
 
     auto queue = context->graphics;
@@ -42,7 +38,7 @@ int main()
     nova::ImGuiWrapper* imgui;
     {
         auto cmd = commandPools[0]->BeginPrimary(tracker);
-        imgui = nova::ImGuiWrapper::Create(context, cmd, swapchain, window->window, ImGuiConfigFlags_ViewportsEnable);
+        imgui = nova::ImGuiWrapper::Create(context, cmd, swapchain, window, ImGuiConfigFlags_ViewportsEnable);
         queue->Submit({cmd}, {}, {fences[0]});
         fences[0]->Wait();
     }
@@ -61,8 +57,8 @@ int main()
 
             NOVA_LOG("submit :: clear     = {}\nsubmit :: adapting1 = {}\nsubmit :: adapting2 = {}\npresent             = {}",
                 nova::submitting.exchange(0) / frames,
-                nova::adapting1.exchange(0) / frames,
-                nova::adapting2.exchange(0) / frames,
+                nova::adapting1.exchange(0)  / frames,
+                nova::adapting2.exchange(0)  / frames,
                 nova::presenting.exchange(0) / frames);
 
             lastTime = std::chrono::steady_clock::now();
@@ -88,7 +84,7 @@ int main()
         auto cmd = commandPool->BeginPrimary(tracker);
 
         // Clear screen
-        cmd->Clear(swapchain->texture, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Clear(swapchain->current, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui->BeginFrame();
@@ -96,11 +92,11 @@ int main()
         imgui->EndFrame(cmd, swapchain);
 
         // Present #1
-        cmd->Present(swapchain->texture);
+        cmd->Present(swapchain->current);
 
         // Clear and present #2
-        cmd->Clear(swapchain2->texture, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Present(swapchain2->texture);
+        cmd->Clear(swapchain2->current, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd->Present(swapchain2->current);
 
         // Submit work
         queue->Submit({cmd}, {fence}, {fence});
@@ -109,18 +105,21 @@ int main()
         queue->Present({swapchain, swapchain2}, {fence}, false);
     };
 
-    glfwSetWindowUserPointer(window->window, &update);
-    glfwSetWindowSizeCallback(window->window, [](auto w, int,int) {
+    glfwSetWindowUserPointer(window, &update);
+    glfwSetWindowSizeCallback(window, [](auto w, int,int) {
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    glfwSetWindowUserPointer(window2->window, &update);
-    glfwSetWindowSizeCallback(window2->window, [](auto w, int,int) {
+    glfwSetWindowUserPointer(window2, &update);
+    glfwSetWindowSizeCallback(window2, [](auto w, int,int) {
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    while (window->PollEvents() && window2->PollEvents())
+    while (!glfwWindowShouldClose(window) && !glfwWindowShouldClose(window2))
+    {
         update();
+        glfwPollEvents();
+    }
 
     fences[0]->Wait();
     fences[1]->Wait();
@@ -136,10 +135,12 @@ int main()
 
     nova::ImGuiWrapper::Destroy(imgui);
 
-    nova::Window::Destroy(window);
-    nova::Window::Destroy(window2);
-
     nova::Context::Destroy(context);
+
+    glfwDestroyWindow(window);
+    glfwDestroyWindow(window2);
+
+    glfwTerminate();
 
     NOVA_LOG("Allocations = {}", nova::Context::AllocationCount.load());
 }

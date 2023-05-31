@@ -93,19 +93,19 @@ void main()
         cmdPool->Reset();
         auto cmd = cmdPool->BeginPrimary(tracker);
 
-        cmd->SetViewport(Vec2U(swapchain->texture->extent), false);
+        cmd->SetViewport(Vec2U(swapchain->current->extent), false);
         cmd->SetBlendState(1, false);
         cmd->SetDepthState(false, false, VK_COMPARE_OP_GREATER);
         cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
         cmd->SetCullState(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
         cmd->BindShaders({vertexShader, fragmentShader});
-        cmd->BeginRendering({swapchain->texture});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain->texture->extent));
+        cmd->BeginRendering({swapchain->current});
+        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain->current->extent));
         cmd->Draw(3, 1, 0, 0);
         cmd->EndRendering();
 
-        cmd->Present(swapchain->texture);
+        cmd->Present(swapchain->current);
         queue->Submit({cmd}, {fence}, {fence});
         queue->Present({swapchain}, {fence});
 

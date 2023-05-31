@@ -10,19 +10,11 @@ namespace nova
         builder->context = this;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructureBuilder(builder); };
 
-        // accelStructure->type = VkAccelerationStructureTypeKHR(type);
-
-        // // TODO: Configurable build flags
-        // accelStructure->flags = VkBuildAccelerationStructureFlagsKHR(flags);
-
-        // if (accelStructure->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR)
-        // {
         VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
         }), pAlloc, &builder->queryPool));
-        // }
 
         return builder;
     }
@@ -196,7 +188,8 @@ namespace nova
 
             vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
                 1, &structure->structure,
-                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, builder->queryPool, 0);
+                VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+                builder->queryPool, 0);
         }
     }
 
@@ -234,7 +227,7 @@ namespace nova
             Temp(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
                 .accelerationStructure = structure->structure
-                }));
+            }));
 
         return structure;
     }

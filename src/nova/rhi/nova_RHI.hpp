@@ -245,7 +245,7 @@ namespace nova
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
         std::vector<Texture*> textures = {};
         uint32_t                 index = UINT32_MAX;
-        Texture*               texture = nullptr;
+        Texture*               current = nullptr;
         VkExtent2D              extent = { 0, 0 };
         bool                   invalid = false;
 
