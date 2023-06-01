@@ -288,6 +288,11 @@ namespace nova
         VkBufferUsageFlags usage = {};
 
     public:
+        Buffer(Context* context, u64 size, BufferUsage usage, BufferFlags flags = {});
+        ~Buffer();
+
+        void Resize(u64 size);
+
         template<class T>
         T& Get(u64 index, u64 offset = 0)
         {
@@ -475,7 +480,7 @@ namespace nova
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer* buffer = {};
+        Ptr<Buffer> buffer = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -491,8 +496,8 @@ namespace nova
     {
         Context* context = {};
 
-        VkPipeline pipeline = {};
-        Buffer*   sbtBuffer = {};
+        VkPipeline   pipeline = {};
+        Ptr<Buffer> sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
@@ -738,9 +743,6 @@ namespace nova
     public:
         static Context* Create(const ContextConfig& config);
         static void Destroy(Context* context);
-
-        Buffer* CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {});
-        void DestroyBuffer(Buffer* buffer);
 
         Texture* CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
         void DestroyTexture(Texture* texture);

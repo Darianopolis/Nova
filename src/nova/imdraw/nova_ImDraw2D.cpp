@@ -19,7 +19,7 @@ namespace nova
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        imDraw->descriptorBuffer = context->CreateBuffer(
+        imDraw->descriptorBuffer = std::make_unique<Buffer>(context,
             imDraw->descriptorSetLayout->size,
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
@@ -31,7 +31,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        imDraw->rectBuffer = context->CreateBuffer(sizeof(ImRoundRect) * MaxPrimitives,
+        imDraw->rectBuffer = std::make_unique<Buffer>(context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -154,7 +154,6 @@ void main()
 
     void ImDraw2D::Destroy(ImDraw2D* imDraw)
     {
-        imDraw->context->DestroyBuffer(imDraw->rectBuffer);
         imDraw->context->DestroyShader(imDraw->rectVertShader);
         imDraw->context->DestroyShader(imDraw->rectFragShader);
         imDraw->context->DestroyPipelineLayout(imDraw->pipelineLayout);
@@ -209,7 +208,7 @@ void main()
         auto font = new ImFont;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
 
-        auto staging = context->CreateBuffer(u64(size) * u64(size) * 4,
+        nova::Buffer staging(context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc,
             BufferFlags::CreateMapped);
 
@@ -242,18 +241,16 @@ void main()
                 Format::RGBA8U);
 
             usz dataSize = w * h * 4;
-            std::memcpy(staging->mapped, pixels.data(), dataSize);
+            std::memcpy(staging.mapped, pixels.data(), dataSize);
 
             auto cmd = cmdPool->BeginPrimary(tracker);
-            cmd->CopyToTexture(glyph.texture, staging);
+            cmd->CopyToTexture(glyph.texture, &staging);
             cmd->GenerateMips(glyph.texture);
             queue->Submit({cmd}, {}, {fence});
             fence->Wait();
 
             glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
-
-        context->DestroyBuffer(staging);
 
         FT_Done_Face(face);
         FT_Done_FreeType(ft);
@@ -348,7 +345,7 @@ void main()
                 .rectInstancesVA = rectBuffer->address,
             }));
 
-        cmd->BindDescriptorBuffers({descriptorBuffer});
+        cmd->BindDescriptorBuffers({descriptorBuffer.get()});
         cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
 
         for (auto& command : drawCommands)

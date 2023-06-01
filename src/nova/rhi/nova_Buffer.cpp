@@ -2,23 +2,44 @@
 
 namespace nova
 {
-    Buffer* Context::CreateBuffer(u64 size, BufferUsage _usage, BufferFlags flags)
+    Buffer::Buffer(Context* _context, u64 _size, BufferUsage _usage, BufferFlags _flags)
     {
-        auto buffer = new Buffer;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyBuffer(buffer); };
-        buffer->context = this;
-        buffer->flags = flags;
-
-        buffer->usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        context = _context;
+        flags = _flags;
+        usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (flags >= BufferFlags::Addressable)
-            buffer->usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+        size = 0;
+        Resize(_size);
+    }
+
+    Buffer::~Buffer()
+    {
+        if (mapped && flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(context->vma, allocation);
+
+        vmaDestroyBuffer(context->vma, buffer, allocation);
+    }
+
+    void Buffer::Resize(u64 _size)
+    {
+        if (size >= _size)
+            return;
+
+        size = _size;
+
+        if (mapped && flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(context->vma, allocation);
+
+        vmaDestroyBuffer(context->vma, buffer, allocation);
 
         VkCall(vmaCreateBuffer(
-            vma,
+            context->vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = size,
-                .usage = buffer->usage,
+                .usage = usage,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             }),
             Temp(VmaAllocationCreateInfo {
@@ -32,39 +53,21 @@ namespace nova
                     ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
                     : VkMemoryPropertyFlags(0),
             }),
-            &buffer->buffer,
-            &buffer->allocation,
+            &buffer,
+            &allocation,
             nullptr));
 
-        buffer->size = size;
-
         if (flags >= BufferFlags::CreateMapped)
-            VkCall(vmaMapMemory(vma, buffer->allocation, (void**)&buffer->mapped));
+            VkCall(vmaMapMemory(context->vma, allocation, (void**)&mapped));
 
         if (flags >= BufferFlags::Addressable)
         {
-            buffer->address = vkGetBufferDeviceAddress(device, Temp(VkBufferDeviceAddressInfo {
+            address = vkGetBufferDeviceAddress(context->device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = buffer->buffer,
+                .buffer = buffer,
             }));
         }
-
-        return buffer;
     }
-
-    void Context::DestroyBuffer(Buffer* buffer)
-    {
-        if (!buffer)
-            return;
-
-        if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(vma, buffer->allocation);
-
-        vmaDestroyBuffer(vma, buffer->buffer, buffer->allocation);
-
-        delete buffer;
-    }
-
 
     void CommandList::UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset)
     {

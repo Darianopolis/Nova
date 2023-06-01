@@ -117,13 +117,13 @@ namespace nova
         PipelineLayout* pipelineLayout = {};
 
         DescriptorLayout*     descriptorSetLayout = {};
-        Buffer*                  descriptorBuffer = {};
+        Ptr<Buffer>              descriptorBuffer = {};
         u32                       nextTextureSlot = 0;
         std::vector<u32>      textureSlotFreelist = {};
 
         Shader* rectVertShader = {};
         Shader* rectFragShader = {};
-        Buffer*     rectBuffer = {};
+        Ptr<Buffer> rectBuffer = {};
         u32          rectIndex = 0;
 
         ImBounds2D bounds;

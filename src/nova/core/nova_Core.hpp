@@ -99,6 +99,11 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         template<class T>
+        using Ptr = std::unique_ptr<T>;
+
+// -----------------------------------------------------------------------------
+
+        template<class T>
         struct Span
         {
             std::span<const T> span;

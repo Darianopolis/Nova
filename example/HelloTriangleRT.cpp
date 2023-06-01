@@ -129,24 +129,22 @@ void main()
 
     // Vertex data
 
-    auto vertices = context->CreateBuffer(3 * sizeof(Vec3),
+    Buffer vertices(context, 3 * sizeof(Vec3),
         BufferUsage::AccelBuild, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(vertices); };
-    vertices->Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
+    vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
     // Index data
 
-    auto indices = context->CreateBuffer(3 * sizeof(u32),
+    Buffer indices(context, 3 * sizeof(u32),
         BufferUsage::AccelBuild,
         BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(indices); };
-    indices->Set<u32>({ 0u, 1u, 2u });
+    indices.Set<u32>({ 0u, 1u, 2u });
 
     // Configure BLAS build
 
     builder->SetTriangles(0,
-        vertices->address, nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
-        indices->address, nova::IndexType::U32, 1);
+        vertices.address, nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
+        indices.address, nova::IndexType::U32, 1);
     builder->Prepare(AccelerationStructureType::BottomLevel, {}, 1);
 
     // Create BLAS and scratch buffer
@@ -154,14 +152,13 @@ void main()
     auto blas = context->CreateAccelerationStructure(builder->GetBuildSize(),
         AccelerationStructureType::BottomLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(blas); };
-    auto scratch = context->CreateBuffer(builder->GetBuildScratchSize(),
+    Buffer scratch(context,builder->GetBuildScratchSize(),
         BufferUsage::Storage, BufferFlags::DeviceLocal);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(scratch); };
 
     // Build BLAS
 
     auto cmd = cmdPool->BeginPrimary(tracker);
-    cmd->BuildAccelerationStructure(builder, blas, scratch);
+    cmd->BuildAccelerationStructure(builder, blas, &scratch);
     queue->Submit({cmd}, {}, {fence});
     fence->Wait();
 
@@ -171,14 +168,13 @@ void main()
 
     // Instance data
 
-    auto instances = context->CreateBuffer(builder->GetInstanceSize(),
+    Buffer instances(context,builder->GetInstanceSize(),
         BufferUsage::AccelBuild,
         BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(instances); };
 
     // Configure TLAS build
 
-    builder->SetInstances(0, instances->address, 1);
+    builder->SetInstances(0, instances.address, 1);
     builder->Prepare(AccelerationStructureType::TopLevel, {}, 1);
 
     // Create TLAS and resize scratch buffer
@@ -186,12 +182,7 @@ void main()
     auto tlas = context->CreateAccelerationStructure(builder->GetBuildSize(),
         AccelerationStructureType::TopLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(tlas); };
-    if (builder->GetBuildScratchSize() > scratch->size)
-    {
-        context->DestroyBuffer(scratch);
-        scratch = context->CreateBuffer(builder->GetBuildScratchSize(),
-            BufferUsage::Storage, BufferFlags::DeviceLocal);
-    }
+    scratch.Resize(builder->GetBuildScratchSize());
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -212,10 +203,10 @@ void main()
 
         // Build scene TLAS
 
-        builder->WriteInstance(instances->mapped, 0, blas,
+        builder->WriteInstance(instances.mapped, 0, blas,
             glm::scale(Mat4(1), Vec3(Vec2(swapchain->current->extent), 1.f)),
             0, 0xFF, 0, {});
-        cmd->BuildAccelerationStructure(builder, tlas, scratch);
+        cmd->BuildAccelerationStructure(builder, tlas, &scratch);
 
         // Transition ready for writing ray trace output
 

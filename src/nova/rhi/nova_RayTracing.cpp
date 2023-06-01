@@ -246,7 +246,7 @@ namespace nova
         structure->context = this;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(structure); };
 
-        structure->buffer = CreateBuffer(size,
+        structure->buffer = std::make_unique<Buffer>(this, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
@@ -269,7 +269,6 @@ namespace nova
 
     void Context::DestroyAccelerationStructure(AccelerationStructure* structure)
     {
-        DestroyBuffer(structure->buffer);
         vkDestroyAccelerationStructureKHR(device, structure->structure, pAlloc);
 
         delete structure;
@@ -286,7 +285,6 @@ namespace nova
 
     void Context::DestroyRayTracingPipeline(RayTracingPipeline* pipeline)
     {
-        DestroyBuffer(pipeline->sbtBuffer);
         vkDestroyPipeline(device, pipeline->pipeline, pAlloc);
 
         delete pipeline;
@@ -389,10 +387,7 @@ namespace nova
 
         if (!sbtBuffer || tableSize > sbtBuffer->size)
         {
-            if (sbtBuffer)
-                context->DestroyBuffer(sbtBuffer);
-
-            sbtBuffer = context->CreateBuffer(
+            sbtBuffer = std::make_unique<Buffer>(context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
                 BufferFlags::DeviceLocal | BufferFlags::CreateMapped);

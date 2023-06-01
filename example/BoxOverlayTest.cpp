@@ -57,17 +57,15 @@ void TryMain()
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        auto staging = context->CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
-        std::memcpy(staging->mapped, data, size);
+        nova::Buffer staging(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
+        std::memcpy(staging.mapped, data, size);
 
         auto cmd = commandPool->BeginPrimary(tracker);
-        cmd->CopyToTexture(texture, staging);
+        cmd->CopyToTexture(texture, &staging);
         cmd->GenerateMips(texture);
 
         queue->Submit({cmd}, {}, {fence});
         fence->Wait();
-
-        context->DestroyBuffer(staging);
 
         texID = imDraw->RegisterTexture(texture, imDraw->defaultSampler);
     }
