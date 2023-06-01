@@ -27,7 +27,7 @@ namespace nova
         imDraw->pipelineLayout = context->CreatePipelineLayout(
             {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(PushConstants)}},
             {imDraw->descriptorSetLayout},
-            VK_PIPELINE_BIND_POINT_GRAPHICS);
+            nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
@@ -338,7 +338,7 @@ void main()
 
     void ImDraw2D::Record(CommandList* cmd)
     {
-        cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        cmd->SetTopology(Topology::Triangles);
         cmd->PushConstants(pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
             PushConstantsRange.offset, PushConstantsRange.size,
@@ -347,8 +347,6 @@ void main()
                 .centerPos = bounds.Center(),
                 .rectInstancesVA = rectBuffer->address,
             }));
-
-        cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
         cmd->BindDescriptorBuffers({descriptorBuffer});
         cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});

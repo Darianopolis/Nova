@@ -80,10 +80,21 @@ namespace nova
         static Window* Create(const WindowConfig& config);
         static void Destroy(Window* window);
 
-        bool PollEvents();
-        bool WaitEvents();
+        void* GetNativeHandle();
+
+        bool ShouldClose();
 
         Vec2 GetCursorPos();
         Vec2U GetClientSize();
+    };
+
+    struct EventSystem
+    {
+    public:
+        static EventSystem* Create();
+        static void Destroy(EventSystem* eventSystem);
+
+        void WaitEvents(Span<Window*> windows);
+        void PollEvents(Span<Window*> windows);
     };
 }

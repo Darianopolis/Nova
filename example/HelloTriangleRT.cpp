@@ -74,8 +74,7 @@ int main()
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = context->CreatePipelineLayout({}, {descLayout},
-        VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+    auto pipelineLayout = context->CreatePipelineLayout({}, {descLayout}, nova::BindPoint::RayTracing);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyPipelineLayout(pipelineLayout); };
 
     // Create the ray gen shader to draw an shaded triangle based on barycentric interpolation
@@ -133,9 +132,7 @@ void main()
     auto vertices = context->CreateBuffer(3 * sizeof(Vec3),
         BufferUsage::AccelBuild, BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(vertices); };
-    vertices->Get<Vec3>(0) = { width * 0.5f, height * 0.2f, 0.f };
-    vertices->Get<Vec3>(1) = { width * 0.2f, height * 0.8f, 0.f };
-    vertices->Get<Vec3>(2) = { width * 0.8f, height * 0.8f, 0.f };
+    vertices->Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
     // Index data
 
@@ -143,22 +140,21 @@ void main()
         BufferUsage::AccelBuild,
         BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(indices); };
-    std::memcpy(indices->mapped, std::array { 0u, 1u, 2u }.data(), indices->size);
+    indices->Set<u32>({ 0u, 1u, 2u });
 
     // Configure BLAS build
 
-    builder->SetFlags(AccelerationStructureType::BottomLevel, {});
-    builder->PushTriangles(
-        vertices->address, VK_FORMAT_R32G32B32_SFLOAT, u32(sizeof(Vec3)), 2,
-        indices->address, VK_INDEX_TYPE_UINT32, 1);
-    builder->ComputeSizes();
+    builder->SetTriangles(0,
+        vertices->address, nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
+        indices->address, nova::IndexType::U32, 1);
+    builder->Prepare(AccelerationStructureType::BottomLevel, {}, 1);
 
     // Create BLAS and scratch buffer
 
-    auto blas = context->CreateAccelerationStructure(builder->buildSize,
+    auto blas = context->CreateAccelerationStructure(builder->GetBuildSize(),
         AccelerationStructureType::BottomLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(blas); };
-    auto scratch = context->CreateBuffer(builder->buildScratchSize,
+    auto scratch = context->CreateBuffer(builder->GetBuildScratchSize(),
         BufferUsage::Storage, BufferFlags::DeviceLocal);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(scratch); };
 
@@ -179,33 +175,23 @@ void main()
         BufferUsage::AccelBuild,
         BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyBuffer(instances); };
-    builder->WriteInstance(instances->mapped, 0, blas, Mat4{1}, 0, 0xFF, 0, {});
 
     // Configure TLAS build
 
-    builder->SetFlags(AccelerationStructureType::TopLevel, {});
-    builder->ClearGeometries();
-    builder->PushInstances(instances->address, 1);
-    builder->ComputeSizes();
+    builder->SetInstances(0, instances->address, 1);
+    builder->Prepare(AccelerationStructureType::TopLevel, {}, 1);
 
     // Create TLAS and resize scratch buffer
 
-    auto tlas = context->CreateAccelerationStructure(builder->buildSize,
+    auto tlas = context->CreateAccelerationStructure(builder->GetBuildSize(),
         AccelerationStructureType::TopLevel);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyAccelerationStructure(tlas); };
-    if (builder->buildScratchSize > scratch->size)
+    if (builder->GetBuildScratchSize() > scratch->size)
     {
         context->DestroyBuffer(scratch);
-        scratch = context->CreateBuffer(builder->buildScratchSize,
+        scratch = context->CreateBuffer(builder->GetBuildScratchSize(),
             BufferUsage::Storage, BufferFlags::DeviceLocal);
     }
-
-    // Build TLAS
-
-    cmd = cmdPool->BeginPrimary(tracker);
-    cmd->BuildAccelerationStructure(builder, tlas, scratch);
-    queue->Submit({cmd}, {}, {fence});
-    fence->Wait();
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -224,12 +210,18 @@ void main()
         cmdPool->Reset();
         cmd = cmdPool->BeginPrimary(tracker);
 
+        // Build scene TLAS
+
+        builder->WriteInstance(instances->mapped, 0, blas,
+            glm::scale(Mat4(1), Vec3(Vec2(swapchain->current->extent), 1.f)),
+            0, 0xFF, 0, {});
+        cmd->BuildAccelerationStructure(builder, tlas, scratch);
+
         // Transition ready for writing ray trace output
 
         cmd->Transition(swapchain->current,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-            VK_ACCESS_2_SHADER_WRITE_BIT);
+            nova::ResourceState::GeneralImage,
+            nova::BindPoint::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 

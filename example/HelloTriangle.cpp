@@ -42,7 +42,7 @@ int main()
 
     // Pipeline
 
-    auto pipelineLayout = context->CreatePipelineLayout({}, {}, VK_PIPELINE_BIND_POINT_GRAPHICS);
+    auto pipelineLayout = context->CreatePipelineLayout({}, {}, nova::BindPoint::RayTracing);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyPipelineLayout(pipelineLayout); };
 
     auto vertexShader = context->CreateShader(
@@ -95,9 +95,9 @@ void main()
 
         cmd->SetViewport(Vec2U(swapchain->current->extent), false);
         cmd->SetBlendState(1, false);
-        cmd->SetDepthState(false, false, VK_COMPARE_OP_GREATER);
-        cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP);
-        cmd->SetCullState(VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        cmd->SetDepthState(false, false, nova::CompareOp::Greater);
+        cmd->SetTopology(nova::Topology::Triangles);
+        cmd->SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
 
         cmd->BindShaders({vertexShader, fragmentShader});
         cmd->BeginRendering({swapchain->current});

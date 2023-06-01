@@ -186,7 +186,7 @@ void TryMain()
         auto cmd = commandPool->BeginPrimary(tracker);
         cmd->SetViewport(imDraw->bounds.Size(), false);
         cmd->SetBlendState(1, true);
-        cmd->SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        cmd->SetTopology(nova::Topology::Triangles);
 
         // Update window size, record primary buffer and present
 

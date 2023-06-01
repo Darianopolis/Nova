@@ -86,28 +86,6 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
-    struct Buffer
-    {
-        Context* context = {};
-
-        VkBuffer          buffer = {};
-        VmaAllocation allocation = {};
-        VkDeviceSize        size = 0ull;
-        VkDeviceAddress  address = 0ull;
-        b8*               mapped = nullptr;
-        BufferFlags        flags = BufferFlags::None;
-        VkBufferUsageFlags usage = {};
-
-    public:
-        template<class T>
-        T& Get(u64 index, u64 offset = 0)
-        {
-            return reinterpret_cast<T*>(mapped + offset)[index];
-        }
-    };
-
-// -----------------------------------------------------------------------------
-
     enum class TextureFlags
     {
         Array = 1 << 0,
@@ -136,29 +114,25 @@ namespace nova
         RGBA16F = VK_FORMAT_R16G16B16A16_SFLOAT,
         RGBA32F = VK_FORMAT_R32G32B32A32_SFLOAT,
 
+        RGB32F = VK_FORMAT_R32G32B32_SFLOAT,
+
         R8U = VK_FORMAT_R8_UNORM,
         R32F = VK_FORMAT_R32_SFLOAT,
+
+        R8UInt = VK_FORMAT_R8_UINT,
+        R16UInt = VK_FORMAT_R16_UINT,
+        R32UInt = VK_FORMAT_R32_UINT,
 
         D24U_X8 = VK_FORMAT_X8_D24_UNORM_PACK32,
         D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
     };
 
-    struct Texture
+    enum class IndexType
     {
-        Context* context = {};
-
-        VkImage             image = {};
-        VmaAllocation  allocation = {};
-        VkImageView          view = {};
-        VkFormat           format = VK_FORMAT_UNDEFINED;
-        VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
-
-        Vec3U extent = {};
-        u32     mips = 0;
-        u32   layers = 0;
+        U16 = VK_INDEX_TYPE_UINT16,
+        U32 = VK_INDEX_TYPE_UINT32,
+        U8 = VK_INDEX_TYPE_UINT8_EXT,
     };
-
-// -----------------------------------------------------------------------------
 
     enum class Filter : u32
     {
@@ -181,15 +155,6 @@ namespace nova
         White = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
     };
 
-    struct Sampler
-    {
-        Context* context = {};
-
-        VkSampler sampler = {};
-    };
-
-// -----------------------------------------------------------------------------
-
     enum class ShaderStage : uint16_t
     {
         None = 0,
@@ -210,6 +175,156 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(ShaderStage)
 
+    enum class PresentMode : u32
+    {
+        Immediate   = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        Mailbox     = VK_PRESENT_MODE_MAILBOX_KHR,
+        Fifo        = VK_PRESENT_MODE_FIFO_KHR,
+        FifoRelaxed = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+    };
+
+    enum class ResourceState
+    {
+        GeneralImage,
+        Present,
+    };
+
+    enum class BindPoint : u32
+    {
+        // TODO: Support transfer
+        Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        Compute = VK_PIPELINE_BIND_POINT_COMPUTE,
+        RayTracing = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+    };
+
+    enum class AccelerationStructureType : u32
+    {
+        BottomLevel = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
+        TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+    };
+
+    enum class AccelerationStructureFlags : u32
+    {
+        PreferFastTrace = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
+        PreferFastBuild = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
+        AllowDataAccess = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
+        AllowCompaction = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR,
+    };
+    NOVA_DECORATE_FLAG_ENUM(AccelerationStructureFlags)
+
+    enum class GeometryInstanceFlags : u32
+    {
+        TriangleCullClockwise        = 1 << 0,
+        TriangleCullCounterClockwise = 1 << 1,
+        InstanceForceOpaque          = 1 << 2,
+    };
+    NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
+
+    enum class DescriptorType : u32
+    {
+        SampledTexture = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        StorageTexture = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        AccelerationStructure = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+    };
+
+    enum class CompareOp
+    {
+        Never          = VK_COMPARE_OP_NEVER,
+        Less           = VK_COMPARE_OP_LESS,
+        Equal          = VK_COMPARE_OP_EQUAL,
+        LessOrEqual    = VK_COMPARE_OP_LESS_OR_EQUAL,
+        Greater        = VK_COMPARE_OP_GREATER,
+        NotEqual       = VK_COMPARE_OP_NOT_EQUAL,
+        GreaterOrEqual = VK_COMPARE_OP_GREATER_OR_EQUAL,
+        Always         = VK_COMPARE_OP_ALWAYS,
+    };
+
+    enum class CullMode
+    {
+        None  = VK_CULL_MODE_NONE,
+        Front = VK_CULL_MODE_FRONT_BIT,
+        Back  = VK_CULL_MODE_BACK_BIT,
+    };
+    NOVA_DECORATE_FLAG_ENUM(CullMode);
+
+    enum class FrontFace
+    {
+        CounterClockwise = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        Clockwise = VK_FRONT_FACE_CLOCKWISE,
+    };
+
+    enum class PolygonMode
+    {
+        Fill = VK_POLYGON_MODE_FILL,
+        Line = VK_POLYGON_MODE_LINE,
+        Point = VK_POLYGON_MODE_POINT
+    };
+
+    enum class Topology
+    {
+        Points = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+        Lines = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+        LineStrip = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+        Triangles = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        TriangleStrip = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+        TriangleFan = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+        Patches = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
+    };
+
+// -----------------------------------------------------------------------------
+
+    struct Buffer
+    {
+        Context* context = {};
+
+        VkBuffer          buffer = {};
+        VmaAllocation allocation = {};
+        VkDeviceSize        size = 0ull;
+        VkDeviceAddress  address = 0ull;
+        b8*               mapped = nullptr;
+        BufferFlags        flags = BufferFlags::None;
+        VkBufferUsageFlags usage = {};
+
+    public:
+        template<class T>
+        T& Get(u64 index, u64 offset = 0)
+        {
+            return reinterpret_cast<T*>(mapped + offset)[index];
+        }
+
+        template<class T>
+        void Set(Span<T> elements, u64 index = 0, u64 offset = 0)
+        {
+            std::memcpy(reinterpret_cast<T*>(mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
+        }
+    };
+
+// -----------------------------------------------------------------------------
+
+    struct Sampler
+    {
+        VkSampler sampler = {};
+    };
+
+    struct Texture
+    {
+        Context* context = {};
+
+        VkImage             image = {};
+        VmaAllocation  allocation = {};
+        VkImageView          view = {};
+        VkFormat           format = VK_FORMAT_UNDEFINED;
+        VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
+
+        Vec3U extent = {};
+        u32     mips = 0;
+        u32   layers = 0;
+    };
+
+// -----------------------------------------------------------------------------
+
     struct Shader
     {
         Context* context = {};
@@ -226,19 +341,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class PresentMode : u32
+    struct Surface
     {
-        Immediate   = VK_PRESENT_MODE_IMMEDIATE_KHR,
-        Mailbox     = VK_PRESENT_MODE_MAILBOX_KHR,
-        Fifo        = VK_PRESENT_MODE_FIFO_KHR,
-        FifoRelaxed = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+        VkSurfaceKHR surface;
     };
 
     struct Swapchain
     {
         Context* context = {};
 
-        VkSurfaceKHR           surface = nullptr;
+        Surface*               surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
@@ -305,29 +417,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class AccelerationStructureType : u32
-    {
-        BottomLevel = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-        TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
-    };
-
-    enum class AccelerationStructureFlags : u32
-    {
-        PreferFastTrace = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-        PreferFastBuild = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
-        AllowDataAccess = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
-        AllowCompaction = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR,
-    };
-    NOVA_DECORATE_FLAG_ENUM(AccelerationStructureFlags)
-
-    enum class GeometryInstanceFlags : u32
-    {
-        TriangleCullClockwise        = 1 << 0,
-        TriangleCullCounterClockwise = 1 << 1,
-        InstanceForceOpaque          = 1 << 2,
-    };
-    NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
-
     struct AccelerationStructureBuilder
     {
         Context* context = {};
@@ -346,15 +435,23 @@ namespace nova
         std::vector<u32>                             primitiveCounts;
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
 
+        u32 geometryCount = 0;
+        u32 firstGeometry = 0;
+        bool sizeDirty = false;
+
         VkQueryPool queryPool = {};
 
     public:
-        void SetFlags(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags);
-        void ClearGeometries();
-        void PushInstances(u64 deviceAddress, u32 count);
-        void PushTriangles(
-            u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, VkIndexType indexType, u32 triangleCount);
+        void EnsureGeometries(u32 geometryIndex);
+        void EnsureSizes();
+
+        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count);
+        void SetTriangles(u32 geometryIndex,
+            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount);
+
+        void Prepare(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags,
+            u32 geometryCount, u32 firstGeometry = 0u);
 
         u64 GetInstanceSize();
         void WriteInstance(
@@ -364,7 +461,9 @@ namespace nova
             u32 customIndex, u8 mask,
             u32 sbtOffset, GeometryInstanceFlags flags);
 
-        void ComputeSizes();
+        u64 GetBuildSize();
+        u64 GetBuildScratchSize();
+        u64 GetUpdateScratchSize();
         u64 GetCompactSize();
     };
 
@@ -426,15 +525,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class DescriptorType : u32
-    {
-        SampledTexture = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        StorageTexture = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        AccelerationStructure = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-    };
-
     struct DescriptorBinding
     {
         DescriptorType type;
@@ -460,7 +550,7 @@ namespace nova
         VkPipelineLayout layout = {};
 
         // TODO: Pipeline layout used in multiple bind points?
-        VkPipelineBindPoint bindPoint = {};
+        BindPoint bindPoint = {};
 
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
@@ -528,14 +618,15 @@ namespace nova
 
         void Clear(Texture* texture, Vec4 color);
         void Transition(Texture* texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Transition(Texture* texture, ResourceState state, BindPoint bindPoint);
         void Present(Texture* texture);
 
         void SetViewport(Vec2U size, bool flipVertical);
-        void SetTopology(VkPrimitiveTopology topology);
-        void SetCullState(VkCullModeFlags mode, VkFrontFace frontFace);
-        void SetPolyState(VkPolygonMode poly, f32 lineWidth);
+        void SetTopology(Topology topology);
+        void SetCullState(CullMode mode, FrontFace frontFace);
+        void SetPolyState(PolygonMode poly, f32 lineWidth);
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
-        void SetDepthState(bool enable, bool write, VkCompareOp compareOp);
+        void SetDepthState(bool enable, bool write, CompareOp compareOp);
 
         void BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
         void EndRendering();
@@ -547,7 +638,7 @@ namespace nova
         void SetDescriptorSetOffsets(PipelineLayout* layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets);
 
         void BindShaders(Span<Shader*> shaders);
-        void BindIndexBuffer(Buffer* buffer, VkIndexType indexType, u64 offset = 0);
+        void BindIndexBuffer(Buffer* buffer, IndexType indexType, u64 offset = 0);
         void PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data);
 
         void PushStorageTexture(PipelineLayout* layout, u32 setIndex, u32 binding, Texture* texture, u32 arrayIndex = 0);
@@ -668,14 +759,14 @@ namespace nova
         PipelineLayout* CreatePipelineLayout(
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,
-            VkPipelineBindPoint bindPoint);
+            BindPoint bindPoint);
         void DestroyPipelineLayout(PipelineLayout* layout);
 
-        Swapchain* CreateSwapchain(VkSurfaceKHR surface, TextureUsage usage, PresentMode presentMode);
+        Swapchain* CreateSwapchain(Surface* surface, TextureUsage usage, PresentMode presentMode);
         void DestroySwapchain(Swapchain* swapchain);
 
-        VkSurfaceKHR CreateSurface(HWND hwnd);
-        void DestroySurface(VkSurfaceKHR surface);
+        Surface* CreateSurface(void* handle);
+        void DestroySurface(Surface* surface);
 
         CommandPool* CreateCommandPool();
         void DestroyCommandPool(CommandPool* commands);

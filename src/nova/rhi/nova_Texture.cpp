@@ -281,6 +281,49 @@ namespace nova
         state.access = newAccess;
     }
 
+    void CommandList::Transition(Texture* texture, ResourceState state, BindPoint bindPoint)
+    {
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_NONE;
+        VkAccessFlags2 access = VkAccessFlags2(0);
+
+        bool set = false;
+
+        switch (state)
+        {
+        break;case ResourceState::GeneralImage:
+            layout = VK_IMAGE_LAYOUT_GENERAL;
+            access = VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+            set = true;
+        break;case ResourceState::Present:
+            layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            stages = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+            set = true;
+        }
+
+        switch (bindPoint)
+        {
+        break;case BindPoint::Compute:
+            stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+            set = true;
+        break;case BindPoint::Graphics:
+            stages = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+            set = true;
+        break;case BindPoint::RayTracing:
+            stages = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+            set = true;
+        }
+
+        if (set)
+        {
+            Transition(texture, layout, stages, access);
+        }
+        else
+        {
+            NOVA_THROW("Unknown transition ({}, {})", u32(state), u32(bindPoint));
+        }
+    }
+
 // -----------------------------------------------------------------------------
 
     void CommandList::Clear(Texture* texture, Vec4 color)

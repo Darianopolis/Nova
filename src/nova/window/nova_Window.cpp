@@ -18,27 +18,19 @@ namespace nova
         return window;
     }
 
-    bool Window::PollEvents()
+    bool Window::ShouldClose()
     {
-        if (glfwWindowShouldClose(window))
-            return false;
-
-        glfwPollEvents();
-        return true;
-    }
-
-    bool Window::WaitEvents()
-    {
-        if (glfwWindowShouldClose(window))
-            return false;
-
-        glfwWaitEvents();
-        return true;
+        return glfwWindowShouldClose(window);
     }
 
     void Window::Destroy(Window* window)
     {
         glfwDestroyWindow(window->window);
+    }
+
+    void* Window::GetNativeHandle()
+    {
+        return glfwGetWin32Window(window);
     }
 
     Vec2 Window::GetCursorPos()

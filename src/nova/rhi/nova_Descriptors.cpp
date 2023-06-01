@@ -83,7 +83,7 @@ namespace nova
     void CommandList::PushStorageTexture(PipelineLayout* layout, u32 setIndex, u32 binding, Texture* texture, u32 arrayIndex)
     {
         vkCmdPushDescriptorSetKHR(buffer,
-            layout->bindPoint, layout->layout, setIndex,
+            VkPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstBinding = binding,
@@ -100,7 +100,7 @@ namespace nova
     void CommandList::PushAccelerationStructure(PipelineLayout* layout, u32 setIndex, u32 binding, AccelerationStructure* accelerationStructure, u32 arrayIndex)
     {
         vkCmdPushDescriptorSetKHR(buffer,
-            layout->bindPoint, layout->layout, setIndex,
+            VkPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
@@ -120,7 +120,7 @@ namespace nova
     PipelineLayout* Context::CreatePipelineLayout(
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,
-            VkPipelineBindPoint bindPoint)
+            BindPoint bindPoint)
     {
         auto* layout = new PipelineLayout;
         layout->context = this;
@@ -187,7 +187,7 @@ namespace nova
         }
 
         vkCmdSetDescriptorBufferOffsetsEXT(buffer,
-            layout->bindPoint, layout->layout,
+            VkPipelineBindPoint(layout->bindPoint), layout->layout,
             firstSet, u32(offsets.size()),
             bufferIndices, bufferOffsets);
     }

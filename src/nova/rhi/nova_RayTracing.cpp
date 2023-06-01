@@ -29,22 +29,21 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void AccelerationStructureBuilder::SetFlags(nova::AccelerationStructureType _type, nova::AccelerationStructureFlags _flags)
+    void AccelerationStructureBuilder::EnsureGeometries(u32 geometryIndex)
     {
-        type = VkAccelerationStructureTypeKHR(_type);
-        flags = VkBuildAccelerationStructureFlagsKHR(_flags);
+        if (geometryIndex >= geometries.size())
+        {
+            geometries.resize(geometryIndex + 1);
+            ranges.resize(geometryIndex + 1);
+            primitiveCounts.resize(geometryIndex = 1);
+        }
     }
 
-    void AccelerationStructureBuilder::ClearGeometries()
+    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count)
     {
-        geometries.clear();
-        ranges.clear();
-        primitiveCounts.clear();
-    }
+        EnsureGeometries(geometryIndex);
 
-    void AccelerationStructureBuilder::PushInstances(u64 deviceAddress, u32 count)
-    {
-        auto& instances = geometries.emplace_back();
+        auto& instances = geometries[geometryIndex];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         instances.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR {
@@ -52,33 +51,35 @@ namespace nova
             .data = {{ deviceAddress }},
         };
 
-        auto& range = ranges.emplace_back();
+        auto& range = ranges[geometryIndex];
         range.primitiveCount = count;
 
-        primitiveCounts.emplace_back(count);
+        primitiveCounts[geometryIndex] = count;
     }
 
-    void AccelerationStructureBuilder::PushTriangles(
-        u64 vertexAddress, VkFormat vertexFormat, u32 vertexStride, u32 maxVertex,
-        u64 indexAddress, VkIndexType indexType, u32 triangleCount)
+    void AccelerationStructureBuilder::SetTriangles(u32 geometryIndex,
+        u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+        u64 indexAddress, IndexType indexType, u32 triangleCount)
     {
-        auto& instances = geometries.emplace_back();
+        EnsureGeometries(geometryIndex);
+
+        auto& instances = geometries[geometryIndex];
         instances.sType =VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-            .vertexFormat = vertexFormat,
+            .vertexFormat = VkFormat(vertexFormat),
             .vertexData = {{ vertexAddress }},
             .vertexStride = vertexStride,
             .maxVertex = maxVertex,
-            .indexType = indexType,
+            .indexType = VkIndexType(indexType),
             .indexData = {{ indexAddress }},
         };
 
-        auto& range = ranges.emplace_back();
+        auto& range = ranges[geometryIndex];
         range.primitiveCount = triangleCount;
 
-        primitiveCounts.emplace_back(triangleCount);
+        primitiveCounts[geometryIndex] = triangleCount;
     }
 
 // -----------------------------------------------------------------------------
@@ -126,8 +127,22 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void AccelerationStructureBuilder::ComputeSizes()
+    void AccelerationStructureBuilder::Prepare(
+        nova::AccelerationStructureType _type, nova::AccelerationStructureFlags _flags,
+        u32 _geometryCount, u32 _firstGeometry)
     {
+        type = VkAccelerationStructureTypeKHR(_type);
+        flags = VkBuildAccelerationStructureFlagsKHR(_flags);
+        geometryCount = _geometryCount;
+        firstGeometry = _firstGeometry;
+        sizeDirty = true;
+    }
+
+    void AccelerationStructureBuilder::EnsureSizes()
+    {
+        if (!sizeDirty)
+            return;
+
         VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 
         vkGetAccelerationStructureBuildSizesKHR(
@@ -137,8 +152,8 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = type,
                 .flags = flags,
-                .geometryCount = u32(geometries.size()),
-                .pGeometries = geometries.data(),
+                .geometryCount = geometryCount,
+                .pGeometries = geometries.data() + firstGeometry,
             }), primitiveCounts.data(), &sizes);
 
         buildSize = sizes.accelerationStructureSize;
@@ -146,6 +161,26 @@ namespace nova
         u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
         updateScratchSize = sizes.updateScratchSize + scratchAlign;
         buildScratchSize = sizes.buildScratchSize + scratchAlign;
+
+        sizeDirty = false;
+    }
+
+    u64 AccelerationStructureBuilder::GetBuildSize()
+    {
+        EnsureSizes();
+        return buildSize;
+    }
+
+    u64 AccelerationStructureBuilder::GetBuildScratchSize()
+    {
+        EnsureSizes();
+        return buildScratchSize;
+    }
+
+    u64 AccelerationStructureBuilder::GetUpdateScratchSize()
+    {
+        EnsureSizes();
+        return updateScratchSize;
     }
 
     u64 AccelerationStructureBuilder::GetCompactSize()
@@ -168,8 +203,8 @@ namespace nova
                 .type = builder->type,
                 .flags = builder->flags,
                 .dstAccelerationStructure = structure->structure,
-                .geometryCount = u32(builder->geometries.size()),
-                .pGeometries = builder->geometries.data(),
+                .geometryCount = builder->geometryCount,
+                .pGeometries = builder->geometries.data() + builder->firstGeometry,
                 .scratchData = {{ AlignUpPower2(scratch->address,
                     pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
             }), Temp(builder->ranges.data()));

@@ -5,7 +5,6 @@ namespace nova
     Sampler* Context::CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
     {
         auto* sampler = new Sampler;
-        sampler->context = this;
         NOVA_ON_SCOPE_FAILURE(&) { DestroySampler(sampler); };
 
         VkCall(vkCreateSampler(device, Temp(VkSamplerCreateInfo {

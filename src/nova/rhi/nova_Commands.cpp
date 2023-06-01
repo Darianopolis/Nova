@@ -250,20 +250,20 @@ namespace nova
         }));
     }
 
-    void CommandList::SetTopology(VkPrimitiveTopology topology)
+    void CommandList::SetTopology(Topology topology)
     {
-        vkCmdSetPrimitiveTopology(buffer, topology);
+        vkCmdSetPrimitiveTopology(buffer, VkPrimitiveTopology(topology));
     }
 
-    void CommandList::SetCullState(VkCullModeFlags mode, VkFrontFace frontFace)
+    void CommandList::SetCullState(CullMode mode, FrontFace frontFace)
     {
-        vkCmdSetCullMode(buffer, mode);
-        vkCmdSetFrontFace(buffer, frontFace);
+        vkCmdSetCullMode(buffer, VkCullModeFlags(mode));
+        vkCmdSetFrontFace(buffer, VkFrontFace(frontFace));
     }
 
-    void CommandList::SetPolyState(VkPolygonMode poly, f32 lineWidth)
+    void CommandList::SetPolyState(PolygonMode poly, f32 lineWidth)
     {
-        vkCmdSetPolygonModeEXT(buffer, poly);
+        vkCmdSetPolygonModeEXT(buffer, VkPolygonMode(poly));
         vkCmdSetLineWidth(buffer, lineWidth);
     }
 
@@ -300,13 +300,13 @@ namespace nova
             vkCmdSetColorBlendEquationEXT(buffer, 0, colorAttachmentCount, blendEquations);
     }
 
-    void CommandList::SetDepthState(bool enable, bool write, VkCompareOp compareOp)
+    void CommandList::SetDepthState(bool enable, bool write, CompareOp compareOp)
     {
         vkCmdSetDepthTestEnable(buffer, enable);
         if (enable)
         {
             vkCmdSetDepthWriteEnable(buffer, write);
-            vkCmdSetDepthCompareOp(buffer, compareOp);
+            vkCmdSetDepthCompareOp(buffer, VkCompareOp(compareOp));
         }
     }
 
@@ -413,9 +413,9 @@ namespace nova
         vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 
-    void CommandList::BindIndexBuffer(Buffer* indexBuffer, VkIndexType indexType, u64 offset)
+    void CommandList::BindIndexBuffer(Buffer* indexBuffer, IndexType indexType, u64 offset)
     {
-        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, indexType);
+        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, VkIndexType(indexType));
     }
 
     void CommandList::PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data)

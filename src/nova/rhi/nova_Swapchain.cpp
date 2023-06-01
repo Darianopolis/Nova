@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Swapchain* Context::CreateSwapchain(VkSurfaceKHR surface, TextureUsage _usage, PresentMode _presentMode)
+    Swapchain* Context::CreateSwapchain(Surface* surface, TextureUsage _usage, PresentMode _presentMode)
     {
         auto swapchain = new Swapchain;
         NOVA_ON_SCOPE_FAILURE(&) { DestroySwapchain(swapchain); };
@@ -12,7 +12,7 @@ namespace nova
         auto presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface->surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
@@ -165,7 +165,7 @@ namespace nova
             do
             {
                 VkSurfaceCapabilitiesKHR caps;
-                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface, &caps));
+                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface->surface, &caps));
 
                 bool recreate = swapchain->invalid
                     || !swapchain->swapchain
@@ -183,7 +183,7 @@ namespace nova
                     swapchain->extent = caps.currentExtent;
                     VkCall(vkCreateSwapchainKHR(context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                        .surface = swapchain->surface,
+                        .surface = swapchain->surface->surface,
                         .minImageCount = caps.minImageCount,
                         .imageFormat = swapchain->format.format,
                         .imageColorSpace = swapchain->format.colorSpace,
@@ -308,20 +308,21 @@ namespace nova
         return anyResized;
     }
 
-    VkSurfaceKHR Context::CreateSurface(HWND hwnd)
+    Surface* Context::CreateSurface(void* handle)
     {
-        VkSurfaceKHR surface;
+        auto* surface = new Surface;
+
         VkCall(vkCreateWin32SurfaceKHR(instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
-            .hwnd = hwnd,
-        }), pAlloc, &surface));
+            .hwnd = HWND(handle),
+        }), pAlloc, &surface->surface));
 
         return surface;
     }
 
-    void Context::DestroySurface(VkSurfaceKHR surface)
+    void Context::DestroySurface(Surface* surface)
     {
-        vkDestroySurfaceKHR(instance, surface, pAlloc);
+        vkDestroySurfaceKHR(instance, surface->surface, pAlloc);
     }
 }
