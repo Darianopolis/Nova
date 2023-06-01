@@ -2,30 +2,30 @@
 
 namespace nova
 {
-    Texture* Context::CreateTexture(Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
+    // Texture* Context::CreateTexture(Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
+
+    Texture::Texture(Context* _context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
     {
-        auto texture = new Texture;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyTexture(texture); };
-        texture->context = this;
+        context = _context;
 
         auto usage = VkImageUsageFlags(_usage);
-        auto format = VkFormat(_format);
+        format = VkFormat(_format);
         bool makeView = (usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        texture->mips = flags >= TextureFlags::Mips
+        mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
             : 1;
 
         VkImageType imageType;
         VkImageViewType viewType;
-        texture->layers = 1;
+        layers = 1;
 
         if (flags >= TextureFlags::Array)
         {
             if (size.z > 0)
             {
-                texture->layers = size.z;
+                layers = size.z;
                 size.z = 1;
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -33,7 +33,7 @@ namespace nova
             else
             if (size.y > 0)
             {
-                texture->layers = size.y;
+                layers = size.y;
                 size.y = 1;
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
@@ -68,31 +68,31 @@ namespace nova
             }
         }
 
-        texture->extent = glm::max(size, Vec3U(1));
+        extent = glm::max(size, Vec3U(1));
 
         // ---- Create image -----
 
-        VkCall(vmaCreateImage(vma,
+        VkCall(vmaCreateImage(context->vma,
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
                 .format = format,
-                .extent = { texture->extent.x, texture->extent.y, texture->extent.z },
-                .mipLevels = texture->mips,
-                .arrayLayers = texture->layers,
+                .extent = { extent.x, extent.y, extent.z },
+                .mipLevels = mips,
+                .arrayLayers = layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
                 .usage = usage,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
-                    graphics->family,
+                    context->graphics->family,
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
             Temp(VmaAllocationCreateInfo { }),
-            &texture->image,
-            &texture->allocation,
+            &image,
+            &allocation,
             nullptr));
 
         // ---- Pick aspects -----
@@ -100,50 +100,58 @@ namespace nova
         switch (format)
         {
         break;case VK_FORMAT_S8_UINT:
-            texture->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+            aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;case VK_FORMAT_D16_UNORM:
             case VK_FORMAT_X8_D24_UNORM_PACK32:
             case VK_FORMAT_D32_SFLOAT:
-            texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+            aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         break;case VK_FORMAT_D16_UNORM_S8_UINT:
               case VK_FORMAT_D24_UNORM_S8_UINT:
               case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            texture->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;default:
-            texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+            aspect = VK_IMAGE_ASPECT_COLOR_BIT;
         }
 
         // ---- Make view -----
 
         if (makeView)
         {
-            VkCall(vkCreateImageView(device, Temp(VkImageViewCreateInfo {
+            VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                .image = texture->image,
+                .image = image,
                 .viewType = viewType,
                 .format = format,
-                .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
-            }), pAlloc, &texture->view));
+                .subresourceRange = { aspect, 0, mips, 0, layers },
+            }), context->pAlloc, &view));
         }
-
-        return texture;
     }
 
-    void Context::DestroyTexture(Texture* texture)
+    Texture::~Texture()
     {
-        if (!texture)
-            return;
+        if (view)
+            vkDestroyImageView(context->device, view, context->pAlloc);
 
-        if (texture->view)
-            vkDestroyImageView(device, texture->view, pAlloc);
+        if (allocation)
+            vmaDestroyImage(context->vma, image, allocation);
+    }
 
-        if (texture->allocation)
-            vmaDestroyImage(vma, texture->image, texture->allocation);
-
-        delete texture;
+    Texture::Texture(Texture&& other) noexcept
+        : context(other.context)
+        , image(other.image)
+        , allocation(other.allocation)
+        , view(other.view)
+        , format(other.format)
+        , aspect(other.aspect)
+        , extent(other.extent)
+        , mips(other.mips)
+        , layers(other.layers)
+    {
+        other.view = nullptr;
+        other.allocation = nullptr;
     }
 
 // -----------------------------------------------------------------------------

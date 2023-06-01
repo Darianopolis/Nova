@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        Texture* texture;
+        Texture texture;
         ImTextureID index;
         f32 width;
         f32 height;

@@ -14,13 +14,34 @@ namespace nova
         Resize(_size);
     }
 
+    static
+    void ResetBuffer(Buffer& buffer)
+    {
+        if (buffer.mapped && buffer.flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(buffer.context->vma, buffer.allocation);
+
+        vmaDestroyBuffer(buffer.context->vma, buffer.buffer, buffer.allocation);
+    }
+
     Buffer::~Buffer()
     {
-        if (mapped && flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(context->vma, allocation);
-
-        vmaDestroyBuffer(context->vma, buffer, allocation);
+        ResetBuffer(*this);
     }
+
+    Buffer::Buffer(Buffer&& other) noexcept
+        : context(other.context)
+        , allocation(other.allocation)
+        , size(other.size)
+        , address(other.address)
+        , mapped(other.mapped)
+        , flags(other.flags)
+        , usage(other.usage)
+    {
+        other.allocation = nullptr;
+        other.buffer = nullptr;
+    }
+
+// -----------------------------------------------------------------------------
 
     void Buffer::Resize(u64 _size)
     {
@@ -29,10 +50,7 @@ namespace nova
 
         size = _size;
 
-        if (mapped && flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(context->vma, allocation);
-
-        vmaDestroyBuffer(context->vma, buffer, allocation);
+        ResetBuffer(*this);
 
         VkCall(vmaCreateBuffer(
             context->vma,

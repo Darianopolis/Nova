@@ -212,6 +212,8 @@ namespace nova
         vkDestroyInstance(context->instance, context->pAlloc);
 
         delete context;
+
+        NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
     }
 
     VkBool32 VKAPI_CALL Context::DebugCallback(

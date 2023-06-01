@@ -235,7 +235,7 @@ void main()
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = context->CreateTexture(
+            glyph.texture = Texture(context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8U);
@@ -244,12 +244,12 @@ void main()
             std::memcpy(staging.mapped, pixels.data(), dataSize);
 
             auto cmd = cmdPool->BeginPrimary(tracker);
-            cmd->CopyToTexture(glyph.texture, &staging);
-            cmd->GenerateMips(glyph.texture);
+            cmd->CopyToTexture(&glyph.texture, &staging);
+            cmd->GenerateMips(&glyph.texture);
             queue->Submit({cmd}, {}, {fence});
             fence->Wait();
 
-            glyph.index = RegisterTexture(glyph.texture, defaultSampler);
+            glyph.index = RegisterTexture(&glyph.texture, defaultSampler);
         }
 
         FT_Done_Face(face);
@@ -262,11 +262,8 @@ void main()
     {
         for (auto& glyph : font->glyphs)
         {
-            if (glyph.texture)
-            {
+            if (glyph.texture.image)
                 UnregisterTexture(glyph.index);
-                context->DestroyTexture(glyph.texture);
-            }
         }
 
         delete font;

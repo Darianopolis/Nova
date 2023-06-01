@@ -167,7 +167,7 @@ namespace nova
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain->textures[i]->view,
+                    .pAttachments = &swapchain->textures[i].view,
                     .width = swapchain->extent.width,
                     .height = swapchain->extent.height,
                     .layers = 1,

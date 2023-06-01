@@ -311,6 +311,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+#define NOVA_DEFAULT_MOVE_DECL(type)                   \
+    type(type&& other) noexcept;                       \
+    type& operator=(type&& other)                      \
+    {                                                  \
+        if (this != &other)                            \
+        {                                              \
+            std::destroy_at(this);                     \
+            std::construct_at(this, std::move(other)); \
+        }                                              \
+        return *this;                                  \
+    }
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_NO_INLINE __declspec(noinline)
 #define NOVA_FORCE_INLINE __forceinline
 

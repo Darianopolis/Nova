@@ -291,6 +291,8 @@ namespace nova
         Buffer(Context* context, u64 size, BufferUsage usage, BufferFlags flags = {});
         ~Buffer();
 
+        NOVA_DEFAULT_MOVE_DECL(Buffer)
+
         void Resize(u64 size);
 
         template<class T>
@@ -326,6 +328,14 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
+
+    public:
+        Texture() = default;
+        Texture(Context* context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+
+        NOVA_DEFAULT_MOVE_DECL(Texture)
+
+        ~Texture();
     };
 
 // -----------------------------------------------------------------------------
@@ -360,7 +370,7 @@ namespace nova
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Texture*> textures = {};
+        std::vector<Texture>  textures = {};
         uint32_t                 index = UINT32_MAX;
         Texture*               current = nullptr;
         VkExtent2D              extent = { 0, 0 };
@@ -743,9 +753,6 @@ namespace nova
     public:
         static Context* Create(const ContextConfig& config);
         static void Destroy(Context* context);
-
-        Texture* CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
-        void DestroyTexture(Texture* texture);
 
         Sampler* CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
         void DestroySampler(Sampler* sampler);

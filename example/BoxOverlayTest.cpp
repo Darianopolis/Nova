@@ -44,14 +44,14 @@ void TryMain()
 
 // -----------------------------------------------------------------------------
 
-    nova::Texture* texture;
+    nova::Texture texture;
     nova::ImTextureID texID;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = context->CreateTexture(
+        texture = nova::Texture(context,
             Vec3(f32(w), f32(h), 0.f),
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
@@ -61,13 +61,13 @@ void TryMain()
         std::memcpy(staging.mapped, data, size);
 
         auto cmd = commandPool->BeginPrimary(tracker);
-        cmd->CopyToTexture(texture, &staging);
-        cmd->GenerateMips(texture);
+        cmd->CopyToTexture(&texture, &staging);
+        cmd->GenerateMips(&texture);
 
         queue->Submit({cmd}, {}, {fence});
         fence->Wait();
 
-        texID = imDraw->RegisterTexture(texture, imDraw->defaultSampler);
+        texID = imDraw->RegisterTexture(&texture, imDraw->defaultSampler);
     }
 
 // -----------------------------------------------------------------------------
