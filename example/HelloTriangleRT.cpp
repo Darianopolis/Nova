@@ -28,24 +28,22 @@ int main()
 
     // Create Nova context with ray tracing enabled
 
-    auto _context = nova::Context({
+    auto context = nova::Context({
         .debug = true,
         .rayTracing = true,
     });
-    auto* context = &_context;
 
     // Create surface and swapchain for GLFW window
 
     auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, &surface,
-        nova::TextureUsage::Storage
-        | nova::TextureUsage::TransferDst,
+    auto swapchain = nova::Swapchain(context, surface,
+        nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     // Create required Nova objects
 
-    auto& queue = context->graphics;
-    auto cmdPool = nova::CommandPool(context, &queue);
+    auto& queue = context.graphics;
+    auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
     auto tracker = nova::ResourceTracker(context);
 
@@ -64,9 +62,9 @@ int main()
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {&descLayout}, nova::BindPoint::RayTracing);
+    auto pipelineLayout = nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::RayTracing);
 
-    // Create the ray gen shader to draw an shaded triangle based on barycentric interpolation
+    // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = nova::Shader(context,
         nova::ShaderStage::RayGen, {},
@@ -103,12 +101,12 @@ void main()
     }
 }
         )",
-        &pipelineLayout);
+        pipelineLayout);
 
     // Create a ray tracing pipeline with one ray gen shader
 
     auto pipeline = nova::RayTracingPipeline(context);
-    pipeline.Update(&pipelineLayout, {&rayGenShader}, {}, {}, {});
+    pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS
@@ -133,21 +131,34 @@ void main()
     builder.SetTriangles(0,
         vertices.address, nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
         indices.address, nova::IndexType::U32, 1);
-    builder.Prepare(nova::AccelerationStructureType::BottomLevel, {}, 1);
+    builder.Prepare(nova::AccelerationStructureType::BottomLevel,
+        nova::AccelerationStructureFlags::PreferFastTrace
+        | nova::AccelerationStructureFlags::AllowCompaction, 1);
 
     // Create BLAS and scratch buffer
 
-    auto blas = nova::AccelerationStructure(context, builder.GetBuildSize(),
+    auto uncompactedBlas = nova::AccelerationStructure(context, builder.GetBuildSize(),
         nova::AccelerationStructureType::BottomLevel);
     auto scratch = nova::Buffer(context, builder.GetBuildScratchSize(),
         nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
 
     // Build BLAS
 
-    auto cmd = cmdPool.BeginPrimary(&tracker);
-    cmd->BuildAccelerationStructure(&builder, &blas, &scratch);
-    queue.Submit({cmd}, {}, {&fence});
+    auto cmd = cmdPool.Begin(tracker);
+    cmd->BuildAccelerationStructure(builder, uncompactedBlas, scratch);
+    queue.Submit({cmd}, {}, {fence});
     fence.Wait();
+
+    // Compact BLAS
+
+    auto blas = nova::AccelerationStructure(context, builder.GetCompactSize(),
+        nova::AccelerationStructureType::BottomLevel);
+
+    cmd = cmdPool.Begin(tracker);
+    cmd->CompactAccelerationStructure(blas, uncompactedBlas);
+    queue.Submit({cmd}, {}, {fence});
+    fence.Wait();
+    uncompactedBlas = {};
 
 // -----------------------------------------------------------------------------
 //                                Scene TLAS
@@ -162,7 +173,8 @@ void main()
     // Configure TLAS build
 
     builder.SetInstances(0, instances.address, 1);
-    builder.Prepare(nova::AccelerationStructureType::TopLevel, {}, 1);
+    builder.Prepare(nova::AccelerationStructureType::TopLevel,
+        nova::AccelerationStructureFlags::PreferFastTrace, 1);
 
     // Create TLAS and resize scratch buffer
 
@@ -180,41 +192,41 @@ void main()
         // Wait for previous frame and acquire new swapchain image
 
         fence.Wait();
-        queue.Acquire({&swapchain}, {&fence});
+        queue.Acquire({swapchain}, {fence});
 
         // Start new command buffer
 
         cmdPool.Reset();
-        cmd = cmdPool.BeginPrimary(&tracker);
+        cmd = cmdPool.Begin(tracker);
 
         // Build scene TLAS
 
-        builder.WriteInstance(instances.mapped, 0, &blas,
-            glm::scale(Mat4(1), Vec3(Vec2(swapchain.current->extent), 1.f)),
+        builder.WriteInstance(instances.mapped, 0, blas,
+            glm::scale(Mat4(1), Vec3(Vec2(swapchain.GetCurrent().extent), 1.f)),
             0, 0xFF, 0, {});
-        cmd->BuildAccelerationStructure(&builder, &tlas, &scratch);
+        cmd->BuildAccelerationStructure(builder, tlas, scratch);
 
         // Transition ready for writing ray trace output
 
-        cmd->Transition(swapchain.current,
+        cmd->Transition(swapchain.GetCurrent(),
             nova::ResourceState::GeneralImage,
             nova::BindPoint::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 
-        cmd->PushStorageTexture(&pipelineLayout, 0, 0, swapchain.current);
-        cmd->PushAccelerationStructure(&pipelineLayout, 0, 1, &tlas);
+        cmd->PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
+        cmd->PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
 
         // Trace rays
 
-        cmd->BindPipeline(&pipeline);
-        cmd->TraceRays(&pipeline, Vec3U(Vec2U(swapchain.current->extent), 1), 0);
+        cmd->BindPipeline(pipeline);
+        cmd->TraceRays(pipeline, Vec3U(Vec2U(swapchain.GetCurrent().extent), 1), 0);
 
         // Submit and present work
 
-        cmd->Present(swapchain.current);
-        queue.Submit({cmd}, {&fence}, {&fence});
-        queue.Present({&swapchain}, {&fence});
+        cmd->Present(swapchain.GetCurrent());
+        queue.Submit({cmd}, {fence}, {fence});
+        queue.Present({swapchain}, {fence});
 
         // Wait for window events
 

@@ -2,10 +2,10 @@
 
 namespace nova
 {
-    Buffer::Buffer(Context* _context, u64 _size, BufferUsage _usage, BufferFlags _flags)
+    Buffer::Buffer(Context& _context, u64 _size, BufferUsage _usage, BufferFlags _flags)
+        : context(&_context)
+        , flags(_flags)
     {
-        context = _context;
-        flags = _flags;
         usage = VkBufferUsageFlags(_usage) | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (flags >= BufferFlags::Addressable)
             usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
@@ -91,17 +91,17 @@ namespace nova
         }
     }
 
-    void CommandList::UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset)
+    void CommandList::UpdateBuffer(Buffer& dst, const void* pData, usz size, u64 dstOffset)
     {
-        vkCmdUpdateBuffer(buffer, dst->buffer, dstOffset, size, pData);
+        vkCmdUpdateBuffer(buffer, dst.buffer, dstOffset, size, pData);
     }
 
-    void CommandList::CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset, u64 srcOffset)
+    void CommandList::CopyToBuffer(Buffer& dst, Buffer& src, u64 size, u64 dstOffset, u64 srcOffset)
     {
         vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
-            .srcBuffer = src->buffer,
-            .dstBuffer = dst->buffer,
+            .srcBuffer = src.buffer,
+            .dstBuffer = dst.buffer,
             .regionCount = 1,
             .pRegions = Temp(VkBufferCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,

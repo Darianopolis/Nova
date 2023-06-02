@@ -16,12 +16,12 @@ namespace nova
         VkSwapchainKHR lastSwapchain = {};
     public:
         ImGuiWrapper() = default;
-        ImGuiWrapper(Context* context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags);
+        ImGuiWrapper(Context& context, Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window, int imguiFlags);
         ~ImGuiWrapper();
 
         NOVA_DEFAULT_MOVE_DECL(ImGuiWrapper)
 
         void BeginFrame();
-        void EndFrame(CommandList* cmd, Swapchain* swapchain);
+        void EndFrame(Ref<CommandList> cmd, Swapchain& swapchain);
     };
 }

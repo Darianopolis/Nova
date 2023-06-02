@@ -8,12 +8,11 @@ int main()
 {
     NOVA_LOGEXPR(mi_version());
 
-    auto _context = nova::Context({
+    auto context = nova::Context({
         .debug = false,
     });
-    auto context = &_context;
 
-    auto presentMode = nova::PresentMode::Fifo;
+    auto presentMode = nova::PresentMode::Immediate;
     auto swapchainUsage = nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach
         | nova::TextureUsage::Storage;
@@ -21,25 +20,25 @@ int main()
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    auto window = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
-    auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, &surface, swapchainUsage, presentMode);
+    auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
+    auto surface1 = nova::Surface(context, glfwGetWin32Window(window1));
+    auto swapchain = nova::Swapchain(context, surface1, swapchainUsage, presentMode);
 
     auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
     auto surface2 = nova::Surface(context, glfwGetWin32Window(window2));
-    auto swapchain2 = nova::Swapchain(context, &surface2, swapchainUsage, presentMode);
+    auto swapchain2 = nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
-    auto& queue = context->graphics;
+    auto& queue = context.graphics;
     auto tracker = nova::ResourceTracker(context);
 
     nova::Fence fences[] { {context}, {context} };
-    nova::CommandPool commandPools[] { {context, &queue}, {context, &queue} };
+    nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
     nova::ImGuiWrapper imgui;
     {
-        auto cmd = commandPools[0].BeginPrimary(&tracker);
-        imgui = nova::ImGuiWrapper(context, cmd, &swapchain, window, ImGuiConfigFlags_ViewportsEnable);
-        queue.Submit({cmd}, {}, {&fences[0]});
+        auto cmd = commandPools[0].Begin(tracker);
+        imgui = nova::ImGuiWrapper(context, cmd, swapchain, window1, ImGuiConfigFlags_ViewportsEnable);
+        queue.Submit({cmd}, {}, {fences[0]});
         fences[0].Wait();
     }
 
@@ -74,39 +73,39 @@ int main()
         fence.Wait();
 
         // Acquire new images from swapchains
-        queue.Acquire({&swapchain, &swapchain2}, {&fence});
+        queue.Acquire({swapchain, swapchain2}, {fence});
 
         // Clear resource state tracking
         tracker.Clear(3);
 
         // Reset command pool and begin new command list
         commandPool.Reset();
-        auto cmd = commandPool.BeginPrimary(&tracker);
+        auto cmd = commandPool.Begin(tracker);
 
         // Clear screen
-        cmd->Clear(swapchain.current, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.EndFrame(cmd, &swapchain);
+        imgui.EndFrame(cmd, swapchain);
 
         // Present #1
-        cmd->Present(swapchain.current);
+        cmd->Present(swapchain.GetCurrent());
 
         // Clear and present #2
-        cmd->Clear(swapchain2.current, Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Present(swapchain2.current);
+        cmd->Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd->Present(swapchain2.GetCurrent());
 
         // Submit work
-        queue.Submit({cmd}, {&fence}, {&fence});
+        queue.Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue.Present({&swapchain, &swapchain2}, {&fence}, false);
+        queue.Present({swapchain, swapchain2}, {fence}, false);
     };
 
-    glfwSetWindowUserPointer(window, &update);
-    glfwSetWindowSizeCallback(window, [](auto w, int,int) {
+    glfwSetWindowUserPointer(window1, &update);
+    glfwSetWindowSizeCallback(window1, [](auto w, int,int) {
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
@@ -115,7 +114,7 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
-    while (!glfwWindowShouldClose(window) && !glfwWindowShouldClose(window2))
+    while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
     {
         update();
         glfwPollEvents();
@@ -124,7 +123,7 @@ int main()
     fences[0].Wait();
     fences[1].Wait();
 
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(window1);
     glfwDestroyWindow(window2);
     glfwTerminate();
 

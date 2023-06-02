@@ -2,8 +2,8 @@
 
 namespace nova
 {
-    Fence::Fence(Context* _context)
-        : context(_context)
+    Fence::Fence(Context& _context)
+        : context(&_context)
     {
         VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,

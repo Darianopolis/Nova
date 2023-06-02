@@ -132,16 +132,16 @@ namespace nova
 
     public:
         ImDraw2D() = default;
-        ImDraw2D(Context* context);
+        ImDraw2D(Context& context);
         ~ImDraw2D();
 
         ImDraw2D(ImDraw2D&&) = default;
         ImDraw2D& operator=(ImDraw2D&&) = default;
 
-        ImTextureID RegisterTexture(Texture* texture, Sampler* sampler);
+        ImTextureID RegisterTexture(Texture& texture, Sampler& sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
-        ImFont* LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue);
+        ImFont* LoadFont(const char* file, f32 size, CommandPool& cmdPool, ResourceTracker& tracker, Fence& fence, Queue& queue);
         void DestroyFont(ImFont* font);
 
         void Reset();
@@ -150,6 +150,6 @@ namespace nova
 
         ImBounds2D MeasureString(std::string_view str, ImFont* font);
 
-        void Record(CommandList* commandList);
+        void Record(Ref<CommandList> commandList);
     };
 }

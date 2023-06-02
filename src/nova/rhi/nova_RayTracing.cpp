@@ -4,8 +4,8 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder::AccelerationStructureBuilder(Context* _context)
-        : context(_context)
+    AccelerationStructureBuilder::AccelerationStructureBuilder(Context& _context)
+        : context(&_context)
     {
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
@@ -102,7 +102,7 @@ namespace nova
 
     void AccelerationStructureBuilder::WriteInstance(
         void* bufferAddress, u32 index,
-        AccelerationStructure* instanceStructure,
+        AccelerationStructure& instanceStructure,
         const Mat4& M,
         u32 customIndex, u8 mask,
         u32 sbtOffset, GeometryInstanceFlags geomFlags)
@@ -132,7 +132,7 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbtOffset,
             .flags = vkFlags,
-            .accelerationStructureReference = instanceStructure->address,
+            .accelerationStructureReference = instanceStructure.address,
         };
     }
 
@@ -201,24 +201,24 @@ namespace nova
         return size;
     }
 
-    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder* builder, AccelerationStructure* structure, Buffer* scratch)
+    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder& builder, AccelerationStructure& structure, Buffer& scratch)
     {
-        bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+        bool compact = builder.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
         if (compact)
-            vkCmdResetQueryPool(buffer, builder->queryPool, 0, 1);
+            vkCmdResetQueryPool(buffer, builder.queryPool, 0, 1);
 
         vkCmdBuildAccelerationStructuresKHR(
             buffer,
             1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                .type = builder->type,
-                .flags = builder->flags,
-                .dstAccelerationStructure = structure->structure,
-                .geometryCount = builder->geometryCount,
-                .pGeometries = builder->geometries.data() + builder->firstGeometry,
-                .scratchData = {{ AlignUpPower2(scratch->address,
+                .type = builder.type,
+                .flags = builder.flags,
+                .dstAccelerationStructure = structure.structure,
+                .geometryCount = builder.geometryCount,
+                .pGeometries = builder.geometries.data() + builder.firstGeometry,
+                .scratchData = {{ AlignUpPower2(scratch.address,
                     pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
-            }), Temp(builder->ranges.data()));
+            }), Temp(builder.ranges.data()));
 
         if (compact)
         {
@@ -233,28 +233,28 @@ namespace nova
             }));
 
             vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
-                1, &structure->structure,
+                1, &structure.structure,
                 VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
-                builder->queryPool, 0);
+                builder.queryPool, 0);
         }
     }
 
-    void CommandList::CompactAccelerationStructure(AccelerationStructure* dst, AccelerationStructure* src)
+    void CommandList::CompactAccelerationStructure(AccelerationStructure& dst, AccelerationStructure& src)
     {
         vkCmdCopyAccelerationStructureKHR(buffer, Temp(VkCopyAccelerationStructureInfoKHR {
             .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
-            .src = src->structure,
-            .dst = dst->structure,
+            .src = src.structure,
+            .dst = dst.structure,
             .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR,
         }));
     }
 
 // -----------------------------------------------------------------------------
 
-    AccelerationStructure::AccelerationStructure(Context* _context, usz size, AccelerationStructureType type)
-        : context(_context)
+    AccelerationStructure::AccelerationStructure(Context& _context, usz size, AccelerationStructureType type)
+        : context(&_context)
     {
-        buffer = Buffer(context, size,
+        buffer = Buffer(*context, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
@@ -291,8 +291,8 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    RayTracingPipeline::RayTracingPipeline(Context* _context)
-        : context(_context)
+    RayTracingPipeline::RayTracingPipeline(Context& _context)
+        : context(&_context)
     {}
 
     RayTracingPipeline::~RayTracingPipeline()
@@ -316,11 +316,11 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     void RayTracingPipeline::Update(
-            PipelineLayout* layout,
-            Span<Shader*> rayGenShaders,
-            Span<Shader*> rayMissShaders,
+            PipelineLayout& layout,
+            Span<Ref<Shader>> rayGenShaders,
+            Span<Ref<Shader>> rayMissShaders,
             Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader*> callableShaders)
+            Span<Ref<Shader>> callableShaders)
     {
         // Convert to stages and groups
 
@@ -329,7 +329,7 @@ namespace nova
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        auto getShaderIndex = [&](Shader* shader) {
+        auto getShaderIndex = [&](const Shader* shader) {
             if (!shader || !shader->IsValid())
                 return VK_SHADER_UNUSED_KHR;
 
@@ -353,13 +353,13 @@ namespace nova
         for (auto& shader : rayGenShaders)
         {
             rayGenIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader);
+            createGroup().generalShader = getShaderIndex(shader.GetAddress());
         }
 
         for (auto& shader : rayMissShaders)
         {
             rayMissIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader);
+            createGroup().generalShader = getShaderIndex(shader.GetAddress());
         }
 
         for (auto& group : rayHitShaderGroup)
@@ -377,14 +377,7 @@ namespace nova
         for (auto& shader : callableShaders)
         {
             rayCallIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader);
-        }
-
-        // Debug
-
-        for (auto& stage : stages)
-        {
-            NOVA_LOG(" - module = {}, stage = {}, name = {}", (void*)stage.module, i32(stage.stage), stage.pName);
+            createGroup().generalShader = getShaderIndex(shader.GetAddress());
         }
 
         // Create pipeline
@@ -400,7 +393,7 @@ namespace nova
             .groupCount = u32(groups.size()),
             .pGroups = groups.data(),
             .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
-            .layout = layout->layout,
+            .layout = layout.layout,
         }), context->pAlloc, &pipeline));
 
         // Compute table parameters
@@ -417,7 +410,7 @@ namespace nova
 
         if (!sbtBuffer.buffer || tableSize > sbtBuffer.size)
         {
-            sbtBuffer = Buffer(context,
+            sbtBuffer = Buffer(*context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
                 BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
@@ -464,21 +457,21 @@ namespace nova
             std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
-    void CommandList::BindPipeline(RayTracingPipeline* pipeline)
+    void CommandList::BindPipeline(RayTracingPipeline& pipeline)
     {
-        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
+        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.pipeline);
     }
 
-    void CommandList::TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex)
+    void CommandList::TraceRays(RayTracingPipeline& pipeline, Vec3U extent, u32 genIndex)
     {
-        pipeline->rayGenRegion.deviceAddress = pipeline->sbtBuffer.address
-            + (pipeline->rayGenRegion.stride * genIndex);
+        pipeline.rayGenRegion.deviceAddress = pipeline.sbtBuffer.address
+            + (pipeline.rayGenRegion.stride * genIndex);
 
         vkCmdTraceRaysKHR(buffer,
-            &pipeline->rayGenRegion,
-            &pipeline->rayMissRegion,
-            &pipeline->rayHitRegion,
-            &pipeline->rayCallRegion,
+            &pipeline.rayGenRegion,
+            &pipeline.rayMissRegion,
+            &pipeline.rayHitRegion,
+            &pipeline.rayCallRegion,
             extent.x, extent.y, extent.z);
     }
 }

@@ -110,17 +110,27 @@ namespace nova
                 : ptr(&value)
             {}
 
-            T* GetAddress()
+            T* GetAddress() noexcept
             {
                 return ptr;
             }
 
-            T& operator*()
+            const T* GetAddress() const noexcept
+            {
+                return ptr;
+            }
+
+            T& operator*() noexcept
             {
                 return *ptr;
             }
 
-            T* operator->()
+            const T& operator*() const noexcept
+            {
+                return *ptr;
+            }
+
+            T* operator->() const noexcept
             {
                 return ptr;
             }

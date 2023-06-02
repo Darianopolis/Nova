@@ -273,6 +273,12 @@ namespace nova
         Patches = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
     };
 
+    enum class CommandListType
+    {
+        Primary,
+        Secondary,
+    };
+
 // -----------------------------------------------------------------------------
 
     struct Buffer
@@ -289,7 +295,7 @@ namespace nova
 
     public:
         Buffer() = default;
-        Buffer(Context* context, u64 size, BufferUsage usage, BufferFlags flags = {});
+        Buffer(Context& context, u64 size, BufferUsage usage, BufferFlags flags = {});
         ~Buffer();
 
         NOVA_DEFAULT_MOVE_DECL(Buffer)
@@ -319,7 +325,7 @@ namespace nova
 
     public:
         Sampler() = default;
-        Sampler(Context* context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
+        Sampler(Context& context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
         ~Sampler();
 
         NOVA_DEFAULT_MOVE_DECL(Sampler)
@@ -342,7 +348,7 @@ namespace nova
 
     public:
         Texture() = default;
-        Texture(Context* context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+        Texture(Context& context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
         ~Texture();
 
         NOVA_DEFAULT_MOVE_DECL(Texture)
@@ -362,16 +368,16 @@ namespace nova
 
     public:
         Shader() = default;
-        Shader(Context* context, ShaderStage stage, ShaderStage nextStage,
+        Shader(Context& context, ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode,
-            PipelineLayout* layout);
+            PipelineLayout& layout);
         ~Shader();
 
         NOVA_DEFAULT_MOVE_DECL(Shader)
 
-        bool IsValid();
+        bool IsValid() const;
 
-        VkPipelineShaderStageCreateInfo GetStageInfo();
+        VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -384,7 +390,7 @@ namespace nova
 
     public:
         Surface() = default;
-        Surface(Context* context, void* handle);
+        Surface(Context& context, void* handle);
         ~Surface();
 
         NOVA_DEFAULT_MOVE_DECL(Surface)
@@ -394,7 +400,7 @@ namespace nova
     {
         Context* context = {};
 
-        Surface*               surface = nullptr;
+        VkSurfaceKHR           surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
@@ -410,8 +416,13 @@ namespace nova
 
     public:
         Swapchain() = default;
-        Swapchain(Context* context, Surface* surface, TextureUsage usage, PresentMode presentMode);
+        Swapchain(Context& context, Surface& surface, TextureUsage usage, PresentMode presentMode);
         ~Swapchain();
+
+        Texture& GetCurrent() const
+        {
+            return *current;
+        }
 
         NOVA_DEFAULT_MOVE_DECL(Swapchain)
     };
@@ -432,14 +443,14 @@ namespace nova
         Queue(Queue&&) = default;
         Queue& operator=(Queue&&) = default;
 
-        void Submit(Span<CommandList*> commandLists, Span<Fence*> waits, Span<Fence*> signals);
-        bool Acquire(Span<Swapchain*> swapchains, Span<Fence*> signals);
+        void Submit(Span<Ref<CommandList>> commandLists, Span<Ref<Fence>> waits, Span<Ref<Fence>> signals);
+        bool Acquire(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> signals);
 
         // Present a set of swapchains, waiting on a number of fences.
         // If any wait dependency includes a wait-before-signal operation
         // (including indirectly) then hostWait must be set to true, as WSI
         // operations are incompatible with wait-before-signal.
-        void Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait = false);
+        void Present(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> waits, bool hostWait = false);
     };
 
 // -----------------------------------------------------------------------------
@@ -467,7 +478,7 @@ namespace nova
 
     public:
         AccelerationStructureBuilder() = default;
-        AccelerationStructureBuilder(Context* context);
+        AccelerationStructureBuilder(Context& context);
         ~AccelerationStructureBuilder();
 
         NOVA_DEFAULT_MOVE_DECL(AccelerationStructureBuilder)
@@ -486,7 +497,7 @@ namespace nova
         u64 GetInstanceSize();
         void WriteInstance(
             void* bufferAddress, u32 index,
-            AccelerationStructure* structure,
+            AccelerationStructure& structure,
             const Mat4& matrix,
             u32 customIndex, u8 mask,
             u32 sbtOffset, GeometryInstanceFlags flags);
@@ -509,7 +520,7 @@ namespace nova
 
     public:
         AccelerationStructure() = default;
-        AccelerationStructure(Context* context, usz size, AccelerationStructureType type);
+        AccelerationStructure(Context& context, usz size, AccelerationStructureType type);
         ~AccelerationStructure();
 
         NOVA_DEFAULT_MOVE_DECL(AccelerationStructure)
@@ -519,9 +530,10 @@ namespace nova
 
     struct HitShaderGroup
     {
-        Shader* closestHitShader;
-        Shader* anyHitShader;
-        Shader* intersectionShader;
+        // TODO: Make OptRef
+        Shader* closestHitShader = {};
+        Shader* anyHitShader = {};
+        Shader* intersectionShader = {};
     };
 
     struct RayTracingPipeline
@@ -538,17 +550,17 @@ namespace nova
 
     public:
         RayTracingPipeline() = default;
-        RayTracingPipeline(Context* context);
+        RayTracingPipeline(Context& context);
         ~RayTracingPipeline();
 
         NOVA_DEFAULT_MOVE_DECL(RayTracingPipeline)
 
         void Update(
-            PipelineLayout* layout,
-            Span<Shader*> rayGenShaders,
-            Span<Shader*> rayMissShaders,
+            PipelineLayout& layout,
+            Span<Ref<Shader>> rayGenShaders,
+            Span<Ref<Shader>> rayMissShaders,
             Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader*> callableShaders);
+            Span<Ref<Shader>> callableShaders);
     };
 
 // -----------------------------------------------------------------------------
@@ -562,7 +574,7 @@ namespace nova
 
     public:
         Fence() = default;
-        Fence(Context* context);
+        Fence(Context& context);
         ~Fence();
 
         NOVA_DEFAULT_MOVE_DECL(Fence)
@@ -590,12 +602,12 @@ namespace nova
 
     public:
         DescriptorLayout() = default;
-        DescriptorLayout(Context* context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
+        DescriptorLayout(Context& context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
         ~DescriptorLayout();
 
         NOVA_DEFAULT_MOVE_DECL(DescriptorLayout)
 
-        void WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
+        void WriteSampledTexture(void* dst, u32 binding, Texture& texture, Sampler& sampler, u32 arrayIndex = 0);
     };
 
     struct PushConstantRange
@@ -619,9 +631,9 @@ namespace nova
 
     public:
         PipelineLayout() = default;
-        PipelineLayout(Context* context,
+        PipelineLayout(Context& context,
             Span<PushConstantRange> pushConstantRanges,
-            Span<DescriptorLayout*> descriptorLayouts,
+            Span<Ref<DescriptorLayout>> descriptorLayouts,
             BindPoint bindPoint);
         ~PipelineLayout();
 
@@ -650,7 +662,7 @@ namespace nova
 
     public:
         ResourceTracker() = default;
-        ResourceTracker(Context* context);
+        ResourceTracker(Context& context);
         ~ResourceTracker();
 
         ResourceTracker(ResourceTracker&&) = default;
@@ -658,11 +670,11 @@ namespace nova
 
         void Clear(u32 maxAge);
 
-        void Reset(Texture* texture);
-        void Persist(Texture* texture);
-        void Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
+        void Reset(Texture& texture);
+        void Persist(Texture& texture);
+        void Set(Texture& texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
 
-        ImageState& Get(Texture* texture);
+        ImageState& Get(Texture& texture);
     };
 
 // -----------------------------------------------------------------------------
@@ -688,15 +700,15 @@ namespace nova
 
     public:
         CommandPool() = default;
-        CommandPool(Context* context, Queue* queue);
+        CommandPool(Context& context, Queue& queue);
         ~CommandPool();
 
         NOVA_DEFAULT_MOVE_DECL(CommandPool)
 
-        CommandList* BeginPrimary(ResourceTracker* tracker);
+        Ref<CommandList> Begin(ResourceTracker& tracker);
 
-        CommandList* BeginSecondary(ResourceTracker* tracker, const RenderingDescription* renderingDescription = nullptr);
-        CommandList* BeginSecondary(ResourceTracker* tracker, const RenderingDescription& renderingDescription)
+        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, const RenderingDescription* renderingDescription = nullptr);
+        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, const RenderingDescription& renderingDescription)
         {
             return BeginSecondary(tracker, &renderingDescription);
         }
@@ -719,15 +731,15 @@ namespace nova
     public:
         void End();
 
-        void UpdateBuffer(Buffer* dst, const void* pData, usz size, u64 dstOffset = 0);
-        void CopyToBuffer(Buffer* dst, Buffer* src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
-        void CopyToTexture(Texture* dst, Buffer* src, u64 srcOffset = 0);
-        void GenerateMips(Texture* texture);
+        void UpdateBuffer(Buffer& dst, const void* pData, usz size, u64 dstOffset = 0);
+        void CopyToBuffer(Buffer& dst, Buffer& src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
+        void CopyToTexture(Texture& dst, Buffer& src, u64 srcOffset = 0);
+        void GenerateMips(Texture& texture);
 
-        void Clear(Texture* texture, Vec4 color);
-        void Transition(Texture* texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
-        void Transition(Texture* texture, ResourceState state, BindPoint bindPoint);
-        void Present(Texture* texture);
+        void Clear(Texture& texture, Vec4 color);
+        void Transition(Texture& texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Transition(Texture& texture, ResourceState state, BindPoint bindPoint);
+        void Present(Texture& texture);
 
         void SetViewport(Vec2U size, bool flipVertical);
         void SetTopology(Topology topology);
@@ -736,30 +748,30 @@ namespace nova
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
         void SetDepthState(bool enable, bool write, CompareOp compareOp);
 
-        void BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
+        void BeginRendering(Span<Ref<Texture>> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
         void EndRendering();
         void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
 
-        void BindDescriptorBuffers(Span<Buffer*> buffers);
-        void SetDescriptorSetOffsets(PipelineLayout* layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets);
+        void BindDescriptorBuffers(Span<Ref<Buffer>> buffers);
+        void SetDescriptorSetOffsets(PipelineLayout& layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets);
 
-        void BindShaders(Span<Shader*> shaders);
-        void BindIndexBuffer(Buffer* buffer, IndexType indexType, u64 offset = 0);
-        void PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data);
+        void BindShaders(Span<Ref<Shader>> shaders);
+        void BindIndexBuffer(Buffer& buffer, IndexType indexType, u64 offset = 0);
+        void PushConstants(PipelineLayout& layout, ShaderStage stages, u64 offset, u64 size, const void* data);
 
-        void PushStorageTexture(PipelineLayout* layout, u32 setIndex, u32 binding, Texture* texture, u32 arrayIndex = 0);
-        void PushAccelerationStructure(PipelineLayout* layout, u32 setIndex, u32 binding, AccelerationStructure* accelerationStructure, u32 arrayIndex = 0);
+        void PushStorageTexture(PipelineLayout& layout, u32 setIndex, u32 binding, Texture& texture, u32 arrayIndex = 0);
+        void PushAccelerationStructure(PipelineLayout& layout, u32 setIndex, u32 binding, AccelerationStructure& accelerationStructure, u32 arrayIndex = 0);
 
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
-        void ExecuteCommands(Span<CommandList*> commands);
+        void ExecuteCommands(Span<Ref<CommandList>> commands);
 
-        void BuildAccelerationStructure(AccelerationStructureBuilder* builder, AccelerationStructure* structure, Buffer* scratch);
-        void CompactAccelerationStructure(AccelerationStructure* dst, AccelerationStructure* src);
-        void BindPipeline(RayTracingPipeline* pipeline);
-        void TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex);
+        void BuildAccelerationStructure(AccelerationStructureBuilder& builder, AccelerationStructure& structure, Buffer& scratch);
+        void CompactAccelerationStructure(AccelerationStructure& dst, AccelerationStructure& src);
+        void BindPipeline(RayTracingPipeline& pipeline);
+        void TraceRays(RayTracingPipeline& pipeline, Vec3U extent, u32 genIndex);
     };
 
 // -----------------------------------------------------------------------------

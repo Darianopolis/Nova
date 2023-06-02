@@ -12,19 +12,18 @@ int main()
         glfwTerminate();
     };
 
-    auto _context = nova::Context({
+    auto context = nova::Context({
         .debug = false,
     });
-    auto* context = &_context;
 
     auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, &surface,
+    auto swapchain = nova::Swapchain(context, surface,
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
-    auto& queue = context->graphics;
-    auto cmdPool = nova::CommandPool(context, &queue);
+    auto& queue = context.graphics;
+    auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
     auto tracker = nova::ResourceTracker(context);
 
@@ -49,7 +48,7 @@ void main()
     gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
 }
         )",
-        &pipelineLayout);
+        pipelineLayout);
 
     auto fragmentShader = nova::Shader(context,
         nova::ShaderStage::Fragment, {},
@@ -65,7 +64,7 @@ void main()
     fragColor = vec4(inColor, 1);
 }
         )",
-        &pipelineLayout);
+        pipelineLayout);
 
     // Draw
 
@@ -73,26 +72,26 @@ void main()
     while (!glfwWindowShouldClose(window))
     {
         fence.Wait();
-        queue.Acquire({&swapchain}, {&fence});
+        queue.Acquire({swapchain}, {fence});
 
         cmdPool.Reset();
-        auto cmd = cmdPool.BeginPrimary(&tracker);
+        auto cmd = cmdPool.Begin(tracker);
 
-        cmd->SetViewport(Vec2U(swapchain.current->extent), false);
+        cmd->SetViewport(Vec2U(swapchain.GetCurrent().extent), false);
         cmd->SetBlendState(1, false);
         cmd->SetDepthState(false, false, nova::CompareOp::Greater);
         cmd->SetTopology(nova::Topology::Triangles);
         cmd->SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
 
-        cmd->BindShaders({&vertexShader, &fragmentShader});
-        cmd->BeginRendering({swapchain.current});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain.current->extent));
+        cmd->BindShaders({vertexShader, fragmentShader});
+        cmd->BeginRendering({swapchain.GetCurrent()});
+        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain.GetCurrent().extent));
         cmd->Draw(3, 1, 0, 0);
         cmd->EndRendering();
 
-        cmd->Present(swapchain.current);
-        queue.Submit({cmd}, {&fence}, {&fence});
-        queue.Present({&swapchain}, {&fence});
+        cmd->Present(swapchain.GetCurrent());
+        queue.Submit({cmd}, {fence}, {fence});
+        queue.Present({swapchain}, {fence});
 
         glfwWaitEvents();
     }

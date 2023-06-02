@@ -2,15 +2,15 @@
 
 namespace nova
 {
-    Swapchain::Swapchain(Context* _context, Surface* _surface, TextureUsage _usage, PresentMode _presentMode)
-        : context(_context)
-        , surface(_surface)
+    Swapchain::Swapchain(Context& _context, Surface& _surface, TextureUsage _usage, PresentMode _presentMode)
+        : context(&_context)
+        , surface(_surface.surface)
     {
         usage = VkImageUsageFlags(_usage);
         presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface->surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
@@ -53,13 +53,13 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::Present(Texture* texture)
+    void CommandList::Present(Texture& texture)
     {
         Transition(texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
     }
 
     NOVA_NO_INLINE
-    void Queue::Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait)
+    void Queue::Present(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> waits, bool hostWait)
     {
         VkSemaphore* binaryWaits = nullptr;
 
@@ -149,7 +149,7 @@ namespace nova
         {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
             {
-                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i], int(results[i]));
+                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i].GetAddress(), int(results[i]));
                 swapchains[i]->invalid = true;
             }
             else
@@ -160,7 +160,7 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    bool Queue::Acquire(Span<Swapchain*> swapchains, Span<Fence*> signals)
+    bool Queue::Acquire(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> signals)
     {
         bool anyResized = false;
 
@@ -169,7 +169,7 @@ namespace nova
             do
             {
                 VkSurfaceCapabilitiesKHR caps;
-                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface->surface, &caps));
+                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface, &caps));
 
                 bool recreate = swapchain->invalid
                     || !swapchain->swapchain
@@ -187,7 +187,7 @@ namespace nova
                     swapchain->extent = caps.currentExtent;
                     VkCall(vkCreateSwapchainKHR(context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                        .surface = swapchain->surface->surface,
+                        .surface = swapchain->surface,
                         .minImageCount = caps.minImageCount,
                         .imageFormat = swapchain->format.format,
                         .imageColorSpace = swapchain->format.colorSpace,
@@ -260,7 +260,7 @@ namespace nova
                 else
                 if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                 {
-                    NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain, int(result));
+                    NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetAddress(), int(result));
                     swapchain->invalid = true;
                 }
                 else
@@ -310,8 +310,8 @@ namespace nova
         return anyResized;
     }
 
-    Surface::Surface(Context* _context, void* handle)
-        : context(_context)
+    Surface::Surface(Context& _context, void* handle)
+        : context(&_context)
     {
         VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,

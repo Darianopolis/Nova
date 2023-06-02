@@ -84,14 +84,15 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader::Shader(Context* _context, ShaderStage _stage, ShaderStage _nextStage,
-        const std::string& filename, const std::string& sourceCode,
-        PipelineLayout* layout)
+    Shader::Shader(Context& _context, ShaderStage _stage, ShaderStage _nextStage,
+            const std::string& filename, const std::string& sourceCode,
+            PipelineLayout& layout)
+        : context(&_context)
+        , stage(VkShaderStageFlagBits(_stage))
     {
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
-        stage = VkShaderStageFlagBits(_stage);
         auto nextStage = VkShaderStageFlags(_nextStage);
 
         EShLanguage glslangStage;
@@ -196,9 +197,6 @@ namespace nova
 
         const glslang::TIntermediate* intermediate = program.getIntermediate(glslangStage);
 
-        context = _context;
-        stage = stage;
-
         std::vector<u32> spirv;
         spv::SpvBuildLogger logger;
         glslang::GlslangToSpv(*intermediate, spirv, &spvOptions);
@@ -224,10 +222,10 @@ namespace nova
                 .codeSize = spirv.size() * 4,
                 .pCode = spirv.data(),
                 .pName = "main",
-                .setLayoutCount = u32(layout->sets.size()),
-                .pSetLayouts = layout->sets.data(),
-                .pushConstantRangeCount = u32(layout->ranges.size()),
-                .pPushConstantRanges = layout->ranges.data(),
+                .setLayoutCount = u32(layout.sets.size()),
+                .pSetLayouts = layout.sets.data(),
+                .pushConstantRangeCount = u32(layout.ranges.size()),
+                .pPushConstantRanges = layout.ranges.data(),
             }), context->pAlloc, &shader));
         }
     }
@@ -251,12 +249,12 @@ namespace nova
         other.module = nullptr;
     }
 
-    bool Shader::IsValid()
+    bool Shader::IsValid() const
     {
         return shader || module;
     }
 
-    VkPipelineShaderStageCreateInfo Shader::GetStageInfo()
+    VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const
     {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,

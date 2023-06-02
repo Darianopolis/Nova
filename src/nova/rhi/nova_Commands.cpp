@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    CommandPool::CommandPool(Context* _context, Queue* _queue)
-        : context(_context)
-        , queue(_queue)
+    CommandPool::CommandPool(Context& _context, Queue& _queue)
+        : context(&_context)
+        , queue(&_queue)
     {
         VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -30,7 +30,7 @@ namespace nova
         other.pool = nullptr;
     }
 
-    CommandList* CommandPool::BeginPrimary(ResourceTracker* tracker)
+    Ref<CommandList> CommandPool::Begin(ResourceTracker& tracker)
     {
         CommandList* cmd;
         if (index >= buffers.size())
@@ -54,12 +54,12 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->tracker = tracker;
+        cmd->tracker = &tracker;
 
-        return cmd;
+        return *cmd;
     }
 
-    CommandList* CommandPool::BeginSecondary(ResourceTracker* tracker, const RenderingDescription* renderingDescription)
+    Ref<CommandList> CommandPool::BeginSecondary(ResourceTracker& tracker, const RenderingDescription* renderingDescription)
     {
         CommandList* cmd;
         if (secondaryIndex >= secondaryBuffers.size())
@@ -107,9 +107,9 @@ namespace nova
             })));
         }
 
-        cmd->tracker = tracker;
+        cmd->tracker = &tracker;
 
-        return cmd;
+        return *cmd;
     }
 
     void CommandList::End()
@@ -125,7 +125,7 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void Queue::Submit(Span<CommandList*> commandLists, Span<Fence*> waits, Span<Fence*> signals)
+    void Queue::Submit(Span<Ref<CommandList>> commandLists, Span<Ref<Fence>> waits, Span<Ref<Fence>> signals)
     {
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, commandLists.size());
         for (u32 i = 0; i < commandLists.size(); ++i)
@@ -261,14 +261,14 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Texture*> colorAttachments, Texture* depthAttachment, Texture* stencilAttachment, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Ref<Texture>> colorAttachments, Texture* depthAttachment, Texture* stencilAttachment, bool allowSecondary)
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
-            auto* texture = colorAttachments[i];
+            auto texture = colorAttachments[i];
 
-            Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            Transition(*texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                 VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
@@ -297,7 +297,7 @@ namespace nova
         {
             if (depthAttachment)
             {
-                Transition(depthAttachment,
+                Transition(*depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -314,7 +314,7 @@ namespace nova
         {
             if (depthAttachment)
             {
-                Transition(depthAttachment,
+                Transition(*depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -328,7 +328,7 @@ namespace nova
 
             if (stencilAttachment)
             {
-                Transition(stencilAttachment,
+                Transition(*stencilAttachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -350,7 +350,7 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BindShaders(Span<Shader*> shaders)
+    void CommandList::BindShaders(Span<Ref<Shader>> shaders)
     {
         auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
         auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
@@ -363,14 +363,14 @@ namespace nova
         vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 
-    void CommandList::BindIndexBuffer(Buffer* indexBuffer, IndexType indexType, u64 offset)
+    void CommandList::BindIndexBuffer(Buffer& indexBuffer, IndexType indexType, u64 offset)
     {
-        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, VkIndexType(indexType));
+        vkCmdBindIndexBuffer(buffer, indexBuffer.buffer, offset, VkIndexType(indexType));
     }
 
-    void CommandList::PushConstants(PipelineLayout* layout, ShaderStage stages, u64 offset, u64 size, const void* data)
+    void CommandList::PushConstants(PipelineLayout& layout, ShaderStage stages, u64 offset, u64 size, const void* data)
     {
-        vkCmdPushConstants(buffer, layout->layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
+        vkCmdPushConstants(buffer, layout.layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
     }
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance)
@@ -426,7 +426,7 @@ namespace nova
             }));
     }
 
-    void CommandList::ExecuteCommands(Span<CommandList*> commands)
+    void CommandList::ExecuteCommands(Span<Ref<CommandList>> commands)
     {
         auto buffers = NOVA_ALLOC_STACK(VkCommandBuffer, commands.size());
         for (u32 i = 0; i < commands.size(); ++i)

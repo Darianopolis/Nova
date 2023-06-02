@@ -8,28 +8,28 @@
 
 namespace nova
 {
-    ImDraw2D::ImDraw2D(Context* _context)
-        : context(_context)
+    ImDraw2D::ImDraw2D(Context& _context)
+        : context(&_context)
     {
 // -----------------------------------------------------------------------------
 
-        descriptorSetLayout = DescriptorLayout(context, {
+        descriptorSetLayout = DescriptorLayout(*context, {
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        descriptorBuffer = Buffer(context,
+        descriptorBuffer = Buffer(*context,
             descriptorSetLayout.size,
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
-        pipelineLayout = PipelineLayout(context,
+        pipelineLayout = PipelineLayout(*context,
             {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(PushConstants)}},
-            {&descriptorSetLayout},
+            {descriptorSetLayout},
             nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
-        rectBuffer = Buffer(context, sizeof(ImRoundRect) * MaxPrimitives,
+        rectBuffer = Buffer(*context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -68,7 +68,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
     )";
 
-    rectVertShader = Shader(context,
+    rectVertShader = Shader(*context,
         ShaderStage::Vertex, {},
         "vertex",
         preamble + R"(
@@ -92,9 +92,9 @@ void main()
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
         )",
-        &pipelineLayout);
+        pipelineLayout);
 
-    rectFragShader = Shader(context,
+    rectFragShader = Shader(*context,
         ShaderStage::Fragment, {},
         "fragment",
         preamble + R"(
@@ -137,11 +137,11 @@ void main()
     }
 }
         )",
-        &pipelineLayout);
+        pipelineLayout);
 
 // -----------------------------------------------------------------------------
 
-        defaultSampler = Sampler(context,
+        defaultSampler = Sampler(*context,
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
@@ -152,7 +152,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Texture* texture, Sampler* sampler)
+    ImTextureID ImDraw2D::RegisterTexture(Texture& texture, Sampler& sampler)
     {
         u32 index;
         if (textureSlotFreelist.empty())
@@ -177,7 +177,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImFont* ImDraw2D::LoadFont(const char* file, f32 size, CommandPool* cmdPool, ResourceTracker* tracker, Fence* fence, Queue* queue)
+    ImFont* ImDraw2D::LoadFont(const char* file, f32 size, CommandPool& cmdPool, ResourceTracker& tracker, Fence& fence, Queue& queue)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -197,7 +197,7 @@ void main()
         auto font = new ImFont;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
 
-        nova::Buffer staging(context, u64(size) * u64(size) * 4,
+        nova::Buffer staging(*context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc,
             BufferFlags::CreateMapped);
 
@@ -224,7 +224,7 @@ void main()
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = Texture(context,
+            glyph.texture = Texture(*context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8U);
@@ -232,13 +232,13 @@ void main()
             usz dataSize = w * h * 4;
             std::memcpy(staging.mapped, pixels.data(), dataSize);
 
-            auto cmd = cmdPool->BeginPrimary(tracker);
-            cmd->CopyToTexture(&glyph.texture, &staging);
-            cmd->GenerateMips(&glyph.texture);
-            queue->Submit({cmd}, {}, {fence});
-            fence->Wait();
+            auto cmd = cmdPool.Begin(tracker);
+            cmd->CopyToTexture(glyph.texture, staging);
+            cmd->GenerateMips(glyph.texture);
+            queue.Submit({cmd}, {}, {fence});
+            fence.Wait();
 
-            glyph.index = RegisterTexture(&glyph.texture, &defaultSampler);
+            glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
 
         FT_Done_Face(face);
@@ -319,10 +319,10 @@ void main()
         return strBounds;
     }
 
-    void ImDraw2D::Record(CommandList* cmd)
+    void ImDraw2D::Record(Ref<CommandList> cmd)
     {
         cmd->SetTopology(Topology::Triangles);
-        cmd->PushConstants(&pipelineLayout,
+        cmd->PushConstants(pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
             PushConstantsRange.offset, PushConstantsRange.size,
             Temp(PushConstants {
@@ -331,15 +331,15 @@ void main()
                 .rectInstancesVA = rectBuffer.address,
             }));
 
-        cmd->BindDescriptorBuffers({&descriptorBuffer});
-        cmd->SetDescriptorSetOffsets(&pipelineLayout, 0, {{0}});
+        cmd->BindDescriptorBuffers({descriptorBuffer});
+        cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
 
         for (auto& command : drawCommands)
         {
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd->BindShaders({&rectVertShader, &rectFragShader});
+                cmd->BindShaders({rectVertShader, rectFragShader});
                 cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }

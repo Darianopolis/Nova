@@ -2,14 +2,14 @@
 
 namespace nova
 {
-    ImGuiWrapper::ImGuiWrapper(Context* _context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
-        : context(_context)
+    ImGuiWrapper::ImGuiWrapper(Context& _context, Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
+        : context(&_context)
     {
         VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
             .pAttachments = Temp(VkAttachmentDescription {
-                .format = swapchain->format.format,
+                .format = swapchain.format.format,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -157,39 +157,39 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(CommandList* cmd, Swapchain* swapchain)
+    void ImGuiWrapper::EndFrame(Ref<CommandList> cmd, Swapchain& swapchain)
     {
         ImGui::Render();
 
-        if (lastSwapchain != swapchain->swapchain)
+        if (lastSwapchain != swapchain.swapchain)
         {
-            lastSwapchain = swapchain->swapchain;
+            lastSwapchain = swapchain.swapchain;
 
-            framebuffers.resize(swapchain->textures.size());
-            for (u32 i = 0; i < swapchain->textures.size(); ++i)
+            framebuffers.resize(swapchain.textures.size());
+            for (u32 i = 0; i < swapchain.textures.size(); ++i)
             {
                 vkDestroyFramebuffer(context->device, framebuffers[i], context->pAlloc);
                 VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain->textures[i].view,
-                    .width = swapchain->extent.width,
-                    .height = swapchain->extent.height,
+                    .pAttachments = &swapchain.textures[i].view,
+                    .width = swapchain.extent.width,
+                    .height = swapchain.extent.height,
                     .layers = 1,
                 }), context->pAlloc, &framebuffers[i]));
             }
         }
 
-        cmd->Transition(swapchain->current, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        cmd->Transition(swapchain.GetCurrent(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
-            .framebuffer = framebuffers[swapchain->index],
-            .renderArea = { {}, swapchain->extent },
+            .framebuffer = framebuffers[swapchain.index],
+            .renderArea = { {}, swapchain.extent },
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
         vkCmdEndRenderPass(cmd->buffer);

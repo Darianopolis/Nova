@@ -2,10 +2,9 @@
 
 namespace nova
 {
-    Sampler::Sampler(Context* _context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
+    Sampler::Sampler(Context& _context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
+        : context(&_context)
     {
-        context = _context;
-
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VkFilter(filter),
