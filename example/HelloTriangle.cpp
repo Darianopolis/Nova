@@ -14,30 +14,23 @@ int main()
 
     auto context = Context::Create({
         .debug = false,
-        .rayTracing = true,
     });
     NOVA_ON_SCOPE_EXIT(&) { Context::Destroy(context); };
 
-    auto surface = context->CreateSurface(glfwGetWin32Window(window));
-    auto swapchain = context->CreateSwapchain(surface,
+    nova::Surface surface(context, glfwGetWin32Window(window));
+    nova::Swapchain swapchain(context, &surface,
         TextureUsage::ColorAttach
         | TextureUsage::TransferDst,
         PresentMode::Fifo);
-    NOVA_ON_SCOPE_EXIT(&) {
-        context->DestroySwapchain(swapchain);
-        context->DestroySurface(surface);
-    };
 
     auto queue = context->graphics;
     auto cmdPool = context->CreateCommandPool();
     auto fence = context->CreateFence();
     auto tracker = context->CreateResourceTracker();
-    auto builder = context->CreateAccelerationStructureBuilder();
     NOVA_ON_SCOPE_EXIT(&) {
         context->DestroyCommandPool(cmdPool);
         context->DestroyFence(fence);
         context->DestroyResourceTracker(tracker);
-        context->DestroyAccelerationStructureBuilder(builder);
     };
 
     // Pipeline
@@ -45,7 +38,7 @@ int main()
     auto pipelineLayout = context->CreatePipelineLayout({}, {}, nova::BindPoint::RayTracing);
     NOVA_ON_SCOPE_EXIT(&) { context->DestroyPipelineLayout(pipelineLayout); };
 
-    auto vertexShader = context->CreateShader(
+    Shader vertexShader(context,
         ShaderStage::Vertex, ShaderStage::Fragment,
         "vertex",
         R"(
@@ -63,9 +56,8 @@ void main()
 }
         )",
         pipelineLayout);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyShader(vertexShader); };
 
-    auto fragmentShader = context->CreateShader(
+    Shader fragmentShader(context,
         ShaderStage::Fragment, {},
         "fragment",
         R"(
@@ -80,7 +72,6 @@ void main()
 }
         )",
         pipelineLayout);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyShader(fragmentShader); };
 
     // Draw
 
@@ -88,26 +79,26 @@ void main()
     while (!glfwWindowShouldClose(window))
     {
         fence->Wait();
-        queue->Acquire({swapchain}, {fence});
+        queue->Acquire({&swapchain}, {fence});
 
         cmdPool->Reset();
         auto cmd = cmdPool->BeginPrimary(tracker);
 
-        cmd->SetViewport(Vec2U(swapchain->current->extent), false);
+        cmd->SetViewport(Vec2U(swapchain.current->extent), false);
         cmd->SetBlendState(1, false);
         cmd->SetDepthState(false, false, nova::CompareOp::Greater);
         cmd->SetTopology(nova::Topology::Triangles);
         cmd->SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
 
-        cmd->BindShaders({vertexShader, fragmentShader});
-        cmd->BeginRendering({swapchain->current});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain->current->extent));
+        cmd->BindShaders({&vertexShader, &fragmentShader});
+        cmd->BeginRendering({swapchain.current});
+        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain.current->extent));
         cmd->Draw(3, 1, 0, 0);
         cmd->EndRendering();
 
-        cmd->Present(swapchain->current);
+        cmd->Present(swapchain.current);
         queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({swapchain}, {fence});
+        queue->Present({&swapchain}, {fence});
 
         glfwWaitEvents();
     }

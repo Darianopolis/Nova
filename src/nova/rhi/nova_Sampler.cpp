@@ -2,12 +2,11 @@
 
 namespace nova
 {
-    Sampler* Context::CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
+    Sampler::Sampler(Context* _context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
     {
-        auto* sampler = new Sampler;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroySampler(sampler); };
+        context = _context;
 
-        VkCall(vkCreateSampler(device, Temp(VkSamplerCreateInfo {
+        VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VkFilter(filter),
             .minFilter = VkFilter(filter),
@@ -23,15 +22,19 @@ namespace nova
             .minLod = -1000.f,
             .maxLod = 1000.f,
             .borderColor = VkBorderColor(color),
-        }), pAlloc, &sampler->sampler));
-
-        return sampler;
+        }), context->pAlloc, &sampler));
     }
 
-    void Context::DestroySampler(Sampler* sampler)
+    Sampler::~Sampler()
     {
-        vkDestroySampler(device, sampler->sampler, pAlloc);
+        if (sampler)
+            vkDestroySampler(context->device, sampler, context->pAlloc);
+    }
 
-        delete sampler;
+    Sampler::Sampler(Sampler&& other) noexcept
+        : context(other.context)
+        , sampler(other.sampler)
+    {
+        other.sampler = nullptr;
     }
 }

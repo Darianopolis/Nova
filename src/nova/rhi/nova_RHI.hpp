@@ -288,6 +288,7 @@ namespace nova
         VkBufferUsageFlags usage = {};
 
     public:
+        Buffer() = default;
         Buffer(Context* context, u64 size, BufferUsage usage, BufferFlags flags = {});
         ~Buffer();
 
@@ -312,16 +313,26 @@ namespace nova
 
     struct Sampler
     {
+        Context*  context = {};
+
         VkSampler sampler = {};
+
+    public:
+        Sampler() = default;
+        Sampler(Context* context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
+        ~Sampler();
+
+        NOVA_DEFAULT_MOVE_DECL(Sampler)
     };
 
     struct Texture
     {
         Context* context = {};
 
-        VkImage             image = {};
-        VmaAllocation  allocation = {};
-        VkImageView          view = {};
+        VkImage            image = {};
+        VmaAllocation allocation = {};
+        VkImageView         view = {};
+
         VkFormat           format = VK_FORMAT_UNDEFINED;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
@@ -332,10 +343,9 @@ namespace nova
     public:
         Texture() = default;
         Texture(Context* context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+        ~Texture();
 
         NOVA_DEFAULT_MOVE_DECL(Texture)
-
-        ~Texture();
     };
 
 // -----------------------------------------------------------------------------
@@ -344,21 +354,38 @@ namespace nova
     {
         Context* context = {};
 
-        VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
-        VkShaderEXT          shader = {};
+        VkShaderStageFlagBits   stage = VkShaderStageFlagBits(0);
+        VkShaderEXT    shader = {};
+        VkShaderModule module = {};
 
-        VkPipelineShaderStageCreateInfo info = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .module = {},
-            .pName = "main",
-        };
+        constexpr static const char*  name = "main";
+
+    public:
+        Shader() = default;
+        Shader(Context* context, ShaderStage stage, ShaderStage nextStage,
+            const std::string& filename, const std::string& sourceCode,
+            PipelineLayout* layout);
+        ~Shader();
+
+        NOVA_DEFAULT_MOVE_DECL(Shader)
+
+        VkPipelineShaderStageCreateInfo GetStageInfo();
     };
 
 // -----------------------------------------------------------------------------
 
     struct Surface
     {
-        VkSurfaceKHR surface;
+        Context* context = {};
+
+        VkSurfaceKHR surface = {};
+
+    public:
+        Surface() = default;
+        Surface(Context* context, void* handle);
+        ~Surface();
+
+        NOVA_DEFAULT_MOVE_DECL(Surface)
     };
 
     struct Swapchain
@@ -378,6 +405,13 @@ namespace nova
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
+
+    public:
+        Swapchain() = default;
+        Swapchain(Context* context, Surface* surface, TextureUsage usage, PresentMode presentMode);
+        ~Swapchain();
+
+        NOVA_DEFAULT_MOVE_DECL(Swapchain)
     };
 
 // -----------------------------------------------------------------------------
@@ -436,9 +470,6 @@ namespace nova
     {
         Context* context = {};
 
-        VkAccelerationStructureKHR structure = {};
-        u64                          address = {};
-
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
@@ -457,6 +488,11 @@ namespace nova
         VkQueryPool queryPool = {};
 
     public:
+        AccelerationStructureBuilder(Context* context);
+        ~AccelerationStructureBuilder();
+
+        NOVA_DEFAULT_MOVE_DECL(AccelerationStructureBuilder)
+
         void EnsureGeometries(u32 geometryIndex);
         void EnsureSizes();
 
@@ -490,7 +526,7 @@ namespace nova
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Ptr<Buffer> buffer = {};
+        Buffer buffer = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -506,8 +542,8 @@ namespace nova
     {
         Context* context = {};
 
-        VkPipeline   pipeline = {};
-        Ptr<Buffer> sbtBuffer = {};
+        VkPipeline pipeline = {};
+        Buffer    sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
@@ -754,14 +790,6 @@ namespace nova
         static Context* Create(const ContextConfig& config);
         static void Destroy(Context* context);
 
-        Sampler* CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
-        void DestroySampler(Sampler* sampler);
-
-        Shader* CreateShader(ShaderStage stage, ShaderStage nextStage,
-            const std::string& filename, const std::string& sourceCode,
-            PipelineLayout* layout);
-        void DestroyShader(Shader* shader);
-
         DescriptorLayout* CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor = false);
         void DestroyDescriptorLayout(DescriptorLayout* layout);
 
@@ -771,12 +799,6 @@ namespace nova
             BindPoint bindPoint);
         void DestroyPipelineLayout(PipelineLayout* layout);
 
-        Swapchain* CreateSwapchain(Surface* surface, TextureUsage usage, PresentMode presentMode);
-        void DestroySwapchain(Swapchain* swapchain);
-
-        Surface* CreateSurface(void* handle);
-        void DestroySurface(Surface* surface);
-
         CommandPool* CreateCommandPool();
         void DestroyCommandPool(CommandPool* commands);
 
@@ -785,9 +807,6 @@ namespace nova
 
         Fence* CreateFence();
         void DestroyFence(Fence* fence);
-
-        AccelerationStructureBuilder* CreateAccelerationStructureBuilder();
-        void DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* accelStructure);
 
         AccelerationStructure* CreateAccelerationStructure(usz size, AccelerationStructureType type);
         void DestroyAccelerationStructure(AccelerationStructure* accelStructure);

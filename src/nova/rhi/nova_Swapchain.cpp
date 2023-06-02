@@ -2,46 +2,53 @@
 
 namespace nova
 {
-    Swapchain* Context::CreateSwapchain(Surface* surface, TextureUsage _usage, PresentMode _presentMode)
+    Swapchain::Swapchain(Context* _context, Surface* _surface, TextureUsage _usage, PresentMode _presentMode)
+        : context(_context)
+        , surface(_surface)
     {
-        auto swapchain = new Swapchain;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroySwapchain(swapchain); };
-        swapchain->context = this;
-
-        auto usage = VkImageUsageFlags(_usage);
-        auto presentMode = VkPresentModeKHR(_presentMode);
+        usage = VkImageUsageFlags(_usage);
+        presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, surface->surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface->surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {
-                swapchain->format = surfaceFormat;
+                format = surfaceFormat;
                 break;
             }
         }
-
-        swapchain->usage = usage;
-        swapchain->presentMode = presentMode;
-        swapchain->surface = surface;
-
-        return swapchain;
     }
 
-    void Context::DestroySwapchain(Swapchain* swapchain)
+    Swapchain::~Swapchain()
     {
-        if (!swapchain)
-            return;
+        for (auto semaphore : semaphores)
+            vkDestroySemaphore(context->device, semaphore, context->pAlloc);
 
-        for (auto semaphore : swapchain->semaphores)
-            vkDestroySemaphore(device, semaphore, pAlloc);
+        if (swapchain)
+            vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
+    }
 
-        vkDestroySwapchainKHR(device, swapchain->swapchain, pAlloc);
-
-        delete swapchain;
+    Swapchain::Swapchain(Swapchain&& other) noexcept
+        : context(other.context)
+        , surface(other.surface)
+        , swapchain(other.swapchain)
+        , format(other.format)
+        , usage(other.usage)
+        , presentMode(other.presentMode)
+        , textures(std::move(other.textures))
+        , index(other.index)
+        , current(other.current)
+        , extent(other.extent)
+        , invalid(other.invalid)
+        , semaphores(std::move(other.semaphores))
+        , semaphoreIndex(other.semaphoreIndex)
+    {
+        other.swapchain = nullptr;
+        other.semaphores.clear();
     }
 
 // -----------------------------------------------------------------------------
@@ -303,21 +310,26 @@ namespace nova
         return anyResized;
     }
 
-    Surface* Context::CreateSurface(void* handle)
+    Surface::Surface(Context* _context, void* handle)
+        : context(_context)
     {
-        auto* surface = new Surface;
-
-        VkCall(vkCreateWin32SurfaceKHR(instance, Temp(VkWin32SurfaceCreateInfoKHR {
+        VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(handle),
-        }), pAlloc, &surface->surface));
-
-        return surface;
+        }), context->pAlloc, &surface));
     }
 
-    void Context::DestroySurface(Surface* surface)
+    Surface::~Surface()
     {
-        vkDestroySurfaceKHR(instance, surface->surface, pAlloc);
+        if (surface)
+            vkDestroySurfaceKHR(context->instance, surface, context->pAlloc);
+    }
+
+    Surface::Surface(Surface&& other) noexcept
+        : context(other.context)
+        , surface(other.surface)
+    {
+        other.surface = nullptr;
     }
 }

@@ -84,48 +84,48 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader* Context::CreateShader(ShaderStage _stage, ShaderStage _nextStage,
+    Shader::Shader(Context* _context, ShaderStage _stage, ShaderStage _nextStage,
         const std::string& filename, const std::string& sourceCode,
         PipelineLayout* layout)
     {
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
-        auto vkStage = VkShaderStageFlagBits(_stage);
+        stage = VkShaderStageFlagBits(_stage);
         auto nextStage = VkShaderStageFlags(_nextStage);
 
-        EShLanguage stage;
+        EShLanguage glslangStage;
         bool supportsShaderObjects = true;
-        switch (vkStage)
+        switch (stage)
         {
-        break;case VK_SHADER_STAGE_VERTEX_BIT:                  stage = EShLangVertex;
-        break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    stage = EShLangTessControl;
-        break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: stage = EShLangTessEvaluation;
-        break;case VK_SHADER_STAGE_GEOMETRY_BIT:                stage = EShLangGeometry;
-        break;case VK_SHADER_STAGE_FRAGMENT_BIT:                stage = EShLangFragment;
-        break;case VK_SHADER_STAGE_COMPUTE_BIT:                 stage = EShLangCompute;
-        break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              stage = EShLangRayGen;
+        break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
+        break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
+        break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: glslangStage = EShLangTessEvaluation;
+        break;case VK_SHADER_STAGE_GEOMETRY_BIT:                glslangStage = EShLangGeometry;
+        break;case VK_SHADER_STAGE_FRAGMENT_BIT:                glslangStage = EShLangFragment;
+        break;case VK_SHADER_STAGE_COMPUTE_BIT:                 glslangStage = EShLangCompute;
+        break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              glslangStage = EShLangRayGen;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             stage = EShLangAnyHit;
+        break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             glslangStage = EShLangAnyHit;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         stage = EShLangClosestHit;
+        break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         glslangStage = EShLangClosestHit;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_MISS_BIT_KHR:                stage = EShLangMiss;
+        break;case VK_SHADER_STAGE_MISS_BIT_KHR:                glslangStage = EShLangMiss;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        stage = EShLangIntersect;
+        break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        glslangStage = EShLangIntersect;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            stage = EShLangCallable;
+        break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            glslangStage = EShLangCallable;
                                                                 supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_TASK_BIT_EXT:                stage = EShLangTask;
-        break;case VK_SHADER_STAGE_MESH_BIT_EXT:                stage = EShLangMesh;
-        break;default: NOVA_THROW("Unknown stage: {}", int(vkStage));
+        break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
+        break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
+        break;default: NOVA_THROW("Unknown stage: {}", int(stage));
         }
 
-        glslang::TShader shader { stage };
+        glslang::TShader glslShader { glslangStage };
         auto resource = (const TBuiltInResource*)glslang_default_resource();
-        shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
-        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
-        shader.setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_6);
+        glslShader.setEnvInput(glslang::EShSourceGlsl, glslangStage, glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
+        glslShader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
+        glslShader.setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_6);
 
         // ---- Source ----
 
@@ -133,7 +133,7 @@ namespace nova
         const char* source = glslCode.c_str();
         int sourceLength = (int)glslCode.size();
         const char* sourceName = filename.c_str();
-        shader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
+        glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
 
         // ---- Defines ----
 
@@ -144,7 +144,7 @@ namespace nova
         // ---- Preprocessing ----
 
         std::string preprocessed;
-        if (!shader.preprocess(
+        if (!glslShader.preprocess(
             resource,
             100,
             EEsProfile,
@@ -154,15 +154,15 @@ namespace nova
             &preprocessed,
             includer))
         {
-            NOVA_THROW("GLSL preprocessing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
+            NOVA_THROW("GLSL preprocessing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
 
         const char* preprocessedCStr = preprocessed.c_str();
-        shader.setStrings(&preprocessedCStr, 1);
+        glslShader.setStrings(&preprocessedCStr, 1);
 
         // ---- Parsing ----
 
-        if (!shader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault))
+        if (!glslShader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault))
         {
             std::istringstream iss(glslCode);
             std::string line;
@@ -171,13 +171,13 @@ namespace nova
             {
                 NOVA_LOG("{:3} : {}", lineNum++, line);
             }
-            NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, shader.getInfoLog(), shader.getInfoDebugLog());
+            NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
 
         // ---- Linking ----
 
         glslang::TProgram program;
-        program.addShader(&shader);
+        program.addShader(&glslShader);
 
         if (!program.link(EShMessages(int(EShMessages::EShMsgSpvRules) | int(EShMessages::EShMsgVulkanRules))))
             NOVA_THROW("GLSL linking failed {}\n{}\n{}", filename, program.getInfoLog(), program.getInfoDebugLog());
@@ -194,12 +194,10 @@ namespace nova
             .emitNonSemanticShaderDebugSource = false,
         };
 
-        const glslang::TIntermediate* intermediate = program.getIntermediate(stage);
+        const glslang::TIntermediate* intermediate = program.getIntermediate(glslangStage);
 
-        auto newShader = new Shader;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyShader(newShader); };
-        newShader->context = this;
-        newShader->stage = vkStage;
+        context = _context;
+        stage = stage;
 
         std::vector<u32> spirv;
         spv::SpvBuildLogger logger;
@@ -208,20 +206,19 @@ namespace nova
         if (!logger.getAllMessages().empty())
             NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
 
-        VkCall(vkCreateShaderModule(device, Temp(VkShaderModuleCreateInfo {
+        VkCall(vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), pAlloc, &newShader->info.module));
-        newShader->info.stage = vkStage;
+        }), context->pAlloc, &module));
 
         if (supportsShaderObjects)
         {
             // TODO: Only use ranges and descriptor sets that are included in this shader stage?
             //   Vulkan should already handle this?
-            VkCall(vkCreateShadersEXT(device, 1, Temp(VkShaderCreateInfoEXT {
+            VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
-                .stage = vkStage,
+                .stage = stage,
                 .nextStage = nextStage,
                 .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
                 .codeSize = spirv.size() * 4,
@@ -231,23 +228,36 @@ namespace nova
                 .pSetLayouts = layout->sets.data(),
                 .pushConstantRangeCount = u32(layout->ranges.size()),
                 .pPushConstantRanges = layout->ranges.data(),
-            }), pAlloc, &newShader->shader));
+            }), context->pAlloc, &shader));
         }
-
-        return newShader;
     }
 
-    void Context::DestroyShader(Shader* shader)
+    Shader::~Shader()
     {
-        if (!shader)
-            return;
+        if (shader)
+            vkDestroyShaderEXT(context->device, shader, context->pAlloc);
 
-        if (shader->shader)
-            vkDestroyShaderEXT(device, shader->shader, pAlloc);
+        if (module)
+            vkDestroyShaderModule(context->device, module, context->pAlloc);
+    }
 
-        if (shader->info.module)
-            vkDestroyShaderModule(device, shader->info.module, pAlloc);
+    Shader::Shader(Shader&& other) noexcept
+        : context(other.context)
+        , stage(other.stage)
+        , shader(other.shader)
+        , module(other.module)
+    {
+        other.shader = nullptr;
+        other.module = nullptr;
+    }
 
-        delete shader;
+    VkPipelineShaderStageCreateInfo Shader::GetStageInfo()
+    {
+        return {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = stage,
+            .module = module,
+            .pName = name,
+        };
     }
 }

@@ -19,7 +19,7 @@ namespace nova
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        imDraw->descriptorBuffer = std::make_unique<Buffer>(context,
+        imDraw->descriptorBuffer = Buffer(context,
             imDraw->descriptorSetLayout->size,
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
@@ -31,7 +31,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        imDraw->rectBuffer = std::make_unique<Buffer>(context, sizeof(ImRoundRect) * MaxPrimitives,
+        imDraw->rectBuffer = Buffer(context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -70,7 +70,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
     )";
 
-    imDraw->rectVertShader = context->CreateShader(
+    imDraw->rectVertShader = Shader(context,
         ShaderStage::Vertex, {},
         "vertex",
         preamble + R"(
@@ -96,7 +96,7 @@ void main()
         )",
         imDraw->pipelineLayout);
 
-    imDraw->rectFragShader = context->CreateShader(
+    imDraw->rectFragShader = Shader(context,
         ShaderStage::Fragment, {},
         "fragment",
         preamble + R"(
@@ -143,7 +143,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-        imDraw->defaultSampler = context->CreateSampler(
+        imDraw->defaultSampler = Sampler(context,
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
@@ -154,8 +154,6 @@ void main()
 
     void ImDraw2D::Destroy(ImDraw2D* imDraw)
     {
-        imDraw->context->DestroyShader(imDraw->rectVertShader);
-        imDraw->context->DestroyShader(imDraw->rectFragShader);
         imDraw->context->DestroyPipelineLayout(imDraw->pipelineLayout);
 
         delete imDraw;
@@ -176,7 +174,7 @@ void main()
             textureSlotFreelist.pop_back();
         }
 
-        descriptorSetLayout->WriteSampledTexture(descriptorBuffer->mapped, 0, texture, sampler, index);
+        descriptorSetLayout->WriteSampledTexture(descriptorBuffer.mapped, 0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -249,7 +247,7 @@ void main()
             queue->Submit({cmd}, {}, {fence});
             fence->Wait();
 
-            glyph.index = RegisterTexture(&glyph.texture, defaultSampler);
+            glyph.index = RegisterTexture(&glyph.texture, &defaultSampler);
         }
 
         FT_Done_Face(face);
@@ -283,7 +281,7 @@ void main()
             ? drawCommands.back()
             : drawCommands.emplace_back(ImDrawType::RoundRect, rectIndex, 0);
 
-        rectBuffer->Get<ImRoundRect>(cmd.first + cmd.count) = rect;
+        rectBuffer.Get<ImRoundRect>(cmd.first + cmd.count) = rect;
 
         bounds.Expand({{rect.centerPos - rect.halfExtent}, {rect.centerPos + rect.halfExtent}});
 
@@ -339,10 +337,10 @@ void main()
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
                 .centerPos = bounds.Center(),
-                .rectInstancesVA = rectBuffer->address,
+                .rectInstancesVA = rectBuffer.address,
             }));
 
-        cmd->BindDescriptorBuffers({descriptorBuffer.get()});
+        cmd->BindDescriptorBuffers({&descriptorBuffer});
         cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
 
         for (auto& command : drawCommands)
@@ -350,7 +348,7 @@ void main()
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd->BindShaders({rectVertShader, rectFragShader});
+                cmd->BindShaders({&rectVertShader, &rectFragShader});
                 cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }

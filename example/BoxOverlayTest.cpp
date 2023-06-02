@@ -27,8 +27,8 @@ void TryMain()
         .debug = true,
     });
 
-    auto surface = context->CreateSurface(glfwGetWin32Window(window));
-    auto swapchain = context->CreateSwapchain(surface,
+    nova::Surface surface(context, glfwGetWin32Window(window));
+    nova::Swapchain swapchain(context, &surface,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
@@ -67,7 +67,7 @@ void TryMain()
         queue->Submit({cmd}, {}, {fence});
         fence->Wait();
 
-        texID = imDraw->RegisterTexture(&texture, imDraw->defaultSampler);
+        texID = imDraw->RegisterTexture(&texture, &imDraw->defaultSampler);
     }
 
 // -----------------------------------------------------------------------------
@@ -191,17 +191,17 @@ void TryMain()
         glfwSetWindowSize(window, i32(imDraw->bounds.Width()), i32(imDraw->bounds.Height()));
         glfwSetWindowPos(window, i32(imDraw->bounds.min.x), i32(imDraw->bounds.min.y));
 
-        queue->Acquire({swapchain}, {fence});
+        queue->Acquire({&swapchain}, {fence});
 
-        cmd->BeginRendering({swapchain->current});
+        cmd->BeginRendering({swapchain.current});
         cmd->ClearColor(0, Vec4(0.f), imDraw->bounds.Size());
         imDraw->Record(cmd);
         cmd->EndRendering();
 
-        cmd->Present(swapchain->current);
+        cmd->Present(swapchain.current);
 
         queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({swapchain}, {fence});
+        queue->Present({&swapchain}, {fence});
     }
 }
 

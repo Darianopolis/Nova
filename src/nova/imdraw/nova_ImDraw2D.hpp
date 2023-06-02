@@ -112,19 +112,19 @@ namespace nova
     public:
         Context* context = {};
 
-        Sampler* defaultSampler = {};
+        Sampler defaultSampler = {};
 
         PipelineLayout* pipelineLayout = {};
 
-        DescriptorLayout*     descriptorSetLayout = {};
-        Ptr<Buffer>              descriptorBuffer = {};
-        u32                       nextTextureSlot = 0;
-        std::vector<u32>      textureSlotFreelist = {};
+        DescriptorLayout* descriptorSetLayout = {};
+        Buffer               descriptorBuffer = {};
+        u32                   nextTextureSlot = 0;
+        std::vector<u32>  textureSlotFreelist = {};
 
-        Shader* rectVertShader = {};
-        Shader* rectFragShader = {};
-        Ptr<Buffer> rectBuffer = {};
-        u32          rectIndex = 0;
+        Shader rectVertShader = {};
+        Shader rectFragShader = {};
+        Buffer     rectBuffer = {};
+        u32         rectIndex = 0;
 
         ImBounds2D bounds;
 

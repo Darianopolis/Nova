@@ -17,6 +17,9 @@ namespace nova
     static
     void ResetBuffer(Buffer& buffer)
     {
+        if (!buffer.buffer)
+            return;
+
         if (buffer.mapped && buffer.flags >= BufferFlags::Mappable)
             vmaUnmapMemory(buffer.context->vma, buffer.allocation);
 
@@ -30,6 +33,7 @@ namespace nova
 
     Buffer::Buffer(Buffer&& other) noexcept
         : context(other.context)
+        , buffer(other.buffer)
         , allocation(other.allocation)
         , size(other.size)
         , address(other.address)
@@ -37,8 +41,8 @@ namespace nova
         , flags(other.flags)
         , usage(other.usage)
     {
-        other.allocation = nullptr;
         other.buffer = nullptr;
+        other.allocation = nullptr;
     }
 
 // -----------------------------------------------------------------------------

@@ -4,27 +4,38 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder* Context::CreateAccelerationStructureBuilder()
+    AccelerationStructureBuilder::AccelerationStructureBuilder(Context* _context)
+        : context(_context)
     {
-        auto* builder = new AccelerationStructureBuilder;
-        builder->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructureBuilder(builder); };
-
-        VkCall(vkCreateQueryPool(device, Temp(VkQueryPoolCreateInfo {
+        VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
-        }), pAlloc, &builder->queryPool));
-
-        return builder;
+        }), context->pAlloc, &queryPool));
     }
 
-    void Context::DestroyAccelerationStructureBuilder(AccelerationStructureBuilder* builder)
+    AccelerationStructureBuilder::~AccelerationStructureBuilder()
     {
-        vkDestroyQueryPool(device, builder->queryPool, pAlloc);
-        vkDestroyAccelerationStructureKHR(device, builder->structure, pAlloc);
+        if (queryPool)
+            vkDestroyQueryPool(context->device, queryPool, context->pAlloc);
+    }
 
-        delete builder;
+    AccelerationStructureBuilder::AccelerationStructureBuilder(AccelerationStructureBuilder&& other) noexcept
+        : context(other.context)
+        , type(other.type)
+        , flags(other.flags)
+        , buildSize(other.buildSize)
+        , buildScratchSize(other.buildScratchSize)
+        , updateScratchSize(other.updateScratchSize)
+        , geometries(std::move(other.geometries))
+        , primitiveCounts(std::move(other.primitiveCounts))
+        , ranges(std::move(other.ranges))
+        , geometryCount(other.geometryCount)
+        , firstGeometry(other.firstGeometry)
+        , sizeDirty(other.sizeDirty)
+        , queryPool(other.queryPool)
+    {
+        other.queryPool = nullptr;
     }
 
 // -----------------------------------------------------------------------------
@@ -246,14 +257,14 @@ namespace nova
         structure->context = this;
         NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(structure); };
 
-        structure->buffer = std::make_unique<Buffer>(this, size,
+        structure->buffer = Buffer(this, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
         VkCall(vkCreateAccelerationStructureKHR(device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = structure->buffer->buffer,
-            .size = structure->buffer->size,
+            .buffer = structure->buffer.buffer,
+            .size = structure->buffer.size,
             .type = VkAccelerationStructureTypeKHR(type),
         }), pAlloc, &structure->structure));
 
@@ -310,13 +321,13 @@ namespace nova
             if (!shader)
                 return VK_SHADER_UNUSED_KHR;
 
-            if (!stageIndices.contains(shader->info.module))
+            if (!stageIndices.contains(shader->module))
             {
-                stageIndices.insert({ shader->info.module, u32(stages.size()) });
-                stages.push_back(shader->info);
+                stageIndices.insert({ shader->module, u32(stages.size()) });
+                stages.push_back(shader->GetStageInfo());
             }
 
-            return stageIndices.at(shader->info.module);
+            return stageIndices.at(shader->module);
         };
 
         auto createGroup = [&]() -> auto& {
@@ -385,15 +396,15 @@ namespace nova
 
         // Allocate table and get groups from pipeline
 
-        if (!sbtBuffer || tableSize > sbtBuffer->size)
+        if (!sbtBuffer.buffer || tableSize > sbtBuffer.size)
         {
-            sbtBuffer = std::make_unique<Buffer>(context,
+            sbtBuffer = Buffer(context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
                 BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
         }
 
-        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->mapped + offset + (i * handleStride); };
+        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer.mapped + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
         VkCall(vkGetRayTracingShaderGroupHandlesKHR(context->device, pipeline,
@@ -411,7 +422,7 @@ namespace nova
 
         // Miss
 
-        rayMissRegion.deviceAddress = sbtBuffer->address + rayMissOffset;
+        rayMissRegion.deviceAddress = sbtBuffer.address + rayMissOffset;
         rayMissRegion.size = rayHitOffset - rayMissOffset;
         rayMissRegion.stride = handleStride;
         for (u32 i = 0; i < rayMissIndices.size(); ++i)
@@ -419,7 +430,7 @@ namespace nova
 
         // Hit
 
-        rayHitRegion.deviceAddress = sbtBuffer->address + rayHitOffset;
+        rayHitRegion.deviceAddress = sbtBuffer.address + rayHitOffset;
         rayHitRegion.size = rayCallOffset - rayHitOffset;
         rayHitRegion.stride = handleStride;
         for (u32 i = 0; i < rayHitIndices.size(); ++i)
@@ -427,7 +438,7 @@ namespace nova
 
         // Call
 
-        rayCallRegion.deviceAddress = sbtBuffer->address + rayCallOffset;
+        rayCallRegion.deviceAddress = sbtBuffer.address + rayCallOffset;
         rayCallRegion.size = tableSize - rayCallOffset;
         rayCallRegion.stride = handleStride;
         for (u32 i = 0; i < rayCallIndices.size(); ++i)
@@ -441,7 +452,7 @@ namespace nova
 
     void CommandList::TraceRays(RayTracingPipeline* pipeline, Vec3U extent, u32 genIndex)
     {
-        pipeline->rayGenRegion.deviceAddress = pipeline->sbtBuffer->address
+        pipeline->rayGenRegion.deviceAddress = pipeline->sbtBuffer.address
             + (pipeline->rayGenRegion.stride * genIndex);
 
         vkCmdTraceRaysKHR(buffer,

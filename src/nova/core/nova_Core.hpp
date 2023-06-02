@@ -145,6 +145,42 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<class T>
+    struct Unique
+    {
+        T value = {};
+
+        Unique() = default;
+
+        Unique(T _value)
+            : value(std::move(_value))
+        {}
+
+        Unique(Unique&& other)
+        {
+            std::swap(value, other.value);
+            value = other.value;
+        }
+
+        Unique& operator=(Unique&& other)
+        {
+            std::swap(value, other.value);
+            return *this;
+        }
+
+        operator T()
+        {
+            return value;
+        }
+
+        T* operator&()
+        {
+            return &value;
+        }
+    };
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_DECORATE_FLAG_ENUM(enumType)                                \
     inline enumType operator|(enumType l, enumType r) {                  \
         return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
