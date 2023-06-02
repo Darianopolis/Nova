@@ -8,30 +8,28 @@
 
 namespace nova
 {
-    ImDraw2D* ImDraw2D::Create(Context* context)
+    ImDraw2D::ImDraw2D(Context* _context)
+        : context(_context)
     {
-        auto imDraw = new ImDraw2D;
-        imDraw->context = context;
-
 // -----------------------------------------------------------------------------
 
-        imDraw->descriptorSetLayout = context->CreateDescriptorLayout({
+        descriptorSetLayout = DescriptorLayout(context, {
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        imDraw->descriptorBuffer = Buffer(context,
-            imDraw->descriptorSetLayout->size,
+        descriptorBuffer = Buffer(context,
+            descriptorSetLayout.size,
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
-        imDraw->pipelineLayout = context->CreatePipelineLayout(
+        pipelineLayout = PipelineLayout(context,
             {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(PushConstants)}},
-            {imDraw->descriptorSetLayout},
+            {&descriptorSetLayout},
             nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
-        imDraw->rectBuffer = Buffer(context, sizeof(ImRoundRect) * MaxPrimitives,
+        rectBuffer = Buffer(context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -70,7 +68,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
     )";
 
-    imDraw->rectVertShader = Shader(context,
+    rectVertShader = Shader(context,
         ShaderStage::Vertex, {},
         "vertex",
         preamble + R"(
@@ -94,9 +92,9 @@ void main()
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
         )",
-        imDraw->pipelineLayout);
+        &pipelineLayout);
 
-    imDraw->rectFragShader = Shader(context,
+    rectFragShader = Shader(context,
         ShaderStage::Fragment, {},
         "fragment",
         preamble + R"(
@@ -139,25 +137,18 @@ void main()
     }
 }
         )",
-        imDraw->pipelineLayout);
+        &pipelineLayout);
 
 // -----------------------------------------------------------------------------
 
-        imDraw->defaultSampler = Sampler(context,
+        defaultSampler = Sampler(context,
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
-
-        return imDraw;
     }
 
-    void ImDraw2D::Destroy(ImDraw2D* imDraw)
-    {
-        imDraw->context->DestroyPipelineLayout(imDraw->pipelineLayout);
-
-        delete imDraw;
-    }
+    ImDraw2D::~ImDraw2D() {}
 
 // -----------------------------------------------------------------------------
 
@@ -174,7 +165,7 @@ void main()
             textureSlotFreelist.pop_back();
         }
 
-        descriptorSetLayout->WriteSampledTexture(descriptorBuffer.mapped, 0, texture, sampler, index);
+        descriptorSetLayout.WriteSampledTexture(descriptorBuffer.mapped, 0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -331,7 +322,7 @@ void main()
     void ImDraw2D::Record(CommandList* cmd)
     {
         cmd->SetTopology(Topology::Triangles);
-        cmd->PushConstants(pipelineLayout,
+        cmd->PushConstants(&pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
             PushConstantsRange.offset, PushConstantsRange.size,
             Temp(PushConstants {
@@ -341,7 +332,7 @@ void main()
             }));
 
         cmd->BindDescriptorBuffers({&descriptorBuffer});
-        cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
+        cmd->SetDescriptorSetOffsets(&pipelineLayout, 0, {{0}});
 
         for (auto& command : drawCommands)
         {

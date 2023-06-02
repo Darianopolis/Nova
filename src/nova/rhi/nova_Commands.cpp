@@ -2,32 +2,32 @@
 
 namespace nova
 {
-    CommandPool* Context::CreateCommandPool()
+    CommandPool::CommandPool(Context* _context, Queue* _queue)
+        : context(_context)
+        , queue(_queue)
     {
-        auto cmds = new CommandPool;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyCommandPool(cmds); };
-        cmds->context = this;
-        cmds->queue = graphics;
-
-        VkCall(vkCreateCommandPool(device, Temp(VkCommandPoolCreateInfo {
+        VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = cmds->queue->family,
-        }), pAlloc, &cmds->pool));
-
-        return cmds;
+            .queueFamilyIndex = queue->family,
+        }), context->pAlloc, &pool));
     }
 
-    void Context::DestroyCommandPool(CommandPool* pool)
+    CommandPool::~CommandPool()
     {
-        if (!pool)
-            return;
+        if (pool)
+            vkDestroyCommandPool(context->device, pool, context->pAlloc);
+    }
 
-        vkDestroyCommandPool(device, pool->pool, pAlloc);
-
-        for (auto& cmd : pool->buffers)
-            delete cmd;
-
-        delete pool;
+    CommandPool::CommandPool(CommandPool&& other) noexcept
+        : context(other.context)
+        , queue(other.queue)
+        , pool(other.pool)
+        , buffers(std::move(other.buffers))
+        , index(other.index)
+        , secondaryBuffers(std::move(other.secondaryBuffers))
+        , secondaryIndex(other.secondaryIndex)
+    {
+        other.pool = nullptr;
     }
 
     CommandList* CommandPool::BeginPrimary(ResourceTracker* tracker)
@@ -35,7 +35,7 @@ namespace nova
         CommandList* cmd;
         if (index >= buffers.size())
         {
-            cmd = buffers.emplace_back(new CommandList);
+            cmd = buffers.emplace_back(new CommandList).get();
             cmd->pool = this;
             VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -47,7 +47,7 @@ namespace nova
         }
         else
         {
-            cmd = buffers[index++];
+            cmd = buffers[index++].get();
         }
 
         VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
@@ -64,7 +64,7 @@ namespace nova
         CommandList* cmd;
         if (secondaryIndex >= secondaryBuffers.size())
         {
-            cmd = secondaryBuffers.emplace_back(new CommandList);
+            cmd = secondaryBuffers.emplace_back(new CommandList).get();
             cmd->pool = this;
             VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -76,7 +76,7 @@ namespace nova
         }
         else
         {
-            cmd = secondaryBuffers[secondaryIndex++];
+            cmd = secondaryBuffers[secondaryIndex++].get();
         }
 
         if (renderingDescription)
@@ -174,56 +174,6 @@ namespace nova
             .pSignalSemaphoreInfos = signalInfos,
         }), nullptr));
         submitting += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
-    }
-
-// -----------------------------------------------------------------------------
-
-    void ResourceTracker::Clear(u32 maxAge)
-    {
-        clearList.clear();
-        for (auto&[texture, state] : imageStates)
-        {
-            if (state.version + maxAge < version)
-            {
-                clearList.emplace_back(texture);
-            }
-            else
-            if (state.version <= version)
-            {
-                state.layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            }
-        }
-
-        for (auto texture : clearList)
-            imageStates.erase(texture);
-
-        version++;
-    }
-
-    void ResourceTracker::Reset(Texture* texture)
-    {
-        Get(texture) = {};
-    }
-
-    void ResourceTracker::Persist(Texture* texture)
-    {
-        Get(texture).version = version + 1;
-    }
-
-    void ResourceTracker::Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
-    {
-        Get(texture) = {
-            .layout = layout,
-            .stage = stage,
-            .access = access,
-        };
-    }
-
-    ResourceTracker::ImageState& ResourceTracker::Get(Texture* texture)
-    {
-        auto& state = imageStates[texture->image];
-        state.version = std::max(state.version, version);
-        return state;
     }
 
 // -----------------------------------------------------------------------------

@@ -5,12 +5,9 @@ namespace nova
     std::atomic_int64_t Context::AllocationCount = 0;
     std::atomic_int64_t Context::NewAllocationCount = 0;
 
-    Context* Context::Create(const ContextConfig& config)
+    Context::Context(const ContextConfig& config)
     {
         bool debug = config.debug;
-
-        auto context = new Context;
-        NOVA_ON_SCOPE_FAILURE(&) { Destroy(context); };
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -34,7 +31,7 @@ namespace nova
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
             .pfnUserCallback = DebugCallback,
-            .pUserData = context,
+            .pUserData = this,
         };
 
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
@@ -48,32 +45,30 @@ namespace nova
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), context->pAlloc, &context->instance));
+        }), pAlloc, &instance));
 
-        volkLoadInstanceOnly(context->instance);
+        volkLoadInstanceOnly(instance);
 
         if (debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(context->instance, &debugMessengerCreateInfo, context->pAlloc, &context->debugMessenger));
+            VkCall(vkCreateDebugUtilsMessengerEXT(instance, &debugMessengerCreateInfo, pAlloc, &debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, context->instance);
+        VkQuery(gpus, vkEnumeratePhysicalDevices, instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                context->gpu = _gpu;
+                gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(context->gpu, Temp(0u), nullptr);
-        context->graphics = new Queue;
-        context->graphics->context = context;
-        context->graphics->family = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties2(gpu, Temp(0u), nullptr);
+        graphics = Queue(this, nullptr, 0);
 
         // Ray tracing features
 
@@ -158,60 +153,54 @@ namespace nova
             deviceExtensions.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
         }
 
-        VkCall(vkCreateDevice(context->gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features2,
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = context->graphics->family,
+                    .queueFamilyIndex = graphics.family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(deviceExtensions.size()),
             .ppEnabledExtensionNames = deviceExtensions.data(),
-        }), context->pAlloc, &context->device));
+        }), pAlloc, &device));
 
-        volkLoadDevice(context->device);
+        volkLoadDevice(device);
 
-        vkGetPhysicalDeviceProperties2(context->gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &context->descriptorSizes,
+            .pNext = &descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(context->device, context->graphics->family, 0, &context->graphics->handle);
+        vkGetDeviceQueue(device, graphics.family, 0, &graphics.handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = context->gpu,
-            .device = context->device,
-            .pAllocationCallbacks = context->pAlloc,
+            .physicalDevice = gpu,
+            .device = device,
+            .pAllocationCallbacks = pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = context->instance,
+            .instance = instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &context->vma));
-
-        return context;
+        }), &vma));
     }
 
-    void Context::Destroy(Context* context)
+    Context::~Context()
     {
-        delete context->graphics;
-
-        vmaDestroyAllocator(context->vma);
-        vkDestroyDevice(context->device, context->pAlloc);
-        if (context->debugMessenger)
-            vkDestroyDebugUtilsMessengerEXT(context->instance, context->debugMessenger, context->pAlloc);
-        vkDestroyInstance(context->instance, context->pAlloc);
-
-        delete context;
+        vmaDestroyAllocator(vma);
+        vkDestroyDevice(device, pAlloc);
+        if (debugMessenger)
+            vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAlloc);
+        vkDestroyInstance(instance, pAlloc);
 
         NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
     }
@@ -246,4 +235,12 @@ Validation: {} ({})
     {
         vkDeviceWaitIdle(device);
     }
+
+// -----------------------------------------------------------------------------
+
+    Queue::Queue(Context* _context, VkQueue _queue, u32 _family)
+        : context(_context)
+        , handle(_queue)
+        , family(_family)
+    {}
 }

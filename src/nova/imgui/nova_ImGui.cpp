@@ -2,12 +2,9 @@
 
 namespace nova
 {
-    ImGuiWrapper* ImGuiWrapper::Create(Context* context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
+    ImGuiWrapper::ImGuiWrapper(Context* _context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags)
+        : context(_context)
     {
-        auto imgui = new ImGuiWrapper;
-        NOVA_ON_SCOPE_FAILURE(&) { Destroy(imgui); };
-        imgui->context = context;
-
         VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
@@ -38,7 +35,7 @@ namespace nova
                 .srcAccessMask = 0,
                 .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             }),
-        }), context->pAlloc, &imgui->renderPass));
+        }), context->pAlloc, &renderPass));
 
         // Create fixed sampler only descriptor pool for ImGui
         // All application descriptor sets will be managed by descriptor buffers
@@ -50,13 +47,13 @@ namespace nova
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
             .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
-        }), context->pAlloc, &imgui->descriptorPool));
+        }), context->pAlloc, &descriptorPool));
 
         // Create ImGui context and initialize
 
-        imgui->imguiCtx = ImGui::CreateContext();
-        imgui->lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imgui->imguiCtx);
+        imguiCtx = ImGui::CreateContext();
+        lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imguiCtx);
 
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= imguiFlags;
@@ -65,14 +62,14 @@ namespace nova
             .Instance = context->instance,
             .PhysicalDevice = context->gpu,
             .Device = context->device,
-            .QueueFamily = context->graphics->family,
-            .Queue = context->graphics->handle,
-            .DescriptorPool = imgui->descriptorPool,
+            .QueueFamily = context->graphics.family,
+            .Queue = context->graphics.handle,
+            .DescriptorPool = descriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
             .ImageCount = 2,
             .CheckVkResultFn = [](VkResult r) { VkCall(r); },
-        }), imgui->renderPass);
+        }), renderPass);
 
         // Rescale UI and fonts
         // TODO: Don't hardcode 150%
@@ -84,28 +81,37 @@ namespace nova
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(cmd->buffer);
 
-        ImGui::SetCurrentContext(imgui->lastImguiCtx);
-
-        return imgui;
+        ImGui::SetCurrentContext(lastImguiCtx);
     }
 
-    void ImGuiWrapper::Destroy(ImGuiWrapper* imgui)
+    ImGuiWrapper::~ImGuiWrapper()
     {
-        auto context = imgui->context;
+        if (!renderPass)
+            return;
 
-        for (auto framebuffer : imgui->framebuffers)
+        for (auto framebuffer : framebuffers)
             vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
-        vkDestroyRenderPass(context->device, imgui->renderPass, context->pAlloc);
-        vkDestroyDescriptorPool(context->device, imgui->descriptorPool, context->pAlloc);
+        vkDestroyRenderPass(context->device, renderPass, context->pAlloc);
+        vkDestroyDescriptorPool(context->device, descriptorPool, context->pAlloc);
 
-        imgui->lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imgui->imguiCtx);
+        lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imguiCtx);
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
-        ImGui::SetCurrentContext(imgui->lastImguiCtx);
-        ImGui::DestroyContext(imgui->imguiCtx);
+        ImGui::SetCurrentContext(lastImguiCtx);
+        ImGui::DestroyContext(imguiCtx);
+    }
 
-        delete imgui;
+    ImGuiWrapper::ImGuiWrapper(ImGuiWrapper&& other) noexcept
+        : imguiCtx(other.imguiCtx)
+        , lastImguiCtx(other.lastImguiCtx)
+        , context(other.context)
+        , renderPass(other.renderPass)
+        , framebuffers(std::move(other.framebuffers))
+        , descriptorPool(other.descriptorPool)
+        , lastSwapchain(other.lastSwapchain)
+    {
+        other.renderPass = nullptr;
     }
 
     void ImGuiWrapper::BeginFrame()

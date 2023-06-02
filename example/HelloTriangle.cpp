@@ -1,6 +1,6 @@
 #include <nova/rhi/nova_RHI.hpp>
 
-using namespace nova;
+using namespace nova::types;
 
 int main()
 {
@@ -12,34 +12,28 @@ int main()
         glfwTerminate();
     };
 
-    auto context = Context::Create({
+    auto _context = nova::Context({
         .debug = false,
     });
-    NOVA_ON_SCOPE_EXIT(&) { Context::Destroy(context); };
+    auto* context = &_context;
 
-    nova::Surface surface(context, glfwGetWin32Window(window));
-    nova::Swapchain swapchain(context, &surface,
-        TextureUsage::ColorAttach
-        | TextureUsage::TransferDst,
-        PresentMode::Fifo);
+    auto surface = nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain = nova::Swapchain(context, &surface,
+        nova::TextureUsage::ColorAttach
+        | nova::TextureUsage::TransferDst,
+        nova::PresentMode::Fifo);
 
-    auto queue = context->graphics;
-    auto cmdPool = context->CreateCommandPool();
-    auto fence = context->CreateFence();
-    auto tracker = context->CreateResourceTracker();
-    NOVA_ON_SCOPE_EXIT(&) {
-        context->DestroyCommandPool(cmdPool);
-        context->DestroyFence(fence);
-        context->DestroyResourceTracker(tracker);
-    };
+    auto& queue = context->graphics;
+    auto cmdPool = nova::CommandPool(context, &queue);
+    auto fence = nova::Fence(context);
+    auto tracker = nova::ResourceTracker(context);
 
     // Pipeline
 
-    auto pipelineLayout = context->CreatePipelineLayout({}, {}, nova::BindPoint::RayTracing);
-    NOVA_ON_SCOPE_EXIT(&) { context->DestroyPipelineLayout(pipelineLayout); };
+    auto pipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::RayTracing);
 
-    Shader vertexShader(context,
-        ShaderStage::Vertex, ShaderStage::Fragment,
+    auto vertexShader = nova::Shader(context,
+        nova::ShaderStage::Vertex, nova::ShaderStage::Fragment,
         "vertex",
         R"(
 #version 460
@@ -55,10 +49,10 @@ void main()
     gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
 }
         )",
-        pipelineLayout);
+        &pipelineLayout);
 
-    Shader fragmentShader(context,
-        ShaderStage::Fragment, {},
+    auto fragmentShader = nova::Shader(context,
+        nova::ShaderStage::Fragment, {},
         "fragment",
         R"(
 #version 460
@@ -71,18 +65,18 @@ void main()
     fragColor = vec4(inColor, 1);
 }
         )",
-        pipelineLayout);
+        &pipelineLayout);
 
     // Draw
 
-    NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
-        fence->Wait();
-        queue->Acquire({&swapchain}, {fence});
+        fence.Wait();
+        queue.Acquire({&swapchain}, {&fence});
 
-        cmdPool->Reset();
-        auto cmd = cmdPool->BeginPrimary(tracker);
+        cmdPool.Reset();
+        auto cmd = cmdPool.BeginPrimary(&tracker);
 
         cmd->SetViewport(Vec2U(swapchain.current->extent), false);
         cmd->SetBlendState(1, false);
@@ -97,8 +91,8 @@ void main()
         cmd->EndRendering();
 
         cmd->Present(swapchain.current);
-        queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({&swapchain}, {fence});
+        queue.Submit({cmd}, {&fence}, {&fence});
+        queue.Present({&swapchain}, {&fence});
 
         glfwWaitEvents();
     }

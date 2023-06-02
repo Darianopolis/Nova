@@ -114,9 +114,9 @@ namespace nova
 
         Sampler defaultSampler = {};
 
-        PipelineLayout* pipelineLayout = {};
+        PipelineLayout pipelineLayout = {};
 
-        DescriptorLayout* descriptorSetLayout = {};
+        DescriptorLayout  descriptorSetLayout = {};
         Buffer               descriptorBuffer = {};
         u32                   nextTextureSlot = 0;
         std::vector<u32>  textureSlotFreelist = {};
@@ -131,8 +131,12 @@ namespace nova
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        static ImDraw2D* Create(Context* context);
-        static void Destroy(ImDraw2D* imDraw);
+        ImDraw2D() = default;
+        ImDraw2D(Context* context);
+        ~ImDraw2D();
+
+        ImDraw2D(ImDraw2D&&) = default;
+        ImDraw2D& operator=(ImDraw2D&&) = default;
 
         ImTextureID RegisterTexture(Texture* texture, Sampler* sampler);
         void UnregisterTexture(ImTextureID textureSlot);

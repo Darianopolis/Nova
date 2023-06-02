@@ -2,33 +2,34 @@
 
 namespace nova
 {
-    Fence* Context::CreateFence()
+    Fence::Fence(Context* _context)
+        : context(_context)
     {
-        auto fence = new Fence;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyFence(fence); };
-        fence->context = this;
-
-        VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
+        VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = Temp(VkSemaphoreTypeCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             })
-        }), pAlloc, &fence->semaphore));
-
-        return fence;
+        }), context->pAlloc, &semaphore));
     }
 
-    void Context::DestroyFence(Fence* fence)
+    Fence::~Fence()
     {
-        if (!fence)
-            return;
-
-        vkDestroySemaphore(device, fence->semaphore, pAlloc);
-
-        delete fence;
+        if (semaphore)
+            vkDestroySemaphore(context->device, semaphore, context->pAlloc);
     }
+
+    Fence::Fence(Fence&& other) noexcept
+        : context(other.context)
+        , semaphore(other.semaphore)
+        , value(other.value)
+    {
+        other.semaphore = nullptr;
+    }
+
+// -----------------------------------------------------------------------------
 
     void Fence::Wait(u64 waitValue)
     {

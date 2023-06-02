@@ -3,12 +3,9 @@
 namespace nova
 {
     NOVA_NO_INLINE
-    DescriptorLayout* Context::CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor)
+    DescriptorLayout::DescriptorLayout(Context* _context, Span<DescriptorBinding> bindings, bool pushDescriptor)
+        : context(_context)
     {
-        auto* layout = new DescriptorLayout;
-        layout->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyDescriptorLayout(layout); };
-
         auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
         auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
 
@@ -29,7 +26,7 @@ namespace nova
                 flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
         }
 
-        VkCall(vkCreateDescriptorSetLayout(device, Temp(VkDescriptorSetLayoutCreateInfo {
+        VkCall(vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -42,21 +39,28 @@ namespace nova
                     : VkDescriptorBindingFlags(0)),
             .bindingCount = u32(bindings.size()),
             .pBindings = vkBindings,
-        }), pAlloc, &layout->layout));
+        }), context->pAlloc, &layout));
 
-        vkGetDescriptorSetLayoutSizeEXT(device, layout->layout, &layout->size);
+        vkGetDescriptorSetLayoutSizeEXT(context->device, layout, &size);
 
-        layout->offsets.resize(bindings.size());
+        offsets.resize(bindings.size());
         for (u32 i = 0; i < bindings.size(); ++i)
-            vkGetDescriptorSetLayoutBindingOffsetEXT(device, layout->layout, i, &layout->offsets[i]);
-
-        return layout;
+            vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, layout, i, &offsets[i]);
     }
 
-    void Context::DestroyDescriptorLayout(DescriptorLayout* layout)
+    DescriptorLayout::~DescriptorLayout()
     {
-        vkDestroyDescriptorSetLayout(device, layout->layout, pAlloc);
-        delete layout;
+        if (layout)
+            vkDestroyDescriptorSetLayout(context->device, layout, context->pAlloc);
+    }
+
+    DescriptorLayout::DescriptorLayout(DescriptorLayout&& other) noexcept
+        : context(other.context)
+        , layout(other.layout)
+        , size(other.size)
+        , offsets(std::move(other.offsets))
+    {
+        other.layout = nullptr;
     }
 
     void DescriptorLayout::WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex)
@@ -117,39 +121,42 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    PipelineLayout* Context::CreatePipelineLayout(
+    PipelineLayout::PipelineLayout(Context* _context,
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorLayout*> descriptorLayouts,
-            BindPoint bindPoint)
+            BindPoint _bindPoint)
+        : context(_context)
+        , bindPoint(_bindPoint)
     {
-        auto* layout = new PipelineLayout;
-        layout->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyPipelineLayout(layout); };
-
         for (auto& range : pushConstantRanges)
-            layout->ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
+            ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
 
         for (auto& setLayout : descriptorLayouts)
-            layout->sets.emplace_back(setLayout->layout);
+            sets.emplace_back(setLayout->layout);
 
-        VkCall(vkCreatePipelineLayout(device, Temp(VkPipelineLayoutCreateInfo {
+        VkCall(vkCreatePipelineLayout(context->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = u32(layout->sets.size()),
-            .pSetLayouts = layout->sets.data(),
-            .pushConstantRangeCount = u32(layout->ranges.size()),
-            .pPushConstantRanges = layout->ranges.data(),
-        }), pAlloc, &layout->layout));
-
-        layout->bindPoint = bindPoint;
-
-        return layout;
+            .setLayoutCount = u32(sets.size()),
+            .pSetLayouts = sets.data(),
+            .pushConstantRangeCount = u32(ranges.size()),
+            .pPushConstantRanges = ranges.data(),
+        }), context->pAlloc, &layout));
     }
 
-    void Context::DestroyPipelineLayout(PipelineLayout* layout)
+    PipelineLayout::~PipelineLayout()
     {
-        vkDestroyPipelineLayout(device, layout->layout, pAlloc);
+        if (layout)
+            vkDestroyPipelineLayout(context->device, layout, context->pAlloc);
+    }
 
-        delete layout;
+    PipelineLayout::PipelineLayout(PipelineLayout&& other) noexcept
+        : context(other.context)
+        , layout(other.layout)
+        , bindPoint(other.bindPoint)
+        , ranges(std::move(other.ranges))
+        , sets(std::move(other.sets))
+    {
+        other.layout = nullptr;
     }
 
 // -----------------------------------------------------------------------------

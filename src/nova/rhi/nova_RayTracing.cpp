@@ -251,54 +251,66 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    AccelerationStructure* Context::CreateAccelerationStructure(usz size, AccelerationStructureType type)
+    AccelerationStructure::AccelerationStructure(Context* _context, usz size, AccelerationStructureType type)
+        : context(_context)
     {
-        auto* structure = new AccelerationStructure;
-        structure->context = this;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyAccelerationStructure(structure); };
-
-        structure->buffer = Buffer(this, size,
+        buffer = Buffer(context, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
-        VkCall(vkCreateAccelerationStructureKHR(device, Temp(VkAccelerationStructureCreateInfoKHR {
+        VkCall(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = structure->buffer.buffer,
-            .size = structure->buffer.size,
+            .buffer = buffer.buffer,
+            .size = buffer.size,
             .type = VkAccelerationStructureTypeKHR(type),
-        }), pAlloc, &structure->structure));
+        }), context->pAlloc, &structure));
 
-        structure->address = vkGetAccelerationStructureDeviceAddressKHR(
-            device,
+        address = vkGetAccelerationStructureDeviceAddressKHR(
+            context->device,
             Temp(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-                .accelerationStructure = structure->structure
+                .accelerationStructure = structure
             }));
-
-        return structure;
     }
 
-    void Context::DestroyAccelerationStructure(AccelerationStructure* structure)
+    AccelerationStructure::~AccelerationStructure()
     {
-        vkDestroyAccelerationStructureKHR(device, structure->structure, pAlloc);
+        if (structure)
+            vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
+    }
 
-        delete structure;
+    AccelerationStructure::AccelerationStructure(AccelerationStructure&& other) noexcept
+        : context(other.context)
+        , structure(other.structure)
+        , address(other.address)
+        , type(other.type)
+        , buffer(std::move(other.buffer))
+    {
+        other.structure = nullptr;
     }
 
 // -----------------------------------------------------------------------------
 
-    RayTracingPipeline* Context::CreateRayTracingPipeline()
+    RayTracingPipeline::RayTracingPipeline(Context* _context)
+        : context(_context)
+    {}
+
+    RayTracingPipeline::~RayTracingPipeline()
     {
-        auto* pipeline = new RayTracingPipeline;
-        pipeline->context = this;
-        return pipeline;
+        if (pipeline)
+            vkDestroyPipeline(context->device, pipeline, context->pAlloc);
     }
 
-    void Context::DestroyRayTracingPipeline(RayTracingPipeline* pipeline)
+    RayTracingPipeline::RayTracingPipeline(RayTracingPipeline&& other) noexcept
+        : context(other.context)
+        , pipeline(other.pipeline)
+        , sbtBuffer(std::move(other.sbtBuffer))
+        , rayGenRegion(other.rayGenRegion)
+        , rayMissRegion(other.rayMissRegion)
+        , rayHitRegion(other.rayHitRegion)
+        , rayCallRegion(other.rayCallRegion)
     {
-        vkDestroyPipeline(device, pipeline->pipeline, pAlloc);
-
-        delete pipeline;
+        other.pipeline = nullptr;
     }
 
 // -----------------------------------------------------------------------------
@@ -318,7 +330,7 @@ namespace nova
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
         auto getShaderIndex = [&](Shader* shader) {
-            if (!shader)
+            if (!shader || !shader->IsValid())
                 return VK_SHADER_UNUSED_KHR;
 
             if (!stageIndices.contains(shader->module))
@@ -366,6 +378,13 @@ namespace nova
         {
             rayCallIndices.push_back(u32(groups.size()));
             createGroup().generalShader = getShaderIndex(shader);
+        }
+
+        // Debug
+
+        for (auto& stage : stages)
+        {
+            NOVA_LOG(" - module = {}, stage = {}, name = {}", (void*)stage.module, i32(stage.stage), stage.pName);
         }
 
         // Create pipeline

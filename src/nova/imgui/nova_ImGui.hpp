@@ -15,8 +15,11 @@ namespace nova
         VkDescriptorPool descriptorPool = {};
         VkSwapchainKHR lastSwapchain = {};
     public:
-        static ImGuiWrapper* Create(Context* context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags);
-        static void Destroy(ImGuiWrapper* imgui);
+        ImGuiWrapper() = default;
+        ImGuiWrapper(Context* context, CommandList* cmd, Swapchain* swapchain, GLFWwindow* window, int imguiFlags);
+        ~ImGuiWrapper();
+
+        NOVA_DEFAULT_MOVE_DECL(ImGuiWrapper)
 
         void BeginFrame();
         void EndFrame(CommandList* cmd, Swapchain* swapchain);

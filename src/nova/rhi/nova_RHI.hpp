@@ -369,6 +369,8 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(Shader)
 
+        bool IsValid();
+
         VkPipelineShaderStageCreateInfo GetStageInfo();
     };
 
@@ -424,6 +426,12 @@ namespace nova
         u32     family = UINT32_MAX;
 
     public:
+        Queue() = default;
+        Queue(Context* context, VkQueue queue, u32 family);
+
+        Queue(Queue&&) = default;
+        Queue& operator=(Queue&&) = default;
+
         void Submit(Span<CommandList*> commandLists, Span<Fence*> waits, Span<Fence*> signals);
         bool Acquire(Span<Swapchain*> swapchains, Span<Fence*> signals);
 
@@ -432,36 +440,6 @@ namespace nova
         // (including indirectly) then hostWait must be set to true, as WSI
         // operations are incompatible with wait-before-signal.
         void Present(Span<Swapchain*> swapchains, Span<Fence*> waits, bool hostWait = false);
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct ResourceTracker
-    {
-        Context* context = {};
-
-        u64 version = 0;
-
-        struct ImageState
-        {
-            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
-            VkAccessFlags2       access = 0;
-
-            u64 version = 0;
-        };
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
-
-        std::vector<VkImage> clearList;
-
-    public:
-        void Clear(u32 maxAge);
-
-        void Reset(Texture* texture);
-        void Persist(Texture* texture);
-        void Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-
-        ImageState& Get(Texture* texture);
     };
 
 // -----------------------------------------------------------------------------
@@ -488,6 +466,7 @@ namespace nova
         VkQueryPool queryPool = {};
 
     public:
+        AccelerationStructureBuilder() = default;
         AccelerationStructureBuilder(Context* context);
         ~AccelerationStructureBuilder();
 
@@ -527,6 +506,13 @@ namespace nova
         VkAccelerationStructureTypeKHR  type = {};
 
         Buffer buffer = {};
+
+    public:
+        AccelerationStructure() = default;
+        AccelerationStructure(Context* context, usz size, AccelerationStructureType type);
+        ~AccelerationStructure();
+
+        NOVA_DEFAULT_MOVE_DECL(AccelerationStructure)
     };
 
 // -----------------------------------------------------------------------------
@@ -551,6 +537,12 @@ namespace nova
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
 
     public:
+        RayTracingPipeline() = default;
+        RayTracingPipeline(Context* context);
+        ~RayTracingPipeline();
+
+        NOVA_DEFAULT_MOVE_DECL(RayTracingPipeline)
+
         void Update(
             PipelineLayout* layout,
             Span<Shader*> rayGenShaders,
@@ -569,6 +561,12 @@ namespace nova
         u64             value = 0;
 
     public:
+        Fence() = default;
+        Fence(Context* context);
+        ~Fence();
+
+        NOVA_DEFAULT_MOVE_DECL(Fence)
+
         void Wait(u64 waitValue = 0ull);
         u64 Advance();
         void Signal(u64 value);
@@ -589,9 +587,22 @@ namespace nova
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
         std::vector<u64>     offsets = {};
+
     public:
+        DescriptorLayout() = default;
+        DescriptorLayout(Context* context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
+        ~DescriptorLayout();
+
+        NOVA_DEFAULT_MOVE_DECL(DescriptorLayout)
 
         void WriteSampledTexture(void* dst, u32 binding, Texture* texture, Sampler* sampler, u32 arrayIndex = 0);
+    };
+
+    struct PushConstantRange
+    {
+        ShaderStage stages;
+        u32           size;
+        u32         offset = 0;
     };
 
     struct PipelineLayout
@@ -605,13 +616,53 @@ namespace nova
 
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
+
+    public:
+        PipelineLayout() = default;
+        PipelineLayout(Context* context,
+            Span<PushConstantRange> pushConstantRanges,
+            Span<DescriptorLayout*> descriptorLayouts,
+            BindPoint bindPoint);
+        ~PipelineLayout();
+
+        NOVA_DEFAULT_MOVE_DECL(PipelineLayout)
     };
 
-    struct PushConstantRange
+// -----------------------------------------------------------------------------
+
+    struct ResourceTracker
     {
-        ShaderStage stages;
-        u32           size;
-        u32         offset = 0;
+        Context* context = {};
+
+        u64 version = 0;
+
+        struct ImageState
+        {
+            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
+            VkAccessFlags2       access = 0;
+
+            u64 version = 0;
+        };
+        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+
+        std::vector<VkImage> clearList;
+
+    public:
+        ResourceTracker() = default;
+        ResourceTracker(Context* context);
+        ~ResourceTracker();
+
+        ResourceTracker(ResourceTracker&&) = default;
+        ResourceTracker& operator=(ResourceTracker&&) = default;
+
+        void Clear(u32 maxAge);
+
+        void Reset(Texture* texture);
+        void Persist(Texture* texture);
+        void Set(Texture* texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
+
+        ImageState& Get(Texture* texture);
     };
 
 // -----------------------------------------------------------------------------
@@ -628,14 +679,20 @@ namespace nova
         Context* context = {};
         Queue*     queue = {};
 
-        VkCommandPool                pool = {};
-        std::vector<CommandList*> buffers = {};
-        u32                         index = 0;
+        VkCommandPool                    pool = {};
+        std::vector<Ptr<CommandList>> buffers = {};
+        u32                             index = 0;
 
-        std::vector<CommandList*> secondaryBuffers = {};
-        u32                         secondaryIndex = 0;
+        std::vector<Ptr<CommandList>> secondaryBuffers = {};
+        u32                             secondaryIndex = 0;
 
     public:
+        CommandPool() = default;
+        CommandPool(Context* context, Queue* queue);
+        ~CommandPool();
+
+        NOVA_DEFAULT_MOVE_DECL(CommandPool)
+
         CommandList* BeginPrimary(ResourceTracker* tracker);
 
         CommandList* BeginSecondary(ResourceTracker* tracker, const RenderingDescription* renderingDescription = nullptr);
@@ -741,7 +798,7 @@ namespace nova
             .pNext = &accelStructureProperties,
         };
 
-        Queue* graphics = {};
+        Queue graphics = {};
 
         static std::atomic_int64_t    AllocationCount;
         static std::atomic_int64_t NewAllocationCount;
@@ -787,32 +844,11 @@ namespace nova
         };
         VkAllocationCallbacks* pAlloc = &alloc;
     public:
-        static Context* Create(const ContextConfig& config);
-        static void Destroy(Context* context);
+        Context(const ContextConfig& config);
+        ~Context();
 
-        DescriptorLayout* CreateDescriptorLayout(Span<DescriptorBinding> bindings, bool pushDescriptor = false);
-        void DestroyDescriptorLayout(DescriptorLayout* layout);
-
-        PipelineLayout* CreatePipelineLayout(
-            Span<PushConstantRange> pushConstantRanges,
-            Span<DescriptorLayout*> descriptorLayouts,
-            BindPoint bindPoint);
-        void DestroyPipelineLayout(PipelineLayout* layout);
-
-        CommandPool* CreateCommandPool();
-        void DestroyCommandPool(CommandPool* commands);
-
-        ResourceTracker* CreateResourceTracker();
-        void DestroyResourceTracker(ResourceTracker* tracker);
-
-        Fence* CreateFence();
-        void DestroyFence(Fence* fence);
-
-        AccelerationStructure* CreateAccelerationStructure(usz size, AccelerationStructureType type);
-        void DestroyAccelerationStructure(AccelerationStructure* accelStructure);
-
-        RayTracingPipeline* CreateRayTracingPipeline();
-        void DestroyRayTracingPipeline(RayTracingPipeline* pipeline);
+        Context(Context&&) = delete;
+        Context(const Context&) = delete;
 
         void WaitForIdle();
     };

@@ -86,7 +86,7 @@ namespace nova
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
-                    context->graphics->family,
+                    context->graphics.family,
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
@@ -344,17 +344,5 @@ namespace nova
             texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
             1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->mips, 0, texture->layers }));
-    }
-
-// -----------------------------------------------------------------------------
-
-    ResourceTracker* Context::CreateResourceTracker()
-    {
-        return new ResourceTracker;
-    }
-
-    void Context::DestroyResourceTracker(ResourceTracker* tracker)
-    {
-        delete tracker;
     }
 }

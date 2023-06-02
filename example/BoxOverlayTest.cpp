@@ -23,24 +23,25 @@ void TryMain()
         glfwTerminate();
     };
 
-    auto context = nova::Context::Create({
+    auto _context = nova::Context({
         .debug = true,
     });
+    auto* context = &_context;
 
-    nova::Surface surface(context, glfwGetWin32Window(window));
-    nova::Swapchain swapchain(context, &surface,
+    auto surface = nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain =nova::Swapchain(context, &surface,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
-    auto queue = context->graphics;
-    auto commandPool = context->CreateCommandPool();
-    auto fence = context->CreateFence();
-    auto tracker = context->CreateResourceTracker();
+    auto& queue = context->graphics;
+    auto commandPool = nova::CommandPool(context, &queue);
+    auto fence = nova::Fence(context);
+    auto tracker = nova::ResourceTracker(context);
 
 // -----------------------------------------------------------------------------
 
-    auto imDraw = nova::ImDraw2D::Create(context);
+    auto imDraw = nova::ImDraw2D(context);
 
 // -----------------------------------------------------------------------------
 
@@ -60,14 +61,14 @@ void TryMain()
         nova::Buffer staging(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
         std::memcpy(staging.mapped, data, size);
 
-        auto cmd = commandPool->BeginPrimary(tracker);
+        auto cmd = commandPool.BeginPrimary(&tracker);
         cmd->CopyToTexture(&texture, &staging);
         cmd->GenerateMips(&texture);
 
-        queue->Submit({cmd}, {}, {fence});
-        fence->Wait();
+        queue.Submit({cmd}, {}, {&fence});
+        fence.Wait();
 
-        texID = imDraw->RegisterTexture(&texture, &imDraw->defaultSampler);
+        texID = imDraw.RegisterTexture(&texture, &imDraw.defaultSampler);
     }
 
 // -----------------------------------------------------------------------------
@@ -79,7 +80,8 @@ void TryMain()
 
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
-    auto font = imDraw->LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, tracker, fence, queue);
+    auto font = imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, &commandPool, &tracker, &fence, &queue);
+    NOVA_ON_SCOPE_EXIT(&) { imDraw.DestroyFont(font); };
 
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },
@@ -127,6 +129,8 @@ void TryMain()
     bool skipUpdate = false;
 
     auto lastFrame = std::chrono::steady_clock::now();
+
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -163,13 +167,13 @@ void TryMain()
 
 // -----------------------------------------------------------------------------
 
-        imDraw->Reset();
+        imDraw.Reset();
 
-        imDraw->DrawRect(box1);
-        imDraw->DrawRect(box2);
-        imDraw->DrawRect(box3);
+        imDraw.DrawRect(box1);
+        imDraw.DrawRect(box2);
+        imDraw.DrawRect(box3);
 
-        imDraw->DrawString(
+        imDraw.DrawString(
             "C:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive/BeamNG.drive.exe",
             Vec2(mWidth * 0.25f, mHeight * 0.4f),
             font);
@@ -178,30 +182,30 @@ void TryMain()
 
         // Record frame
 
-        fence->Wait();
-        commandPool->Reset();
+        fence.Wait();
+        commandPool.Reset();
 
-        auto cmd = commandPool->BeginPrimary(tracker);
-        cmd->SetViewport(imDraw->bounds.Size(), false);
+        auto cmd = commandPool.BeginPrimary(&tracker);
+        cmd->SetViewport(imDraw.bounds.Size(), false);
         cmd->SetBlendState(1, true);
         cmd->SetTopology(nova::Topology::Triangles);
 
         // Update window size, record primary buffer and present
 
-        glfwSetWindowSize(window, i32(imDraw->bounds.Width()), i32(imDraw->bounds.Height()));
-        glfwSetWindowPos(window, i32(imDraw->bounds.min.x), i32(imDraw->bounds.min.y));
+        glfwSetWindowSize(window, i32(imDraw.bounds.Width()), i32(imDraw.bounds.Height()));
+        glfwSetWindowPos(window, i32(imDraw.bounds.min.x), i32(imDraw.bounds.min.y));
 
-        queue->Acquire({&swapchain}, {fence});
+        queue.Acquire({&swapchain}, {&fence});
 
         cmd->BeginRendering({swapchain.current});
-        cmd->ClearColor(0, Vec4(0.f), imDraw->bounds.Size());
-        imDraw->Record(cmd);
+        cmd->ClearColor(0, Vec4(0.f), imDraw.bounds.Size());
+        imDraw.Record(cmd);
         cmd->EndRendering();
 
         cmd->Present(swapchain.current);
 
-        queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({&swapchain}, {fence});
+        queue.Submit({cmd}, {&fence}, {&fence});
+        queue.Present({&swapchain}, {&fence});
     }
 }
 

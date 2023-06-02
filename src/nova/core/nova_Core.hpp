@@ -101,6 +101,31 @@ namespace nova
         template<class T>
         using Ptr = std::unique_ptr<T>;
 
+        template<class T>
+        struct Ref
+        {
+            T* ptr = {};
+
+            Ref(T& value)
+                : ptr(&value)
+            {}
+
+            T* GetAddress()
+            {
+                return ptr;
+            }
+
+            T& operator*()
+            {
+                return *ptr;
+            }
+
+            T* operator->()
+            {
+                return ptr;
+            }
+        };
+
 // -----------------------------------------------------------------------------
 
         template<class T>
