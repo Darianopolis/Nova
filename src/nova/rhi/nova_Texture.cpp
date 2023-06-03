@@ -147,6 +147,7 @@ namespace nova
         , mips(other.mips)
         , layers(other.layers)
     {
+        other.image = nullptr;
         other.view = nullptr;
         other.allocation = nullptr;
     }

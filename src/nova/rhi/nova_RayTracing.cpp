@@ -311,6 +311,7 @@ namespace nova
         , rayCallRegion(other.rayCallRegion)
     {
         other.pipeline = nullptr;
+        other.context = nullptr; // For IsValid
     }
 
 // -----------------------------------------------------------------------------
@@ -329,7 +330,7 @@ namespace nova
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        auto getShaderIndex = [&](const Shader* shader) {
+        auto getShaderIndex = [&](OptRef<Shader> shader) {
             if (!shader || !shader->IsValid())
                 return VK_SHADER_UNUSED_KHR;
 
@@ -353,13 +354,13 @@ namespace nova
         for (auto& shader : rayGenShaders)
         {
             rayGenIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader.GetAddress());
+            createGroup().generalShader = getShaderIndex(shader);
         }
 
         for (auto& shader : rayMissShaders)
         {
             rayMissIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader.GetAddress());
+            createGroup().generalShader = getShaderIndex(shader);
         }
 
         for (auto& group : rayHitShaderGroup)
@@ -377,7 +378,7 @@ namespace nova
         for (auto& shader : callableShaders)
         {
             rayCallIndices.push_back(u32(groups.size()));
-            createGroup().generalShader = getShaderIndex(shader.GetAddress());
+            createGroup().generalShader = getShaderIndex(shader);
         }
 
         // Create pipeline

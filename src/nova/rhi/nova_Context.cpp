@@ -68,7 +68,7 @@ namespace nova
         // ---- Logical Device ----
 
         vkGetPhysicalDeviceQueueFamilyProperties2(gpu, Temp(0u), nullptr);
-        graphics = Queue(this, nullptr, 0);
+        graphics = Queue(*this, nullptr, 0);
 
         // Ray tracing features
 
@@ -239,8 +239,8 @@ Validation: {} ({})
 
 // -----------------------------------------------------------------------------
 
-    Queue::Queue(Context* _context, VkQueue _queue, u32 _family)
-        : context(_context)
+    Queue::Queue(Context& _context, VkQueue _queue, u32 _family)
+        : context(&_context)
         , handle(_queue)
         , family(_family)
     {}

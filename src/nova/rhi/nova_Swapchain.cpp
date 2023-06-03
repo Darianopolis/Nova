@@ -41,13 +41,13 @@ namespace nova
         , presentMode(other.presentMode)
         , textures(std::move(other.textures))
         , index(other.index)
-        , current(other.current)
         , extent(other.extent)
         , invalid(other.invalid)
         , semaphores(std::move(other.semaphores))
         , semaphoreIndex(other.semaphoreIndex)
     {
         other.swapchain = nullptr;
+        other.surface = nullptr; // For IsValid
         other.semaphores.clear();
     }
 
@@ -253,19 +253,17 @@ namespace nova
                     .deviceMask = 1,
                 }), &swapchain->index);
 
-                if (result == VK_SUCCESS)
+                if (result != VK_SUCCESS)
                 {
-                    swapchain->current = &swapchain->textures[swapchain->index];
-                }
-                else
-                if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
-                {
-                    NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetAddress(), int(result));
-                    swapchain->invalid = true;
-                }
-                else
-                {
-                    VkCall(result);
+                    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
+                    {
+                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetAddress(), int(result));
+                        swapchain->invalid = true;
+                    }
+                    else
+                    {
+                        VkCall(result);
+                    }
                 }
             }
             while (swapchain->invalid);

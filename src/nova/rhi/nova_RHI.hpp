@@ -300,6 +300,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(Buffer)
 
+        bool IsValid() const
+        {
+            return buffer;
+        }
+
+    public:
         void Resize(u64 size);
 
         template<class T>
@@ -329,6 +335,11 @@ namespace nova
         ~Sampler();
 
         NOVA_DEFAULT_MOVE_DECL(Sampler)
+
+        bool IsValid() const
+        {
+            return sampler;
+        }
     };
 
     struct Texture
@@ -352,6 +363,11 @@ namespace nova
         ~Texture();
 
         NOVA_DEFAULT_MOVE_DECL(Texture)
+
+        bool IsValid() const
+        {
+            return image;
+        }
     };
 
 // -----------------------------------------------------------------------------
@@ -375,8 +391,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(Shader)
 
-        bool IsValid() const;
+        bool IsValid() const
+        {
+            return shader || module;
+        }
 
+    public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 
@@ -394,6 +414,11 @@ namespace nova
         ~Surface();
 
         NOVA_DEFAULT_MOVE_DECL(Surface)
+
+        bool IsValid() const
+        {
+            return surface;
+        }
     };
 
     struct Swapchain
@@ -407,7 +432,6 @@ namespace nova
         VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
         std::vector<Texture>  textures = {};
         uint32_t                 index = UINT32_MAX;
-        Texture*               current = nullptr;
         VkExtent2D              extent = { 0, 0 };
         bool                   invalid = false;
 
@@ -421,10 +445,16 @@ namespace nova
 
         Texture& GetCurrent() const
         {
-            return *current;
+            // TODO: Fix your const correctness >:(
+            return const_cast<Texture&>(textures[index]);
         }
 
         NOVA_DEFAULT_MOVE_DECL(Swapchain)
+
+        bool IsValid() const
+        {
+            return surface;
+        }
     };
 
 // -----------------------------------------------------------------------------
@@ -438,11 +468,12 @@ namespace nova
 
     public:
         Queue() = default;
-        Queue(Context* context, VkQueue queue, u32 family);
+        Queue(Context& context, VkQueue queue, u32 family);
 
         Queue(Queue&&) = default;
         Queue& operator=(Queue&&) = default;
 
+    public:
         void Submit(Span<Ref<CommandList>> commandLists, Span<Ref<Fence>> waits, Span<Ref<Fence>> signals);
         bool Acquire(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> signals);
 
@@ -483,6 +514,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(AccelerationStructureBuilder)
 
+        bool IsValid() const
+        {
+            return queryPool;
+        }
+
+    public:
         void EnsureGeometries(u32 geometryIndex);
         void EnsureSizes();
 
@@ -524,16 +561,20 @@ namespace nova
         ~AccelerationStructure();
 
         NOVA_DEFAULT_MOVE_DECL(AccelerationStructure)
+
+        bool IsValid() const
+        {
+            return structure;
+        }
     };
 
 // -----------------------------------------------------------------------------
 
     struct HitShaderGroup
     {
-        // TODO: Make OptRef
-        Shader* closestHitShader = {};
-        Shader* anyHitShader = {};
-        Shader* intersectionShader = {};
+        OptRef<Shader> closestHitShader = {};
+        OptRef<Shader> anyHitShader = {};
+        OptRef<Shader> intersectionShader = {};
     };
 
     struct RayTracingPipeline
@@ -555,6 +596,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(RayTracingPipeline)
 
+        bool IsValid() const
+        {
+            return context;
+        }
+
+    public:
         void Update(
             PipelineLayout& layout,
             Span<Ref<Shader>> rayGenShaders,
@@ -579,6 +626,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(Fence)
 
+        bool IsValid() const
+        {
+            return semaphore;
+        }
+
+    public:
         void Wait(u64 waitValue = 0ull);
         u64 Advance();
         void Signal(u64 value);
@@ -607,6 +660,12 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(DescriptorLayout)
 
+        bool IsValid() const
+        {
+            return layout;
+        }
+
+    public:
         void WriteSampledTexture(void* dst, u32 binding, Texture& texture, Sampler& sampler, u32 arrayIndex = 0);
     };
 
@@ -668,6 +727,12 @@ namespace nova
         ResourceTracker(ResourceTracker&&) = default;
         ResourceTracker& operator=(ResourceTracker&&) = default;
 
+        bool IsValid() const
+        {
+            return context;
+        }
+
+    public:
         void Clear(u32 maxAge);
 
         void Reset(Texture& texture);
@@ -705,13 +770,9 @@ namespace nova
 
         NOVA_DEFAULT_MOVE_DECL(CommandPool)
 
+    public:
         Ref<CommandList> Begin(ResourceTracker& tracker);
-
-        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, const RenderingDescription* renderingDescription = nullptr);
-        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, const RenderingDescription& renderingDescription)
-        {
-            return BeginSecondary(tracker, &renderingDescription);
-        }
+        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, OptRef<const RenderingDescription> renderingDescription = {});
 
         void Reset();
     };
@@ -748,7 +809,7 @@ namespace nova
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
         void SetDepthState(bool enable, bool write, CompareOp compareOp);
 
-        void BeginRendering(Span<Ref<Texture>> colorAttachments, Texture* depthAttachment = nullptr, Texture* stencilAttachment = nullptr, bool allowSecondary = false);
+        void BeginRendering(Span<Ref<Texture>> colorAttachments, OptRef<Texture> depthAttachment = {}, OptRef<Texture> stencilAttachment = {}, bool allowSecondary = false);
         void EndRendering();
         void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
@@ -862,6 +923,7 @@ namespace nova
         Context(Context&&) = delete;
         Context(const Context&) = delete;
 
+    public:
         void WaitForIdle();
     };
 }

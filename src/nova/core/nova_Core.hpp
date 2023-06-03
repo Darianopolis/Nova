@@ -102,38 +102,60 @@ namespace nova
         using Ptr = std::unique_ptr<T>;
 
         template<class T>
-        struct Ref
+        class Ref
         {
             T* ptr = {};
 
-            Ref(T& value)
-                : ptr(&value)
-            {}
+        public:
+            Ref(T& value) : ptr(&value) {}
 
-            T* GetAddress() noexcept
+        public:
+                  T* GetAddress()       noexcept { return ptr; }
+            const T* GetAddress() const noexcept { return ptr; }
+
+                  T& operator*() noexcept       { return *ptr; }
+            const T& operator*() const noexcept { return *ptr; }
+
+            T* operator->() const noexcept { return ptr; }
+
+        public:
+            bool operator==(const Ref& other)    const noexcept { return ptr != other.ptr; }
+        };
+
+// -----------------------------------------------------------------------------
+
+        template<class T>
+        class OptRef
+        {
+            T* ptr = {};
+
+        public:
+            OptRef() = default;
+            OptRef(T& value)     : ptr(&value) {}
+            OptRef(Ref<T> value) : ptr(value.GetAddress()) {}
+
+            static OptRef FromNullable(T* value)
             {
-                return ptr;
+                OptRef ref;
+                ref.value = value;
+                return ref;
             }
 
-            const T* GetAddress() const noexcept
-            {
-                return ptr;
-            }
+        public:
+                  T* GetAddress()       noexcept { return ptr; }
+            const T* GetAddress() const noexcept { return ptr; }
 
-            T& operator*() noexcept
-            {
-                return *ptr;
-            }
+            operator bool() const { return ptr; }
+            bool HasValue() const { return ptr; }
 
-            const T& operator*() const noexcept
-            {
-                return *ptr;
-            }
+                  T& operator*()       noexcept { return *ptr; }
+            const T& operator*() const noexcept { return *ptr; }
 
-            T* operator->() const noexcept
-            {
-                return ptr;
-            }
+            T* operator->() const noexcept { return ptr; }
+
+        public:
+            bool operator==(const OptRef& other) const noexcept { return ptr != other.ptr; }
+            bool operator==(const Ref<T>& other) const noexcept { return ptr != other.ptr; }
         };
 
 // -----------------------------------------------------------------------------
@@ -144,35 +166,25 @@ namespace nova
             std::span<const T> span;
 
         public:
-            Span(std::initializer_list<T>&& init)
-                : span(init.begin(), init.end())
-            {}
-
-            Span(const std::vector<T>& container)
-                : span(container.begin(), container.end())
-            {}
-
+            Span(std::initializer_list<T>&&      init) : span(init.begin(), init.end()) {}
+            Span(const std::vector<T>&      container) : span(container.begin(), container.end()) {}
             template<usz Size>
-            Span(const std::array<T, Size>& container)
-                : span(container.begin(), container.end())
-            {}
+            Span(const std::array<T, Size>& container) : span(container.begin(), container.end()) {}
+            Span(const std::span<const T>&  container) : span(container.begin(), container.end()) {}
 
-            Span(const std::span<const T>& container)
-                : span(container.begin(), container.end())
-            {}
+            Span(const T* first, usz count) : span(first, count) {}
 
-            Span(const T* first, usz count)
-                : span(first, count)
-            {}
+        public:
+            const T& operator[](usz i) const noexcept { return span.begin()[i]; }
 
-            const T& operator[](usz i) const { return span.begin()[i]; }
+            Span(const Span& other) noexcept : span(other.span) {}
+            Span& operator=(const Span& other) noexcept { span = other.span; }
 
-            Span(const Span& other): span(other.span) {}
-            Span& operator=(const Span& other) { span = other.span; }
+            decltype(auto) begin() const noexcept { return span.data(); }
+            decltype(auto) end()   const noexcept { return span.data() + span.size(); }
 
-            decltype(auto) begin() const { return span.data(); }
-            decltype(auto) end() const { return span.data() + span.size(); }
-            usz size() const { return span.size(); }
+            const T* data() const noexcept { return span.data(); }
+            usz size() const noexcept { return span.size(); }
         };
     }
 

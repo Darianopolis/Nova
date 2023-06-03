@@ -249,11 +249,6 @@ namespace nova
         other.module = nullptr;
     }
 
-    bool Shader::IsValid() const
-    {
-        return shader || module;
-    }
-
     VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const
     {
         return {

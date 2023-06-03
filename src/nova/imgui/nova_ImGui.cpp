@@ -2,9 +2,14 @@
 
 namespace nova
 {
-    ImGuiWrapper::ImGuiWrapper(Context& _context, Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window, int imguiFlags)
+    ImGuiWrapper::ImGuiWrapper(Context& _context,
+            Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window,
+            i32 imguiFlags, u32 framesInFlight)
         : context(&_context)
     {
+        if (framesInFlight < 2)
+            framesInFlight = 2;
+
         VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
@@ -66,8 +71,8 @@ namespace nova
             .Queue = context->graphics.handle,
             .DescriptorPool = descriptorPool,
             .Subpass = 0,
-            .MinImageCount = 2,
-            .ImageCount = 2,
+            .MinImageCount = framesInFlight,
+            .ImageCount = framesInFlight,
             .CheckVkResultFn = [](VkResult r) { VkCall(r); },
         }), renderPass);
 

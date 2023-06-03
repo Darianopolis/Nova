@@ -37,13 +37,13 @@ namespace nova
             }
         };
 
+    public:
         std::chrono::nanoseconds GetMinQuantum()
         {
             static TimerResolutionGuard timerResolutionGuard;
             return timerResolutionGuard.minQuantum;
         }
 
-    public:
         Timer()
         {
             handle = CreateWaitableTimer(nullptr, true, nullptr);
@@ -77,10 +77,12 @@ namespace nova
 
 #ifdef NOVA_PLATFORM_WINDOWS
             if (preempt)
-                nanos -= GetMinQuantum();
+            {
+                if (duration < GetMinQuantum())
+                    return true;
 
-            if (duration <= 0s)
-                return true;
+                nanos -= GetMinQuantum();
+            }
 
             LARGE_INTEGER li;
             li.QuadPart = -(nanos.count() / 100);

@@ -59,7 +59,7 @@ namespace nova
         return *cmd;
     }
 
-    Ref<CommandList> CommandPool::BeginSecondary(ResourceTracker& tracker, const RenderingDescription* renderingDescription)
+    Ref<CommandList> CommandPool::BeginSecondary(ResourceTracker& tracker, OptRef<const RenderingDescription> renderingDescription)
     {
         CommandList* cmd;
         if (secondaryIndex >= secondaryBuffers.size())
@@ -231,6 +231,7 @@ namespace nova
             components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                 | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
             blendEnableBools[i] = blendEnable;
+
             if (blendEnable)
             {
                 blendEquations[i] = {
@@ -261,7 +262,7 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Ref<Texture>> colorAttachments, Texture* depthAttachment, Texture* stencilAttachment, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Ref<Texture>> colorAttachments, OptRef<Texture> depthAttachment, OptRef<Texture> stencilAttachment, bool allowSecondary)
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
