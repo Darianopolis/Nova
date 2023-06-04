@@ -2,56 +2,56 @@
 
 namespace nova
 {
-    ResourceTracker::ResourceTracker(Context _context)
-        : context(_context.GetImpl())
-    {}
-
-    ResourceTracker::~ResourceTracker() {}
+    ResourceTracker::ResourceTracker(Context context)
+        : ImplHandle(new ResourceTrackerImpl)
+    {
+        impl->context = context.GetImpl();
+    }
 
 // -----------------------------------------------------------------------------
 
-    void ResourceTracker::Clear(u32 maxAge)
+    void ResourceTracker::Clear(u32 maxAge) const noexcept
     {
-        clearList.clear();
-        for (auto&[texture, state] : imageStates)
+        impl->clearList.clear();
+        for (auto&[texture, state] : impl->imageStates)
         {
-            if (state.version + maxAge < version)
+            if (state.version + maxAge < impl->version)
             {
-                clearList.emplace_back(texture);
+                impl->clearList.emplace_back(texture);
             }
             else
-            if (state.version <= version)
+            if (state.version <= impl->version)
             {
                 state.layout = VK_IMAGE_LAYOUT_UNDEFINED;
             }
         }
 
-        for (auto texture : clearList)
-            imageStates.erase(texture);
+        for (auto texture : impl->clearList)
+            impl->imageStates.erase(texture);
 
-        version++;
+        impl->version++;
     }
 
-    void ResourceTracker::Reset(Texture texture)
+    void ResourceTracker::Reset(Texture texture) const noexcept
     {
-        Get(texture) = {};
+        impl->Get(texture) = {};
     }
 
-    void ResourceTracker::Persist(Texture texture)
+    void ResourceTracker::Persist(Texture texture) const noexcept
     {
-        Get(texture).version = version + 1;
+        impl->Get(texture).version = impl->version + 1;
     }
 
-    void ResourceTracker::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
+    void ResourceTracker::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept
     {
-        Get(texture) = {
+        impl->Get(texture) = {
             .layout = layout,
             .stage = stage,
             .access = access,
         };
     }
 
-    ResourceTracker::ImageState& ResourceTracker::Get(Texture texture)
+    ResourceTrackerImpl::ImageState& ResourceTrackerImpl::Get(Texture texture) noexcept
     {
         auto& state = imageStates[texture->image];
         state.version = std::max(state.version, version);

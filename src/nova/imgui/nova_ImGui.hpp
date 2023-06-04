@@ -4,26 +4,30 @@
 
 namespace nova
 {
-    struct ImGuiWrapper
+    struct ImGuiWrapperImpl : ImplBase
     {
-        ImGuiContext* imguiCtx = {};
-        ImGuiContext* lastImguiCtx = {};
-
         ContextImpl* context = {};
         VkRenderPass renderPass = {};
         std::vector<VkFramebuffer> framebuffers;
         VkDescriptorPool descriptorPool = {};
         VkSwapchainKHR lastSwapchain = {};
+
+        ImGuiContext* imguiCtx = {};
+        ImGuiContext* lastImguiCtx = {};
+
+    public:
+        ~ImGuiWrapperImpl();
+    };
+
+    struct ImGuiWrapper : ImplHandle<ImGuiWrapperImpl>
+    {
     public:
         ImGuiWrapper() = default;
         ImGuiWrapper(Context context,
-            Ref<CommandList> cmd, Swapchain swapchain, GLFWwindow* window,
+            CommandList cmd, Swapchain swapchain, GLFWwindow* window,
             i32 imguiFlags, u32 framesInFlight = 2);
-        ~ImGuiWrapper();
 
-        NOVA_DEFAULT_MOVE_DECL(ImGuiWrapper)
-
-        void BeginFrame();
-        void EndFrame(Ref<CommandList> cmd, Swapchain swapchain);
+        void BeginFrame() const;
+        void EndFrame(CommandList cmd, Swapchain swapchain) const;
     };
 }

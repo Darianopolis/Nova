@@ -83,7 +83,7 @@ int main()
         auto cmd = commandPool.Begin(tracker);
 
         // Clear screen
-        cmd->Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd.Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
@@ -91,11 +91,11 @@ int main()
         imgui.EndFrame(cmd, swapchain);
 
         // Present #1
-        cmd->Present(swapchain.GetCurrent());
+        cmd.Present(swapchain.GetCurrent());
 
         // Clear and present #2
-        cmd->Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Present(swapchain2.GetCurrent());
+        cmd.Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd.Present(swapchain2.GetCurrent());
 
         // Submit work
         queue.Submit({cmd}, {fence}, {fence});

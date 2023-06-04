@@ -61,13 +61,13 @@ void TryMain()
         std::memcpy(staging.GetMapped(), data, size);
 
         auto cmd = commandPool.Begin(tracker);
-        cmd->CopyToTexture(texture, staging);
-        cmd->GenerateMips(texture);
+        cmd.CopyToTexture(texture, staging);
+        cmd.GenerateMips(texture);
 
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
 
-        texID = imDraw.RegisterTexture(texture, imDraw.defaultSampler);
+        texID = imDraw.RegisterTexture(texture, imDraw.GetDefaultSampler());
     }
 
 // -----------------------------------------------------------------------------
@@ -80,7 +80,6 @@ void TryMain()
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
     auto font = imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, tracker, fence, queue);
-    NOVA_ON_SCOPE_EXIT(&) { imDraw.DestroyFont(font); };
 
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },
@@ -185,23 +184,23 @@ void TryMain()
         commandPool.Reset();
 
         auto cmd = commandPool.Begin(tracker);
-        cmd->SetViewport(imDraw.bounds.Size(), false);
-        cmd->SetBlendState(1, true);
-        cmd->SetTopology(nova::Topology::Triangles);
+        cmd.SetViewport(imDraw.GetBounds().Size(), false);
+        cmd.SetBlendState(1, true);
+        cmd.SetTopology(nova::Topology::Triangles);
 
         // Update window size, record primary buffer and present
 
-        glfwSetWindowSize(window, i32(imDraw.bounds.Width()), i32(imDraw.bounds.Height()));
-        glfwSetWindowPos(window, i32(imDraw.bounds.min.x), i32(imDraw.bounds.min.y));
+        glfwSetWindowSize(window, i32(imDraw.GetBounds().Width()), i32(imDraw.GetBounds().Height()));
+        glfwSetWindowPos(window, i32(imDraw.GetBounds().min.x), i32(imDraw.GetBounds().min.y));
 
         queue.Acquire({swapchain}, {fence});
 
-        cmd->BeginRendering({swapchain.GetCurrent()});
-        cmd->ClearColor(0, Vec4(0.f), imDraw.bounds.Size());
+        cmd.BeginRendering({swapchain.GetCurrent()});
+        cmd.ClearColor(0, Vec4(0.f), imDraw.GetBounds().Size());
         imDraw.Record(cmd);
-        cmd->EndRendering();
+        cmd.EndRendering();
 
-        cmd->Present(swapchain.GetCurrent());
+        cmd.Present(swapchain.GetCurrent());
 
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});

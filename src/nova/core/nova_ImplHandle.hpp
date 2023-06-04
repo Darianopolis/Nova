@@ -25,6 +25,11 @@ namespace nova
             // NOVA_LOG("Reference count -  {}", referenceCount - 1);
             return !--referenceCount;
         }
+
+        u32 GetReferenceCount() const noexcept
+        {
+            return referenceCount;
+        }
     };
 
     // template<std::derived_from<ImplBase> TImpl>

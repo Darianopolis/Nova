@@ -2,11 +2,13 @@
 
 namespace nova
 {
-    ImGuiWrapper::ImGuiWrapper(Context _context,
-            Ref<CommandList> cmd, Swapchain swapchain, GLFWwindow* window,
+    ImGuiWrapper::ImGuiWrapper(Context context,
+            CommandList cmd, Swapchain swapchain, GLFWwindow* window,
             i32 imguiFlags, u32 framesInFlight)
-        : context(_context.GetImpl())
+        : ImplHandle(new ImGuiWrapperImpl)
     {
+        impl->context = context.GetImpl();
+
         if (framesInFlight < 2)
             framesInFlight = 2;
 
@@ -40,7 +42,7 @@ namespace nova
                 .srcAccessMask = 0,
                 .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             }),
-        }), context->pAlloc, &renderPass));
+        }), context->pAlloc, &impl->renderPass));
 
         // Create fixed sampler only descriptor pool for ImGui
         // All application descriptor sets will be managed by descriptor buffers
@@ -52,13 +54,13 @@ namespace nova
             .maxSets = MaxSamplers,
             .poolSizeCount = 1,
             .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
-        }), context->pAlloc, &descriptorPool));
+        }), context->pAlloc, &impl->descriptorPool));
 
         // Create ImGui context and initialize
 
-        imguiCtx = ImGui::CreateContext();
-        lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imguiCtx);
+        impl->imguiCtx = ImGui::CreateContext();
+        impl->lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(impl->imguiCtx);
 
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= imguiFlags;
@@ -69,12 +71,12 @@ namespace nova
             .Device = context->device,
             .QueueFamily = context->graphics->family,
             .Queue = context->graphics->handle,
-            .DescriptorPool = descriptorPool,
+            .DescriptorPool = impl->descriptorPool,
             .Subpass = 0,
             .MinImageCount = framesInFlight,
             .ImageCount = framesInFlight,
             .CheckVkResultFn = [](VkResult r) { VkCall(r); },
-        }), renderPass);
+        }), impl->renderPass);
 
         // Rescale UI and fonts
         // TODO: Don't hardcode 150%
@@ -86,10 +88,10 @@ namespace nova
         ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(cmd->buffer);
 
-        ImGui::SetCurrentContext(lastImguiCtx);
+        ImGui::SetCurrentContext(impl->lastImguiCtx);
     }
 
-    ImGuiWrapper::~ImGuiWrapper()
+    ImGuiWrapperImpl::~ImGuiWrapperImpl()
     {
         if (!renderPass)
             return;
@@ -107,22 +109,10 @@ namespace nova
         ImGui::DestroyContext(imguiCtx);
     }
 
-    ImGuiWrapper::ImGuiWrapper(ImGuiWrapper&& other) noexcept
-        : imguiCtx(other.imguiCtx)
-        , lastImguiCtx(other.lastImguiCtx)
-        , context(other.context)
-        , renderPass(other.renderPass)
-        , framebuffers(std::move(other.framebuffers))
-        , descriptorPool(other.descriptorPool)
-        , lastSwapchain(other.lastSwapchain)
+    void ImGuiWrapper::BeginFrame() const
     {
-        other.renderPass = nullptr;
-    }
-
-    void ImGuiWrapper::BeginFrame()
-    {
-        lastImguiCtx = ImGui::GetCurrentContext();
-        ImGui::SetCurrentContext(imguiCtx);
+        impl->lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(impl->imguiCtx);
 
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -162,38 +152,38 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(Ref<CommandList> cmd, Swapchain swapchain)
+    void ImGuiWrapper::EndFrame(CommandList cmd, Swapchain swapchain) const
     {
         ImGui::Render();
 
-        if (lastSwapchain != swapchain->swapchain)
+        if (impl->lastSwapchain != swapchain->swapchain)
         {
-            lastSwapchain = swapchain->swapchain;
+            impl->lastSwapchain = swapchain->swapchain;
 
-            framebuffers.resize(swapchain->textures.size());
+            impl->framebuffers.resize(swapchain->textures.size());
             for (u32 i = 0; i < swapchain->textures.size(); ++i)
             {
-                vkDestroyFramebuffer(context->device, framebuffers[i], context->pAlloc);
-                VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
+                vkDestroyFramebuffer(impl->context->device, impl->framebuffers[i], impl->context->pAlloc);
+                VkCall(vkCreateFramebuffer(impl->context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                    .renderPass = renderPass,
+                    .renderPass = impl->renderPass,
                     .attachmentCount = 1,
                     .pAttachments = &swapchain->textures[i]->view,
                     .width = swapchain.GetExtent().x,
                     .height = swapchain.GetExtent().y,
                     .layers = 1,
-                }), context->pAlloc, &framebuffers[i]));
+                }), impl->context->pAlloc, &impl->framebuffers[i]));
             }
         }
 
-        cmd->Transition(swapchain.GetCurrent(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        cmd.Transition(swapchain.GetCurrent(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = renderPass,
-            .framebuffer = framebuffers[swapchain->index],
+            .renderPass = impl->renderPass,
+            .framebuffer = impl->framebuffers[swapchain->index],
             .renderArea = { {}, { swapchain.GetExtent().x, swapchain.GetExtent().y } },
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
@@ -207,6 +197,6 @@ namespace nova
             glfwMakeContextCurrent(contextBackup);
         }
 
-        ImGui::SetCurrentContext(lastImguiCtx);
+        ImGui::SetCurrentContext(impl->lastImguiCtx);
     }
 }

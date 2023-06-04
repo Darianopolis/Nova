@@ -55,7 +55,7 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::DescriptorLayout(context, {
+    auto descLayout = nova::DescriptorSetLayout(context, {
         {nova::DescriptorType::StorageTexture},
         {nova::DescriptorType::AccelerationStructure},
     }, true);
@@ -145,7 +145,7 @@ void main()
     // Build BLAS
 
     auto cmd = cmdPool.Begin(tracker);
-    cmd->BuildAccelerationStructure(builder, uncompactedBlas, scratch);
+    cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
     queue.Submit({cmd}, {}, {fence});
     fence.Wait();
 
@@ -155,7 +155,7 @@ void main()
         nova::AccelerationStructureType::BottomLevel);
 
     cmd = cmdPool.Begin(tracker);
-    cmd->CompactAccelerationStructure(blas, uncompactedBlas);
+    cmd.CompactAccelerationStructure(blas, uncompactedBlas);
     queue.Submit({cmd}, {}, {fence});
     fence.Wait();
     uncompactedBlas = {};
@@ -204,27 +204,27 @@ void main()
         builder.WriteInstance(instances.GetMapped(), 0, blas,
             glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
             0, 0xFF, 0, {});
-        cmd->BuildAccelerationStructure(builder, tlas, scratch);
+        cmd.BuildAccelerationStructure(builder, tlas, scratch);
 
         // Transition ready for writing ray trace output
 
-        cmd->Transition(swapchain.GetCurrent(),
+        cmd.Transition(swapchain.GetCurrent(),
             nova::ResourceState::GeneralImage,
             nova::BindPoint::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 
-        cmd->PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
-        cmd->PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
+        cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
+        cmd.PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
 
         // Trace rays
 
-        cmd->BindPipeline(pipeline);
-        cmd->TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
+        cmd.BindPipeline(pipeline);
+        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
 
         // Submit and present work
 
-        cmd->Present(swapchain.GetCurrent());
+        cmd.Present(swapchain.GetCurrent());
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 

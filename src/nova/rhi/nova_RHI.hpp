@@ -40,7 +40,7 @@ namespace nova
     struct CommandList;
     struct CommandPool;
     struct Context;
-    struct DescriptorLayout;
+    struct DescriptorSetLayout;
     struct Fence;
     struct PipelineLayout;
     struct Queue;
@@ -412,7 +412,7 @@ namespace nova
         Shader() = default;
         Shader(Context context, ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode,
-            PipelineLayout& layout);
+            PipelineLayout layout);
 
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
@@ -484,7 +484,7 @@ namespace nova
         Queue(Context context, VkQueue queue, u32 family);
 
     public:
-        void Submit(Span<Ref<CommandList>> commandLists, Span<Fence> waits, Span<Fence> signals) const;
+        void Submit(Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) const;
         bool Acquire(Span<Swapchain> swapchains, Span<Fence> signals) const;
 
         // Present a set of swapchains, waiting on a number of fences.
@@ -526,7 +526,13 @@ namespace nova
         u32           count = 1;
     };
 
-    struct DescriptorLayout
+    struct DescriptorSetBindingOffset
+    {
+        u32 buffer;
+        u64 offset = {};
+    };
+
+    struct DescriptorSetLayoutImpl : ImplBase
     {
         ContextImpl* context = {};
 
@@ -535,20 +541,20 @@ namespace nova
         std::vector<u64>     offsets = {};
 
     public:
-        DescriptorLayout() = default;
-        DescriptorLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
-        ~DescriptorLayout();
+        ~DescriptorSetLayoutImpl();
+    };
 
-        NOVA_DEFAULT_MOVE_DECL(DescriptorLayout)
-
-        bool IsValid() const
-        {
-            return layout;
-        }
+    struct DescriptorSetLayout : ImplHandle<DescriptorSetLayoutImpl>
+    {
+        DescriptorSetLayout() = default;
+        DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
 
     public:
-        void WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0);
+        u64 GetSize() const noexcept;
+        void WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
     };
+
+// -----------------------------------------------------------------------------
 
     struct PushConstantRange
     {
@@ -557,7 +563,7 @@ namespace nova
         u32         offset = 0;
     };
 
-    struct PipelineLayout
+    struct PipelineLayoutImpl : ImplBase
     {
         ContextImpl* context = {};
 
@@ -570,24 +576,22 @@ namespace nova
         std::vector<VkDescriptorSetLayout> sets;
 
     public:
+        ~PipelineLayoutImpl();
+    };
+
+    struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
+    {
         PipelineLayout() = default;
         PipelineLayout(Context context,
             Span<PushConstantRange> pushConstantRanges,
-            Span<Ref<DescriptorLayout>> descriptorLayouts,
+            Span<DescriptorSetLayout> descriptorLayouts,
             BindPoint bindPoint);
-        ~PipelineLayout();
-
-        NOVA_DEFAULT_MOVE_DECL(PipelineLayout)
     };
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTracker
+    struct ResourceTrackerImpl : ImplBase
     {
-        ContextImpl* context = {};
-
-        u64 version = 0;
-
         struct ImageState
         {
             VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -596,36 +600,34 @@ namespace nova
 
             u64 version = 0;
         };
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
-
-        std::vector<VkImage> clearList;
 
     public:
+        ContextImpl* context = {};
+
+        u64                                                   version = 0;
+        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+        std::vector<VkImage>                                clearList;
+
+    public:
+        ImageState& Get(Texture texture) noexcept;
+    };
+
+    struct ResourceTracker : ImplHandle<ResourceTrackerImpl>
+    {
         ResourceTracker() = default;
         ResourceTracker(Context context);
-        ~ResourceTracker();
-
-        ResourceTracker(ResourceTracker&&) = default;
-        ResourceTracker& operator=(ResourceTracker&&) = default;
-
-        bool IsValid() const
-        {
-            return context;
-        }
 
     public:
-        void Clear(u32 maxAge);
+        void Clear(u32 maxAge) const noexcept;
 
-        void Reset(Texture texture);
-        void Persist(Texture texture);
-        void Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access);
-
-        ImageState& Get(Texture texture);
+        void Reset(Texture texture) const noexcept;
+        void Persist(Texture texture) const noexcept;
+        void Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept;
     };
 
 // -----------------------------------------------------------------------------
 
-    struct AccelerationStructureBuilder
+    struct AccelerationStructureBuilderImpl : ImplBase
     {
         ContextImpl* context = {};
 
@@ -647,44 +649,43 @@ namespace nova
         VkQueryPool queryPool = {};
 
     public:
-        AccelerationStructureBuilder() = default;
-        AccelerationStructureBuilder(Context context);
-        ~AccelerationStructureBuilder();
+        ~AccelerationStructureBuilderImpl();
 
-        NOVA_DEFAULT_MOVE_DECL(AccelerationStructureBuilder)
-
-        bool IsValid() const
-        {
-            return queryPool;
-        }
-
-    public:
         void EnsureGeometries(u32 geometryIndex);
         void EnsureSizes();
+    };
 
-        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count);
+    struct AccelerationStructureBuilder : ImplHandle<AccelerationStructureBuilderImpl>
+    {
+        AccelerationStructureBuilder() = default;
+        AccelerationStructureBuilder(Context context);
+
+    public:
+        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const;
         void SetTriangles(u32 geometryIndex,
             u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, IndexType indexFormat, u32 triangleCount);
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount) const;
 
         void Prepare(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags,
-            u32 geometryCount, u32 firstGeometry = 0u);
+            u32 geometryCount, u32 firstGeometry = 0u) const;
 
-        u64 GetInstanceSize();
+        u64 GetInstanceSize() const;
         void WriteInstance(
             void* bufferAddress, u32 index,
             AccelerationStructure& structure,
             const Mat4& matrix,
             u32 customIndex, u8 mask,
-            u32 sbtOffset, GeometryInstanceFlags flags);
+            u32 sbtOffset, GeometryInstanceFlags flags) const;
 
-        u64 GetBuildSize();
-        u64 GetBuildScratchSize();
-        u64 GetUpdateScratchSize();
-        u64 GetCompactSize();
+        u64 GetBuildSize() const;
+        u64 GetBuildScratchSize() const;
+        u64 GetUpdateScratchSize() const;
+        u64 GetCompactSize() const;
     };
 
-    struct AccelerationStructure
+// -----------------------------------------------------------------------------
+
+    struct AccelerationStructureImpl : ImplBase
     {
         ContextImpl* context = {};
 
@@ -695,16 +696,16 @@ namespace nova
         Buffer buffer = {};
 
     public:
+        ~AccelerationStructureImpl();
+    };
+
+    struct AccelerationStructure : ImplHandle<AccelerationStructureImpl>
+    {
         AccelerationStructure() = default;
         AccelerationStructure(Context context, usz size, AccelerationStructureType type);
-        ~AccelerationStructure();
 
-        NOVA_DEFAULT_MOVE_DECL(AccelerationStructure)
-
-        bool IsValid() const
-        {
-            return structure;
-        }
+    public:
+        u64 GetAddress() const noexcept;
     };
 
 // -----------------------------------------------------------------------------
@@ -716,7 +717,7 @@ namespace nova
         Shader intersectionShader = {};
     };
 
-    struct RayTracingPipeline
+    struct RayTracingPipelineImpl : ImplBase
     {
         ContextImpl* context = {};
 
@@ -729,19 +730,21 @@ namespace nova
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
 
     public:
+        ~RayTracingPipelineImpl();
+    };
+
+    struct RayTracingPipeline : ImplHandle<RayTracingPipelineImpl>
+    {
         RayTracingPipeline() = default;
         RayTracingPipeline(Context context);
-        ~RayTracingPipeline();
-
-        NOVA_DEFAULT_MOVE_DECL(RayTracingPipeline)
 
     public:
         void Update(
-            PipelineLayout& layout,
+            PipelineLayout layout,
             Span<Shader> rayGenShaders,
             Span<Shader> rayMissShaders,
             Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader> callableShaders);
+            Span<Shader> callableShaders) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -753,88 +756,88 @@ namespace nova
         Format      stencilFormat = {};
     };
 
-    struct CommandPool
+    struct CommandPoolImpl : ImplBase
     {
         ContextImpl* context = {};
         QueueImpl*     queue = {};
 
-        VkCommandPool                    pool = {};
-        std::vector<Ptr<CommandList>> buffers = {};
-        u32                             index = 0;
+        VkCommandPool               pool = {};
+        std::vector<CommandList> buffers = {};
+        u32                        index = 0;
 
-        std::vector<Ptr<CommandList>> secondaryBuffers = {};
-        u32                             secondaryIndex = 0;
+        std::vector<CommandList> secondaryBuffers = {};
+        u32                        secondaryIndex = 0;
 
     public:
+        ~CommandPoolImpl();
+    };
+
+    struct CommandPool : ImplHandle<CommandPoolImpl>
+    {
         CommandPool() = default;
         CommandPool(Context context, Queue queue);
-        ~CommandPool();
-
-        NOVA_DEFAULT_MOVE_DECL(CommandPool)
 
     public:
-        Ref<CommandList> Begin(ResourceTracker& tracker);
-        Ref<CommandList> BeginSecondary(ResourceTracker& tracker, OptRef<const RenderingDescription> renderingDescription = {});
+        CommandList Begin(ResourceTracker tracker) const;
+        CommandList BeginSecondary(ResourceTracker tracker, OptRef<const RenderingDescription> renderingDescription = {}) const;
 
-        void Reset();
+        void Reset() const;
     };
 
-    struct DescriptorSetBindingOffset
+    struct CommandListImpl : ImplBase
     {
-        u32 buffer;
-        u64 offset = {};
+        CommandPoolImpl*        pool = {};
+        ResourceTrackerImpl* tracker = {};
+        VkCommandBuffer       buffer = {};
     };
 
-    struct CommandList
+    struct CommandList : ImplHandle<CommandListImpl>
     {
-        CommandPool*        pool = {};
-        ResourceTracker* tracker = {};
-        VkCommandBuffer   buffer = {};
+        CommandList() = default;
 
-    public:
-        void End();
+        void End() const;
 
-        void UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset = 0);
-        void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
-        void CopyToTexture(Texture dst, Buffer src, u64 srcOffset = 0);
-        void GenerateMips(Texture texture);
+        void UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset = 0) const;
+        void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
+        void CopyToTexture(Texture dst, Buffer src, u64 srcOffset = 0) const;
+        void GenerateMips(Texture texture) const;
 
-        void Clear(Texture texture, Vec4 color);
-        void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
-        void Transition(Texture texture, ResourceState state, BindPoint bindPoint);
-        void Present(Texture texture);
+        void Clear(Texture texture, Vec4 color) const;
+        void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const;
+        void Transition(Texture texture, ResourceState state, BindPoint bindPoint) const;
+        void Present(Texture texture) const;
 
-        void SetViewport(Vec2U size, bool flipVertical);
-        void SetTopology(Topology topology);
-        void SetCullState(CullMode mode, FrontFace frontFace);
-        void SetPolyState(PolygonMode poly, f32 lineWidth);
-        void SetBlendState(u32 colorAttachmentCount, bool blendEnable);
-        void SetDepthState(bool enable, bool write, CompareOp compareOp);
+        void SetViewport(Vec2U size, bool flipVertical) const;
+        void SetTopology(Topology topology) const;
+        void SetCullState(CullMode mode, FrontFace frontFace) const;
+        void SetPolyState(PolygonMode poly, f32 lineWidth) const;
+        void SetBlendState(u32 colorAttachmentCount, bool blendEnable) const;
+        void SetDepthState(bool enable, bool write, CompareOp compareOp) const;
 
-        void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false);
-        void EndRendering();
-        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
-        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
-        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
+        void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false) const;
+        void EndRendering() const;
+        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) const;
+        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
+        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
-        void BindDescriptorBuffers(Span<Buffer> buffers);
-        void SetDescriptorSetOffsets(PipelineLayout& layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets);
+        void BindDescriptorBuffers(Span<Buffer> buffers) const;
+        void SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const;
 
-        void BindShaders(Span<Shader> shaders);
-        void BindIndexBuffer(Buffer buffer, IndexType indexType, u64 offset = 0);
-        void PushConstants(PipelineLayout& layout, ShaderStage stages, u64 offset, u64 size, const void* data);
+        void BindShaders(Span<Shader> shaders) const;
+        void BindIndexBuffer(Buffer buffer, IndexType indexType, u64 offset = 0) const;
+        void PushConstants(PipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data) const;
 
-        void PushStorageTexture(PipelineLayout& layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0);
-        void PushAccelerationStructure(PipelineLayout& layout, u32 setIndex, u32 binding, AccelerationStructure& accelerationStructure, u32 arrayIndex = 0);
+        void PushStorageTexture(PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) const;
+        void PushAccelerationStructure(PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) const;
 
-        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
-        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
-        void ExecuteCommands(Span<Ref<CommandList>> commands);
+        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
+        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
+        void ExecuteCommands(Span<CommandList> commands) const;
 
-        void BuildAccelerationStructure(AccelerationStructureBuilder& builder, AccelerationStructure& structure, Buffer scratch);
-        void CompactAccelerationStructure(AccelerationStructure& dst, AccelerationStructure& src);
-        void BindPipeline(RayTracingPipeline& pipeline);
-        void TraceRays(RayTracingPipeline& pipeline, Vec3U extent, u32 genIndex);
+        void BuildAccelerationStructure(AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) const;
+        void CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const;
+        void BindPipeline(RayTracingPipeline pipeline) const;
+        void TraceRays(RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const;
     };
 
 // -----------------------------------------------------------------------------

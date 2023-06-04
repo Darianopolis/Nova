@@ -77,19 +77,19 @@ void main()
         cmdPool.Reset();
         auto cmd = cmdPool.Begin(tracker);
 
-        cmd->SetViewport(swapchain.GetExtent(), false);
-        cmd->SetBlendState(1, false);
-        cmd->SetDepthState(false, false, nova::CompareOp::Greater);
-        cmd->SetTopology(nova::Topology::Triangles);
-        cmd->SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
+        cmd.SetViewport(swapchain.GetExtent(), false);
+        cmd.SetBlendState(1, false);
+        cmd.SetDepthState(false, false, nova::CompareOp::Greater);
+        cmd.SetTopology(nova::Topology::Triangles);
+        cmd.SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
 
-        cmd->BindShaders({vertexShader, fragmentShader});
-        cmd->BeginRendering({swapchain.GetCurrent()});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
-        cmd->Draw(3, 1, 0, 0);
-        cmd->EndRendering();
+        cmd.BindShaders({vertexShader, fragmentShader});
+        cmd.BeginRendering({swapchain.GetCurrent()});
+        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
+        cmd.Draw(3, 1, 0, 0);
+        cmd.EndRendering();
 
-        cmd->Present(swapchain.GetCurrent());
+        cmd.Present(swapchain.GetCurrent());
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 

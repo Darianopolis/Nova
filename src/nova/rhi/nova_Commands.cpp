@@ -3,80 +3,73 @@
 namespace nova
 {
     CommandPool::CommandPool(Context context, Queue queue)
-        : context(context.GetImpl())
-        , queue(queue.GetImpl())
+        : ImplHandle(new CommandPoolImpl)
     {
+        impl->context = context.GetImpl();
+        impl->queue = queue.GetImpl();
+
         VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = queue->family,
-        }), context->pAlloc, &pool));
+        }), context->pAlloc, &impl->pool));
     }
 
-    CommandPool::~CommandPool()
+    CommandPoolImpl::~CommandPoolImpl()
     {
         if (pool)
             vkDestroyCommandPool(context->device, pool, context->pAlloc);
     }
 
-    CommandPool::CommandPool(CommandPool&& other) noexcept
-        : context(other.context)
-        , queue(other.queue)
-        , pool(other.pool)
-        , buffers(std::move(other.buffers))
-        , index(other.index)
-        , secondaryBuffers(std::move(other.secondaryBuffers))
-        , secondaryIndex(other.secondaryIndex)
+    CommandList CommandPool::Begin(ResourceTracker tracker) const
     {
-        other.pool = nullptr;
-    }
-
-    Ref<CommandList> CommandPool::Begin(ResourceTracker& tracker)
-    {
-        CommandList* cmd;
-        if (index >= buffers.size())
+        CommandList cmd;
+        if (impl->index >= impl->buffers.size())
         {
-            cmd = buffers.emplace_back(new CommandList).get();
-            cmd->pool = this;
-            VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
+            cmd.SetImpl(new CommandListImpl);
+            impl->buffers.emplace_back(cmd);
+
+            cmd->pool = impl;
+            VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pool,
+                .commandPool = impl->pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = 1,
             }), &cmd->buffer));
-            index++;
+            impl->index++;
         }
         else
         {
-            cmd = buffers[index++].get();
+            cmd = impl->buffers[impl->index++];
         }
 
         VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->tracker = &tracker;
+        cmd->tracker = tracker.GetImpl();
 
-        return *cmd;
+        return cmd;
     }
 
-    Ref<CommandList> CommandPool::BeginSecondary(ResourceTracker& tracker, OptRef<const RenderingDescription> renderingDescription)
+    CommandList CommandPool::BeginSecondary(ResourceTracker tracker, OptRef<const RenderingDescription> renderingDescription) const
     {
-        CommandList* cmd;
-        if (secondaryIndex >= secondaryBuffers.size())
+        CommandList cmd;
+        if (impl->secondaryIndex >= impl->secondaryBuffers.size())
         {
-            cmd = secondaryBuffers.emplace_back(new CommandList).get();
-            cmd->pool = this;
-            VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
+            cmd.SetImpl(new CommandListImpl);
+            impl->secondaryBuffers.emplace_back(cmd);
+
+            VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pool,
+                .commandPool = impl->pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_SECONDARY,
                 .commandBufferCount = 1,
             }), &cmd->buffer));
-            secondaryIndex++;
+            impl->secondaryIndex++;
         }
         else
         {
-            cmd = secondaryBuffers[secondaryIndex++].get();
+            cmd = impl->secondaryBuffers[impl->secondaryIndex++];
         }
 
         if (renderingDescription)
@@ -107,25 +100,25 @@ namespace nova
             })));
         }
 
-        cmd->tracker = &tracker;
+        cmd->tracker = tracker.GetImpl();
 
-        return *cmd;
+        return cmd;
     }
 
-    void CommandList::End()
+    void CommandPool::Reset() const
     {
-        VkCall(vkEndCommandBuffer(buffer));
+        impl->index = 0;
+        impl->secondaryIndex = 0;
+        VkCall(vkResetCommandPool(impl->context->device, impl->pool, 0));
     }
 
-    void CommandPool::Reset()
+    void CommandList::End() const
     {
-        index = 0;
-        secondaryIndex = 0;
-        VkCall(vkResetCommandPool(context->device, pool, 0));
+        VkCall(vkEndCommandBuffer(impl->buffer));
     }
 
     NOVA_NO_INLINE
-    void Queue::Submit(Span<Ref<CommandList>> commandLists, Span<Fence> waits, Span<Fence> signals) const
+    void Queue::Submit(Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) const
     {
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, commandLists.size());
         for (u32 i = 0; i < commandLists.size(); ++i)
@@ -136,7 +129,7 @@ namespace nova
                 .commandBuffer = cmd->buffer,
             };
 
-            cmd->End();
+            cmd.End();
         }
 
         auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
@@ -178,11 +171,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::SetViewport(Vec2U size, bool flipVertical)
+    void CommandList::SetViewport(Vec2U size, bool flipVertical) const
     {
         if (flipVertical)
         {
-            vkCmdSetViewportWithCount(buffer, 1, nova::Temp(VkViewport {
+            vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                 .y = f32(size.y),
                 .width = f32(size.x), .height = -f32(size.y),
                 .minDepth = 0.f, .maxDepth = 1.f,
@@ -190,35 +183,35 @@ namespace nova
         }
         else
         {
-            vkCmdSetViewportWithCount(buffer, 1, nova::Temp(VkViewport {
+            vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                 .width = f32(size.x), .height = f32(size.y),
                 .minDepth = 0.f, .maxDepth = 1.f,
             }));
         }
-        vkCmdSetScissorWithCount(buffer, 1, nova::Temp(VkRect2D {
+        vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
             .extent = { size.x, size.y },
         }));
     }
 
-    void CommandList::SetTopology(Topology topology)
+    void CommandList::SetTopology(Topology topology) const
     {
-        vkCmdSetPrimitiveTopology(buffer, VkPrimitiveTopology(topology));
+        vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(topology));
     }
 
-    void CommandList::SetCullState(CullMode mode, FrontFace frontFace)
+    void CommandList::SetCullState(CullMode mode, FrontFace frontFace) const
     {
-        vkCmdSetCullMode(buffer, VkCullModeFlags(mode));
-        vkCmdSetFrontFace(buffer, VkFrontFace(frontFace));
+        vkCmdSetCullMode(impl->buffer, VkCullModeFlags(mode));
+        vkCmdSetFrontFace(impl->buffer, VkFrontFace(frontFace));
     }
 
-    void CommandList::SetPolyState(PolygonMode poly, f32 lineWidth)
+    void CommandList::SetPolyState(PolygonMode poly, f32 lineWidth) const
     {
-        vkCmdSetPolygonModeEXT(buffer, VkPolygonMode(poly));
-        vkCmdSetLineWidth(buffer, lineWidth);
+        vkCmdSetPolygonModeEXT(impl->buffer, VkPolygonMode(poly));
+        vkCmdSetLineWidth(impl->buffer, lineWidth);
     }
 
     NOVA_NO_INLINE
-    void CommandList::SetBlendState(u32 colorAttachmentCount, bool blendEnable)
+    void CommandList::SetBlendState(u32 colorAttachmentCount, bool blendEnable) const
     {
         auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
         auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
@@ -245,24 +238,24 @@ namespace nova
             }
         }
 
-        vkCmdSetColorWriteMaskEXT(buffer, 0, colorAttachmentCount, components);
-        vkCmdSetColorBlendEnableEXT(buffer, 0, colorAttachmentCount, blendEnableBools);
+        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
+        vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
         if (blendEnable)
-            vkCmdSetColorBlendEquationEXT(buffer, 0, colorAttachmentCount, blendEquations);
+            vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
     }
 
-    void CommandList::SetDepthState(bool enable, bool write, CompareOp compareOp)
+    void CommandList::SetDepthState(bool enable, bool write, CompareOp compareOp) const
     {
-        vkCmdSetDepthTestEnable(buffer, enable);
+        vkCmdSetDepthTestEnable(impl->buffer, enable);
         if (enable)
         {
-            vkCmdSetDepthWriteEnable(buffer, write);
-            vkCmdSetDepthCompareOp(buffer, VkCompareOp(compareOp));
+            vkCmdSetDepthWriteEnable(impl->buffer, write);
+            vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(compareOp));
         }
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment, bool allowSecondary) const
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
@@ -342,33 +335,33 @@ namespace nova
             }
         }
 
-        vkCmdBeginRendering(buffer, &info);
+        vkCmdBeginRendering(impl->buffer, &info);
     }
 
-    void CommandList::EndRendering()
+    void CommandList::EndRendering() const
     {
-        vkCmdEndRendering(buffer);
+        vkCmdEndRendering(impl->buffer);
     }
 
-    void CommandList::PushConstants(PipelineLayout& layout, ShaderStage stages, u64 offset, u64 size, const void* data)
+    void CommandList::PushConstants(PipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data) const
     {
-        vkCmdPushConstants(buffer, layout.layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
+        vkCmdPushConstants(impl->buffer, layout->layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
     }
 
-    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance)
+    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
     {
-        vkCmdDraw(buffer, vertices, instances, firstVertex, firstInstance);
+        vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
     }
 
-    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance)
+    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
     {
-        vkCmdDrawIndexed(buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
+        vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 
-    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset)
+    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .colorAttachment = attachment,
                 .clearValue = {{{ color.r, color.g, color.b, color.a }}},
@@ -380,10 +373,10 @@ namespace nova
             }));
     }
 
-    void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset)
+    void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .clearValue = { .depthStencil = { .depth = depth } },
             }),
@@ -394,10 +387,10 @@ namespace nova
             }));
     }
 
-    void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset)
+    void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
                 .clearValue = { .depthStencil = { .stencil = value } },
             }),
@@ -408,12 +401,12 @@ namespace nova
             }));
     }
 
-    void CommandList::ExecuteCommands(Span<Ref<CommandList>> commands)
+    void CommandList::ExecuteCommands(Span<CommandList> commands) const
     {
         auto buffers = NOVA_ALLOC_STACK(VkCommandBuffer, commands.size());
         for (u32 i = 0; i < commands.size(); ++i)
             buffers[i] = commands[i]->buffer;
 
-        vkCmdExecuteCommands(buffer, u32(commands.size()), buffers);
+        vkCmdExecuteCommands(impl->buffer, u32(commands.size()), buffers);
     }
 }

@@ -8,28 +8,30 @@
 
 namespace nova
 {
-    ImDraw2D::ImDraw2D(Context& _context)
-        : context(&_context)
+    ImDraw2D::ImDraw2D(Context context)
+        : ImplHandle(new ImDraw2DImpl)
     {
+        impl->context = context;
+
 // -----------------------------------------------------------------------------
 
-        descriptorSetLayout = DescriptorLayout(*context, {
+        impl->descriptorSetLayout = DescriptorSetLayout(context, {
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        descriptorBuffer = Buffer(*context,
-            descriptorSetLayout.size,
+        impl->descriptorBuffer = Buffer(context,
+            impl->descriptorSetLayout.GetSize(),
             BufferUsage::DescriptorSamplers,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
-        pipelineLayout = PipelineLayout(*context,
-            {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(PushConstants)}},
-            {descriptorSetLayout},
+        impl->pipelineLayout = PipelineLayout(context,
+            {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(ImDraw2DImpl::PushConstants)}},
+            {impl->descriptorSetLayout},
             nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
-        rectBuffer = Buffer(*context, sizeof(ImRoundRect) * MaxPrimitives,
+        impl->rectBuffer = Buffer(context, sizeof(ImRoundRect) * ImDraw2DImpl::MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -68,7 +70,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
     )";
 
-    rectVertShader = Shader(*context,
+    impl->rectVertShader = Shader(context,
         ShaderStage::Vertex, {},
         "vertex",
         preamble + R"(
@@ -92,9 +94,9 @@ void main()
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
         )",
-        pipelineLayout);
+        impl->pipelineLayout);
 
-    rectFragShader = Shader(*context,
+    impl->rectFragShader = Shader(context,
         ShaderStage::Fragment, {},
         "fragment",
         preamble + R"(
@@ -137,47 +139,57 @@ void main()
     }
 }
         )",
-        pipelineLayout);
+        impl->pipelineLayout);
 
 // -----------------------------------------------------------------------------
 
-        defaultSampler = Sampler(*context,
+        impl->defaultSampler = Sampler(context,
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
     }
 
-    ImDraw2D::~ImDraw2D() {}
+// -----------------------------------------------------------------------------
+
+    Sampler ImDraw2D::GetDefaultSampler() const
+    {
+        return impl->defaultSampler;
+    }
+
+    const ImBounds2D& ImDraw2D::GetBounds() const
+    {
+        return impl->bounds;
+    }
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Texture& texture, Sampler& sampler)
+    ImTextureID ImDraw2D::RegisterTexture(Texture texture, Sampler sampler) const
     {
         u32 index;
-        if (textureSlotFreelist.empty())
+        if (impl->textureSlotFreelist.empty())
         {
-            index = nextTextureSlot++;
+            index = impl->nextTextureSlot++;
         }
         else
         {
-            index = textureSlotFreelist.back();
-            textureSlotFreelist.pop_back();
+            index = impl->textureSlotFreelist.back();
+            impl->textureSlotFreelist.pop_back();
         }
 
-        descriptorSetLayout.WriteSampledTexture(descriptorBuffer.GetMapped(), 0, texture, sampler, index);
+        impl->descriptorSetLayout.WriteSampledTexture(impl->descriptorBuffer.GetMapped(), 0, texture, sampler, index);
 
         return ImTextureID(index);
     }
 
-    void ImDraw2D::UnregisterTexture(ImTextureID textureSlot)
+    void ImDraw2D::UnregisterTexture(ImTextureID textureSlot) const
     {
-        textureSlotFreelist.push_back(u32(textureSlot));
+        impl->textureSlotFreelist.push_back(u32(textureSlot));
     }
 
 // -----------------------------------------------------------------------------
 
-    ImFont* ImDraw2D::LoadFont(const char* file, f32 size, CommandPool& cmdPool, ResourceTracker& tracker, Fence& fence, Queue& queue)
+    ImFont ImDraw2D::LoadFont(const char* file, f32 size, CommandPool cmdPool, ResourceTracker tracker, Fence fence, Queue queue) const
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -194,10 +206,14 @@ void main()
         struct Pixel { u8 r, g, b, a; };
         std::vector<Pixel> pixels;
 
-        auto font = new ImFont;
-        NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
+        // auto font = new ImFont;
+        // NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
 
-        nova::Buffer staging(*context, u64(size) * u64(size) * 4,
+        ImFont font;
+        font.SetImpl(new ImFontImpl);
+        font->imDraw = *this;
+
+        nova::Buffer staging(impl->context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc,
             BufferFlags::CreateMapped);
 
@@ -224,7 +240,7 @@ void main()
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = Texture(*context,
+            glyph.texture = Texture(impl->context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8U);
@@ -233,12 +249,12 @@ void main()
             std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
 
             auto cmd = cmdPool.Begin(tracker);
-            cmd->CopyToTexture(glyph.texture, staging);
-            cmd->GenerateMips(glyph.texture);
+            cmd.CopyToTexture(glyph.texture, staging);
+            cmd.GenerateMips(glyph.texture);
             queue.Submit({cmd}, {}, {fence});
             fence.Wait();
 
-            glyph.index = RegisterTexture(glyph.texture, defaultSampler);
+            glyph.index = RegisterTexture(glyph.texture, impl->defaultSampler);
         }
 
         FT_Done_Face(face);
@@ -247,39 +263,37 @@ void main()
         return font;
     }
 
-    void ImDraw2D::DestroyFont(ImFont* font)
+    ImFontImpl::~ImFontImpl()
     {
-        for (auto& glyph : font->glyphs)
+        for (auto& glyph : glyphs)
         {
             if (glyph.texture.IsValid())
-                UnregisterTexture(glyph.index);
+                imDraw.UnregisterTexture(glyph.index);
         }
-
-        delete font;
     }
 
-    void ImDraw2D::Reset()
+    void ImDraw2D::Reset() const
     {
-        rectIndex = 0;
-        bounds = {};
+        impl->rectIndex = 0;
+        impl->bounds = {};
 
-        drawCommands.clear();
+        impl->drawCommands.clear();
     }
 
-    void ImDraw2D::DrawRect(const ImRoundRect& rect)
+    void ImDraw2D::DrawRect(const ImRoundRect& rect) const
     {
-        ImDrawCommand& cmd = (drawCommands.size() && drawCommands.back().type == ImDrawType::RoundRect)
-            ? drawCommands.back()
-            : drawCommands.emplace_back(ImDrawType::RoundRect, rectIndex, 0);
+        ImDrawCommand& cmd = (impl->drawCommands.size() && impl->drawCommands.back().type == ImDrawType::RoundRect)
+            ? impl->drawCommands.back()
+            : impl->drawCommands.emplace_back(ImDrawType::RoundRect, impl->rectIndex, 0);
 
-        rectBuffer.Get<ImRoundRect>(cmd.first + cmd.count) = rect;
+        impl->rectBuffer.Get<ImRoundRect>(cmd.first + cmd.count) = rect;
 
-        bounds.Expand({{rect.centerPos - rect.halfExtent}, {rect.centerPos + rect.halfExtent}});
+        impl->bounds.Expand({{rect.centerPos - rect.halfExtent}, {rect.centerPos + rect.halfExtent}});
 
         cmd.count++;
     }
 
-    void ImDraw2D::DrawString(std::string_view str, Vec2 pos, ImFont* font)
+    void ImDraw2D::DrawString(std::string_view str, Vec2 pos, ImFont font) const
     {
         for (auto c : str)
         {
@@ -299,7 +313,7 @@ void main()
         }
     }
 
-    ImBounds2D ImDraw2D::MeasureString(std::string_view str, ImFont* font)
+    ImBounds2D ImDraw2D::MeasureString(std::string_view str, ImFont font) const
     {
         ImBounds2D strBounds = {};
 
@@ -319,27 +333,27 @@ void main()
         return strBounds;
     }
 
-    void ImDraw2D::Record(Ref<CommandList> cmd)
+    void ImDraw2D::Record(Ref<CommandList> cmd) const
     {
         cmd->SetTopology(Topology::Triangles);
-        cmd->PushConstants(pipelineLayout,
+        cmd->PushConstants(impl->pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
-            PushConstantsRange.offset, PushConstantsRange.size,
-            Temp(PushConstants {
-                .invHalfExtent = 2.f / bounds.Size(),
-                .centerPos = bounds.Center(),
-                .rectInstancesVA = rectBuffer.GetAddress(),
+            ImDraw2DImpl::PushConstantsRange.offset, ImDraw2DImpl::PushConstantsRange.size,
+            Temp(ImDraw2DImpl::PushConstants {
+                .invHalfExtent = 2.f / impl->bounds.Size(),
+                .centerPos = impl->bounds.Center(),
+                .rectInstancesVA = impl->rectBuffer.GetAddress(),
             }));
 
-        cmd->BindDescriptorBuffers({descriptorBuffer});
-        cmd->SetDescriptorSetOffsets(pipelineLayout, 0, {{0}});
+        cmd->BindDescriptorBuffers({impl->descriptorBuffer});
+        cmd->SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
 
-        for (auto& command : drawCommands)
+        for (auto& command : impl->drawCommands)
         {
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd->BindShaders({rectVertShader, rectFragShader});
+                cmd->BindShaders({impl->rectVertShader, impl->rectFragShader});
                 cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }

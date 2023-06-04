@@ -4,43 +4,27 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder::AccelerationStructureBuilder(Context _context)
-        : context(_context.GetImpl())
+    AccelerationStructureBuilder::AccelerationStructureBuilder(Context context)
+        : ImplHandle(new AccelerationStructureBuilderImpl)
     {
+        impl->context = context.GetImpl();
+
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
-        }), context->pAlloc, &queryPool));
+        }), context->pAlloc, &impl->queryPool));
     }
 
-    AccelerationStructureBuilder::~AccelerationStructureBuilder()
+    AccelerationStructureBuilderImpl::~AccelerationStructureBuilderImpl()
     {
         if (queryPool)
             vkDestroyQueryPool(context->device, queryPool, context->pAlloc);
     }
 
-    AccelerationStructureBuilder::AccelerationStructureBuilder(AccelerationStructureBuilder&& other) noexcept
-        : context(other.context)
-        , type(other.type)
-        , flags(other.flags)
-        , buildSize(other.buildSize)
-        , buildScratchSize(other.buildScratchSize)
-        , updateScratchSize(other.updateScratchSize)
-        , geometries(std::move(other.geometries))
-        , primitiveCounts(std::move(other.primitiveCounts))
-        , ranges(std::move(other.ranges))
-        , geometryCount(other.geometryCount)
-        , firstGeometry(other.firstGeometry)
-        , sizeDirty(other.sizeDirty)
-        , queryPool(other.queryPool)
-    {
-        other.queryPool = nullptr;
-    }
-
 // -----------------------------------------------------------------------------
 
-    void AccelerationStructureBuilder::EnsureGeometries(u32 geometryIndex)
+    void AccelerationStructureBuilderImpl::EnsureGeometries(u32 geometryIndex)
     {
         if (geometryIndex >= geometries.size())
         {
@@ -50,11 +34,11 @@ namespace nova
         }
     }
 
-    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count)
+    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const
     {
-        EnsureGeometries(geometryIndex);
+        impl->EnsureGeometries(geometryIndex);
 
-        auto& instances = geometries[geometryIndex];
+        auto& instances = impl->geometries[geometryIndex];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         instances.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR {
@@ -62,19 +46,19 @@ namespace nova
             .data = {{ deviceAddress }},
         };
 
-        auto& range = ranges[geometryIndex];
+        auto& range = impl->ranges[geometryIndex];
         range.primitiveCount = count;
 
-        primitiveCounts[geometryIndex] = count;
+        impl->primitiveCounts[geometryIndex] = count;
     }
 
     void AccelerationStructureBuilder::SetTriangles(u32 geometryIndex,
         u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-        u64 indexAddress, IndexType indexType, u32 triangleCount)
+        u64 indexAddress, IndexType indexType, u32 triangleCount) const
     {
-        EnsureGeometries(geometryIndex);
+        impl->EnsureGeometries(geometryIndex);
 
-        auto& instances = geometries[geometryIndex];
+        auto& instances = impl->geometries[geometryIndex];
         instances.sType =VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
@@ -87,15 +71,15 @@ namespace nova
             .indexData = {{ indexAddress }},
         };
 
-        auto& range = ranges[geometryIndex];
+        auto& range = impl->ranges[geometryIndex];
         range.primitiveCount = triangleCount;
 
-        primitiveCounts[geometryIndex] = triangleCount;
+        impl->primitiveCounts[geometryIndex] = triangleCount;
     }
 
 // -----------------------------------------------------------------------------
 
-    u64 AccelerationStructureBuilder::GetInstanceSize()
+    u64 AccelerationStructureBuilder::GetInstanceSize() const
     {
         return sizeof(VkAccelerationStructureInstanceKHR);
     }
@@ -105,7 +89,7 @@ namespace nova
         AccelerationStructure& instanceStructure,
         const Mat4& M,
         u32 customIndex, u8 mask,
-        u32 sbtOffset, GeometryInstanceFlags geomFlags)
+        u32 sbtOffset, GeometryInstanceFlags geomFlags) const
     {
         VkGeometryInstanceFlagsKHR vkFlags = 0;
 
@@ -132,24 +116,24 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbtOffset,
             .flags = vkFlags,
-            .accelerationStructureReference = instanceStructure.address,
+            .accelerationStructureReference = instanceStructure.GetAddress(),
         };
     }
 
 // -----------------------------------------------------------------------------
 
     void AccelerationStructureBuilder::Prepare(
-        nova::AccelerationStructureType _type, nova::AccelerationStructureFlags _flags,
-        u32 _geometryCount, u32 _firstGeometry)
+        nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags,
+        u32 geometryCount, u32 firstGeometry) const
     {
-        type = VkAccelerationStructureTypeKHR(_type);
-        flags = VkBuildAccelerationStructureFlagsKHR(_flags);
-        geometryCount = _geometryCount;
-        firstGeometry = _firstGeometry;
-        sizeDirty = true;
+        impl->type = VkAccelerationStructureTypeKHR(type);
+        impl->flags = VkBuildAccelerationStructureFlagsKHR(flags);
+        impl->geometryCount = geometryCount;
+        impl->firstGeometry = firstGeometry;
+        impl->sizeDirty = true;
     }
 
-    void AccelerationStructureBuilder::EnsureSizes()
+    void AccelerationStructureBuilderImpl::EnsureSizes()
     {
         if (!sizeDirty)
             return;
@@ -176,53 +160,53 @@ namespace nova
         sizeDirty = false;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildSize()
+    u64 AccelerationStructureBuilder::GetBuildSize() const
     {
-        EnsureSizes();
-        return buildSize;
+        impl->EnsureSizes();
+        return impl->buildSize;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildScratchSize()
+    u64 AccelerationStructureBuilder::GetBuildScratchSize() const
     {
-        EnsureSizes();
-        return buildScratchSize;
+        impl->EnsureSizes();
+        return impl->buildScratchSize;
     }
 
-    u64 AccelerationStructureBuilder::GetUpdateScratchSize()
+    u64 AccelerationStructureBuilder::GetUpdateScratchSize() const
     {
-        EnsureSizes();
-        return updateScratchSize;
+        impl->EnsureSizes();
+        return impl->updateScratchSize;
     }
 
-    u64 AccelerationStructureBuilder::GetCompactSize()
+    u64 AccelerationStructureBuilder::GetCompactSize() const
     {
         VkDeviceSize size = {};
-        VkCall(vkGetQueryPoolResults(context->device, queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
+        VkCall(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
         return size;
     }
 
-    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder& builder, AccelerationStructure& structure, Buffer scratch)
+    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) const
     {
-        bool compact = builder.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+        bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
         if (compact)
-            vkCmdResetQueryPool(buffer, builder.queryPool, 0, 1);
+            vkCmdResetQueryPool(impl->buffer, builder->queryPool, 0, 1);
 
         vkCmdBuildAccelerationStructuresKHR(
-            buffer,
+            impl->buffer,
             1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
-                .type = builder.type,
-                .flags = builder.flags,
-                .dstAccelerationStructure = structure.structure,
-                .geometryCount = builder.geometryCount,
-                .pGeometries = builder.geometries.data() + builder.firstGeometry,
+                .type = builder->type,
+                .flags = builder->flags,
+                .dstAccelerationStructure = structure->structure,
+                .geometryCount = builder->geometryCount,
+                .pGeometries = builder->geometries.data() + builder->firstGeometry,
                 .scratchData = {{ AlignUpPower2(scratch->address,
-                    pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
-            }), Temp(builder.ranges.data()));
+                    impl->pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
+            }), Temp(builder->ranges.data()));
 
         if (compact)
         {
-            vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
+            vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .memoryBarrierCount = 1,
                 .pMemoryBarriers = Temp(VkMemoryBarrier2 {
@@ -232,97 +216,85 @@ namespace nova
                 })
             }));
 
-            vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
-                1, &structure.structure,
+            vkCmdWriteAccelerationStructuresPropertiesKHR(impl->buffer,
+                1, &structure->structure,
                 VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
-                builder.queryPool, 0);
+                builder->queryPool, 0);
         }
     }
 
-    void CommandList::CompactAccelerationStructure(AccelerationStructure& dst, AccelerationStructure& src)
+    void CommandList::CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const
     {
-        vkCmdCopyAccelerationStructureKHR(buffer, Temp(VkCopyAccelerationStructureInfoKHR {
+        vkCmdCopyAccelerationStructureKHR(impl->buffer, Temp(VkCopyAccelerationStructureInfoKHR {
             .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
-            .src = src.structure,
-            .dst = dst.structure,
+            .src = src->structure,
+            .dst = dst->structure,
             .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR,
         }));
     }
 
 // -----------------------------------------------------------------------------
 
-    AccelerationStructure::AccelerationStructure(Context _context, usz size, AccelerationStructureType type)
-        : context(_context.GetImpl())
+    AccelerationStructure::AccelerationStructure(Context context, usz size, AccelerationStructureType type)
+        : ImplHandle(new AccelerationStructureImpl)
     {
-        buffer = Buffer(_context, size,
+        impl->context = context.GetImpl();
+
+        impl->buffer = Buffer(context, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
         VkCall(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = buffer->buffer,
-            .size = buffer->size,
+            .buffer = impl->buffer->buffer,
+            .size = impl->buffer->size,
             .type = VkAccelerationStructureTypeKHR(type),
-        }), context->pAlloc, &structure));
+        }), context->pAlloc, &impl->structure));
 
-        address = vkGetAccelerationStructureDeviceAddressKHR(
+        impl->address = vkGetAccelerationStructureDeviceAddressKHR(
             context->device,
             Temp(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-                .accelerationStructure = structure
+                .accelerationStructure = impl->structure
             }));
     }
 
-    AccelerationStructure::~AccelerationStructure()
+    AccelerationStructureImpl::~AccelerationStructureImpl()
     {
         if (structure)
             vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
     }
 
-    AccelerationStructure::AccelerationStructure(AccelerationStructure&& other) noexcept
-        : context(other.context)
-        , structure(other.structure)
-        , address(other.address)
-        , type(other.type)
-        , buffer(std::move(other.buffer))
+    u64 AccelerationStructure::GetAddress() const noexcept
     {
-        other.structure = nullptr;
+        return impl->address;
     }
 
 // -----------------------------------------------------------------------------
 
-    RayTracingPipeline::RayTracingPipeline(Context _context)
-        : context(_context.GetImpl())
-    {}
+    RayTracingPipeline::RayTracingPipeline(Context context)
+        : ImplHandle(new RayTracingPipelineImpl)
+    {
+        impl->context = context.GetImpl();
+    }
 
-    RayTracingPipeline::~RayTracingPipeline()
+    RayTracingPipelineImpl::~RayTracingPipelineImpl()
     {
         if (pipeline)
             vkDestroyPipeline(context->device, pipeline, context->pAlloc);
     }
 
-    RayTracingPipeline::RayTracingPipeline(RayTracingPipeline&& other) noexcept
-        : context(other.context)
-        , pipeline(other.pipeline)
-        , sbtBuffer(std::move(other.sbtBuffer))
-        , rayGenRegion(other.rayGenRegion)
-        , rayMissRegion(other.rayMissRegion)
-        , rayHitRegion(other.rayHitRegion)
-        , rayCallRegion(other.rayCallRegion)
-    {
-        other.pipeline = nullptr;
-        other.context = nullptr; // For IsValid
-    }
-
 // -----------------------------------------------------------------------------
 
     void RayTracingPipeline::Update(
-            PipelineLayout& layout,
+            PipelineLayout layout,
             Span<Shader> rayGenShaders,
             Span<Shader> rayMissShaders,
             Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader> callableShaders)
+            Span<Shader> callableShaders) const
     {
+        auto* context = impl->context;
+
         // Convert to stages and groups
 
         ankerl::unordered_dense::map<VkShaderModule, u32> stageIndices;
@@ -383,8 +355,8 @@ namespace nova
 
         // Create pipeline
 
-        if (pipeline)
-            vkDestroyPipeline(context->device, pipeline, context->pAlloc);
+        if (impl->pipeline)
+            vkDestroyPipeline(context->device, impl->pipeline, context->pAlloc);
 
         VkCall(vkCreateRayTracingPipelinesKHR(context->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -394,8 +366,8 @@ namespace nova
             .groupCount = u32(groups.size()),
             .pGroups = groups.data(),
             .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
-            .layout = layout.layout,
-        }), context->pAlloc, &pipeline));
+            .layout = layout->layout,
+        }), context->pAlloc, &impl->pipeline));
 
         // Compute table parameters
 
@@ -409,18 +381,18 @@ namespace nova
 
         // Allocate table and get groups from pipeline
 
-        if (!sbtBuffer.IsValid() || tableSize > sbtBuffer->size)
+        if (!impl->sbtBuffer.IsValid() || tableSize > impl->sbtBuffer->size)
         {
-            sbtBuffer = Buffer(context,
+            impl->sbtBuffer = Buffer(context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
                 BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
         }
 
-        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->mapped + offset + (i * handleStride); };
+        auto getMapped = [&](u64 offset, u32 i) { return impl->sbtBuffer->mapped + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
-        VkCall(vkGetRayTracingShaderGroupHandlesKHR(context->device, pipeline,
+        VkCall(vkGetRayTracingShaderGroupHandlesKHR(context->device, impl->pipeline,
             0, u32(groups.size()),
             u32(handles.size()), handles.data()));
 
@@ -428,51 +400,51 @@ namespace nova
 
         // Gen
 
-        rayGenRegion.size = handleSize;
-        rayGenRegion.stride = handleSize;
+        impl->rayGenRegion.size = handleSize;
+        impl->rayGenRegion.stride = handleSize;
         for (u32 i = 0; i < rayGenIndices.size(); ++i)
             std::memcpy(getMapped(0, i), getHandle(rayGenIndices[i]), handleSize);
 
         // Miss
 
-        rayMissRegion.deviceAddress = sbtBuffer->address + rayMissOffset;
-        rayMissRegion.size = rayHitOffset - rayMissOffset;
-        rayMissRegion.stride = handleStride;
+        impl->rayMissRegion.deviceAddress = impl->sbtBuffer->address + rayMissOffset;
+        impl->rayMissRegion.size = rayHitOffset - rayMissOffset;
+        impl->rayMissRegion.stride = handleStride;
         for (u32 i = 0; i < rayMissIndices.size(); ++i)
             std::memcpy(getMapped(rayMissOffset, i), getHandle(rayMissIndices[i]), handleSize);
 
         // Hit
 
-        rayHitRegion.deviceAddress = sbtBuffer->address + rayHitOffset;
-        rayHitRegion.size = rayCallOffset - rayHitOffset;
-        rayHitRegion.stride = handleStride;
+        impl->rayHitRegion.deviceAddress = impl->sbtBuffer->address + rayHitOffset;
+        impl->rayHitRegion.size = rayCallOffset - rayHitOffset;
+        impl->rayHitRegion.stride = handleStride;
         for (u32 i = 0; i < rayHitIndices.size(); ++i)
             std::memcpy(getMapped(rayHitOffset, i), getHandle(rayHitIndices[i]), handleSize);
 
         // Call
 
-        rayCallRegion.deviceAddress = sbtBuffer->address + rayCallOffset;
-        rayCallRegion.size = tableSize - rayCallOffset;
-        rayCallRegion.stride = handleStride;
+        impl->rayCallRegion.deviceAddress = impl->sbtBuffer->address + rayCallOffset;
+        impl->rayCallRegion.size = tableSize - rayCallOffset;
+        impl->rayCallRegion.stride = handleStride;
         for (u32 i = 0; i < rayCallIndices.size(); ++i)
             std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
-    void CommandList::BindPipeline(RayTracingPipeline& pipeline)
+    void CommandList::BindPipeline(RayTracingPipeline pipeline) const
     {
-        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline.pipeline);
+        vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
     }
 
-    void CommandList::TraceRays(RayTracingPipeline& pipeline, Vec3U extent, u32 genIndex)
+    void CommandList::TraceRays(RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const
     {
-        pipeline.rayGenRegion.deviceAddress = pipeline.sbtBuffer->address
-            + (pipeline.rayGenRegion.stride * genIndex);
+        auto rayGenRegion = pipeline->rayGenRegion;
+        rayGenRegion.deviceAddress = pipeline->sbtBuffer->address + (rayGenRegion.stride * genIndex);
 
-        vkCmdTraceRaysKHR(buffer,
-            &pipeline.rayGenRegion,
-            &pipeline.rayMissRegion,
-            &pipeline.rayHitRegion,
-            &pipeline.rayCallRegion,
+        vkCmdTraceRaysKHR(impl->buffer,
+            &rayGenRegion,
+            &pipeline->rayMissRegion,
+            &pipeline->rayHitRegion,
+            &pipeline->rayCallRegion,
             extent.x, extent.y, extent.z);
     }
 }

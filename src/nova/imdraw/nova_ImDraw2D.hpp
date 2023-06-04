@@ -86,14 +86,44 @@ namespace nova
         Vec2 offset;
     };
 
-    struct ImFont
+// -----------------------------------------------------------------------------
+
+    struct ImFont : ImplHandle<struct ImFontImpl> {};
+
+    struct ImDraw2D : ImplHandle<struct ImDraw2DImpl>
     {
-        std::vector<ImGlyph> glyphs;
+        ImDraw2D() = default;
+        ImDraw2D(Context context);
+
+        Sampler GetDefaultSampler() const;
+        const ImBounds2D& GetBounds() const;
+
+        ImTextureID RegisterTexture(Texture texture, Sampler sampler) const;
+        void UnregisterTexture(ImTextureID textureSlot) const;
+
+        ImFont LoadFont(const char* file, f32 size, CommandPool cmdPool, ResourceTracker tracker, Fence fence, Queue queue) const;
+
+        void Reset() const;
+        void DrawRect(const ImRoundRect& rect) const;
+        void DrawString(std::string_view str, Vec2 pos, ImFont font) const;
+
+        ImBounds2D MeasureString(std::string_view str, ImFont font) const;
+
+        void Record(Ref<CommandList> commandList) const;
     };
 
 // -----------------------------------------------------------------------------
 
-    struct ImDraw2D
+    struct ImFontImpl : ImplBase
+    {
+        ImDraw2D imDraw;
+        std::vector<ImGlyph> glyphs;
+
+    public:
+        ~ImFontImpl();
+    };
+
+    struct ImDraw2DImpl : ImplBase
     {
         struct PushConstants
         {
@@ -110,13 +140,13 @@ namespace nova
         static constexpr u32 MaxPrimitives = 65'536;
 
     public:
-        Context* context = {};
+        Context context = {};
 
         Sampler defaultSampler = {};
 
         PipelineLayout pipelineLayout = {};
 
-        DescriptorLayout  descriptorSetLayout = {};
+        DescriptorSetLayout  descriptorSetLayout = {};
         Buffer               descriptorBuffer = {};
         u32                   nextTextureSlot = 0;
         std::vector<u32>  textureSlotFreelist = {};
@@ -129,27 +159,5 @@ namespace nova
         ImBounds2D bounds;
 
         std::vector<ImDrawCommand> drawCommands;
-
-    public:
-        ImDraw2D() = default;
-        ImDraw2D(Context& context);
-        ~ImDraw2D();
-
-        ImDraw2D(ImDraw2D&&) = default;
-        ImDraw2D& operator=(ImDraw2D&&) = default;
-
-        ImTextureID RegisterTexture(Texture& texture, Sampler& sampler);
-        void UnregisterTexture(ImTextureID textureSlot);
-
-        ImFont* LoadFont(const char* file, f32 size, CommandPool& cmdPool, ResourceTracker& tracker, Fence& fence, Queue& queue);
-        void DestroyFont(ImFont* font);
-
-        void Reset();
-        void DrawRect(const ImRoundRect& rect);
-        void DrawString(std::string_view str, Vec2 pos, ImFont* font);
-
-        ImBounds2D MeasureString(std::string_view str, ImFont* font);
-
-        void Record(Ref<CommandList> commandList);
     };
 }

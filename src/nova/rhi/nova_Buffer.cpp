@@ -90,14 +90,14 @@ namespace nova
         }
     }
 
-    void CommandList::UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset)
+    void CommandList::UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset) const
     {
-        vkCmdUpdateBuffer(buffer, dst->buffer, dstOffset, size, pData);
+        vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
     }
 
-    void CommandList::CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset)
+    void CommandList::CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset) const
     {
-        vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {
+        vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
             .srcBuffer = src->buffer,
             .dstBuffer = dst->buffer,
@@ -111,8 +111,8 @@ namespace nova
         }));
     }
 
-    void CommandList::BindIndexBuffer(Buffer indexBuffer, IndexType indexType, u64 offset)
+    void CommandList::BindIndexBuffer(Buffer indexBuffer, IndexType indexType, u64 offset) const
     {
-        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, VkIndexType(indexType));
+        vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, VkIndexType(indexType));
     }
 }

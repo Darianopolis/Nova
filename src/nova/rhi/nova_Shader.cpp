@@ -86,7 +86,7 @@ namespace nova
 
     Shader::Shader(Context context, ShaderStage stage, ShaderStage _nextStage,
             const std::string& filename, const std::string& sourceCode,
-            PipelineLayout& layout)
+            PipelineLayout layout)
         : ImplHandle(new ShaderImpl)
     {
         impl->context = context.GetImpl();
@@ -224,10 +224,10 @@ namespace nova
                 .codeSize = spirv.size() * 4,
                 .pCode = spirv.data(),
                 .pName = "main",
-                .setLayoutCount = u32(layout.sets.size()),
-                .pSetLayouts = layout.sets.data(),
-                .pushConstantRangeCount = u32(layout.ranges.size()),
-                .pPushConstantRanges = layout.ranges.data(),
+                .setLayoutCount = u32(layout->sets.size()),
+                .pSetLayouts = layout->sets.data(),
+                .pushConstantRangeCount = u32(layout->ranges.size()),
+                .pPushConstantRanges = layout->ranges.data(),
             }), context->pAlloc, &impl->shader));
         }
     }
@@ -254,7 +254,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     NOVA_NO_INLINE
-    void CommandList::BindShaders(Span<Shader> shaders)
+    void CommandList::BindShaders(Span<Shader> shaders) const
     {
         auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
         auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
@@ -264,6 +264,6 @@ namespace nova
             shaderObjects[i] = shaders[i]->shader;
         }
 
-        vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
+        vkCmdBindShadersEXT(impl->buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 }
