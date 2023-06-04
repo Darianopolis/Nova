@@ -33,7 +33,7 @@ void TryMain()
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
-    auto& queue = context.graphics;
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto commandPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
     auto tracker = nova::ResourceTracker(context);
@@ -58,7 +58,7 @@ void TryMain()
 
         usz size = w * h * 4;
         nova::Buffer staging(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
-        std::memcpy(staging.mapped, data, size);
+        std::memcpy(staging.GetMapped(), data, size);
 
         auto cmd = commandPool.Begin(tracker);
         cmd->CopyToTexture(texture, staging);

@@ -2,8 +2,8 @@
 
 namespace nova
 {
-    ResourceTracker::ResourceTracker(Context& _context)
-        : context(&_context)
+    ResourceTracker::ResourceTracker(Context _context)
+        : context(_context.GetImpl())
     {}
 
     ResourceTracker::~ResourceTracker() {}
@@ -32,17 +32,17 @@ namespace nova
         version++;
     }
 
-    void ResourceTracker::Reset(Texture& texture)
+    void ResourceTracker::Reset(Texture texture)
     {
         Get(texture) = {};
     }
 
-    void ResourceTracker::Persist(Texture& texture)
+    void ResourceTracker::Persist(Texture texture)
     {
         Get(texture).version = version + 1;
     }
 
-    void ResourceTracker::Set(Texture& texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
+    void ResourceTracker::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access)
     {
         Get(texture) = {
             .layout = layout,
@@ -51,9 +51,9 @@ namespace nova
         };
     }
 
-    ResourceTracker::ImageState& ResourceTracker::Get(Texture& texture)
+    ResourceTracker::ImageState& ResourceTracker::Get(Texture texture)
     {
-        auto& state = imageStates[texture.image];
+        auto& state = imageStates[texture->image];
         state.version = std::max(state.version, version);
         return state;
     }

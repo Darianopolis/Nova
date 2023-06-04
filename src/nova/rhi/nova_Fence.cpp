@@ -2,9 +2,10 @@
 
 namespace nova
 {
-    Fence::Fence(Context& _context)
-        : context(&_context)
+    Fence::Fence(Context context)
+        : ImplHandle(new FenceImpl)
     {
+        impl->context = context.GetImpl();
         VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = Temp(VkSemaphoreTypeCreateInfo {
@@ -12,48 +13,39 @@ namespace nova
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             })
-        }), context->pAlloc, &semaphore));
+        }), context->pAlloc, &impl->semaphore));
     }
 
-    Fence::~Fence()
+    FenceImpl::~FenceImpl()
     {
         if (semaphore)
             vkDestroySemaphore(context->device, semaphore, context->pAlloc);
     }
 
-    Fence::Fence(Fence&& other) noexcept
-        : context(other.context)
-        , semaphore(other.semaphore)
-        , value(other.value)
-    {
-        other.semaphore = nullptr;
-    }
-
 // -----------------------------------------------------------------------------
 
-    void Fence::Wait(u64 waitValue)
+    void Fence::Wait(u64 waitValue) const
     {
-        VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
+        VkCall(vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
-            .pSemaphores = &semaphore,
-            .pValues = waitValue ? &waitValue : &value,
+            .pSemaphores = &impl->semaphore,
+            .pValues = waitValue ? &waitValue : &impl->value,
         }), UINT64_MAX));
     }
 
 
-    u64 Fence::Advance()
+    u64 Fence::Advance() const noexcept
     {
-        return ++value;
+        return ++impl->value;
     }
 
-    void Fence::Signal(u64 _value)
+    void Fence::Signal(u64 signalValue) const
     {
-        auto res = vkSignalSemaphore(context->device, Temp(VkSemaphoreSignalInfo {
+        VkCall(vkSignalSemaphore(impl->context->device, Temp(VkSemaphoreSignalInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
-            .semaphore = semaphore,
-            .value = _value,
-        }));
-        VkCall(res);
+            .semaphore = impl->semaphore,
+            .value = signalValue ? signalValue : impl->value,
+        })));
     }
 }

@@ -165,7 +165,7 @@ void main()
             textureSlotFreelist.pop_back();
         }
 
-        descriptorSetLayout.WriteSampledTexture(descriptorBuffer.mapped, 0, texture, sampler, index);
+        descriptorSetLayout.WriteSampledTexture(descriptorBuffer.GetMapped(), 0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -230,7 +230,7 @@ void main()
                 Format::RGBA8U);
 
             usz dataSize = w * h * 4;
-            std::memcpy(staging.mapped, pixels.data(), dataSize);
+            std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
 
             auto cmd = cmdPool.Begin(tracker);
             cmd->CopyToTexture(glyph.texture, staging);
@@ -251,7 +251,7 @@ void main()
     {
         for (auto& glyph : font->glyphs)
         {
-            if (glyph.texture.image)
+            if (glyph.texture.IsValid())
                 UnregisterTexture(glyph.index);
         }
 
@@ -328,7 +328,7 @@ void main()
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
                 .centerPos = bounds.Center(),
-                .rectInstancesVA = rectBuffer.address,
+                .rectInstancesVA = rectBuffer.GetAddress(),
             }));
 
         cmd->BindDescriptorBuffers({descriptorBuffer});

@@ -22,14 +22,14 @@ int main()
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
-    auto& queue = context.graphics;
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
     auto tracker = nova::ResourceTracker(context);
 
     // Pipeline
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::RayTracing);
+    auto pipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
 
     auto vertexShader = nova::Shader(context,
         nova::ShaderStage::Vertex, nova::ShaderStage::Fragment,
@@ -77,7 +77,7 @@ void main()
         cmdPool.Reset();
         auto cmd = cmdPool.Begin(tracker);
 
-        cmd->SetViewport(Vec2U(swapchain.GetCurrent().extent), false);
+        cmd->SetViewport(swapchain.GetExtent(), false);
         cmd->SetBlendState(1, false);
         cmd->SetDepthState(false, false, nova::CompareOp::Greater);
         cmd->SetTopology(nova::Topology::Triangles);
@@ -85,7 +85,7 @@ void main()
 
         cmd->BindShaders({vertexShader, fragmentShader});
         cmd->BeginRendering({swapchain.GetCurrent()});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), Vec2U(swapchain.GetCurrent().extent));
+        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd->Draw(3, 1, 0, 0);
         cmd->EndRendering();
 

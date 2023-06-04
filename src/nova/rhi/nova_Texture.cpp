@@ -2,27 +2,31 @@
 
 namespace nova
 {
-    Texture::Texture(Context& _context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
-        : context(&_context)
-        , format(VkFormat(_format))
+    Texture::Texture(Context context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
+        // : context(_context.GetImpl())
+        // , format(VkFormat(_format))
+        : ImplHandle(new TextureImpl)
     {
+        impl->context = context.GetImpl();
+        impl->format = VkFormat(_format);
+
         auto usage = VkImageUsageFlags(_usage);
         bool makeView = (usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        mips = flags >= TextureFlags::Mips
+        impl->mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
             : 1;
 
         VkImageType imageType;
         VkImageViewType viewType;
-        layers = 1;
+        impl->layers = 1;
 
         if (flags >= TextureFlags::Array)
         {
             if (size.z > 0)
             {
-                layers = size.z;
+                impl->layers = size.z;
                 size.z = 1;
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -30,7 +34,7 @@ namespace nova
             else
             if (size.y > 0)
             {
-                layers = size.y;
+                impl->layers = size.y;
                 size.y = 1;
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
@@ -65,7 +69,7 @@ namespace nova
             }
         }
 
-        extent = glm::max(size, Vec3U(1));
+        impl->extent = glm::max(size, Vec3U(1));
 
         // ---- Create image -----
 
@@ -73,44 +77,44 @@ namespace nova
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = format,
-                .extent = { extent.x, extent.y, extent.z },
-                .mipLevels = mips,
-                .arrayLayers = layers,
+                .format = impl->format,
+                .extent = { impl->extent.x, impl->extent.y, impl->extent.z },
+                .mipLevels = impl->mips,
+                .arrayLayers = impl->layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
                 .usage = usage,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
-                    context->graphics.family,
+                    context->graphics->family,
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
             Temp(VmaAllocationCreateInfo { }),
-            &image,
-            &allocation,
+            &impl->image,
+            &impl->allocation,
             nullptr));
 
         // ---- Pick aspects -----
 
-        switch (format)
+        switch (impl->format)
         {
         break;case VK_FORMAT_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;case VK_FORMAT_D16_UNORM:
             case VK_FORMAT_X8_D24_UNORM_PACK32:
             case VK_FORMAT_D32_SFLOAT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         break;case VK_FORMAT_D16_UNORM_S8_UINT:
               case VK_FORMAT_D24_UNORM_S8_UINT:
               case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;default:
-            aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
         }
 
         // ---- Make view -----
@@ -119,15 +123,15 @@ namespace nova
         {
             VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                .image = image,
+                .image = impl->image,
                 .viewType = viewType,
-                .format = format,
-                .subresourceRange = { aspect, 0, mips, 0, layers },
-            }), context->pAlloc, &view));
+                .format = impl->format,
+                .subresourceRange = { impl->aspect, 0, impl->mips, 0, impl->layers },
+            }), context->pAlloc, &impl->view));
         }
     }
 
-    Texture::~Texture()
+    TextureImpl::~TextureImpl()
     {
         if (view)
             vkDestroyImageView(context->device, view, context->pAlloc);
@@ -136,40 +140,31 @@ namespace nova
             vmaDestroyImage(context->vma, image, allocation);
     }
 
-    Texture::Texture(Texture&& other) noexcept
-        : context(other.context)
-        , image(other.image)
-        , allocation(other.allocation)
-        , view(other.view)
-        , format(other.format)
-        , aspect(other.aspect)
-        , extent(other.extent)
-        , mips(other.mips)
-        , layers(other.layers)
+// -----------------------------------------------------------------------------
+
+    Vec3U Texture::GetExtent() const noexcept
     {
-        other.image = nullptr;
-        other.view = nullptr;
-        other.allocation = nullptr;
+        return impl->extent;
     }
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::CopyToTexture(Texture& dst, Buffer& src, u64 srcOffset)
+    void CommandList::CopyToTexture(Texture dst, Buffer src, u64 srcOffset)
     {
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_COPY_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-        vkCmdCopyBufferToImage(buffer, src.buffer, dst.image, tracker->Get(dst).layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(buffer, src->buffer, dst->image, tracker->Get(dst).layout, 1, Temp(VkBufferImageCopy {
             .bufferOffset = srcOffset,
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .imageExtent = { dst.extent.x, dst.extent.y,  1 },
+            .imageExtent = { dst->extent.x, dst->extent.y,  1 },
         }));
     }
 
-    void CommandList::GenerateMips(Texture& texture)
+    void CommandList::GenerateMips(Texture texture)
     {
-        if (texture.mips == 1)
+        if (texture->mips == 1)
             return;
 
         Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -178,10 +173,10 @@ namespace nova
 
         auto& state = tracker->Get(texture);
 
-        int32_t mipWidth = texture.extent.x;
-        int32_t mipHeight = texture.extent.y;
+        int32_t mipWidth = texture->extent.x;
+        int32_t mipHeight = texture->extent.y;
 
-        for (uint32_t mip = 1; mip < texture.mips; ++mip)
+        for (uint32_t mip = 1; mip < texture->mips; ++mip)
         {
             vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -196,14 +191,14 @@ namespace nova
 
                     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                    .image = texture.image,
-                    .subresourceRange = { texture.aspect, mip - 1, 1, 0, 1 },
+                    .image = texture->image,
+                    .subresourceRange = { texture->aspect, mip - 1, 1, 0, 1 },
                 }),
             }));
 
             vkCmdBlitImage(buffer,
-                texture.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
                     .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 0, 1 },
                     .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)mipWidth, (int32_t)mipHeight, 1} },
@@ -229,15 +224,15 @@ namespace nova
 
                 .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                .image = texture.image,
-                .subresourceRange = { texture.aspect, texture.mips - 1, 1, 0, 1 },
+                .image = texture->image,
+                .subresourceRange = { texture->aspect, texture->mips - 1, 1, 0, 1 },
             }),
         }));
 
         state.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    void CommandList::Transition(Texture& texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess)
+    void CommandList::Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess)
     {
         auto& state = tracker->Get(texture);
 
@@ -277,8 +272,8 @@ namespace nova
 
                 .oldLayout = state.layout,
                 .newLayout = newLayout,
-                .image = texture.image,
-                .subresourceRange = { texture.aspect, 0, texture.mips, 0, texture.layers },
+                .image = texture->image,
+                .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
@@ -287,7 +282,7 @@ namespace nova
         state.access = newAccess;
     }
 
-    void CommandList::Transition(Texture& texture, ResourceState state, BindPoint bindPoint)
+    void CommandList::Transition(Texture texture, ResourceState state, BindPoint bindPoint)
     {
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
         VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_NONE;
@@ -332,15 +327,15 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::Clear(Texture& texture, Vec4 color)
+    void CommandList::Clear(Texture texture, Vec4 color)
     {
         Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_CLEAR_BIT,
             VK_ACCESS_TRANSFER_WRITE_BIT);
 
         vkCmdClearColorImage(buffer,
-            texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
-            1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, texture.mips, 0, texture.layers }));
+            1, nova::Temp(VkImageSubresourceRange { VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->mips, 0, texture->layers }));
     }
 }

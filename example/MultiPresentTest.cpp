@@ -28,7 +28,7 @@ int main()
     auto surface2 = nova::Surface(context, glfwGetWin32Window(window2));
     auto swapchain2 = nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
-    auto& queue = context.graphics;
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto tracker = nova::ResourceTracker(context);
 
     nova::Fence fences[] { {context}, {context} };
@@ -52,7 +52,7 @@ int main()
         auto newTime = std::chrono::steady_clock::now();
         if (newTime - lastTime > 1s)
         {
-            NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)", frames, nova::Context::AllocationCount.load(), nova::Context::NewAllocationCount.exchange(0));
+            NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)", frames, nova::ContextImpl::AllocationCount.load(), nova::ContextImpl::NewAllocationCount.exchange(0));
 
             NOVA_LOG("submit :: clear     = {}\nsubmit :: adapting1 = {}\nsubmit :: adapting2 = {}\npresent             = {}",
                 nova::submitting.exchange(0) / frames,
@@ -127,5 +127,5 @@ int main()
     glfwDestroyWindow(window2);
     glfwTerminate();
 
-    NOVA_LOG("Allocations = {}", nova::Context::AllocationCount.load());
+    NOVA_LOG("Allocations = {}", nova::ContextImpl::AllocationCount.load());
 }

@@ -2,10 +2,10 @@
 
 namespace nova
 {
-    ImGuiWrapper::ImGuiWrapper(Context& _context,
-            Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window,
+    ImGuiWrapper::ImGuiWrapper(Context _context,
+            Ref<CommandList> cmd, Swapchain swapchain, GLFWwindow* window,
             i32 imguiFlags, u32 framesInFlight)
-        : context(&_context)
+        : context(_context.GetImpl())
     {
         if (framesInFlight < 2)
             framesInFlight = 2;
@@ -14,7 +14,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
             .pAttachments = Temp(VkAttachmentDescription {
-                .format = swapchain.format.format,
+                .format = swapchain->format.format,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -67,8 +67,8 @@ namespace nova
             .Instance = context->instance,
             .PhysicalDevice = context->gpu,
             .Device = context->device,
-            .QueueFamily = context->graphics.family,
-            .Queue = context->graphics.handle,
+            .QueueFamily = context->graphics->family,
+            .Queue = context->graphics->handle,
             .DescriptorPool = descriptorPool,
             .Subpass = 0,
             .MinImageCount = framesInFlight,
@@ -162,25 +162,25 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(Ref<CommandList> cmd, Swapchain& swapchain)
+    void ImGuiWrapper::EndFrame(Ref<CommandList> cmd, Swapchain swapchain)
     {
         ImGui::Render();
 
-        if (lastSwapchain != swapchain.swapchain)
+        if (lastSwapchain != swapchain->swapchain)
         {
-            lastSwapchain = swapchain.swapchain;
+            lastSwapchain = swapchain->swapchain;
 
-            framebuffers.resize(swapchain.textures.size());
-            for (u32 i = 0; i < swapchain.textures.size(); ++i)
+            framebuffers.resize(swapchain->textures.size());
+            for (u32 i = 0; i < swapchain->textures.size(); ++i)
             {
                 vkDestroyFramebuffer(context->device, framebuffers[i], context->pAlloc);
                 VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = renderPass,
                     .attachmentCount = 1,
-                    .pAttachments = &swapchain.textures[i].view,
-                    .width = swapchain.extent.width,
-                    .height = swapchain.extent.height,
+                    .pAttachments = &swapchain->textures[i]->view,
+                    .width = swapchain.GetExtent().x,
+                    .height = swapchain.GetExtent().y,
                     .layers = 1,
                 }), context->pAlloc, &framebuffers[i]));
             }
@@ -193,8 +193,8 @@ namespace nova
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = renderPass,
-            .framebuffer = framebuffers[swapchain.index],
-            .renderArea = { {}, swapchain.extent },
+            .framebuffer = framebuffers[swapchain->index],
+            .renderArea = { {}, { swapchain.GetExtent().x, swapchain.GetExtent().y } },
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
         vkCmdEndRenderPass(cmd->buffer);

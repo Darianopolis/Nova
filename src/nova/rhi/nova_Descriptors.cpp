@@ -3,8 +3,8 @@
 namespace nova
 {
     NOVA_NO_INLINE
-    DescriptorLayout::DescriptorLayout(Context& _context, Span<DescriptorBinding> bindings, bool pushDescriptor)
-        : context(&_context)
+    DescriptorLayout::DescriptorLayout(Context _context, Span<DescriptorBinding> bindings, bool pushDescriptor)
+        : context(_context.GetImpl())
     {
         auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
         auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
@@ -63,7 +63,7 @@ namespace nova
         other.layout = nullptr;
     }
 
-    void DescriptorLayout::WriteSampledTexture(void* dst, u32 binding, Texture& texture, Sampler& sampler, u32 arrayIndex)
+    void DescriptorLayout::WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex)
     {
         vkGetDescriptorEXT(context->device,
             Temp(VkDescriptorGetInfoEXT {
@@ -71,8 +71,8 @@ namespace nova
                 .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 .data = {
                     .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
-                        .sampler = sampler.sampler,
-                        .imageView = texture.view,
+                        .sampler = sampler->sampler,
+                        .imageView = texture->view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 },
@@ -84,7 +84,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::PushStorageTexture(PipelineLayout& layout, u32 setIndex, u32 binding, Texture& texture, u32 arrayIndex)
+    void CommandList::PushStorageTexture(PipelineLayout& layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex)
     {
         vkCmdPushDescriptorSetKHR(buffer,
             VkPipelineBindPoint(layout.bindPoint), layout.layout, setIndex,
@@ -95,7 +95,7 @@ namespace nova
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = Temp(VkDescriptorImageInfo {
-                    .imageView = texture.view,
+                    .imageView = texture->view,
                     .imageLayout = tracker->Get(texture).layout,
                 }),
             }));
@@ -121,11 +121,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    PipelineLayout::PipelineLayout(Context& _context,
+    PipelineLayout::PipelineLayout(Context _context,
             Span<PushConstantRange> pushConstantRanges,
             Span<Ref<DescriptorLayout>> descriptorLayouts,
             BindPoint _bindPoint)
-        : context(&_context)
+        : context(_context.GetImpl())
         , bindPoint(_bindPoint)
     {
         for (auto& range : pushConstantRanges)
@@ -162,7 +162,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     NOVA_NO_INLINE
-    void CommandList::BindDescriptorBuffers(Span<Ref<Buffer>> buffers)
+    void CommandList::BindDescriptorBuffers(Span<Buffer> buffers)
     {
         auto* bindings = NOVA_ALLOC_STACK(VkDescriptorBufferBindingInfoEXT, buffers.size());
         for (u32 i = 0; i < buffers.size(); ++i)

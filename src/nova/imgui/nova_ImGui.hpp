@@ -9,21 +9,21 @@ namespace nova
         ImGuiContext* imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
-        Context* context = {};
+        ContextImpl* context = {};
         VkRenderPass renderPass = {};
         std::vector<VkFramebuffer> framebuffers;
         VkDescriptorPool descriptorPool = {};
         VkSwapchainKHR lastSwapchain = {};
     public:
         ImGuiWrapper() = default;
-        ImGuiWrapper(Context& context,
-            Ref<CommandList> cmd, Swapchain& swapchain, GLFWwindow* window,
+        ImGuiWrapper(Context context,
+            Ref<CommandList> cmd, Swapchain swapchain, GLFWwindow* window,
             i32 imguiFlags, u32 framesInFlight = 2);
         ~ImGuiWrapper();
 
         NOVA_DEFAULT_MOVE_DECL(ImGuiWrapper)
 
         void BeginFrame();
-        void EndFrame(Ref<CommandList> cmd, Swapchain& swapchain);
+        void EndFrame(Ref<CommandList> cmd, Swapchain swapchain);
     };
 }

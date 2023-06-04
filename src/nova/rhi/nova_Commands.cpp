@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    CommandPool::CommandPool(Context& _context, Queue& _queue)
-        : context(&_context)
-        , queue(&_queue)
+    CommandPool::CommandPool(Context context, Queue queue)
+        : context(context.GetImpl())
+        , queue(queue.GetImpl())
     {
         VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -125,7 +125,7 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void Queue::Submit(Span<Ref<CommandList>> commandLists, Span<Ref<Fence>> waits, Span<Ref<Fence>> signals)
+    void Queue::Submit(Span<Ref<CommandList>> commandLists, Span<Fence> waits, Span<Fence> signals) const
     {
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, commandLists.size());
         for (u32 i = 0; i < commandLists.size(); ++i)
@@ -158,13 +158,13 @@ namespace nova
             signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
-                .value = ++signal->value,
+                .value = signal.Advance(),
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             };
         }
 
         auto start = std::chrono::steady_clock::now();
-        VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+        VkCall(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
             .pWaitSemaphoreInfos = waitInfos,
@@ -262,14 +262,14 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    void CommandList::BeginRendering(Span<Ref<Texture>> colorAttachments, OptRef<Texture> depthAttachment, OptRef<Texture> stencilAttachment, bool allowSecondary)
+    void CommandList::BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment, bool allowSecondary)
     {
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
             auto texture = colorAttachments[i];
 
-            Transition(*texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                 VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
@@ -296,9 +296,9 @@ namespace nova
 
         if (depthAttachment == stencilAttachment)
         {
-            if (depthAttachment)
+            if (depthAttachment.IsValid())
             {
-                Transition(*depthAttachment,
+                Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -313,9 +313,9 @@ namespace nova
         }
         else
         {
-            if (depthAttachment)
+            if (depthAttachment.IsValid())
             {
-                Transition(*depthAttachment,
+                Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -327,9 +327,9 @@ namespace nova
                 info.pDepthAttachment = &depthInfo;
             }
 
-            if (stencilAttachment)
+            if (stencilAttachment.IsValid())
             {
-                Transition(*stencilAttachment,
+                Transition(stencilAttachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
@@ -348,25 +348,6 @@ namespace nova
     void CommandList::EndRendering()
     {
         vkCmdEndRendering(buffer);
-    }
-
-    NOVA_NO_INLINE
-    void CommandList::BindShaders(Span<Ref<Shader>> shaders)
-    {
-        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
-        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
-        for (u32 i = 0; i < shaders.size(); ++i)
-        {
-            stageFlags[i] = shaders[i]->stage;
-            shaderObjects[i] = shaders[i]->shader;
-        }
-
-        vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
-    }
-
-    void CommandList::BindIndexBuffer(Buffer& indexBuffer, IndexType indexType, u64 offset)
-    {
-        vkCmdBindIndexBuffer(buffer, indexBuffer.buffer, offset, VkIndexType(indexType));
     }
 
     void CommandList::PushConstants(PipelineLayout& layout, ShaderStage stages, u64 offset, u64 size, const void* data)

@@ -42,7 +42,7 @@ int main()
 
     // Create required Nova objects
 
-    auto& queue = context.graphics;
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
     auto tracker = nova::ResourceTracker(context);
@@ -129,8 +129,8 @@ void main()
     // Configure BLAS build
 
     builder.SetTriangles(0,
-        vertices.address, nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
-        indices.address, nova::IndexType::U32, 1);
+        vertices.GetAddress(), nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
+        indices.GetAddress(), nova::IndexType::U32, 1);
     builder.Prepare(nova::AccelerationStructureType::BottomLevel,
         nova::AccelerationStructureFlags::PreferFastTrace
         | nova::AccelerationStructureFlags::AllowCompaction, 1);
@@ -172,7 +172,7 @@ void main()
 
     // Configure TLAS build
 
-    builder.SetInstances(0, instances.address, 1);
+    builder.SetInstances(0, instances.GetAddress(), 1);
     builder.Prepare(nova::AccelerationStructureType::TopLevel,
         nova::AccelerationStructureFlags::PreferFastTrace, 1);
 
@@ -201,8 +201,8 @@ void main()
 
         // Build scene TLAS
 
-        builder.WriteInstance(instances.mapped, 0, blas,
-            glm::scale(Mat4(1), Vec3(Vec2(swapchain.GetCurrent().extent), 1.f)),
+        builder.WriteInstance(instances.GetMapped(), 0, blas,
+            glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
             0, 0xFF, 0, {});
         cmd->BuildAccelerationStructure(builder, tlas, scratch);
 
@@ -220,7 +220,7 @@ void main()
         // Trace rays
 
         cmd->BindPipeline(pipeline);
-        cmd->TraceRays(pipeline, Vec3U(Vec2U(swapchain.GetCurrent().extent), 1), 0);
+        cmd->TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
 
         // Submit and present work
 

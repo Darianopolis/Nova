@@ -2,9 +2,11 @@
 
 namespace nova
 {
-    Sampler::Sampler(Context& _context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
-        : context(&_context)
+    Sampler::Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
+        : ImplHandle(new SamplerImpl)
     {
+        impl->context = context.GetImpl();
+
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = VkFilter(filter),
@@ -21,19 +23,12 @@ namespace nova
             .minLod = -1000.f,
             .maxLod = 1000.f,
             .borderColor = VkBorderColor(color),
-        }), context->pAlloc, &sampler));
+        }), impl->context->pAlloc, &impl->sampler));
     }
 
-    Sampler::~Sampler()
+    SamplerImpl::~SamplerImpl()
     {
         if (sampler)
             vkDestroySampler(context->device, sampler, context->pAlloc);
-    }
-
-    Sampler::Sampler(Sampler&& other) noexcept
-        : context(other.context)
-        , sampler(other.sampler)
-    {
-        other.sampler = nullptr;
     }
 }

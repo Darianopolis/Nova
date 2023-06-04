@@ -2,28 +2,29 @@
 
 namespace nova
 {
-    Swapchain::Swapchain(Context& _context, Surface& _surface, TextureUsage _usage, PresentMode _presentMode)
-        : context(&_context)
-        , surface(_surface.surface)
+    Swapchain::Swapchain(Context context, Surface surface, TextureUsage _usage, PresentMode _presentMode)
+        : ImplHandle(new SwapchainImpl)
     {
-        usage = VkImageUsageFlags(_usage);
-        presentMode = VkPresentModeKHR(_presentMode);
+        impl->context = context.GetImpl();
+        impl->surface = surface->surface;
+        impl->usage = VkImageUsageFlags(_usage);
+        impl->presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface->surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {
-                format = surfaceFormat;
+                impl->format = surfaceFormat;
                 break;
             }
         }
     }
 
-    Swapchain::~Swapchain()
+    SwapchainImpl::~SwapchainImpl()
     {
         for (auto semaphore : semaphores)
             vkDestroySemaphore(context->device, semaphore, context->pAlloc);
@@ -32,34 +33,25 @@ namespace nova
             vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
     }
 
-    Swapchain::Swapchain(Swapchain&& other) noexcept
-        : context(other.context)
-        , surface(other.surface)
-        , swapchain(other.swapchain)
-        , format(other.format)
-        , usage(other.usage)
-        , presentMode(other.presentMode)
-        , textures(std::move(other.textures))
-        , index(other.index)
-        , extent(other.extent)
-        , invalid(other.invalid)
-        , semaphores(std::move(other.semaphores))
-        , semaphoreIndex(other.semaphoreIndex)
+    Texture Swapchain::GetCurrent() const noexcept
     {
-        other.swapchain = nullptr;
-        other.surface = nullptr; // For IsValid
-        other.semaphores.clear();
+        return impl->textures[impl->index];
+    }
+
+    Vec2U Swapchain::GetExtent() const noexcept
+    {
+        return { impl->extent.width, impl->extent.height };
     }
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::Present(Texture& texture)
+    void CommandList::Present(Texture texture)
     {
         Transition(texture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_NONE, 0);
     }
 
     NOVA_NO_INLINE
-    void Queue::Present(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> waits, bool hostWait)
+    void Queue::Present(Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait) const
     {
         VkSemaphore* binaryWaits = nullptr;
 
@@ -73,7 +65,7 @@ namespace nova
                 values[i] = waits[i]->value;
             }
 
-            VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
+            VkCall(vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                 .semaphoreCount = u32(waits.size()),
                 .pSemaphores = semaphores,
@@ -105,7 +97,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -134,7 +126,7 @@ namespace nova
 
         auto results = NOVA_ALLOC_STACK(VkResult, swapchains.size());
         auto start = std::chrono::steady_clock::now();
-        vkQueuePresentKHR(handle, Temp(VkPresentInfoKHR {
+        vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binaryWaits ? u32(swapchains.size()) : 0u,
             .pWaitSemaphores = binaryWaits,
@@ -149,7 +141,7 @@ namespace nova
         {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
             {
-                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i].GetAddress(), int(results[i]));
+                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i].GetImpl(), int(results[i]));
                 swapchains[i]->invalid = true;
             }
             else
@@ -160,9 +152,11 @@ namespace nova
     }
 
     NOVA_NO_INLINE
-    bool Queue::Acquire(Span<Ref<Swapchain>> swapchains, Span<Ref<Fence>> signals)
+    bool Queue::Acquire(Span<Swapchain> swapchains, Span<Fence> signals) const
     {
         bool anyResized = false;
+
+        auto* context = impl->context;
 
         for (auto swapchain : swapchains)
         {
@@ -180,7 +174,7 @@ namespace nova
                 {
                     anyResized |= recreate;
 
-                    VkCall(vkQueueWaitIdle(handle));
+                    VkCall(vkQueueWaitIdle(impl->handle));
 
                     auto oldSwapchain = swapchain->swapchain;
 
@@ -196,7 +190,7 @@ namespace nova
                         .imageUsage = swapchain->usage,
                         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, // TODO: concurrent for async present
                         .queueFamilyIndexCount = 1,
-                        .pQueueFamilyIndices = &family,
+                        .pQueueFamilyIndices = &impl->family,
                         .preTransform = caps.currentTransform,
                         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
                         .presentMode = swapchain->presentMode,
@@ -222,26 +216,26 @@ namespace nova
                     swapchain->textures.resize(vkImages.size());
                     for (uint32_t i = 0; i < vkImages.size(); ++i)
                     {
-                        Texture texture;
-                        texture.context = context;
-                        texture.image = vkImages[i];
+                        auto& texture = swapchain->textures[i];
+
+                        texture.SetImpl(new TextureImpl);
+                        texture->context = context;
+                        texture->image = vkImages[i];
 
                         VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                            .image = texture.image,
+                            .image = texture->image,
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
                             .format = swapchain->format.format,
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                        }), context->pAlloc, &texture.view));
+                        }), context->pAlloc, &texture->view));
 
-                        texture.extent.x = swapchain->extent.width;
-                        texture.extent.y = swapchain->extent.height;
-                        texture.format = swapchain->format.format;
-                        texture.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                        texture.mips = 1;
-                        texture.layers = 1;
-
-                        swapchain->textures[i] = std::move(texture);
+                        texture->extent.x = swapchain->extent.width;
+                        texture->extent.y = swapchain->extent.height;
+                        texture->format = swapchain->format.format;
+                        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+                        texture->mips = 1;
+                        texture->layers = 1;
                     }
                 }
 
@@ -257,7 +251,7 @@ namespace nova
                 {
                     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                     {
-                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetAddress(), int(result));
+                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetImpl(), int(result));
                         swapchain->invalid = true;
                     }
                     else
@@ -289,13 +283,13 @@ namespace nova
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = signal->semaphore,
-                    .value = ++signal->value,
+                    .value = signal.Advance(),
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -308,26 +302,21 @@ namespace nova
         return anyResized;
     }
 
-    Surface::Surface(Context& _context, void* handle)
-        : context(&_context)
+    Surface::Surface(Context context, void* handle)
+        : ImplHandle(new SurfaceImpl)
     {
+        impl->context = context.GetImpl();
+
         VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(handle),
-        }), context->pAlloc, &surface));
+        }), context->pAlloc, &impl->surface));
     }
 
-    Surface::~Surface()
+    SurfaceImpl::~SurfaceImpl()
     {
         if (surface)
             vkDestroySurfaceKHR(context->instance, surface, context->pAlloc);
-    }
-
-    Surface::Surface(Surface&& other) noexcept
-        : context(other.context)
-        , surface(other.surface)
-    {
-        other.surface = nullptr;
     }
 }

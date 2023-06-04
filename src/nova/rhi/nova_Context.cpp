@@ -2,12 +2,14 @@
 
 namespace nova
 {
-    std::atomic_int64_t Context::AllocationCount = 0;
-    std::atomic_int64_t Context::NewAllocationCount = 0;
+    std::atomic_int64_t ContextImpl::AllocationCount = 0;
+    std::atomic_int64_t ContextImpl::NewAllocationCount = 0;
 
     Context::Context(const ContextConfig& config)
     {
         bool debug = config.debug;
+
+        SetImpl(new ContextImpl);
 
         std::vector<const char*> instanceLayers;
         if (debug)
@@ -30,8 +32,8 @@ namespace nova
             .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-            .pfnUserCallback = DebugCallback,
-            .pUserData = this,
+            .pfnUserCallback = ContextImpl::DebugCallback,
+            .pUserData = GetImpl(),
         };
 
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
@@ -45,30 +47,30 @@ namespace nova
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), pAlloc, &instance));
+        }), GetImpl()->pAlloc, &GetImpl()->instance));
 
-        volkLoadInstanceOnly(instance);
+        volkLoadInstanceOnly(GetImpl()->instance);
 
         if (debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(instance, &debugMessengerCreateInfo, pAlloc, &debugMessenger));
+            VkCall(vkCreateDebugUtilsMessengerEXT(GetImpl()->instance, &debugMessengerCreateInfo, GetImpl()->pAlloc, &GetImpl()->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, instance);
+        VkQuery(gpus, vkEnumeratePhysicalDevices, GetImpl()->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                gpu = _gpu;
+                GetImpl()->gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(gpu, Temp(0u), nullptr);
-        graphics = Queue(*this, nullptr, 0);
+        vkGetPhysicalDeviceQueueFamilyProperties2(GetImpl()->gpu, Temp(0u), nullptr);
+        GetImpl()->graphics = Queue(*this, nullptr, 0);
 
         // Ray tracing features
 
@@ -154,48 +156,48 @@ namespace nova
             deviceExtensions.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
         }
 
-        VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(GetImpl()->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features2,
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = graphics.family,
+                    .queueFamilyIndex = GetImpl()->graphics->family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(deviceExtensions.size()),
             .ppEnabledExtensionNames = deviceExtensions.data(),
-        }), pAlloc, &device));
+        }), GetImpl()->pAlloc, &GetImpl()->device));
 
-        volkLoadDevice(device);
+        volkLoadDevice(GetImpl()->device);
 
-        vkGetPhysicalDeviceProperties2(gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(GetImpl()->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &descriptorSizes,
+            .pNext = &GetImpl()->descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(device, graphics.family, 0, &graphics.handle);
+        vkGetDeviceQueue(GetImpl()->device, GetImpl()->graphics->family, 0, &GetImpl()->graphics->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = gpu,
-            .device = device,
-            .pAllocationCallbacks = pAlloc,
+            .physicalDevice = GetImpl()->gpu,
+            .device = GetImpl()->device,
+            .pAllocationCallbacks = GetImpl()->pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = instance,
+            .instance = GetImpl()->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &vma));
+        }), &GetImpl()->vma));
     }
 
-    Context::~Context()
+    ContextImpl::~ContextImpl()
     {
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);
@@ -206,7 +208,7 @@ namespace nova
         NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
     }
 
-    VkBool32 VKAPI_CALL Context::DebugCallback(
+    VkBool32 VKAPI_CALL ContextImpl::DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT severity,
         VkDebugUtilsMessageTypeFlagsEXT type,
         const VkDebugUtilsMessengerCallbackDataEXT* data,
@@ -234,14 +236,23 @@ Validation: {} ({})
 
     void Context::WaitForIdle()
     {
-        vkDeviceWaitIdle(device);
+        vkDeviceWaitIdle(GetImpl()->device);
+    }
+
+    Queue Context::GetQueue(QueueFlags flags) const noexcept
+    {
+        (void)flags;
+
+        return GetImpl()->graphics;
     }
 
 // -----------------------------------------------------------------------------
 
-    Queue::Queue(Context& _context, VkQueue _queue, u32 _family)
-        : context(&_context)
-        , handle(_queue)
-        , family(_family)
-    {}
+    Queue::Queue(Context context, VkQueue queue, u32 family)
+        : ImplHandle(new QueueImpl)
+    {
+        impl->context = context.GetImpl();
+        impl->handle = queue;
+        impl->family = family;
+    }
 }

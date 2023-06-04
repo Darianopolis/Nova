@@ -84,12 +84,14 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader::Shader(Context& _context, ShaderStage _stage, ShaderStage _nextStage,
+    Shader::Shader(Context context, ShaderStage stage, ShaderStage _nextStage,
             const std::string& filename, const std::string& sourceCode,
             PipelineLayout& layout)
-        : context(&_context)
-        , stage(VkShaderStageFlagBits(_stage))
+        : ImplHandle(new ShaderImpl)
     {
+        impl->context = context.GetImpl();
+        impl->stage = VkShaderStageFlagBits(stage);
+
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
@@ -97,7 +99,7 @@ namespace nova
 
         EShLanguage glslangStage;
         bool supportsShaderObjects = true;
-        switch (stage)
+        switch (impl->stage)
         {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
         break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
@@ -119,7 +121,7 @@ namespace nova
                                                                 supportsShaderObjects = false;
         break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
-        break;default: NOVA_THROW("Unknown stage: {}", int(stage));
+        break;default: NOVA_THROW("Unknown stage: {}", int(impl->stage));
         }
 
         glslang::TShader glslShader { glslangStage };
@@ -208,7 +210,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), context->pAlloc, &module));
+        }), context->pAlloc, &impl->module));
 
         if (supportsShaderObjects)
         {
@@ -216,7 +218,7 @@ namespace nova
             //   Vulkan should already handle this?
             VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
-                .stage = stage,
+                .stage = impl->stage,
                 .nextStage = nextStage,
                 .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
                 .codeSize = spirv.size() * 4,
@@ -226,11 +228,11 @@ namespace nova
                 .pSetLayouts = layout.sets.data(),
                 .pushConstantRangeCount = u32(layout.ranges.size()),
                 .pPushConstantRanges = layout.ranges.data(),
-            }), context->pAlloc, &shader));
+            }), context->pAlloc, &impl->shader));
         }
     }
 
-    Shader::~Shader()
+    ShaderImpl::~ShaderImpl()
     {
         if (shader)
             vkDestroyShaderEXT(context->device, shader, context->pAlloc);
@@ -239,23 +241,29 @@ namespace nova
             vkDestroyShaderModule(context->device, module, context->pAlloc);
     }
 
-    Shader::Shader(Shader&& other) noexcept
-        : context(other.context)
-        , stage(other.stage)
-        , shader(other.shader)
-        , module(other.module)
-    {
-        other.shader = nullptr;
-        other.module = nullptr;
-    }
-
-    VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const
+    VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const noexcept
     {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = stage,
-            .module = module,
-            .pName = name,
+            .stage = impl->stage,
+            .module = impl->module,
+            .pName = ShaderImpl::EntryPoint,
         };
+    }
+
+// -----------------------------------------------------------------------------
+
+    NOVA_NO_INLINE
+    void CommandList::BindShaders(Span<Shader> shaders)
+    {
+        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
+        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
+        for (u32 i = 0; i < shaders.size(); ++i)
+        {
+            stageFlags[i] = shaders[i]->stage;
+            shaderObjects[i] = shaders[i]->shader;
+        }
+
+        vkCmdBindShadersEXT(buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 }
