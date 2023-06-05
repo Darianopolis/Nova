@@ -11,7 +11,7 @@ namespace nova
         Vec2 min {  INFINITY,  INFINITY };
         Vec2 max { -INFINITY, -INFINITY };
 
-        void Expand(const ImBounds2D& other)
+        void Expand(const ImBounds2D& other) noexcept
         {
             min.x = std::min(min.x, other.min.x);
             min.y = std::min(min.y, other.min.y);
@@ -19,30 +19,13 @@ namespace nova
             max.y = std::max(max.y, other.max.y);
         }
 
-        Vec2 Size() const
-        {
-            return max - min;
-        }
+        Vec2 Size() const noexcept { return max - min; }
+        Vec2 Center() const noexcept { return 0.5f * (max + min); }
 
-        Vec2 Center() const
-        {
-            return 0.5f * (max + min);
-        }
+        float Width()  const noexcept { return max.x - min.x; }
+        float Height() const noexcept { return max.y - min.y; }
 
-        float Width() const
-        {
-            return max.x - min.x;
-        }
-
-        float Height() const
-        {
-            return max.y - min.y;
-        }
-
-        bool Empty() const
-        {
-            return min.y == INFINITY;
-        }
+        bool Empty() const noexcept { return min.y == INFINITY; }
     };
 
     struct ImRoundRect
@@ -95,8 +78,8 @@ namespace nova
         ImDraw2D() = default;
         ImDraw2D(Context context);
 
-        Sampler GetDefaultSampler() const;
-        const ImBounds2D& GetBounds() const;
+        Sampler GetDefaultSampler() const noexcept;
+        const ImBounds2D& GetBounds() const noexcept;
 
         ImTextureID RegisterTexture(Texture texture, Sampler sampler) const;
         void UnregisterTexture(ImTextureID textureSlot) const;
@@ -109,7 +92,7 @@ namespace nova
 
         ImBounds2D MeasureString(std::string_view str, ImFont font) const;
 
-        void Record(Ref<CommandList> commandList) const;
+        void Record(CommandList commandList) const;
     };
 
 // -----------------------------------------------------------------------------

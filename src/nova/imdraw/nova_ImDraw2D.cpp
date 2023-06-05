@@ -152,12 +152,12 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    Sampler ImDraw2D::GetDefaultSampler() const
+    Sampler ImDraw2D::GetDefaultSampler() const noexcept
     {
         return impl->defaultSampler;
     }
 
-    const ImBounds2D& ImDraw2D::GetBounds() const
+    const ImBounds2D& ImDraw2D::GetBounds() const noexcept
     {
         return impl->bounds;
     }
@@ -333,10 +333,10 @@ void main()
         return strBounds;
     }
 
-    void ImDraw2D::Record(Ref<CommandList> cmd) const
+    void ImDraw2D::Record(CommandList cmd) const
     {
-        cmd->SetTopology(Topology::Triangles);
-        cmd->PushConstants(impl->pipelineLayout,
+        cmd.SetTopology(Topology::Triangles);
+        cmd.PushConstants(impl->pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
             ImDraw2DImpl::PushConstantsRange.offset, ImDraw2DImpl::PushConstantsRange.size,
             Temp(ImDraw2DImpl::PushConstants {
@@ -345,16 +345,16 @@ void main()
                 .rectInstancesVA = impl->rectBuffer.GetAddress(),
             }));
 
-        cmd->BindDescriptorBuffers({impl->descriptorBuffer});
-        cmd->SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
+        cmd.BindDescriptorBuffers({impl->descriptorBuffer});
+        cmd.SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
 
         for (auto& command : impl->drawCommands)
         {
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd->BindShaders({impl->rectVertShader, impl->rectFragShader});
-                cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
+                cmd.BindShaders({impl->rectVertShader, impl->rectFragShader});
+                cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }
     }

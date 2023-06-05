@@ -33,7 +33,7 @@ namespace nova
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
             .pfnUserCallback = ContextImpl::DebugCallback,
-            .pUserData = GetImpl(),
+            .pUserData = impl,
         };
 
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
@@ -47,30 +47,30 @@ namespace nova
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), GetImpl()->pAlloc, &GetImpl()->instance));
+        }), impl->pAlloc, &impl->instance));
 
-        volkLoadInstanceOnly(GetImpl()->instance);
+        volkLoadInstanceOnly(impl->instance);
 
         if (debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(GetImpl()->instance, &debugMessengerCreateInfo, GetImpl()->pAlloc, &GetImpl()->debugMessenger));
+            VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, GetImpl()->instance);
+        VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                GetImpl()->gpu = _gpu;
+                impl->gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(GetImpl()->gpu, Temp(0u), nullptr);
-        GetImpl()->graphics = Queue(*this, nullptr, 0);
+        vkGetPhysicalDeviceQueueFamilyProperties2(impl->gpu, Temp(0u), nullptr);
+        impl->graphics = Queue(*this, nullptr, 0);
 
         // Ray tracing features
 
@@ -139,9 +139,6 @@ namespace nova
             VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
             VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 
-            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-            VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-
             VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
         };
 
@@ -149,6 +146,8 @@ namespace nova
         {
             barycentricFeatures.pNext = &rtPipelineFeatures;
 
+            deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+            deviceExtensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
             deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
             deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
             deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -156,45 +155,45 @@ namespace nova
             deviceExtensions.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
         }
 
-        VkCall(vkCreateDevice(GetImpl()->gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = &features2,
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = GetImpl()->graphics->family,
+                    .queueFamilyIndex = impl->graphics->family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(deviceExtensions.size()),
             .ppEnabledExtensionNames = deviceExtensions.data(),
-        }), GetImpl()->pAlloc, &GetImpl()->device));
+        }), impl->pAlloc, &impl->device));
 
-        volkLoadDevice(GetImpl()->device);
+        volkLoadDevice(impl->device);
 
-        vkGetPhysicalDeviceProperties2(GetImpl()->gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &GetImpl()->descriptorSizes,
+            .pNext = &impl->descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(GetImpl()->device, GetImpl()->graphics->family, 0, &GetImpl()->graphics->handle);
+        vkGetDeviceQueue(impl->device, impl->graphics->family, 0, &impl->graphics->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = GetImpl()->gpu,
-            .device = GetImpl()->device,
-            .pAllocationCallbacks = GetImpl()->pAlloc,
+            .physicalDevice = impl->gpu,
+            .device = impl->device,
+            .pAllocationCallbacks = impl->pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = GetImpl()->instance,
+            .instance = impl->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &GetImpl()->vma));
+        }), &impl->vma));
     }
 
     ContextImpl::~ContextImpl()
@@ -234,16 +233,16 @@ Validation: {} ({})
         return VK_FALSE;
     }
 
-    void Context::WaitForIdle()
+    void Context::WaitForIdle() const
     {
-        vkDeviceWaitIdle(GetImpl()->device);
+        vkDeviceWaitIdle(impl->device);
     }
 
     Queue Context::GetQueue(QueueFlags flags) const noexcept
     {
         (void)flags;
 
-        return GetImpl()->graphics;
+        return impl->graphics;
     }
 
 // -----------------------------------------------------------------------------

@@ -28,6 +28,8 @@ int main()
 
     // Create Nova context with ray tracing enabled
 
+    NOVA_TIMEIT_RESET();
+
     auto context = nova::Context({
         .debug = true,
         .rayTracing = true,
@@ -48,6 +50,8 @@ int main()
     auto tracker = nova::ResourceTracker(context);
 
     auto builder = nova::AccelerationStructureBuilder(context);
+
+    NOVA_TIMEIT("base-vulkan-objects");
 
 // -----------------------------------------------------------------------------
 //                        Descriptors & Pipeline
@@ -108,6 +112,8 @@ void main()
     auto pipeline = nova::RayTracingPipeline(context);
     pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
+    NOVA_TIMEIT("pipeline");
+
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS
 // -----------------------------------------------------------------------------
@@ -158,7 +164,12 @@ void main()
     cmd.CompactAccelerationStructure(blas, uncompactedBlas);
     queue.Submit({cmd}, {}, {fence});
     fence.Wait();
+
+    vertices = {};
+    indices = {};
     uncompactedBlas = {};
+
+    NOVA_TIMEIT("blas");
 
 // -----------------------------------------------------------------------------
 //                                Scene TLAS
@@ -181,6 +192,8 @@ void main()
     auto tlas = nova::AccelerationStructure(context, builder.GetBuildSize(),
         nova::AccelerationStructureType::TopLevel);
     scratch.Resize(builder.GetBuildScratchSize());
+
+    NOVA_TIMEIT("tlas-prepare");
 
 // -----------------------------------------------------------------------------
 //                               Main Loop

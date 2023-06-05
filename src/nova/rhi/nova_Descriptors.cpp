@@ -154,7 +154,7 @@ namespace nova
     NOVA_NO_INLINE
     void CommandList::BindDescriptorBuffers(Span<Buffer> buffers) const
     {
-        auto* bindings = NOVA_ALLOC_STACK(VkDescriptorBufferBindingInfoEXT, buffers.size());
+        auto bindings = NOVA_ALLOC_STACK(VkDescriptorBufferBindingInfoEXT, buffers.size());
         for (u32 i = 0; i < buffers.size(); ++i)
         {
             auto& descBuffer = buffers[i];
@@ -172,8 +172,8 @@ namespace nova
     NOVA_NO_INLINE
     void CommandList::SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const
     {
-        auto* bufferIndices = NOVA_ALLOC_STACK(u32, offsets.size());
-        auto* bufferOffsets = NOVA_ALLOC_STACK(u64, offsets.size());
+        auto bufferIndices = NOVA_ALLOC_STACK(u32, offsets.size());
+        auto bufferOffsets = NOVA_ALLOC_STACK(u64, offsets.size());
 
         for (u32 i = 0; i < offsets.size(); ++i)
         {

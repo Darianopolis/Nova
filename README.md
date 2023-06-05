@@ -26,11 +26,11 @@ Core device extensions:
  - VK_EXT_shader_object
  - VK_EXT_descriptor_buffer
  - VK_KHR_push_descriptor
- - VK_KHR_deferred_host_operations
- - VK_KHR_pipeline_library
  - VK_KHR_fragment_shader_barycentrics
 
 Ray Tracing device extensions:
+ - VK_KHR_deferred_host_operations
+ - VK_KHR_pipeline_library
  - VK_KHR_ray_tracing_pipeline
  - VK_KHR_acceleration_structure
  - VK_KHR_ray_query

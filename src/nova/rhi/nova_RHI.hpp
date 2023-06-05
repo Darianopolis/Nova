@@ -330,19 +330,21 @@ namespace nova
     public:
         void Resize(u64 size) const;
 
+        u64 GetSize() const noexcept;
+
         b8* GetMapped() const noexcept;
         u64 GetAddress() const noexcept;
 
         template<class T>
         T& Get(u64 index, u64 offset = 0) const noexcept
         {
-            return reinterpret_cast<T*>(GetImpl()->mapped + offset)[index];
+            return reinterpret_cast<T*>(impl->mapped + offset)[index];
         }
 
         template<class T>
         void Set(Span<T> elements, u64 index = 0, u64 offset = 0) const noexcept
         {
-            std::memcpy(reinterpret_cast<T*>(GetImpl()->mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
+            std::memcpy(reinterpret_cast<T*>(impl->mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
         }
     };
 
@@ -937,7 +939,7 @@ namespace nova
         {}
 
     public:
-        void WaitForIdle();
+        void WaitForIdle() const;
 
         Queue GetQueue(QueueFlags flags) const noexcept;
     };

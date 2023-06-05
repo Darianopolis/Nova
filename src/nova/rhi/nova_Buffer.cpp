@@ -36,6 +36,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    u64 Buffer::GetSize() const noexcept
+    {
+        return impl->size;
+    }
+
     b8* Buffer::GetMapped() const noexcept
     {
         return GetImpl()->mapped;

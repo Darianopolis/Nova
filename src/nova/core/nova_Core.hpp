@@ -99,32 +99,6 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         template<class T>
-        using Ptr = std::unique_ptr<T>;
-
-        template<class T>
-        class Ref
-        {
-            T* ptr = {};
-
-        public:
-            Ref(T& value) : ptr(&value) {}
-
-        public:
-                  T* GetAddress()       noexcept { return ptr; }
-            const T* GetAddress() const noexcept { return ptr; }
-
-                  T& operator*() noexcept       { return *ptr; }
-            const T& operator*() const noexcept { return *ptr; }
-
-            T* operator->() const noexcept { return ptr; }
-
-        public:
-            bool operator==(const Ref& other)    const noexcept { return ptr != other.ptr; }
-        };
-
-// -----------------------------------------------------------------------------
-
-        template<class T>
         class OptRef
         {
             T* ptr = {};
@@ -132,7 +106,6 @@ namespace nova
         public:
             OptRef() = default;
             OptRef(T& value)     : ptr(&value) {}
-            OptRef(Ref<T> value) : ptr(value.GetAddress()) {}
 
             static OptRef FromNullable(T* value)
             {
@@ -155,7 +128,6 @@ namespace nova
 
         public:
             bool operator==(const OptRef& other) const noexcept { return ptr != other.ptr; }
-            bool operator==(const Ref<T>& other) const noexcept { return ptr != other.ptr; }
         };
 
 // -----------------------------------------------------------------------------
@@ -189,42 +161,6 @@ namespace nova
     }
 
     using namespace types;
-
-// -----------------------------------------------------------------------------
-
-    template<class T>
-    struct Unique
-    {
-        T value = {};
-
-        Unique() = default;
-
-        Unique(T _value)
-            : value(std::move(_value))
-        {}
-
-        Unique(Unique&& other)
-        {
-            std::swap(value, other.value);
-            value = other.value;
-        }
-
-        Unique& operator=(Unique&& other)
-        {
-            std::swap(value, other.value);
-            return *this;
-        }
-
-        operator T()
-        {
-            return value;
-        }
-
-        T* operator&()
-        {
-            return &value;
-        }
-    };
 
 // -----------------------------------------------------------------------------
 
@@ -416,13 +352,13 @@ namespace nova
 #define NOVA_ALLOC_STACK(type, count) \
     (type*)alloca(sizeof(type) * count)
 
-//     struct Stack
+//     struct ThreadSupplementaryStack
 //     {
 //         std::array<byte, 1024 * 1024> stack;
 //         byte* ptr = &stack[0];
 //     };
 
-//     inline thread_local Stack NovaStack;
+//     inline thread_local ThreadSupplementaryStack NovaStack;
 
 //     template<class T>
 //     class StackPtr

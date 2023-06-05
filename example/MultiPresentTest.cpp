@@ -6,11 +6,7 @@ using namespace nova::types;
 
 int main()
 {
-    NOVA_LOGEXPR(mi_version());
-
-    auto context = nova::Context({
-        .debug = false,
-    });
+    auto context = nova::Context({ .debug = false });
 
     auto presentMode = nova::PresentMode::Immediate;
     auto swapchainUsage = nova::TextureUsage::TransferDst
@@ -18,29 +14,28 @@ int main()
         | nova::TextureUsage::Storage;
 
     glfwInit();
+    NOVA_ON_SCOPE_EXIT(&) { glfwTerminate(); };
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
+    NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window1); };
     auto surface1 = nova::Surface(context, glfwGetWin32Window(window1));
     auto swapchain = nova::Swapchain(context, surface1, swapchainUsage, presentMode);
 
     auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
+    NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
     auto surface2 = nova::Surface(context, glfwGetWin32Window(window2));
     auto swapchain2 = nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto tracker = nova::ResourceTracker(context);
-
     nova::Fence fences[] { {context}, {context} };
     nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
-    nova::ImGuiWrapper imgui;
-    {
-        auto cmd = commandPools[0].Begin(tracker);
-        imgui = nova::ImGuiWrapper(context, cmd, swapchain, window1, ImGuiConfigFlags_ViewportsEnable);
-        queue.Submit({cmd}, {}, {fences[0]});
-        fences[0].Wait();
-    }
+    auto cmd = commandPools[0].Begin(tracker);
+    auto imgui = nova::ImGuiWrapper(context, cmd, swapchain, window1, ImGuiConfigFlags_ViewportsEnable);
+    queue.Submit({cmd}, {}, {fences[0]});
+    fences[0].Wait();
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
@@ -52,8 +47,8 @@ int main()
         auto newTime = std::chrono::steady_clock::now();
         if (newTime - lastTime > 1s)
         {
-            NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)", frames, nova::ContextImpl::AllocationCount.load(), nova::ContextImpl::NewAllocationCount.exchange(0));
-
+            NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
+                frames, nova::ContextImpl::AllocationCount.load(), nova::ContextImpl::NewAllocationCount.exchange(0));
             NOVA_LOG("submit :: clear     = {}\nsubmit :: adapting1 = {}\nsubmit :: adapting2 = {}\npresent             = {}",
                 nova::submitting.exchange(0) / frames,
                 nova::adapting1.exchange(0)  / frames,
@@ -65,8 +60,8 @@ int main()
         }
 
         // Pick fence and commandPool for frame in flight
-        auto& fence = fences[frame % 2];
-        auto& commandPool = commandPools[frame % 2];
+        auto fence = fences[frame % 2];
+        auto commandPool = commandPools[frame % 2];
         frame++;
 
         // Wait for previous commands in frame to complete
@@ -80,7 +75,7 @@ int main()
 
         // Reset command pool and begin new command list
         commandPool.Reset();
-        auto cmd = commandPool.Begin(tracker);
+        cmd = commandPool.Begin(tracker);
 
         // Clear screen
         cmd.Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
@@ -114,18 +109,15 @@ int main()
         (*(decltype(update)*)glfwGetWindowUserPointer(w))();
     });
 
+    NOVA_ON_SCOPE_EXIT(&) {
+        fences[0].Wait();
+        fences[1].Wait();
+    };
     while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
     {
         update();
         glfwPollEvents();
     }
-
-    fences[0].Wait();
-    fences[1].Wait();
-
-    glfwDestroyWindow(window1);
-    glfwDestroyWindow(window2);
-    glfwTerminate();
 
     NOVA_LOG("Allocations = {}", nova::ContextImpl::AllocationCount.load());
 }

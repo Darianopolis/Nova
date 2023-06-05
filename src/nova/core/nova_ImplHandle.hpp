@@ -16,23 +16,22 @@ namespace nova
 
         void Acquire()
         {
-            ++referenceCount;
+            ++std::atomic_ref(referenceCount);
             // NOVA_LOG("Reference count  + {}", referenceCount);
         }
 
         bool Release()
         {
             // NOVA_LOG("Reference count -  {}", referenceCount - 1);
-            return !--referenceCount;
+            return !--std::atomic_ref(referenceCount);
         }
 
         u32 GetReferenceCount() const noexcept
         {
-            return referenceCount;
+            return std::atomic_ref(referenceCount).load();
         }
     };
 
-    // template<std::derived_from<ImplBase> TImpl>
     template<class TImpl>
     class ImplHandle
     {
@@ -96,7 +95,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        bool operator==(const ImplHandle& other)
+        bool operator==(const ImplHandle& other) const noexcept
         {
             return impl == other.impl;
         }
