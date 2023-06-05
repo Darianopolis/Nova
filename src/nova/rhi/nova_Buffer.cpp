@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Buffer)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Buffer)
 
     Buffer::Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags)
         : ImplHandle(new BufferImpl)

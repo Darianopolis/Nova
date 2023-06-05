@@ -4,6 +4,8 @@
 
 namespace nova
 {
+    inline std::atomic_uint64_t NumHandleOperations = 0;
+
     class ImplBase
     {
         u32 referenceCount = 0;
@@ -16,12 +18,14 @@ namespace nova
 
         void Acquire()
         {
+            ++NumHandleOperations;
             ++std::atomic_ref(referenceCount);
             // NOVA_LOG("Reference count  + {}", referenceCount);
         }
 
         bool Release()
         {
+            ++NumHandleOperations;
             // NOVA_LOG("Reference count -  {}", referenceCount - 1);
             return !--std::atomic_ref(referenceCount);
         }
@@ -44,16 +48,12 @@ namespace nova
         ImplHandle(TImpl* _impl) noexcept
             : impl(_impl)
         {
-            if (impl)
-                impl->Acquire();
+            if (impl) impl->Acquire();
         }
 
         ~ImplHandle() noexcept
         {
-            if (impl && impl->Release())
-            {
-                delete impl;
-            }
+            if (impl && impl->Release()) delete impl;
         }
 
 // -----------------------------------------------------------------------------
@@ -61,10 +61,7 @@ namespace nova
         ImplHandle(const ImplHandle& other) noexcept
             : impl(other.impl)
         {
-            if (impl)
-            {
-                impl->Acquire();
-            }
+            if (impl) impl->Acquire();
         }
 
         ImplHandle& operator=(const ImplHandle& other) noexcept
@@ -107,27 +104,26 @@ namespace nova
         void SetImpl(TImpl* _impl) noexcept {
             if (impl != _impl)
             {
-                if (impl && impl->Release())
-                {
-                    delete impl;
-                }
-
+                if (impl && impl->Release()) delete impl;
                 impl = _impl;
-
-                if (impl)
-                {
-                    impl->Acquire();
-                }
+                if (impl) impl->Acquire();
             }
         }
 
         TImpl* GetImpl() const noexcept { return impl; }
 
+        operator TImpl*() const noexcept { return impl; }
+
         // TODO: Should this really be treated like a smart pointer externally?
         TImpl* operator->() const noexcept { return impl; };
     };
 
-#define NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(type) \
+#define NOVA_DECLARE_HANDLE_OBJECT(type) \
+    struct type;                         \
+    struct type##Impl;                   \
+    using H##type = type##Impl*;
+
+#define NOVA_DECLARE_HANDLE_OPERATIONS(type) \
     type() noexcept;                              \
     type(type##Impl* impl) noexcept;              \
     ~type();                                      \
@@ -136,7 +132,7 @@ namespace nova
     type(type&& other) noexcept;                  \
     type& operator=(type&& other) noexcept;
 
-#define NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(type)                 \
+#define NOVA_DEFINE_HANDLE_OPERATIONS(type)                 \
     type::type() noexcept = default;                             \
     type::type(type##Impl* impl) noexcept : ImplHandle(impl) {}  \
     type::~type() = default;                                     \

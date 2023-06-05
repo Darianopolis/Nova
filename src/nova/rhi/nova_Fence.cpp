@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Fence)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Fence)
 
     Fence::Fence(Context context)
         : ImplHandle(new FenceImpl)

@@ -2,11 +2,9 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Texture)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Texture)
 
     Texture::Texture(Context context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
-        // : context(_context.GetImpl())
-        // , format(VkFormat(_format))
         : ImplHandle(new TextureImpl)
     {
         impl->context = context.GetImpl();

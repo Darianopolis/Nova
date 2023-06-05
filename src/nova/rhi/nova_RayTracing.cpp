@@ -4,7 +4,7 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(AccelerationStructureBuilder)
+    NOVA_DEFINE_HANDLE_OPERATIONS(AccelerationStructureBuilder)
 
     AccelerationStructureBuilder::AccelerationStructureBuilder(Context context)
         : ImplHandle(new AccelerationStructureBuilderImpl)
@@ -237,7 +237,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(AccelerationStructure)
+    NOVA_DEFINE_HANDLE_OPERATIONS(AccelerationStructure)
 
     AccelerationStructure::AccelerationStructure(Context context, usz size, AccelerationStructureType type)
         : ImplHandle(new AccelerationStructureImpl)
@@ -290,7 +290,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(RayTracingPipeline)
+    NOVA_DEFINE_HANDLE_OPERATIONS(RayTracingPipeline)
 
     void RayTracingPipeline::Update(
             PipelineLayout layout,
@@ -299,7 +299,7 @@ namespace nova
             Span<HitShaderGroup> rayHitShaderGroup,
             Span<Shader> callableShaders) const
     {
-        auto* context = impl->context;
+        auto& context = impl->context;
 
         // Convert to stages and groups
 

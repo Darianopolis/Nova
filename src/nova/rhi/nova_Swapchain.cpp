@@ -2,13 +2,13 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Swapchain)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Swapchain)
 
     Swapchain::Swapchain(Context context, Surface surface, TextureUsage _usage, PresentMode _presentMode)
         : ImplHandle(new SwapchainImpl)
     {
         impl->context = context.GetImpl();
-        impl->surface = surface->surface;
+        impl->surface = surface;
         impl->usage = VkImageUsageFlags(_usage);
         impl->presentMode = VkPresentModeKHR(_presentMode);
 
@@ -163,14 +163,14 @@ namespace nova
     {
         bool anyResized = false;
 
-        auto* context = impl->context;
+        auto& context = impl->context;
 
         for (auto swapchain : swapchains)
         {
             do
             {
                 VkSurfaceCapabilitiesKHR caps;
-                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface, &caps));
+                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface->surface, &caps));
 
                 bool recreate = swapchain->invalid
                     || !swapchain->swapchain
@@ -188,7 +188,7 @@ namespace nova
                     swapchain->extent = caps.currentExtent;
                     VkCall(vkCreateSwapchainKHR(context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                        .surface = swapchain->surface,
+                        .surface = swapchain->surface->surface,
                         .minImageCount = caps.minImageCount,
                         .imageFormat = swapchain->format.format,
                         .imageColorSpace = swapchain->format.colorSpace,
@@ -311,7 +311,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Surface)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Surface)
 
     Surface::Surface(Context context, void* handle)
         : ImplHandle(new SurfaceImpl)

@@ -14,7 +14,7 @@ namespace nova
 {
     struct BufferImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
@@ -32,7 +32,7 @@ namespace nova
 
     struct SamplerImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkSampler sampler = {};
 
@@ -44,7 +44,7 @@ namespace nova
 
     struct TextureImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkImage             image = {};
         VmaAllocation  allocation = {};
@@ -65,7 +65,7 @@ namespace nova
 
     struct ShaderImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
@@ -81,7 +81,7 @@ namespace nova
 
     struct SurfaceImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkSurfaceKHR surface = {};
     public:
@@ -92,9 +92,9 @@ namespace nova
 
     struct SwapchainImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
+        Surface surface = {};
 
-        VkSurfaceKHR           surface = nullptr;
         VkSwapchainKHR       swapchain = nullptr;
         VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
         VkImageUsageFlags        usage = 0;
@@ -138,7 +138,7 @@ namespace nova
 
     struct DescriptorSetLayoutImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
@@ -152,7 +152,7 @@ namespace nova
 
     struct PipelineLayoutImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkPipelineLayout layout = {};
 
@@ -180,7 +180,7 @@ namespace nova
         };
 
     public:
-        ContextImpl* context = {};
+        Context context = {};
 
         u64                                                   version = 0;
         ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
@@ -194,7 +194,7 @@ namespace nova
 
     struct AccelerationStructureBuilderImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
@@ -224,7 +224,7 @@ namespace nova
 
     struct AccelerationStructureImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
@@ -240,14 +240,14 @@ namespace nova
 
     struct RayTracingPipelineImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkPipeline pipeline = {};
         Buffer    sbtBuffer = {};
 
-        VkStridedDeviceAddressRegionKHR rayGenRegion = {};
+        VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
-        VkStridedDeviceAddressRegionKHR rayHitRegion = {};
+        VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
 
     public:
@@ -258,8 +258,8 @@ namespace nova
 
     struct CommandPoolImpl : ImplBase
     {
-        ContextImpl* context = {};
-        QueueImpl*     queue = {};
+        Context context = {};
+        Queue     queue = {};
 
         VkCommandPool               pool = {};
         std::vector<CommandList> buffers = {};
@@ -274,9 +274,9 @@ namespace nova
 
     struct CommandListImpl : ImplBase
     {
-        CommandPoolImpl*        pool = {};
-        ResourceTrackerImpl* tracker = {};
-        VkCommandBuffer       buffer = {};
+        CommandPoolImpl*   pool = {};
+        ResourceTracker tracker = {};
+        VkCommandBuffer  buffer = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -304,6 +304,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
             .pNext = &rayTracingPipelineProperties,
         };
+
         VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
             .pNext = &accelStructureProperties,

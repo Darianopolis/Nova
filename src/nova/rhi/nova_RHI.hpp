@@ -32,41 +32,23 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Buffer;
-    struct CommandList;
-    struct CommandPool;
-    struct Context;
-    struct DescriptorSetLayout;
-    struct Fence;
-    struct PipelineLayout;
-    struct Queue;
-    struct ResourceTracker;
-    struct Sampler;
-    struct Shader;
-    struct Surface;
-    struct Swapchain;
-    struct Texture;
-    struct AccelerationStructure;
-    struct AccelerationStructureBuilder;
-    struct RayTracingPipeline;
-
-    struct ContextImpl;
-    struct BufferImpl;
-    struct CommandListImpl;
-    struct CommandPoolImpl;
-    struct DescriptorSetLayoutImpl;
-    struct FenceImpl;
-    struct PipelineLayoutImpl;
-    struct QueueImpl;
-    struct ResourceTrackerImpl;
-    struct SamplerImpl;
-    struct ShaderImpl;
-    struct SurfaceImpl;
-    struct SwapchainImpl;
-    struct TextureImpl;
-    struct AccelerationStructureImpl;
-    struct AccelerationStructureBuilderImpl;
-    struct RayTracingPipelineImpl;
+    NOVA_DECLARE_HANDLE_OBJECT(Buffer)
+    NOVA_DECLARE_HANDLE_OBJECT(CommandList)
+    NOVA_DECLARE_HANDLE_OBJECT(CommandPool)
+    NOVA_DECLARE_HANDLE_OBJECT(Context)
+    NOVA_DECLARE_HANDLE_OBJECT(DescriptorSetLayout)
+    NOVA_DECLARE_HANDLE_OBJECT(Fence)
+    NOVA_DECLARE_HANDLE_OBJECT(PipelineLayout)
+    NOVA_DECLARE_HANDLE_OBJECT(Queue)
+    NOVA_DECLARE_HANDLE_OBJECT(ResourceTracker)
+    NOVA_DECLARE_HANDLE_OBJECT(Sampler)
+    NOVA_DECLARE_HANDLE_OBJECT(Shader)
+    NOVA_DECLARE_HANDLE_OBJECT(Surface)
+    NOVA_DECLARE_HANDLE_OBJECT(Swapchain)
+    NOVA_DECLARE_HANDLE_OBJECT(Texture)
+    NOVA_DECLARE_HANDLE_OBJECT(AccelerationStructure)
+    NOVA_DECLARE_HANDLE_OBJECT(AccelerationStructureBuilder)
+    NOVA_DECLARE_HANDLE_OBJECT(RayTracingPipeline)
 
 // -----------------------------------------------------------------------------
 
@@ -308,7 +290,7 @@ namespace nova
 
     struct Buffer : ImplHandle<BufferImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Buffer)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Buffer)
 
     public:
         Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags = {});
@@ -344,7 +326,7 @@ namespace nova
 
     struct Sampler : ImplHandle<SamplerImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Sampler)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Sampler)
 
     public:
         Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
@@ -354,7 +336,7 @@ namespace nova
 
     struct Texture : ImplHandle<TextureImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Texture)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Texture)
 
     public:
         Texture(Context context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
@@ -368,7 +350,7 @@ namespace nova
 
     struct Shader : ImplHandle<ShaderImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Shader)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
 
     public:
         Shader(Context context, ShaderStage stage, ShaderStage nextStage,
@@ -383,7 +365,7 @@ namespace nova
 
     struct Surface : ImplHandle<SurfaceImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Surface)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Surface)
 
     public:
         Surface(Context context, void* handle);
@@ -393,7 +375,7 @@ namespace nova
 
     struct Swapchain : ImplHandle<SwapchainImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Swapchain)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Swapchain)
 
     public:
         Swapchain(Context context, Surface surface, TextureUsage usage, PresentMode presentMode);
@@ -408,7 +390,7 @@ namespace nova
 
     struct Queue : ImplHandle<QueueImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Queue)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Queue)
 
     public:
         Queue(Context context, VkQueue queue, u32 family);
@@ -428,7 +410,7 @@ namespace nova
 
     struct Fence : ImplHandle<FenceImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Fence)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Fence)
 
     public:
         Fence(Context context);
@@ -455,7 +437,7 @@ namespace nova
 
     struct DescriptorSetLayout : ImplHandle<DescriptorSetLayoutImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(DescriptorSetLayout)
+        NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSetLayout)
 
     public:
         DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
@@ -476,7 +458,7 @@ namespace nova
 
     struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(PipelineLayout)
+        NOVA_DECLARE_HANDLE_OPERATIONS(PipelineLayout)
 
     public:
         PipelineLayout(Context context,
@@ -489,7 +471,7 @@ namespace nova
 
     struct ResourceTracker : ImplHandle<ResourceTrackerImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(ResourceTracker)
+        NOVA_DECLARE_HANDLE_OPERATIONS(ResourceTracker)
 
     public:
         ResourceTracker(Context context);
@@ -506,7 +488,7 @@ namespace nova
 
     struct AccelerationStructureBuilder : ImplHandle<AccelerationStructureBuilderImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(AccelerationStructureBuilder)
+        NOVA_DECLARE_HANDLE_OPERATIONS(AccelerationStructureBuilder)
 
     public:
         AccelerationStructureBuilder(Context context);
@@ -538,7 +520,7 @@ namespace nova
 
     struct AccelerationStructure : ImplHandle<AccelerationStructureImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(AccelerationStructure)
+        NOVA_DECLARE_HANDLE_OPERATIONS(AccelerationStructure)
 
     public:
         AccelerationStructure(Context context, usz size, AccelerationStructureType type);
@@ -558,7 +540,7 @@ namespace nova
 
     struct RayTracingPipeline : ImplHandle<RayTracingPipelineImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(RayTracingPipeline)
+        NOVA_DECLARE_HANDLE_OPERATIONS(RayTracingPipeline)
 
     public:
         RayTracingPipeline(Context context);
@@ -583,7 +565,7 @@ namespace nova
 
     struct CommandPool : ImplHandle<CommandPoolImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(CommandPool)
+        NOVA_DECLARE_HANDLE_OPERATIONS(CommandPool)
 
     public:
         CommandPool(Context context, Queue queue);
@@ -597,7 +579,7 @@ namespace nova
 
     struct CommandList : ImplHandle<CommandListImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(CommandList)
+        NOVA_DECLARE_HANDLE_OPERATIONS(CommandList)
 
     public:
         void End() const;
@@ -655,7 +637,7 @@ namespace nova
 
     struct Context : ImplHandle<ContextImpl>
     {
-        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Context)
+        NOVA_DECLARE_HANDLE_OPERATIONS(Context)
 
     public:
         Context(const ContextConfig& config);

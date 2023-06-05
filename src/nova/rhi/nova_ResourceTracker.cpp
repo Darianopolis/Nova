@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(ResourceTracker)
+    NOVA_DEFINE_HANDLE_OPERATIONS(ResourceTracker)
 
     ResourceTracker::ResourceTracker(Context context)
         : ImplHandle(new ResourceTrackerImpl)

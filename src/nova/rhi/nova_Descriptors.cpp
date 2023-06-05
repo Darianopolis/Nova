@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(DescriptorSetLayout)
+    NOVA_DEFINE_HANDLE_OPERATIONS(DescriptorSetLayout)
 
     NOVA_NO_INLINE
     DescriptorSetLayout::DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor)
@@ -121,7 +121,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(PipelineLayout)
+    NOVA_DEFINE_HANDLE_OPERATIONS(PipelineLayout)
 
     PipelineLayout::PipelineLayout(Context context,
             Span<PushConstantRange> pushConstantRanges,

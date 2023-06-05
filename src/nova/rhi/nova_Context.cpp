@@ -5,7 +5,7 @@ namespace nova
     std::atomic_int64_t ContextImpl::AllocationCount = 0;
     std::atomic_int64_t ContextImpl::NewAllocationCount = 0;
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Context)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Context)
 
     Context::Context(const ContextConfig& config)
     {
@@ -207,7 +207,7 @@ namespace nova
             vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAlloc);
         vkDestroyInstance(instance, pAlloc);
 
-        NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
+        NOVA_LOG("~Context(Allocations = {}, Operations = {})", AllocationCount.load(), NumHandleOperations.load());
     }
 
     VkBool32 VKAPI_CALL ContextImpl::DebugCallback(
@@ -250,7 +250,7 @@ Validation: {} ({})
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Queue)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Queue)
 
     Queue::Queue(Context context, VkQueue queue, u32 family)
         : ImplHandle(new QueueImpl)

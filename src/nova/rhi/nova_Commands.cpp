@@ -2,8 +2,8 @@
 
 namespace nova
 {
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(CommandPool)
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(CommandList)
+    NOVA_DEFINE_HANDLE_OPERATIONS(CommandPool)
+    NOVA_DEFINE_HANDLE_OPERATIONS(CommandList)
 
     CommandPool::CommandPool(Context context, Queue queue)
         : ImplHandle(new CommandPoolImpl)
@@ -133,6 +133,7 @@ namespace nova
             };
 
             cmd.End();
+            // vkEndCommandBuffer(cmd->buffer);
         }
 
         auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());

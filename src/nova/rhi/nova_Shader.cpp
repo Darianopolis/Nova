@@ -84,7 +84,7 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Shader)
+    NOVA_DEFINE_HANDLE_OPERATIONS(Shader)
 
     Shader::Shader(Context context, ShaderStage stage, ShaderStage _nextStage,
             const std::string& filename, const std::string& sourceCode,

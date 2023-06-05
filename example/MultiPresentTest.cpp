@@ -12,7 +12,7 @@ int main()
 {
     auto context = nova::Context({ .debug = false });
 
-    auto presentMode = nova::PresentMode::Immediate;
+    auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach
         | nova::TextureUsage::Storage;
@@ -58,6 +58,8 @@ int main()
                 nova::adapting1.exchange(0)  / frames,
                 nova::adapting2.exchange(0)  / frames,
                 nova::presenting.exchange(0) / frames);
+
+            NOVA_LOG("Atomic Operations = {}", nova::NumHandleOperations.load());
 
             lastTime = std::chrono::steady_clock::now();
             frames = 0;
@@ -120,7 +122,7 @@ int main()
     while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
     {
         update();
-        glfwPollEvents();
+        glfwWaitEvents();
     }
 
     NOVA_LOG("Allocations = {}", nova::ContextImpl::AllocationCount.load());
