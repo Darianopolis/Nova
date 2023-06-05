@@ -117,6 +117,7 @@ namespace nova
         vk12Features.drawIndirectCount = VK_TRUE;
         vk12Features.samplerFilterMinmax = VK_TRUE;
         vk12Features.timelineSemaphore = VK_TRUE;
+        vk12Features.imagelessFramebuffer = VK_TRUE;
 
         VkPhysicalDeviceVulkan13Features vk13Features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
         vk13Features.pNext = &vk12Features;

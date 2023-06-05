@@ -3,20 +3,19 @@
 namespace nova
 {
     ImGuiWrapper::ImGuiWrapper(Context context,
-            CommandList cmd, Swapchain swapchain, GLFWwindow* window,
-            i32 imguiFlags, u32 framesInFlight)
+            CommandList cmd, Format format, GLFWwindow* window,
+            const ImGuiConfig& config)
         : ImplHandle(new ImGuiWrapperImpl)
     {
         impl->context = context.GetImpl();
 
-        if (framesInFlight < 2)
-            framesInFlight = 2;
+        u32 framesInFlight = std::max(config.imageCount, 2u);
 
         VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
             .pAttachments = Temp(VkAttachmentDescription {
-                .format = swapchain->format.format,
+                .format = VkFormat(format),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -63,7 +62,7 @@ namespace nova
         ImGui::SetCurrentContext(impl->imguiCtx);
 
         auto& io = ImGui::GetIO();
-        io.ConfigFlags |= imguiFlags;
+        io.ConfigFlags |= config.flags;
         ImGui_ImplGlfw_InitForVulkan(window, true);
         ImGui_ImplVulkan_Init(Temp(ImGui_ImplVulkan_InitInfo {
             .Instance = context->instance,
@@ -81,11 +80,11 @@ namespace nova
         // Rescale UI and fonts
         // TODO: Don't hardcode 150%
 
-        ImGui::GetStyle().ScaleAllSizes(1.5f);
+        ImGui::GetStyle().ScaleAllSizes(config.uiScale);
         auto fontConfig = ImFontConfig();
-        fontConfig.GlyphOffset = ImVec2(1.f, 1.67f);
+        fontConfig.GlyphOffset = ImVec2(config.glyphOffset.x, config.glyphOffset.y);
         ImGui::GetIO().Fonts->ClearFonts();
-        ImGui::GetIO().Fonts->AddFontFromFileTTF("assets/fonts/CONSOLA.TTF", 20, &fontConfig);
+        ImGui::GetIO().Fonts->AddFontFromFileTTF(config.font, config.fontSize, &fontConfig);
         ImGui_ImplVulkan_CreateFontsTexture(cmd->buffer);
 
         ImGui::SetCurrentContext(impl->lastImguiCtx);
@@ -96,8 +95,7 @@ namespace nova
         if (!renderPass)
             return;
 
-        for (auto framebuffer : framebuffers)
-            vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
+        vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
         vkDestroyRenderPass(context->device, renderPass, context->pAlloc);
         vkDestroyDescriptorPool(context->device, descriptorPool, context->pAlloc);
 
@@ -152,39 +150,58 @@ namespace nova
         }
     }
 
-    void ImGuiWrapper::EndFrame(CommandList cmd, Swapchain swapchain) const
+    void ImGuiWrapper::EndFrame(CommandList cmd, Texture texture) const
     {
         ImGui::Render();
 
-        if (impl->lastSwapchain != swapchain->swapchain)
-        {
-            impl->lastSwapchain = swapchain->swapchain;
+        auto* context = impl->context;
 
-            impl->framebuffers.resize(swapchain->textures.size());
-            for (u32 i = 0; i < swapchain->textures.size(); ++i)
-            {
-                vkDestroyFramebuffer(impl->context->device, impl->framebuffers[i], impl->context->pAlloc);
-                VkCall(vkCreateFramebuffer(impl->context->device, Temp(VkFramebufferCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                    .renderPass = impl->renderPass,
-                    .attachmentCount = 1,
-                    .pAttachments = &swapchain->textures[i]->view,
-                    .width = swapchain.GetExtent().x,
-                    .height = swapchain.GetExtent().y,
-                    .layers = 1,
-                }), impl->context->pAlloc, &impl->framebuffers[i]));
-            }
+        if (Vec2U(texture.GetExtent()) != impl->lastSize
+            || texture->usage != impl->lastUsage)
+        {
+            impl->lastSize = Vec2U(texture.GetExtent());
+            impl->lastUsage = texture->usage;
+
+            vkDestroyFramebuffer(context->device, impl->framebuffer, context->pAlloc);
+
+            VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .pNext = Temp(VkFramebufferAttachmentsCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
+                    .attachmentImageInfoCount = 1,
+                    .pAttachmentImageInfos = Temp(VkFramebufferAttachmentImageInfo {
+                        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
+                        .usage = texture->usage,
+                        .width = impl->lastSize.x,
+                        .height = impl->lastSize.y,
+                        .layerCount = 1,
+                        .viewFormatCount = 1,
+                        .pViewFormats = &texture->format,
+                    }),
+                }),
+                .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
+                .renderPass = impl->renderPass,
+                .attachmentCount = 1,
+                .width = impl->lastSize.x,
+                .height = impl->lastSize.y,
+                .layers = 1,
+            }), context->pAlloc, &impl->framebuffer));
         }
 
-        cmd.Transition(swapchain.GetCurrent(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        cmd.Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
         vkCmdBeginRenderPass(cmd->buffer, Temp(VkRenderPassBeginInfo {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = Temp(VkRenderPassAttachmentBeginInfo {
+                .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
+                .attachmentCount = 1,
+                .pAttachments = &texture->view,
+            }),
             .renderPass = impl->renderPass,
-            .framebuffer = impl->framebuffers[swapchain->index],
-            .renderArea = { {}, { swapchain.GetExtent().x, swapchain.GetExtent().y } },
+            .framebuffer = impl->framebuffer,
+            .renderArea = { {}, { impl->lastSize.x, impl->lastSize.y } },
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
         vkCmdEndRenderPass(cmd->buffer);

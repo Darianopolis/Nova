@@ -370,10 +370,10 @@ namespace nova
     {
         ContextImpl* context = {};
 
-        VkImage            image = {};
-        VmaAllocation allocation = {};
-        VkImageView         view = {};
-
+        VkImage             image = {};
+        VmaAllocation  allocation = {};
+        VkImageView          view = {};
+        VkImageUsageFlags   usage = {};
         VkFormat           format = VK_FORMAT_UNDEFINED;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
@@ -391,6 +391,7 @@ namespace nova
         Texture(Context context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
 
         Vec3U GetExtent() const noexcept;
+        Format GetFormat() const noexcept;
     };
 
 // -----------------------------------------------------------------------------
@@ -468,6 +469,7 @@ namespace nova
     public:
         Texture GetCurrent() const noexcept;
         Vec2U GetExtent() const noexcept;
+        Format GetFormat() const noexcept;
     };
 
 // -----------------------------------------------------------------------------

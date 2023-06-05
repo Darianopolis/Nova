@@ -25,8 +25,6 @@ namespace nova
                 ZwSetTimerResolution(0, true, &minPeriod);
 
                 minQuantum = std::chrono::nanoseconds(minPeriod * 100);
-
-                NOVA_LOG("  Min Quantum = {}", duration_cast<std::chrono::microseconds>(minQuantum));
             }
 
             ~TimerResolutionGuard()

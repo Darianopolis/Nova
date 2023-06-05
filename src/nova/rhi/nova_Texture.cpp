@@ -10,9 +10,9 @@ namespace nova
         impl->context = context.GetImpl();
         impl->format = VkFormat(_format);
 
-        auto usage = VkImageUsageFlags(_usage);
-        bool makeView = (usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        impl->usage = VkImageUsageFlags(_usage);
+        bool makeView = (impl->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
+        impl->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         impl->mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
@@ -83,7 +83,7 @@ namespace nova
                 .arrayLayers = impl->layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = usage,
+                .usage = impl->usage,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = std::array {
@@ -145,6 +145,11 @@ namespace nova
     Vec3U Texture::GetExtent() const noexcept
     {
         return impl->extent;
+    }
+
+    Format Texture::GetFormat() const noexcept
+    {
+        return Format(impl->format);
     }
 
 // -----------------------------------------------------------------------------

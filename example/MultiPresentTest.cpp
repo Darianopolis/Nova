@@ -33,7 +33,7 @@ int main()
     nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
     auto cmd = commandPools[0].Begin(tracker);
-    auto imgui = nova::ImGuiWrapper(context, cmd, swapchain, window1, ImGuiConfigFlags_ViewportsEnable);
+    auto imgui = nova::ImGuiWrapper(context, cmd, swapchain.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
     queue.Submit({cmd}, {}, {fences[0]});
     fences[0].Wait();
 
@@ -83,7 +83,7 @@ int main()
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.EndFrame(cmd, swapchain);
+        imgui.EndFrame(cmd, swapchain.GetCurrent());
 
         // Present #1
         cmd.Present(swapchain.GetCurrent());

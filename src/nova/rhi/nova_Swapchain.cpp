@@ -43,6 +43,11 @@ namespace nova
         return { impl->extent.width, impl->extent.height };
     }
 
+    Format Swapchain::GetFormat() const noexcept
+    {
+        return Format(impl->format.format);
+    }
+
 // -----------------------------------------------------------------------------
 
     void CommandList::Present(Texture texture) const
