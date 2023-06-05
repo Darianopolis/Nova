@@ -2,6 +2,10 @@
 #include <nova/core/nova_Timer.hpp>
 #include <nova/imgui/nova_ImGui.hpp>
 
+// For internal allocation tracking
+// TODO: Make this public statistics!
+#include <nova/rhi/nova_RHI_Impl.hpp>
+
 using namespace nova::types;
 
 int main()

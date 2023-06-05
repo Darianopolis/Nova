@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Sampler)
+
     Sampler::Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
         : ImplHandle(new SamplerImpl)
     {

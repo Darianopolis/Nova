@@ -1,9 +1,11 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
     std::atomic_int64_t ContextImpl::AllocationCount = 0;
     std::atomic_int64_t ContextImpl::NewAllocationCount = 0;
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Context)
 
     Context::Context(const ContextConfig& config)
     {
@@ -247,6 +249,8 @@ Validation: {} ({})
     }
 
 // -----------------------------------------------------------------------------
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Queue)
 
     Queue::Queue(Context context, VkQueue queue, u32 family)
         : ImplHandle(new QueueImpl)

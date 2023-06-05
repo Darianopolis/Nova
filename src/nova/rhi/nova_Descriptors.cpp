@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(DescriptorSetLayout)
+
     NOVA_NO_INLINE
     DescriptorSetLayout::DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor)
         : ImplHandle(new DescriptorSetLayoutImpl)
@@ -118,6 +120,8 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(PipelineLayout)
 
     PipelineLayout::PipelineLayout(Context context,
             Span<PushConstantRange> pushConstantRanges,

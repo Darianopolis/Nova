@@ -1,7 +1,10 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(CommandPool)
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(CommandList)
+
     CommandPool::CommandPool(Context context, Queue queue)
         : ImplHandle(new CommandPoolImpl)
     {

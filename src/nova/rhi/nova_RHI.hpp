@@ -3,6 +3,8 @@
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_ImplHandle.hpp>
 
+#include <nova/core/nova_Math.hpp>
+
 // #define NOVA_NOISY_VULKAN_ALLOCATIONS
 
 namespace nova
@@ -30,12 +32,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    #define NOVA_DECL_DEVICE_PROC(name)  inline PFN_##name name
-    #define NOVA_LOAD_DEVICE_PROC(name, device) ::nova::name = (PFN_##name)vkGetDeviceProcAddr(device, #name);\
-        NOVA_LOG("Loaded fn [" #name "] - {}", (void*)name)
-
-// -----------------------------------------------------------------------------
-
     struct Buffer;
     struct CommandList;
     struct CommandPool;
@@ -47,25 +43,29 @@ namespace nova
     struct ResourceTracker;
     struct Sampler;
     struct Shader;
+    struct Surface;
     struct Swapchain;
     struct Texture;
     struct AccelerationStructure;
+    struct AccelerationStructureBuilder;
     struct RayTracingPipeline;
 
     struct ContextImpl;
     struct BufferImpl;
     struct CommandListImpl;
     struct CommandPoolImpl;
-    struct DescriptorLayoutImpl;
+    struct DescriptorSetLayoutImpl;
     struct FenceImpl;
     struct PipelineLayoutImpl;
     struct QueueImpl;
     struct ResourceTrackerImpl;
     struct SamplerImpl;
     struct ShaderImpl;
+    struct SurfaceImpl;
     struct SwapchainImpl;
     struct TextureImpl;
     struct AccelerationStructureImpl;
+    struct AccelerationStructureBuilderImpl;
     struct RayTracingPipelineImpl;
 
 // -----------------------------------------------------------------------------
@@ -306,113 +306,71 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct BufferImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkBuffer          buffer = {};
-        VmaAllocation allocation = {};
-        VkDeviceSize        size = 0ull;
-        VkDeviceAddress  address = 0ull;
-        b8*               mapped = nullptr;
-        BufferFlags        flags = BufferFlags::None;
-        VkBufferUsageFlags usage = {};
-
-    public:
-        ~BufferImpl();
-    };
-
     struct Buffer : ImplHandle<BufferImpl>
     {
-        Buffer() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Buffer)
+
+    public:
         Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags = {});
 
+    private:
+        void* Get_(u64 index, u64 offset, usz stride) const noexcept;
+        void Set_(const void* data, usz count, u64 index, u64 offset, usz stride) const noexcept;
     public:
         void Resize(u64 size) const;
 
         u64 GetSize() const noexcept;
-
         b8* GetMapped() const noexcept;
         u64 GetAddress() const noexcept;
 
         template<class T>
         T& Get(u64 index, u64 offset = 0) const noexcept
         {
-            return reinterpret_cast<T*>(impl->mapped + offset)[index];
+            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
+            return *reinterpret_cast<T*>(Get_(index, offset, Stride));
+            // return reinterpret_cast<T*>(impl->mapped + offset)[index];
         }
 
         template<class T>
         void Set(Span<T> elements, u64 index = 0, u64 offset = 0) const noexcept
         {
-            std::memcpy(reinterpret_cast<T*>(impl->mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
+            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
+            Set_(elements.data(), elements.size(), index, offset, Stride);
+            // std::memcpy(reinterpret_cast<T*>(impl->mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
         }
     };
 
 // -----------------------------------------------------------------------------
 
-    struct SamplerImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkSampler sampler = {};
-
-    public:
-        ~SamplerImpl();
-    };
-
     struct Sampler : ImplHandle<SamplerImpl>
     {
-        Sampler() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Sampler)
+
+    public:
         Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
     };
 
-    struct TextureImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkImage             image = {};
-        VmaAllocation  allocation = {};
-        VkImageView          view = {};
-        VkImageUsageFlags   usage = {};
-        VkFormat           format = VK_FORMAT_UNDEFINED;
-        VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
-
-        Vec3U extent = {};
-        u32     mips = 0;
-        u32   layers = 0;
-
-    public:
-        ~TextureImpl();
-    };
+// -----------------------------------------------------------------------------
 
     struct Texture : ImplHandle<TextureImpl>
     {
-        Texture() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Texture)
+
+    public:
         Texture(Context context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
 
+    public:
         Vec3U GetExtent() const noexcept;
         Format GetFormat() const noexcept;
     };
 
 // -----------------------------------------------------------------------------
 
-    struct ShaderImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
-        VkShaderEXT          shader = {};
-        VkShaderModule       module = {};
-
-        constexpr static const char* EntryPoint = "main";
-
-    public:
-        ~ShaderImpl();
-    };
-
     struct Shader : ImplHandle<ShaderImpl>
     {
-        Shader() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Shader)
+
+    public:
         Shader(Context context, ShaderStage stage, ShaderStage nextStage,
             const std::string& filename, const std::string& sourceCode,
             PipelineLayout layout);
@@ -423,47 +381,21 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct SurfaceImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkSurfaceKHR surface = {};
-    public:
-        ~SurfaceImpl();
-    };
-
     struct Surface : ImplHandle<SurfaceImpl>
     {
-        Surface() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Surface)
+
+    public:
         Surface(Context context, void* handle);
     };
 
 // -----------------------------------------------------------------------------
 
-    struct SwapchainImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkSurfaceKHR           surface = nullptr;
-        VkSwapchainKHR       swapchain = nullptr;
-        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        VkImageUsageFlags        usage = 0;
-        VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Texture>  textures = {};
-        uint32_t                 index = UINT32_MAX;
-        VkExtent2D              extent = { 0, 0 };
-        bool                   invalid = false;
-
-        std::vector<VkSemaphore> semaphores = {};
-        u32                  semaphoreIndex = 0;
-
-    public:
-        ~SwapchainImpl();
-    };
-
     struct Swapchain : ImplHandle<SwapchainImpl>
     {
-        Swapchain() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Swapchain)
+
+    public:
         Swapchain(Context context, Surface surface, TextureUsage usage, PresentMode presentMode);
 
     public:
@@ -474,17 +406,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct QueueImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkQueue handle = {};
-        u32     family = UINT32_MAX;
-    };
-
     struct Queue : ImplHandle<QueueImpl>
     {
-        Queue() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Queue)
+
+    public:
         Queue(Context context, VkQueue queue, u32 family);
 
     public:
@@ -500,20 +426,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct FenceImpl : ImplBase
-    {
-        ContextImpl*  context = {};
-
-        VkSemaphore semaphore = {};
-        u64             value = 0;
-
-    public:
-        ~FenceImpl();
-    };
-
     struct Fence : ImplHandle<FenceImpl>
     {
-        Fence() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Fence)
+
+    public:
         Fence(Context context);
 
     public:
@@ -536,21 +453,11 @@ namespace nova
         u64 offset = {};
     };
 
-    struct DescriptorSetLayoutImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkDescriptorSetLayout layout = {};
-        u64                     size = 0;
-        std::vector<u64>     offsets = {};
-
-    public:
-        ~DescriptorSetLayoutImpl();
-    };
-
     struct DescriptorSetLayout : ImplHandle<DescriptorSetLayoutImpl>
     {
-        DescriptorSetLayout() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(DescriptorSetLayout)
+
+    public:
         DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
 
     public:
@@ -567,25 +474,11 @@ namespace nova
         u32         offset = 0;
     };
 
-    struct PipelineLayoutImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkPipelineLayout layout = {};
-
-        // TODO: Pipeline layout used in multiple bind points?
-        BindPoint bindPoint = {};
-
-        std::vector<VkPushConstantRange> ranges;
-        std::vector<VkDescriptorSetLayout> sets;
-
-    public:
-        ~PipelineLayoutImpl();
-    };
-
     struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
     {
-        PipelineLayout() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(PipelineLayout)
+
+    public:
         PipelineLayout(Context context,
             Span<PushConstantRange> pushConstantRanges,
             Span<DescriptorSetLayout> descriptorLayouts,
@@ -594,31 +487,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTrackerImpl : ImplBase
-    {
-        struct ImageState
-        {
-            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
-            VkAccessFlags2       access = 0;
-
-            u64 version = 0;
-        };
-
-    public:
-        ContextImpl* context = {};
-
-        u64                                                   version = 0;
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
-        std::vector<VkImage>                                clearList;
-
-    public:
-        ImageState& Get(Texture texture) noexcept;
-    };
-
     struct ResourceTracker : ImplHandle<ResourceTrackerImpl>
     {
-        ResourceTracker() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(ResourceTracker)
+
+    public:
         ResourceTracker(Context context);
 
     public:
@@ -631,37 +504,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct AccelerationStructureBuilderImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkAccelerationStructureTypeKHR        type = {};
-        VkBuildAccelerationStructureFlagsKHR flags = {};
-
-        u64         buildSize = 0;
-        u64  buildScratchSize = 0;
-        u64 updateScratchSize = 0;
-
-        std::vector<VkAccelerationStructureGeometryKHR>   geometries;
-        std::vector<u32>                             primitiveCounts;
-        std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
-
-        u32 geometryCount = 0;
-        u32 firstGeometry = 0;
-        bool sizeDirty = false;
-
-        VkQueryPool queryPool = {};
-
-    public:
-        ~AccelerationStructureBuilderImpl();
-
-        void EnsureGeometries(u32 geometryIndex);
-        void EnsureSizes();
-    };
-
     struct AccelerationStructureBuilder : ImplHandle<AccelerationStructureBuilderImpl>
     {
-        AccelerationStructureBuilder() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(AccelerationStructureBuilder)
+
+    public:
         AccelerationStructureBuilder(Context context);
 
     public:
@@ -689,23 +536,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct AccelerationStructureImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkAccelerationStructureKHR structure = {};
-        u64                          address = {};
-        VkAccelerationStructureTypeKHR  type = {};
-
-        Buffer buffer = {};
-
-    public:
-        ~AccelerationStructureImpl();
-    };
-
     struct AccelerationStructure : ImplHandle<AccelerationStructureImpl>
     {
-        AccelerationStructure() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(AccelerationStructure)
+
+    public:
         AccelerationStructure(Context context, usz size, AccelerationStructureType type);
 
     public:
@@ -721,25 +556,11 @@ namespace nova
         Shader intersectionShader = {};
     };
 
-    struct RayTracingPipelineImpl : ImplBase
-    {
-        ContextImpl* context = {};
-
-        VkPipeline pipeline = {};
-        Buffer    sbtBuffer = {};
-
-        VkStridedDeviceAddressRegionKHR rayGenRegion = {};
-        VkStridedDeviceAddressRegionKHR rayMissRegion = {};
-        VkStridedDeviceAddressRegionKHR rayHitRegion = {};
-        VkStridedDeviceAddressRegionKHR rayCallRegion = {};
-
-    public:
-        ~RayTracingPipelineImpl();
-    };
-
     struct RayTracingPipeline : ImplHandle<RayTracingPipelineImpl>
     {
-        RayTracingPipeline() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(RayTracingPipeline)
+
+    public:
         RayTracingPipeline(Context context);
 
     public:
@@ -760,25 +581,11 @@ namespace nova
         Format      stencilFormat = {};
     };
 
-    struct CommandPoolImpl : ImplBase
-    {
-        ContextImpl* context = {};
-        QueueImpl*     queue = {};
-
-        VkCommandPool               pool = {};
-        std::vector<CommandList> buffers = {};
-        u32                        index = 0;
-
-        std::vector<CommandList> secondaryBuffers = {};
-        u32                        secondaryIndex = 0;
-
-    public:
-        ~CommandPoolImpl();
-    };
-
     struct CommandPool : ImplHandle<CommandPoolImpl>
     {
-        CommandPool() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(CommandPool)
+
+    public:
         CommandPool(Context context, Queue queue);
 
     public:
@@ -788,17 +595,11 @@ namespace nova
         void Reset() const;
     };
 
-    struct CommandListImpl : ImplBase
-    {
-        CommandPoolImpl*        pool = {};
-        ResourceTrackerImpl* tracker = {};
-        VkCommandBuffer       buffer = {};
-    };
-
     struct CommandList : ImplHandle<CommandListImpl>
     {
-        CommandList() = default;
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(CommandList)
 
+    public:
         void End() const;
 
         void UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset = 0) const;
@@ -846,84 +647,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ContextImpl : ImplBase
-    {
-        VkInstance  instance = {};
-        VkPhysicalDevice gpu = {};
-        VkDevice      device = {};
-        VmaAllocator     vma = {};
-
-        VkDebugUtilsMessengerEXT debugMessenger = {};
-
-        static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-            VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-            VkDebugUtilsMessageTypeFlagsEXT type,
-            const VkDebugUtilsMessengerCallbackDataEXT* data,
-            void* userData);
-
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
-        };
-
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelStructureProperties = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
-            .pNext = &rayTracingPipelineProperties,
-        };
-        VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
-            .pNext = &accelStructureProperties,
-        };
-
-        Queue graphics = {};
-
-        static std::atomic_int64_t    AllocationCount;
-        static std::atomic_int64_t NewAllocationCount;
-
-        VkAllocationCallbacks alloc = {
-            .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
-                void* ptr = mi_malloc_aligned(size, align);
-                if (ptr)
-                {
-                    ++AllocationCount;
-                    ++NewAllocationCount;
-#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-                    NOVA_LOG(" --\n{}", std::stacktrace::current());
-                    NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
-#endif
-                }
-                return ptr;
-            },
-            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) {
-                void* ptr = mi_realloc_aligned(orig, size, align);
-#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-                NOVA_LOG("Reallocated, size = {}, align = {}, ptr = {} -> {}", size, align, orig, ptr);
-#endif
-                return ptr;
-            },
-            .pfnFree = +[](void*, void* ptr) {
-                if (ptr)
-                {
-                    --AllocationCount;
-#ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-                    NOVA_LOG("Freeing ptr = {}", ptr);
-                    NOVA_LOG("    Allocations - :: {}", AllocationCount.load());
-#endif
-                }
-                mi_free(ptr);
-            },
-            .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-                NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
-            },
-            .pfnInternalFree = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-                NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
-            },
-        };
-        VkAllocationCallbacks* pAlloc = &alloc;
-
-    public:
-        ~ContextImpl();
-    };
-
     struct ContextConfig
     {
         bool debug = false;
@@ -932,13 +655,10 @@ namespace nova
 
     struct Context : ImplHandle<ContextImpl>
     {
-    public:
-        Context() = default;
-        Context(const ContextConfig& config);
+        NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(Context)
 
-        Context(ContextImpl* context)
-            : ImplHandle(context)
-        {}
+    public:
+        Context(const ContextConfig& config);
 
     public:
         void WaitForIdle() const;

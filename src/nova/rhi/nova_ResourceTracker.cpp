@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(ResourceTracker)
+
     ResourceTracker::ResourceTracker(Context context)
         : ImplHandle(new ResourceTrackerImpl)
     {

@@ -1,5 +1,7 @@
 #include "nova_ImGui.hpp"
 
+#include <nova/rhi/nova_RHI_Impl.hpp>
+
 namespace nova
 {
     ImGuiWrapper::ImGuiWrapper(Context context,

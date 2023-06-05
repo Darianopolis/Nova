@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Swapchain)
+
     Swapchain::Swapchain(Context context, Surface surface, TextureUsage _usage, PresentMode _presentMode)
         : ImplHandle(new SwapchainImpl)
     {
@@ -306,6 +308,10 @@ namespace nova
 
         return anyResized;
     }
+
+// -----------------------------------------------------------------------------
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Surface)
 
     Surface::Surface(Context context, void* handle)
         : ImplHandle(new SurfaceImpl)

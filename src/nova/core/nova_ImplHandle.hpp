@@ -126,4 +126,22 @@ namespace nova
         // TODO: Should this really be treated like a smart pointer externally?
         TImpl* operator->() const noexcept { return impl; };
     };
+
+#define NOVA_DECLARE_IMPL_HANDLE_OPERATIONS(type) \
+    type() noexcept;                              \
+    type(type##Impl* impl) noexcept;              \
+    ~type();                                      \
+    type(const type& other) noexcept;             \
+    type& operator=(const type& other) noexcept;  \
+    type(type&& other) noexcept;                  \
+    type& operator=(type&& other) noexcept;
+
+#define NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(type)                 \
+    type::type() noexcept = default;                             \
+    type::type(type##Impl* impl) noexcept : ImplHandle(impl) {}  \
+    type::~type() = default;                                     \
+    type::type(const type& other) noexcept = default;            \
+    type& type::operator=(const type& other) noexcept = default; \
+    type::type(type&& other) noexcept = default;                 \
+    type& type::operator=(type&& other) noexcept = default;
 }

@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Buffer)
+
     Buffer::Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags)
         : ImplHandle(new BufferImpl)
     {
@@ -36,6 +38,18 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    void* Buffer::Get_(u64 index, u64 offset, usz stride) const noexcept
+    {
+        return impl->mapped + offset + (index * stride);
+    }
+
+    void Buffer::Set_(const void* data, usz count, u64 index, u64 offset, usz stride) const noexcept
+    {
+        std::memcpy(Get_(index, offset, stride), data, count * stride);
+    }
+
+// -----------------------------------------------------------------------------
+
     u64 Buffer::GetSize() const noexcept
     {
         return impl->size;
@@ -43,17 +57,17 @@ namespace nova
 
     b8* Buffer::GetMapped() const noexcept
     {
-        return GetImpl()->mapped;
+        return impl->mapped;
     }
 
     u64 Buffer::GetAddress() const noexcept
     {
-        return GetImpl()->address;
+        return impl->address;
     }
 
     void Buffer::Resize(u64 size) const
     {
-        if (GetImpl()->size >= size)
+        if (impl->size >= size)
             return;
 
         impl->size = size;

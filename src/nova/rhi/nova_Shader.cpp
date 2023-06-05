@@ -1,4 +1,4 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 #include <nova/core/nova_Files.hpp>
 
@@ -83,6 +83,8 @@ namespace nova
     private:
         std::vector<std::filesystem::path> includeDirs;
     };
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Shader)
 
     Shader::Shader(Context context, ShaderStage stage, ShaderStage _nextStage,
             const std::string& filename, const std::string& sourceCode,

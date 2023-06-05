@@ -1,7 +1,9 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(Texture)
+
     Texture::Texture(Context context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
         // : context(_context.GetImpl())
         // , format(VkFormat(_format))

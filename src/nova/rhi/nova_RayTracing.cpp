@@ -1,9 +1,11 @@
-#include "nova_RHI.hpp"
+#include "nova_RHI_Impl.hpp"
 
 #include <nova/core/nova_Math.hpp>
 
 namespace nova
 {
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(AccelerationStructureBuilder)
+
     AccelerationStructureBuilder::AccelerationStructureBuilder(Context context)
         : ImplHandle(new AccelerationStructureBuilderImpl)
     {
@@ -235,6 +237,8 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(AccelerationStructure)
+
     AccelerationStructure::AccelerationStructure(Context context, usz size, AccelerationStructureType type)
         : ImplHandle(new AccelerationStructureImpl)
     {
@@ -285,6 +289,8 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
+
+    NOVA_DEFINE_IMPL_HANDLE_OPERATIONS(RayTracingPipeline)
 
     void RayTracingPipeline::Update(
             PipelineLayout layout,

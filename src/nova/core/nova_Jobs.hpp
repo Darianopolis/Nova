@@ -1,3 +1,5 @@
+#pragma once
+
 #include "nova_Core.hpp"
 
 namespace nova
