@@ -6,6 +6,13 @@
 // TODO: Make this public statistics!
 #include <nova/rhi/nova_RHI_Impl.hpp>
 
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
+
 using namespace nova::types;
 
 int main()
@@ -32,11 +39,11 @@ int main()
     auto swapchain2 = nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto tracker = nova::ResourceTracker(context);
+    auto state = nova::CommandState(context);
     nova::Fence fences[] { {context}, {context} };
     nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
-    auto cmd = commandPools[0].Begin(tracker);
+    auto cmd = commandPools[0].Begin(state);
     auto imgui = nova::ImGuiWrapper(context, cmd, swapchain.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
     queue.Submit({cmd}, {}, {fences[0]});
     fences[0].Wait();
@@ -77,11 +84,11 @@ int main()
         queue.Acquire({swapchain, swapchain2}, {fence});
 
         // Clear resource state tracking
-        tracker.Clear(3);
+        state.Clear(3);
 
         // Reset command pool and begin new command list
         commandPool.Reset();
-        cmd = commandPool.Begin(tracker);
+        cmd = commandPool.Begin(state);
 
         // Clear screen
         cmd.Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));

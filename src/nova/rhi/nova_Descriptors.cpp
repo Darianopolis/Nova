@@ -96,7 +96,7 @@ namespace nova
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = Temp(VkDescriptorImageInfo {
                     .imageView = texture->view,
-                    .imageLayout = impl->tracker->Get(texture).layout,
+                    .imageLayout = impl->state->Get(texture).layout,
                 }),
             }));
     }
@@ -118,6 +118,19 @@ namespace nova
                 .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
             }));
     }
+
+// -----------------------------------------------------------------------------
+
+    // DescriptorSet::DescriptorSet(DescriptorSetLayout layout, u64 customSize)
+    //     : ImplHandle(new DescriptorSetImpl)
+    // {
+    //     (void)customSize;
+    // }
+
+    // DescriptorSetImpl::~DescriptorSetImpl()
+    // {
+    //     vkFreeDescriptorSets(layout->context->device, lay)
+    // }
 
 // -----------------------------------------------------------------------------
 

@@ -36,11 +36,12 @@ namespace nova
     NOVA_DECLARE_HANDLE_OBJECT(CommandList)
     NOVA_DECLARE_HANDLE_OBJECT(CommandPool)
     NOVA_DECLARE_HANDLE_OBJECT(Context)
+    // NOVA_DECLARE_HANDLE_OBJECT(DescriptorSet)
     NOVA_DECLARE_HANDLE_OBJECT(DescriptorSetLayout)
     NOVA_DECLARE_HANDLE_OBJECT(Fence)
     NOVA_DECLARE_HANDLE_OBJECT(PipelineLayout)
     NOVA_DECLARE_HANDLE_OBJECT(Queue)
-    NOVA_DECLARE_HANDLE_OBJECT(ResourceTracker)
+    NOVA_DECLARE_HANDLE_OBJECT(CommandState)
     NOVA_DECLARE_HANDLE_OBJECT(Sampler)
     NOVA_DECLARE_HANDLE_OBJECT(Shader)
     NOVA_DECLARE_HANDLE_OBJECT(Surface)
@@ -50,9 +51,12 @@ namespace nova
     NOVA_DECLARE_HANDLE_OBJECT(AccelerationStructureBuilder)
     NOVA_DECLARE_HANDLE_OBJECT(RayTracingPipeline)
 
+    NOVA_DECLARE_HANDLE_OBJECT(GraphicsPipeline)
+    NOVA_DECLARE_HANDLE_OBJECT(PipelineCache)
+
 // -----------------------------------------------------------------------------
 
-    enum class BufferFlags
+    enum class BufferFlags : u32
     {
         None,
         Addressable  = 1 << 0,
@@ -62,7 +66,7 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferFlags)
 
-    enum class BufferUsage : u64
+    enum class BufferUsage : u32
     {
         TransferSrc = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         TransferDst = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -85,14 +89,14 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
-    enum class TextureFlags
+    enum class TextureFlags : u32
     {
         Array = 1 << 0,
         Mips  = 1 << 1,
     };
     NOVA_DECORATE_FLAG_ENUM(TextureFlags)
 
-    enum class TextureUsage
+    enum class TextureUsage : u32
     {
         TransferSrc        = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         TransferDst        = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
@@ -105,7 +109,7 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(TextureUsage)
 
-    enum class Format
+    enum class Format : u32
     {
         Undefined = VK_FORMAT_UNDEFINED,
 
@@ -126,7 +130,7 @@ namespace nova
         D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
     };
 
-    enum class IndexType
+    enum class IndexType : u32
     {
         U16 = VK_INDEX_TYPE_UINT16,
         U32 = VK_INDEX_TYPE_UINT32,
@@ -154,7 +158,7 @@ namespace nova
         White = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
     };
 
-    enum class ShaderStage : uint16_t
+    enum class ShaderStage : u32
     {
         None = 0,
 
@@ -228,7 +232,7 @@ namespace nova
         AccelerationStructure = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
     };
 
-    enum class CompareOp
+    enum class CompareOp : u32
     {
         Never          = VK_COMPARE_OP_NEVER,
         Less           = VK_COMPARE_OP_LESS,
@@ -240,7 +244,7 @@ namespace nova
         Always         = VK_COMPARE_OP_ALWAYS,
     };
 
-    enum class CullMode
+    enum class CullMode : u32
     {
         None  = VK_CULL_MODE_NONE,
         Front = VK_CULL_MODE_FRONT_BIT,
@@ -248,20 +252,20 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(CullMode);
 
-    enum class FrontFace
+    enum class FrontFace : u32
     {
         CounterClockwise = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         Clockwise = VK_FRONT_FACE_CLOCKWISE,
     };
 
-    enum class PolygonMode
+    enum class PolygonMode : u32
     {
         Fill = VK_POLYGON_MODE_FILL,
         Line = VK_POLYGON_MODE_LINE,
         Point = VK_POLYGON_MODE_POINT
     };
 
-    enum class Topology
+    enum class Topology : u32
     {
         Points = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
         Lines = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
@@ -278,7 +282,7 @@ namespace nova
         Secondary,
     };
 
-    enum class QueueFlags
+    enum class QueueFlags : u32
     {
         Graphics = VK_QUEUE_GRAPHICS_BIT,
         Compute  = VK_QUEUE_COMPUTE_BIT,
@@ -310,7 +314,6 @@ namespace nova
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
             return *reinterpret_cast<T*>(Get_(index, offset, Stride));
-            // return reinterpret_cast<T*>(impl->mapped + offset)[index];
         }
 
         template<class T>
@@ -318,7 +321,6 @@ namespace nova
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
             Set_(elements.data(), elements.size(), index, offset, Stride);
-            // std::memcpy(reinterpret_cast<T*>(impl->mapped + offset) + index, &elements[0], elements.size() * sizeof(T));
         }
     };
 
@@ -447,6 +449,14 @@ namespace nova
         void WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
     };
 
+    // struct DescriptorSet : ImplHandle<DescriptorSetImpl>
+    // {
+    //     NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSet)
+
+    // public:
+    //     DescriptorSet(DescriptorSetLayout layout, u64 customSize = 0);
+    // };
+
 // -----------------------------------------------------------------------------
 
     struct PushConstantRange
@@ -469,12 +479,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTracker : ImplHandle<ResourceTrackerImpl>
+    struct CommandState : ImplHandle<CommandStateImpl>
     {
-        NOVA_DECLARE_HANDLE_OPERATIONS(ResourceTracker)
+        NOVA_DECLARE_HANDLE_OPERATIONS(CommandState)
 
     public:
-        ResourceTracker(Context context);
+        CommandState(Context context);
 
     public:
         void Clear(u32 maxAge) const noexcept;
@@ -561,7 +571,46 @@ namespace nova
         Span<Format> colorFormats;
         Format        depthFormat = {};
         Format      stencilFormat = {};
+        u32               subpass = 0;
     };
+
+    struct PipelineState
+    {
+        Topology      topology = Topology::Triangles;
+        CullMode      cullMode = CullMode::Back;
+        FrontFace    frontFace = FrontFace::CounterClockwise;
+        PolygonMode   polyMode = PolygonMode::Fill;
+        f32          lineWidth = 1.f;
+        CompareOp depthCompare = CompareOp::Greater;
+        u32   blendEnable : 1 = false; // TODO: Blend types (per attach blend?)
+        u32    depthEnable : 1 = false;
+        u32     depthWrite : 1 = true;
+        u32   flipVertical : 1 = false;
+    };
+
+    // enum class RenderingDescriptionID : u32;
+    // enum class PipelineStateID : u32;
+    // enum class ShaderGroupID : u32;
+
+    // struct GraphicsPipeline : ImplHandle<GraphicsPipelineImpl>
+    // {
+    //     NOVA_DECLARE_HANDLE_OPERATIONS(GraphicsPipeline)
+    // };
+
+    // struct PipelineCache : ImplHandle<PipelineCacheImpl>
+    // {
+    //     NOVA_DECLARE_HANDLE_OPERATIONS(PipelineCache)
+
+    // public:
+    //     PipelineCache(Context context);
+
+    // public:
+    //     RenderingDescriptionID GetRenderingDescriptionID(const RenderingDescription& renderingDesc);
+    //     PipelineStateID GetPipelineStateID(const PipelineState& state);
+    //     ShaderGroupID GetShaderGroupID(Span<Shader> shaders);
+    // };
+
+// -----------------------------------------------------------------------------
 
     struct CommandPool : ImplHandle<CommandPoolImpl>
     {
@@ -571,8 +620,8 @@ namespace nova
         CommandPool(Context context, Queue queue);
 
     public:
-        CommandList Begin(ResourceTracker tracker) const;
-        CommandList BeginSecondary(ResourceTracker tracker, OptRef<const RenderingDescription> renderingDescription = {}) const;
+        CommandList Begin(CommandState state) const;
+        CommandList BeginSecondary(CommandState state, OptRef<const RenderingDescription> renderingDescription = {}) const;
 
         void Reset() const;
     };
@@ -600,6 +649,8 @@ namespace nova
         void SetPolyState(PolygonMode poly, f32 lineWidth) const;
         void SetBlendState(u32 colorAttachmentCount, bool blendEnable) const;
         void SetDepthState(bool enable, bool write, CompareOp compareOp) const;
+
+        void SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const;
 
         void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false) const;
         void EndRendering() const;

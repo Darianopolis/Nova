@@ -189,7 +189,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-    ImFont ImDraw2D::LoadFont(const char* file, f32 size, CommandPool cmdPool, ResourceTracker tracker, Fence fence, Queue queue) const
+    ImFont ImDraw2D::LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue) const
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -248,7 +248,7 @@ void main()
             usz dataSize = w * h * 4;
             std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
 
-            auto cmd = cmdPool.Begin(tracker);
+            auto cmd = cmdPool.Begin(state);
             cmd.CopyToTexture(glyph.texture, staging);
             cmd.GenerateMips(glyph.texture);
             queue.Submit({cmd}, {}, {fence});
@@ -353,7 +353,10 @@ void main()
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd.BindShaders({impl->rectVertShader, impl->rectFragShader});
+                // cmd.BindShaders({impl->rectVertShader, impl->rectFragShader});
+                cmd.SetGraphicsState({impl->rectVertShader, impl->rectFragShader}, {
+                    .blendEnable = true,
+                });
                 cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }

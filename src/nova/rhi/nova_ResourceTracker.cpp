@@ -2,17 +2,17 @@
 
 namespace nova
 {
-    NOVA_DEFINE_HANDLE_OPERATIONS(ResourceTracker)
+    NOVA_DEFINE_HANDLE_OPERATIONS(CommandState)
 
-    ResourceTracker::ResourceTracker(Context context)
-        : ImplHandle(new ResourceTrackerImpl)
+    CommandState::CommandState(Context context)
+        : ImplHandle(new CommandStateImpl)
     {
         impl->context = context.GetImpl();
     }
 
 // -----------------------------------------------------------------------------
 
-    void ResourceTracker::Clear(u32 maxAge) const noexcept
+    void CommandState::Clear(u32 maxAge) const noexcept
     {
         impl->clearList.clear();
         for (auto&[texture, state] : impl->imageStates)
@@ -34,17 +34,17 @@ namespace nova
         impl->version++;
     }
 
-    void ResourceTracker::Reset(Texture texture) const noexcept
+    void CommandState::Reset(Texture texture) const noexcept
     {
         impl->Get(texture) = {};
     }
 
-    void ResourceTracker::Persist(Texture texture) const noexcept
+    void CommandState::Persist(Texture texture) const noexcept
     {
         impl->Get(texture).version = impl->version + 1;
     }
 
-    void ResourceTracker::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept
+    void CommandState::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept
     {
         impl->Get(texture) = {
             .layout = layout,
@@ -53,7 +53,7 @@ namespace nova
         };
     }
 
-    ResourceTrackerImpl::ImageState& ResourceTrackerImpl::Get(Texture texture) noexcept
+    CommandStateImpl::ImageState& CommandStateImpl::Get(Texture texture) noexcept
     {
         auto& state = imageStates[texture->image];
         state.version = std::max(state.version, version);

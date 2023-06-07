@@ -84,7 +84,7 @@ namespace nova
         ImTextureID RegisterTexture(Texture texture, Sampler sampler) const;
         void UnregisterTexture(ImTextureID textureSlot) const;
 
-        ImFont LoadFont(const char* file, f32 size, CommandPool cmdPool, ResourceTracker tracker, Fence fence, Queue queue) const;
+        ImFont LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue) const;
 
         void Reset() const;
         void DrawRect(const ImRoundRect& rect) const;

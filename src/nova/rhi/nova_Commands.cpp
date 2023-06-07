@@ -23,7 +23,7 @@ namespace nova
             vkDestroyCommandPool(context->device, pool, context->pAlloc);
     }
 
-    CommandList CommandPool::Begin(ResourceTracker tracker) const
+    CommandList CommandPool::Begin(CommandState state) const
     {
         CommandList cmd;
         if (impl->index >= impl->buffers.size())
@@ -49,12 +49,12 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->tracker = tracker.GetImpl();
+        cmd->state = state.GetImpl();
 
         return cmd;
     }
 
-    CommandList CommandPool::BeginSecondary(ResourceTracker tracker, OptRef<const RenderingDescription> renderingDescription) const
+    CommandList CommandPool::BeginSecondary(CommandState state, OptRef<const RenderingDescription> renderingDescription) const
     {
         CommandList cmd;
         if (impl->secondaryIndex >= impl->secondaryBuffers.size())
@@ -103,7 +103,7 @@ namespace nova
             })));
         }
 
-        cmd->tracker = tracker.GetImpl();
+        cmd->state = state.GetImpl();
 
         return cmd;
     }
@@ -133,7 +133,6 @@ namespace nova
             };
 
             cmd.End();
-            // vkEndCommandBuffer(cmd->buffer);
         }
 
         auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
@@ -261,6 +260,8 @@ namespace nova
     NOVA_NO_INLINE
     void CommandList::BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment, bool allowSecondary) const
     {
+        impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
+
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
         {
@@ -275,7 +276,11 @@ namespace nova
                 .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
+
+            impl->state->colorAttachmentsFormats[i] = texture.GetFormat();
         }
+
+        impl->state->renderingExtent = Vec2U(colorAttachments[0]->extent);
 
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -306,6 +311,9 @@ namespace nova
 
                 info.pDepthAttachment = &depthInfo;
                 info.pStencilAttachment = &depthInfo;
+
+                impl->state->depthAttachmentFormat = depthAttachment.GetFormat();
+                impl->state->stencilAttachmentFormat = stencilAttachment.GetFormat();
             }
         }
         else
@@ -322,6 +330,8 @@ namespace nova
                 depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
                 info.pDepthAttachment = &depthInfo;
+
+                impl->state->depthAttachmentFormat = depthAttachment.GetFormat();
             }
 
             if (stencilAttachment.IsValid())
@@ -336,6 +346,8 @@ namespace nova
                 stencilInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
                 info.pStencilAttachment = &stencilInfo;
+
+                impl->state->stencilAttachmentFormat = stencilAttachment.GetFormat();
             }
         }
 

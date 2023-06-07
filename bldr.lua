@@ -3,24 +3,26 @@ if Project "nova" then
     Include "src"
     Define "NOVA_PLATFORM_WINDOWS"
     Import {
-        "glfw",
+        -- Core
         "vulkan",
         "VulkanMemoryAllocator",
         "glslang",
+        "volk",
         "glm",
-        "cgltf",
-        "stb",
+        "mimalloc",
+        "ankerl-maps",
+
+        -- Helpers
+        "freetype",
+        "glfw",
         "imgui",
         "imgui-glfw",
         "imgui-vulkan",
-        "meshoptimizer",
-        "volk",
-        "ankerl-maps",
-        "imguizmo",
-        "jolt",
-        "Compressonator",
-        "mimalloc",
-        "freetype",
+
+        -- Test
+        "stb",
+
+        -- Miscellaneous
         "sqlite3",
     }
 end

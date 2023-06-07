@@ -1,5 +1,7 @@
 #include "nova_Window.hpp"
 
+#include <GLFW/glfw3native.h>
+
 namespace nova
 {
     Window* Window::Create(const WindowConfig& config)

@@ -2,12 +2,8 @@
 
 // -----------------------------------------------------------------------------
 
-#define VK_USE_PLATFORM_WIN32_KHR
-#define NOMINMAX
 #include <volk.h>
 
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#define VMA_STATIC_VULKAN_FUNCTIONS 0
 #include <vk_mem_alloc.h>
 
 // -----------------------------------------------------------------------------
@@ -35,37 +31,6 @@
 
 // -----------------------------------------------------------------------------
 
-#include <ankerl/unordered_dense.h>
-
-// -----------------------------------------------------------------------------
-
-#include <stb_image.h>
-
-// -----------------------------------------------------------------------------
-
-#include <GLFW/glfw3.h>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
-
-// -----------------------------------------------------------------------------
-
-#include <imgui.h>
-#include <backends/imgui_impl_vulkan.h>
-#include <backends/imgui_impl_glfw.h>
-
-#include <ImGuizmo.h>
-
-// -----------------------------------------------------------------------------
-
-#include <cgltf.h>
-
-#include <meshoptimizer.h>
-
-// -----------------------------------------------------------------------------
-
 #include <mimalloc.h>
 
-// -----------------------------------------------------------------------------
-
-#include <sqlite3.h>
+#include <ankerl/unordered_dense.h>

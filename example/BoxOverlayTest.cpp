@@ -6,6 +6,8 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+#include <stb_image.h>
+
 #include <array>
 #include <iostream>
 
@@ -36,7 +38,7 @@ void TryMain()
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto commandPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
-    auto tracker = nova::ResourceTracker(context);
+    auto state = nova::CommandState(context);
 
 // -----------------------------------------------------------------------------
 
@@ -60,7 +62,7 @@ void TryMain()
         nova::Buffer staging(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
         std::memcpy(staging.GetMapped(), data, size);
 
-        auto cmd = commandPool.Begin(tracker);
+        auto cmd = commandPool.Begin(state);
         cmd.CopyToTexture(texture, staging);
         cmd.GenerateMips(texture);
 
@@ -79,7 +81,7 @@ void TryMain()
 
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
-    auto font = imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, tracker, fence, queue);
+    auto font = imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, state, fence, queue);
 
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },
@@ -183,10 +185,10 @@ void TryMain()
         fence.Wait();
         commandPool.Reset();
 
-        auto cmd = commandPool.Begin(tracker);
-        cmd.SetViewport(imDraw.GetBounds().Size(), false);
-        cmd.SetBlendState(1, true);
-        cmd.SetTopology(nova::Topology::Triangles);
+        auto cmd = commandPool.Begin(state);
+        // cmd.SetViewport(imDraw.GetBounds().Size(), false);
+        // cmd.SetBlendState(1, true);
+        // cmd.SetTopology(nova::Topology::Triangles);
 
         // Update window size, record primary buffer and present
 

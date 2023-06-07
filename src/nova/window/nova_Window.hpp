@@ -2,6 +2,8 @@
 
 #include <nova/core/nova_Core.hpp>
 
+#include <GLFW/glfw3.h>
+
 namespace nova
 {
     enum class Key : u32

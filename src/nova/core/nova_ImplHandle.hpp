@@ -123,7 +123,7 @@ namespace nova
     struct type##Impl;                   \
     using H##type = type##Impl*;
 
-#define NOVA_DECLARE_HANDLE_OPERATIONS(type) \
+#define NOVA_DECLARE_HANDLE_OPERATIONS(type)      \
     type() noexcept;                              \
     type(type##Impl* impl) noexcept;              \
     ~type();                                      \
@@ -132,7 +132,7 @@ namespace nova
     type(type&& other) noexcept;                  \
     type& operator=(type&& other) noexcept;
 
-#define NOVA_DEFINE_HANDLE_OPERATIONS(type)                 \
+#define NOVA_DEFINE_HANDLE_OPERATIONS(type)                      \
     type::type() noexcept = default;                             \
     type::type(type##Impl* impl) noexcept : ImplHandle(impl) {}  \
     type::~type() = default;                                     \

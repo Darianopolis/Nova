@@ -1,5 +1,8 @@
 #include <nova/rhi/nova_RHI.hpp>
 
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
 using namespace nova::types;
 
 int main()
@@ -13,7 +16,7 @@ int main()
     };
 
     auto context = nova::Context({
-        .debug = false,
+        .debug = true,
     });
 
     auto surface = nova::Surface(context, glfwGetWin32Window(window));
@@ -25,7 +28,7 @@ int main()
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
-    auto tracker = nova::ResourceTracker(context);
+    auto state = nova::CommandState(context);
 
     // Pipeline
 
@@ -75,17 +78,18 @@ void main()
         queue.Acquire({swapchain}, {fence});
 
         cmdPool.Reset();
-        auto cmd = cmdPool.Begin(tracker);
+        auto cmd = cmdPool.Begin(state);
 
-        cmd.SetViewport(swapchain.GetExtent(), false);
-        cmd.SetBlendState(1, false);
-        cmd.SetDepthState(false, false, nova::CompareOp::Greater);
-        cmd.SetTopology(nova::Topology::Triangles);
-        cmd.SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
+        // cmd.SetViewport(swapchain.GetExtent(), false);
+        // cmd.SetBlendState(1, false);
+        // cmd.SetDepthState(false, false, nova::CompareOp::Greater);
+        // cmd.SetTopology(nova::Topology::Triangles);
+        // cmd.SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
+        // cmd.BindShaders({vertexShader, fragmentShader});
 
-        cmd.BindShaders({vertexShader, fragmentShader});
         cmd.BeginRendering({swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
+        cmd.SetGraphicsState({vertexShader, fragmentShader}, {});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 

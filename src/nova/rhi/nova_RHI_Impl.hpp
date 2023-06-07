@@ -65,7 +65,8 @@ namespace nova
 
     struct ShaderImpl : ImplBase
     {
-        Context context = {};
+        Context       context = {};
+        PipelineLayout layout = {};
 
         VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
         VkShaderEXT          shader = {};
@@ -84,6 +85,7 @@ namespace nova
         Context context = {};
 
         VkSurfaceKHR surface = {};
+
     public:
         ~SurfaceImpl();
     };
@@ -148,6 +150,16 @@ namespace nova
         ~DescriptorSetLayoutImpl();
     };
 
+    struct DescriptorSetImpl : ImplBase
+    {
+        DescriptorSetLayout layout;
+
+        VkDescriptorSet set;
+
+    public:
+        ~DescriptorSetImpl();
+    };
+
 // -----------------------------------------------------------------------------
 
     struct PipelineLayoutImpl : ImplBase
@@ -168,7 +180,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ResourceTrackerImpl : ImplBase
+    struct CommandStateImpl : ImplBase
     {
         struct ImageState
         {
@@ -185,6 +197,11 @@ namespace nova
         u64                                                   version = 0;
         ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
         std::vector<VkImage>                                clearList;
+
+        std::vector<Format> colorAttachmentsFormats;
+        Format                depthAttachmentFormat = nova::Format::Undefined;
+        Format              stencilAttachmentFormat = nova::Format::Undefined;
+        Vec2U    renderingExtent;
 
     public:
         ImageState& Get(Texture texture) noexcept;
@@ -256,6 +273,73 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct PipelineStateKey
+    {
+        std::array<VkFormat, 8> colorAttachments;
+        VkFormat depthAttachment;
+        VkFormat stencilAttachment;
+        u32 subpass;
+        PipelineState state;
+        std::array<VkShaderModule, 5> shaders;
+        VkPipelineLayout layout;
+
+        bool operator==(const PipelineStateKey& other) const
+        {
+            return std::memcmp(this, &other, sizeof(PipelineStateKey)) == 0;
+        }
+    };
+
+    // struct RenderPassKey
+    // {
+    //     std::array<VkFormat, 8> colorAttachments;
+    //     VkFormat depthAttachment;
+    //     VkFormat stencilAttachment;
+
+    //     bool operator==(const RenderPassKey& other) const
+    //     {
+    //         return std::memcmp(this, &other, sizeof(*this)) == 0;
+    //     }
+    // };
+}
+
+template<>
+struct ankerl::unordered_dense::hash<nova::PipelineStateKey> {
+    using is_avalanching = void;
+
+    uint64_t operator()(const nova::PipelineStateKey& key) const noexcept
+    {
+        return detail::wyhash::hash(&key, sizeof(key));
+    }
+};
+
+// template<>
+// struct ankerl::unordered_dense::hash<nova::RenderPassKey> {
+//     using is_avalanching = void;
+
+//     uint64_t operator()(const nova::RenderPassKey& key) const noexcept
+//     {
+//         return detail::wyhash::hash(&key, sizeof(key));
+//     }
+// };
+
+namespace nova
+{
+
+    // struct GraphicsPipelineImpl : ImplBase
+    // {
+    //     Context context = {};
+
+    //     VkPipeline pipeline = {};
+    // };
+
+    // struct PipelineCacheImpl : ImplBase
+    // {
+    // public:
+    //     Context context = {};
+    // };
+
+// -----------------------------------------------------------------------------
+
     struct CommandPoolImpl : ImplBase
     {
         Context context = {};
@@ -275,7 +359,7 @@ namespace nova
     struct CommandListImpl : ImplBase
     {
         CommandPoolImpl*   pool = {};
-        ResourceTracker tracker = {};
+        CommandState state = {};
         VkCommandBuffer  buffer = {};
     };
 
@@ -355,6 +439,10 @@ namespace nova
             },
         };
         VkAllocationCallbacks* pAlloc = &alloc;
+
+        ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
+
+        // VkDescriptorPool pool = {};
 
     public:
         ~ContextImpl();

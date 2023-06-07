@@ -93,6 +93,7 @@ namespace nova
     {
         impl->context = context.GetImpl();
         impl->stage = VkShaderStageFlagBits(stage);
+        impl->layout = layout.GetImpl();
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
@@ -125,6 +126,9 @@ namespace nova
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
         break;default: NOVA_THROW("Unknown stage: {}", int(impl->stage));
         }
+
+        // TODO: Shader object optional support
+        // supportsShaderObjects = false;
 
         glslang::TShader glslShader { glslangStage };
         auto resource = (const TBuiltInResource*)glslang_default_resource();

@@ -111,11 +111,16 @@ namespace nova
 
         VkPhysicalDeviceVulkan12Features vk12Features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
         vk12Features.pNext = &shaderObjectFeatures;
+        // vk12Features.pNext = &descriptorBufferFeatures;
         vk12Features.bufferDeviceAddress = VK_TRUE;
         vk12Features.descriptorIndexing = VK_TRUE;
         vk12Features.runtimeDescriptorArray = VK_TRUE;
         vk12Features.descriptorBindingPartiallyBound = VK_TRUE;
         vk12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+        vk12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+        vk12Features.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
+        vk12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+        vk12Features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
         vk12Features.drawIndirectCount = VK_TRUE;
         vk12Features.samplerFilterMinmax = VK_TRUE;
         vk12Features.timelineSemaphore = VK_TRUE;
@@ -201,6 +206,9 @@ namespace nova
 
     ContextImpl::~ContextImpl()
     {
+        for (auto&[key, pipeline] : pipelines)
+            vkDestroyPipeline(device, pipeline, pAlloc);
+
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);
         if (debugMessenger)

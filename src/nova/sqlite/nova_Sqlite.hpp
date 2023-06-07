@@ -2,6 +2,8 @@
 
 #include <nova/core/nova_Core.hpp>
 
+#include <sqlite3.h>
+
 namespace nova
 {
     class Database

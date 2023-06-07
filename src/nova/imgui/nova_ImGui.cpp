@@ -2,6 +2,10 @@
 
 #include <nova/rhi/nova_RHI_Impl.hpp>
 
+#include <imgui.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
+
 namespace nova
 {
     ImGuiWrapper::ImGuiWrapper(Context context,
@@ -80,7 +84,6 @@ namespace nova
         }), impl->renderPass);
 
         // Rescale UI and fonts
-        // TODO: Don't hardcode 150%
 
         ImGui::GetStyle().ScaleAllSizes(config.uiScale);
         auto fontConfig = ImFontConfig();

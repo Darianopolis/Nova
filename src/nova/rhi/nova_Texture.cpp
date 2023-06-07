@@ -160,7 +160,7 @@ namespace nova
             VK_PIPELINE_STAGE_2_COPY_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-        vkCmdCopyBufferToImage(impl->buffer, src->buffer, dst->image, impl->tracker->Get(dst).layout, 1, Temp(VkBufferImageCopy {
+        vkCmdCopyBufferToImage(impl->buffer, src->buffer, dst->image, impl->state->Get(dst).layout, 1, Temp(VkBufferImageCopy {
             .bufferOffset = srcOffset,
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
             .imageExtent = { dst->extent.x, dst->extent.y,  1 },
@@ -176,7 +176,7 @@ namespace nova
             VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
             VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
 
-        auto& state = impl->tracker->Get(texture);
+        auto& state = impl->state->Get(texture);
 
         int32_t mipWidth = texture->extent.x;
         int32_t mipHeight = texture->extent.y;
@@ -239,7 +239,7 @@ namespace nova
 
     void CommandList::Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const
     {
-        auto& state = impl->tracker->Get(texture);
+        auto& state = impl->state->Get(texture);
 
         if (state.layout == newLayout && state.stage == newStages && state.access == newAccess)
             return;

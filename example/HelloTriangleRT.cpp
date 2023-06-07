@@ -1,5 +1,8 @@
 #include <nova/rhi/nova_RHI.hpp>
 
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
 using namespace nova::types;
 
 int main()
@@ -47,7 +50,7 @@ int main()
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto cmdPool = nova::CommandPool(context, queue);
     auto fence = nova::Fence(context);
-    auto tracker = nova::ResourceTracker(context);
+    auto state = nova::CommandState(context);
 
     auto builder = nova::AccelerationStructureBuilder(context);
 
@@ -150,7 +153,7 @@ void main()
 
     // Build BLAS
 
-    auto cmd = cmdPool.Begin(tracker);
+    auto cmd = cmdPool.Begin(state);
     cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
     queue.Submit({cmd}, {}, {fence});
     fence.Wait();
@@ -160,7 +163,7 @@ void main()
     auto blas = nova::AccelerationStructure(context, builder.GetCompactSize(),
         nova::AccelerationStructureType::BottomLevel);
 
-    cmd = cmdPool.Begin(tracker);
+    cmd = cmdPool.Begin(state);
     cmd.CompactAccelerationStructure(blas, uncompactedBlas);
     queue.Submit({cmd}, {}, {fence});
     fence.Wait();
@@ -210,7 +213,7 @@ void main()
         // Start new command buffer
 
         cmdPool.Reset();
-        cmd = cmdPool.Begin(tracker);
+        cmd = cmdPool.Begin(state);
 
         // Build scene TLAS
 
