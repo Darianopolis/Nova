@@ -5,23 +5,60 @@ namespace nova
     std::atomic_int64_t ContextImpl::AllocationCount = 0;
     std::atomic_int64_t ContextImpl::NewAllocationCount = 0;
 
+    struct VulkanFeatureChain
+    {
+        ankerl::unordered_dense::map<VkStructureType, std::any> deviceFeatures;
+        ankerl::unordered_dense::set<std::string> extensions;
+        void* pNext = nullptr;
+
+        VulkanFeatureChain()
+        {
+            auto& feature = deviceFeatures[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2];
+            auto& f = feature.emplace<VkPhysicalDeviceFeatures2>();
+            f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        }
+
+        void Extension(std::string name)
+        {
+            extensions.emplace(std::move(name));
+        }
+
+        template<class T>
+        T& Feature(VkStructureType type)
+        {
+            auto& feature = deviceFeatures[type];
+            if (!feature.has_value()) {
+                auto& f = feature.emplace<T>();
+                f.sType = type;
+                f.pNext = pNext;
+                pNext = &f;
+            }
+            return std::any_cast<T&>(feature);
+        }
+
+        const void* Build()
+        {
+            auto& f2 = std::any_cast<VkPhysicalDeviceFeatures2&>(deviceFeatures.at(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2));
+            f2.pNext = pNext;
+            return &f2;
+        }
+    };
+
     NOVA_DEFINE_HANDLE_OPERATIONS(Context)
 
+    NOVA_NO_INLINE
     Context::Context(const ContextConfig& config)
+        : ImplHandle(new ContextImpl)
     {
-        bool debug = config.debug;
-
-        SetImpl(new ContextImpl);
-
         std::vector<const char*> instanceLayers;
-        if (debug)
+        if (config.debug)
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
 
         std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME };
     #ifdef _WIN32
         instanceExtensions.push_back("VK_KHR_win32_surface");
     #endif
-        if (debug)
+        if (config.debug)
             instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         volkInitialize();
@@ -40,7 +77,7 @@ namespace nova
 
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pNext = debug ? &debugMessengerCreateInfo : nullptr,
+            .pNext = config.debug ? &debugMessengerCreateInfo : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
@@ -53,7 +90,7 @@ namespace nova
 
         volkLoadInstanceOnly(impl->instance);
 
-        if (debug)
+        if (config.debug)
             VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
@@ -74,98 +111,94 @@ namespace nova
         vkGetPhysicalDeviceQueueFamilyProperties2(impl->gpu, Temp(0u), nullptr);
         impl->graphics = Queue(*this, nullptr, 0);
 
-        // Ray tracing features
+        VulkanFeatureChain chain;
 
-        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rtPosFetchFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
-        rtPosFetchFeatures.rayTracingPositionFetch = VK_TRUE;
+        // TODO: Allow for optional features
 
-        VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV rtInvocationReorderFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV };
-        rtInvocationReorderFeatures.pNext = &rtPosFetchFeatures;
-        rtInvocationReorderFeatures.rayTracingInvocationReorder = VK_TRUE;
+        {
+            chain.Extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 
-        VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
-        rayQueryFeatures.pNext = &rtInvocationReorderFeatures;
-        rayQueryFeatures.rayQuery = VK_TRUE;
+            auto& f2 = chain.Feature<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+            f2.features.shaderInt64 = VK_TRUE;
+            f2.features.samplerAnisotropy = VK_TRUE;
+            f2.features.wideLines = VK_TRUE;
+            f2.features.multiDrawIndirect = VK_TRUE;
+            f2.features.fillModeNonSolid = VK_TRUE;
 
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-        asFeatures.pNext = &rayQueryFeatures;
-        asFeatures.accelerationStructure = VK_TRUE;
+            auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
+            f12.bufferDeviceAddress = VK_TRUE;
+            f12.descriptorIndexing = VK_TRUE;
+            f12.runtimeDescriptorArray = VK_TRUE;
+            f12.descriptorBindingPartiallyBound = VK_TRUE;
+            f12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+            f12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+            f12.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
+            f12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+            f12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+            f12.drawIndirectCount = VK_TRUE;
+            f12.samplerFilterMinmax = VK_TRUE;
+            f12.timelineSemaphore = VK_TRUE;
+            f12.imagelessFramebuffer = VK_TRUE;
 
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
-        rtPipelineFeatures.pNext = &asFeatures;
-        rtPipelineFeatures.rayTracingPipeline = VK_TRUE;
+            auto& f13 = chain.Feature<VkPhysicalDeviceVulkan13Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+            f13.dynamicRendering = VK_TRUE;
+            f13.synchronization2 = VK_TRUE;
+            f13.maintenance4 = VK_TRUE;
 
-        // Standard features
+            chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+            auto& bary = chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR);
+            bary.fragmentShaderBarycentric = VK_TRUE;
+        }
 
-        VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR barycentricFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
-        barycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
+        if (config.shaderObjects)
+        {
+            chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT).shaderObject = VK_TRUE;
+        }
 
-        VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT };
-        descriptorBufferFeatures.pNext = &barycentricFeatures;
-        descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
-        descriptorBufferFeatures.descriptorBufferPushDescriptors = VK_TRUE;
-
-        VkPhysicalDeviceShaderObjectFeaturesEXT shaderObjectFeatures { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT };
-        shaderObjectFeatures.pNext = &descriptorBufferFeatures;
-        shaderObjectFeatures.shaderObject = VK_TRUE;
-
-        VkPhysicalDeviceVulkan12Features vk12Features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-        vk12Features.pNext = &shaderObjectFeatures;
-        // vk12Features.pNext = &descriptorBufferFeatures;
-        vk12Features.bufferDeviceAddress = VK_TRUE;
-        vk12Features.descriptorIndexing = VK_TRUE;
-        vk12Features.runtimeDescriptorArray = VK_TRUE;
-        vk12Features.descriptorBindingPartiallyBound = VK_TRUE;
-        vk12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-        vk12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-        vk12Features.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
-        vk12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-        vk12Features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
-        vk12Features.drawIndirectCount = VK_TRUE;
-        vk12Features.samplerFilterMinmax = VK_TRUE;
-        vk12Features.timelineSemaphore = VK_TRUE;
-        vk12Features.imagelessFramebuffer = VK_TRUE;
-
-        VkPhysicalDeviceVulkan13Features vk13Features { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
-        vk13Features.pNext = &vk12Features;
-        vk13Features.dynamicRendering = VK_TRUE;
-        vk13Features.synchronization2 = VK_TRUE;
-        vk13Features.maintenance4 = VK_TRUE;
-
-        VkPhysicalDeviceFeatures2 features2 { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        features2.pNext = &vk13Features;
-        features2.features.shaderInt64 = VK_TRUE;
-        features2.features.samplerAnisotropy = VK_TRUE;
-        features2.features.wideLines = VK_TRUE;
-        features2.features.multiDrawIndirect = VK_TRUE;
-        features2.features.fillModeNonSolid = VK_TRUE;
-
-        auto deviceExtensions = std::vector {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-
-            VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
-            VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME,
-            VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
-
-            VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
-        };
+        if (config.descriptorBuffers)
+        {
+            chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
+            db.descriptorBuffer = VK_TRUE;
+            db.descriptorBufferPushDescriptors = VK_TRUE;
+        }
 
         if (config.rayTracing)
         {
-            barycentricFeatures.pNext = &rtPipelineFeatures;
+            chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+            chain.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+            chain.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+            chain.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR)
+                .rayTracingPipeline = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR)
+                .accelerationStructure = VK_TRUE;
 
-            deviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
-            deviceExtensions.push_back(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+            chain.Extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR)
+                .rayQuery = VK_TRUE;
+
+            chain.Extension(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV)
+                .rayTracingInvocationReorder = VK_TRUE;
+
+            chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
+                .rayTracingPositionFetch = VK_TRUE;
+        }
+
+        auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
+        {
+            u32 i = 0;
+            for (const auto& ext : chain.extensions)
+                deviceExtensions[i++] = ext.c_str();
         }
 
         VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = &features2,
+            .pNext = chain.Build(),
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
@@ -175,8 +208,8 @@ namespace nova
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
-            .enabledExtensionCount = u32(deviceExtensions.size()),
-            .ppEnabledExtensionNames = deviceExtensions.data(),
+            .enabledExtensionCount = u32(chain.extensions.size()),
+            .ppEnabledExtensionNames = deviceExtensions,
         }), impl->pAlloc, &impl->device));
 
         volkLoadDevice(impl->device);
@@ -202,12 +235,42 @@ namespace nova
             .instance = impl->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &impl->vma));
+
+        {
+            // TODO: Profile guided
+            //   Or just drop entirely once descriptor buffers have better support
+
+            constexpr u32 MaxDescriptorPerType = 65'536;
+            constexpr auto sizes = std::array {
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER,                MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, MaxDescriptorPerType },
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       MaxDescriptorPerType },
+            };
+
+            VkCall(vkCreateDescriptorPool(impl->device, Temp(VkDescriptorPoolCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+                .maxSets = u32(MaxDescriptorPerType * sizes.size()),
+                .poolSizeCount = u32(sizes.size()),
+                .pPoolSizes = sizes.data(),
+            }), impl->pAlloc, &impl->descriptorPool));
+        }
     }
 
     ContextImpl::~ContextImpl()
     {
         for (auto&[key, pipeline] : pipelines)
             vkDestroyPipeline(device, pipeline, pAlloc);
+
+        vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
 
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);

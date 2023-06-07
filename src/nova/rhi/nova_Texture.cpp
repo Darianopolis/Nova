@@ -297,9 +297,15 @@ namespace nova
 
         switch (state)
         {
+        break;case ResourceState::Sampled:
+            layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            access = VK_ACCESS_2_SHADER_READ_BIT;
+            stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+            set = true;
         break;case ResourceState::GeneralImage:
             layout = VK_IMAGE_LAYOUT_GENERAL;
             access = VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+            stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             set = true;
         break;case ResourceState::Present:
             layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -328,6 +334,23 @@ namespace nova
         {
             NOVA_THROW("Unknown transition ({}, {})", u32(state), u32(bindPoint));
         }
+    }
+
+    void CommandList::BlitImage(Texture dst, Texture src, Filter filter) const
+    {
+        Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
+        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+
+        vkCmdBlitImage(impl->buffer,
+            src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, nova::Temp(VkImageBlit {
+                .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .srcOffsets = { VkOffset3D{}, VkOffset3D{i32(src.GetExtent().x), i32(src.GetExtent().y), 1} },
+                .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .dstOffsets = { VkOffset3D{}, VkOffset3D{i32(dst.GetExtent().x), i32(dst.GetExtent().y), 1} },
+            }),
+            VkFilter(filter));
     }
 
 // -----------------------------------------------------------------------------

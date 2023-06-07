@@ -130,9 +130,10 @@ namespace nova
         PipelineLayout pipelineLayout = {};
 
         DescriptorSetLayout  descriptorSetLayout = {};
-        Buffer               descriptorBuffer = {};
-        u32                   nextTextureSlot = 0;
-        std::vector<u32>  textureSlotFreelist = {};
+        // Buffer               descriptorBuffer = {};
+        DescriptorSet              descriptorSet = {};
+        u32                      nextTextureSlot = 0;
+        std::vector<u32>     textureSlotFreelist = {};
 
         Shader rectVertShader = {};
         Shader rectFragShader = {};

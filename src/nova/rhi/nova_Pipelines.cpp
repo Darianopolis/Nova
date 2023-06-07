@@ -52,7 +52,7 @@ namespace nova
                     .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
                     .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
                 }),
-                .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+                // .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
                 .stageCount = u32(shaders.size()),
                 .pStages = stages,
                 .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {

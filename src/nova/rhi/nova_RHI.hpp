@@ -36,7 +36,7 @@ namespace nova
     NOVA_DECLARE_HANDLE_OBJECT(CommandList)
     NOVA_DECLARE_HANDLE_OBJECT(CommandPool)
     NOVA_DECLARE_HANDLE_OBJECT(Context)
-    // NOVA_DECLARE_HANDLE_OBJECT(DescriptorSet)
+    NOVA_DECLARE_HANDLE_OBJECT(DescriptorSet)
     NOVA_DECLARE_HANDLE_OBJECT(DescriptorSetLayout)
     NOVA_DECLARE_HANDLE_OBJECT(Fence)
     NOVA_DECLARE_HANDLE_OBJECT(PipelineLayout)
@@ -188,6 +188,7 @@ namespace nova
 
     enum class ResourceState
     {
+        Sampled,
         GeneralImage,
         Present,
     };
@@ -449,13 +450,16 @@ namespace nova
         void WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
     };
 
-    // struct DescriptorSet : ImplHandle<DescriptorSetImpl>
-    // {
-    //     NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSet)
+    struct DescriptorSet : ImplHandle<DescriptorSetImpl>
+    {
+        NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSet)
 
-    // public:
-    //     DescriptorSet(DescriptorSetLayout layout, u64 customSize = 0);
-    // };
+    public:
+        DescriptorSet(DescriptorSetLayout layout, u64 customSize = 0);
+
+    public:
+        void WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
+    };
 
 // -----------------------------------------------------------------------------
 
@@ -637,6 +641,7 @@ namespace nova
         void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
         void CopyToTexture(Texture dst, Buffer src, u64 srcOffset = 0) const;
         void GenerateMips(Texture texture) const;
+        void BlitImage(Texture dst, Texture src, Filter filter) const;
 
         void Clear(Texture texture, Vec4 color) const;
         void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const;
@@ -658,6 +663,7 @@ namespace nova
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
+        void BindDescriptorSets(PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) const;
         void BindDescriptorBuffers(Span<Buffer> buffers) const;
         void SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const;
 
@@ -684,6 +690,8 @@ namespace nova
     {
         bool debug = false;
         bool rayTracing = false;
+        bool shaderObjects = false;
+        bool descriptorBuffers = false;
     };
 
     struct Context : ImplHandle<ContextImpl>

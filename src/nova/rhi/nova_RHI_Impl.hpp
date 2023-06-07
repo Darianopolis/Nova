@@ -324,7 +324,6 @@ struct ankerl::unordered_dense::hash<nova::PipelineStateKey> {
 
 namespace nova
 {
-
     // struct GraphicsPipelineImpl : ImplBase
     // {
     //     Context context = {};
@@ -442,7 +441,7 @@ namespace nova
 
         ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
 
-        // VkDescriptorPool pool = {};
+        VkDescriptorPool descriptorPool = {};
 
     public:
         ~ContextImpl();

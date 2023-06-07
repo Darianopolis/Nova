@@ -37,7 +37,9 @@ namespace nova
                 .bindingCount = u32(bindings.size()),
                 .pBindingFlags = flags,
             }),
-            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+            .flags =
+                // VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                0
                 | (pushDescriptor
                     ? VkDescriptorBindingFlags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR)
                     : VkDescriptorBindingFlags(0)),
@@ -45,11 +47,11 @@ namespace nova
             .pBindings = vkBindings,
         }), context->pAlloc, &impl->layout));
 
-        vkGetDescriptorSetLayoutSizeEXT(context->device, impl->layout, &impl->size);
+        // vkGetDescriptorSetLayoutSizeEXT(context->device, impl->layout, &impl->size);
 
-        impl->offsets.resize(bindings.size());
-        for (u32 i = 0; i < bindings.size(); ++i)
-            vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, impl->layout, i, &impl->offsets[i]);
+        // impl->offsets.resize(bindings.size());
+        // for (u32 i = 0; i < bindings.size(); ++i)
+        //     vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, impl->layout, i, &impl->offsets[i]);
     }
 
     DescriptorSetLayoutImpl::~DescriptorSetLayoutImpl()
@@ -67,19 +69,38 @@ namespace nova
     {
         vkGetDescriptorEXT(impl->context->device,
             Temp(VkDescriptorGetInfoEXT {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
-                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .data = {
-                    .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
-                        .sampler = sampler->sampler,
-                        .imageView = texture->view,
-                        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    }),
-                },
-            }),
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .data = {
+                .pCombinedImageSampler = Temp(VkDescriptorImageInfo {
+                    .sampler = sampler->sampler,
+                    .imageView = texture->view,
+                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                }),
+            },
+        }),
             impl->context->descriptorSizes.combinedImageSamplerDescriptorSize,
             static_cast<b8*>(dst) + impl->offsets[binding]
                 + (arrayIndex * impl->context->descriptorSizes.combinedImageSamplerDescriptorSize));
+    }
+
+    void DescriptorSet::WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex) const noexcept
+    {
+        auto& context = impl->layout->context;
+
+        vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = impl->set,
+            .dstBinding = binding,
+            .dstArrayElement = arrayIndex,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = Temp(VkDescriptorImageInfo {
+                .sampler = sampler->sampler,
+                .imageView = texture->view,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            }),
+        }), 0, nullptr);
     }
 
 // -----------------------------------------------------------------------------
@@ -121,16 +142,39 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    // DescriptorSet::DescriptorSet(DescriptorSetLayout layout, u64 customSize)
-    //     : ImplHandle(new DescriptorSetImpl)
-    // {
-    //     (void)customSize;
-    // }
+    NOVA_DEFINE_HANDLE_OPERATIONS(DescriptorSet);
 
-    // DescriptorSetImpl::~DescriptorSetImpl()
-    // {
-    //     vkFreeDescriptorSets(layout->context->device, lay)
-    // }
+    DescriptorSet::DescriptorSet(DescriptorSetLayout layout, u64 customSize)
+        : ImplHandle(new DescriptorSetImpl)
+    {
+        (void)customSize;
+
+        impl->layout = layout.GetImpl();
+
+        vkAllocateDescriptorSets(layout->context->device, Temp(VkDescriptorSetAllocateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .descriptorPool = layout->context->descriptorPool,
+            .descriptorSetCount = 1,
+            .pSetLayouts = &layout->layout,
+        }), &impl->set);
+    }
+
+    DescriptorSetImpl::~DescriptorSetImpl()
+    {
+        vkFreeDescriptorSets(layout->context->device, layout->context->descriptorPool, 1, &set);
+    }
+
+    void CommandList::BindDescriptorSets(PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) const
+    {
+        auto vkSets = NOVA_ALLOC_STACK(VkDescriptorSet, sets.size());
+        for (u32 i = 0; i < sets.size(); ++i)
+            vkSets[i] = sets[i]->set;
+
+        vkCmdBindDescriptorSets(impl->buffer, VkPipelineBindPoint(pipelineLayout->bindPoint),
+            pipelineLayout->layout, firstSet,
+            u32(sets.size()), vkSets,
+            0, nullptr);
+    }
 
 // -----------------------------------------------------------------------------
 

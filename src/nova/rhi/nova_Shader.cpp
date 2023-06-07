@@ -128,7 +128,7 @@ namespace nova
         }
 
         // TODO: Shader object optional support
-        // supportsShaderObjects = false;
+        supportsShaderObjects = false;
 
         glslang::TShader glslShader { glslangStage };
         auto resource = (const TBuiltInResource*)glslang_default_resource();

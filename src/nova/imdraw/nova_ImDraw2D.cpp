@@ -19,10 +19,12 @@ namespace nova
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        impl->descriptorBuffer = Buffer(context,
-            impl->descriptorSetLayout.GetSize(),
-            BufferUsage::DescriptorSamplers,
-            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+        // impl->descriptorBuffer = Buffer(context,
+        //     impl->descriptorSetLayout.GetSize(),
+        //     BufferUsage::DescriptorSamplers,
+        //     BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+
+        impl->descriptorSet = DescriptorSet(impl->descriptorSetLayout);
 
         impl->pipelineLayout = PipelineLayout(context,
             {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(ImDraw2DImpl::PushConstants)}},
@@ -177,7 +179,8 @@ void main()
             impl->textureSlotFreelist.pop_back();
         }
 
-        impl->descriptorSetLayout.WriteSampledTexture(impl->descriptorBuffer.GetMapped(), 0, texture, sampler, index);
+        // impl->descriptorSetLayout.WriteSampledTexture(impl->descriptorBuffer.GetMapped(), 0, texture, sampler, index);
+        impl->descriptorSet.WriteSampledTexture(0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -345,8 +348,9 @@ void main()
                 .rectInstancesVA = impl->rectBuffer.GetAddress(),
             }));
 
-        cmd.BindDescriptorBuffers({impl->descriptorBuffer});
-        cmd.SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
+        // cmd.BindDescriptorBuffers({impl->descriptorBuffer});
+        // cmd.SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
+        cmd.BindDescriptorSets(impl->pipelineLayout, 0, {impl->descriptorSet});
 
         for (auto& command : impl->drawCommands)
         {
