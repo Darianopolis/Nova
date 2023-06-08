@@ -240,6 +240,11 @@ namespace nova
 
     ShaderImpl::~ShaderImpl()
     {
+        {
+            std::scoped_lock lock { context->pipelineMutex };
+            context->deletedShaders.emplace(module);
+        }
+
         if (shader)
             vkDestroyShaderEXT(context->device, shader, context->pAlloc);
 

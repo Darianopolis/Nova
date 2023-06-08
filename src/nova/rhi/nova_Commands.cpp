@@ -425,4 +425,9 @@ namespace nova
 
         vkCmdExecuteCommands(impl->buffer, u32(commands.size()), buffers);
     }
+
+    void CommandList::Dispatch(Vec3U groups) const
+    {
+        vkCmdDispatch(impl->buffer, groups.x, groups.y, groups.z);
+    }
 }

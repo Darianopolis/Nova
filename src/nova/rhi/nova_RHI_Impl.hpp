@@ -276,30 +276,20 @@ namespace nova
     struct PipelineStateKey
     {
         std::array<VkFormat, 8> colorAttachments;
-        VkFormat depthAttachment;
-        VkFormat stencilAttachment;
-        u32 subpass;
+        VkFormat                 depthAttachment;
+        VkFormat               stencilAttachment;
+        u32                              subpass;
+
         PipelineState state;
+
         std::array<VkShaderModule, 5> shaders;
-        VkPipelineLayout layout;
+        VkPipelineLayout               layout;
 
         bool operator==(const PipelineStateKey& other) const
         {
             return std::memcmp(this, &other, sizeof(PipelineStateKey)) == 0;
         }
     };
-
-    // struct RenderPassKey
-    // {
-    //     std::array<VkFormat, 8> colorAttachments;
-    //     VkFormat depthAttachment;
-    //     VkFormat stencilAttachment;
-
-    //     bool operator==(const RenderPassKey& other) const
-    //     {
-    //         return std::memcmp(this, &other, sizeof(*this)) == 0;
-    //     }
-    // };
 }
 
 template<>
@@ -312,33 +302,10 @@ struct ankerl::unordered_dense::hash<nova::PipelineStateKey> {
     }
 };
 
-// template<>
-// struct ankerl::unordered_dense::hash<nova::RenderPassKey> {
-//     using is_avalanching = void;
-
-//     uint64_t operator()(const nova::RenderPassKey& key) const noexcept
-//     {
-//         return detail::wyhash::hash(&key, sizeof(key));
-//     }
-// };
+// -----------------------------------------------------------------------------
 
 namespace nova
 {
-    // struct GraphicsPipelineImpl : ImplBase
-    // {
-    //     Context context = {};
-
-    //     VkPipeline pipeline = {};
-    // };
-
-    // struct PipelineCacheImpl : ImplBase
-    // {
-    // public:
-    //     Context context = {};
-    // };
-
-// -----------------------------------------------------------------------------
-
     struct CommandPoolImpl : ImplBase
     {
         Context context = {};
@@ -357,15 +324,19 @@ namespace nova
 
     struct CommandListImpl : ImplBase
     {
-        CommandPoolImpl*   pool = {};
-        CommandState state = {};
-        VkCommandBuffer  buffer = {};
+        CommandPoolImpl*  pool = {};
+        CommandState     state = {};
+        VkCommandBuffer buffer = {};
     };
 
 // -----------------------------------------------------------------------------
 
     struct ContextImpl : ImplBase
     {
+        static std::atomic_int64_t    AllocationCount;
+        static std::atomic_int64_t NewAllocationCount;
+
+    public:
         ContextConfig config = {};
 
         VkInstance  instance = {};
@@ -374,12 +345,6 @@ namespace nova
         VmaAllocator     vma = {};
 
         VkDebugUtilsMessengerEXT debugMessenger = {};
-
-        static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
-            VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-            VkDebugUtilsMessageTypeFlagsEXT type,
-            const VkDebugUtilsMessengerCallbackDataEXT* data,
-            void* userData);
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
@@ -397,8 +362,13 @@ namespace nova
 
         Queue graphics = {};
 
-        static std::atomic_int64_t    AllocationCount;
-        static std::atomic_int64_t NewAllocationCount;
+        std::shared_mutex                                      pipelineMutex;
+        ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
+        ankerl::unordered_dense::set<VkShaderModule>          deletedShaders;
+        VkPipelineCache                                        pipelineCache = {};
+
+        std::shared_mutex descriptorPoolMutex;
+        VkDescriptorPool       descriptorPool = {};
 
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
@@ -441,13 +411,14 @@ namespace nova
         };
         VkAllocationCallbacks* pAlloc = &alloc;
 
-        ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
-        VkPipelineCache                                        pipelineCache = {};
-
-        std::shared_mutex descriptorPoolMutex;
-        VkDescriptorPool       descriptorPool = {};
-
     public:
         ~ContextImpl();
+
+    public:
+        static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
+            VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+            VkDebugUtilsMessageTypeFlagsEXT type,
+            const VkDebugUtilsMessengerCallbackDataEXT* data,
+            void* userData);
     };
 }

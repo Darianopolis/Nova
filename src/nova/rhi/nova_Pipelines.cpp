@@ -242,8 +242,10 @@ namespace nova
 
             // Query pipeline and build missing permutations on demand
 
-            auto& pipeline = impl->pool->context->pipelines[key];
-            if (!pipeline)
+            std::unique_lock lock { impl->pool->context->pipelineMutex };
+            auto pipeline = impl->pool->context->pipelines[key];
+            lock.unlock();
+            if (!pipeline) [[unlikely]]
             {
                 auto start = std::chrono::steady_clock::now();
                 pipeline = BuildGraphicsPipeline(impl->pool->context, {
@@ -254,9 +256,35 @@ namespace nova
                 auto dur = std::chrono::steady_clock::now() - start;
                 NOVA_LOG("Compiled new shader permutation in {}",
                     std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+                lock.lock();
+                impl->pool->context->pipelines[key] = pipeline;
+                lock.unlock();
             }
 
             vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         }
+    }
+
+    void Context::CleanPipelines() const
+    {
+        std::scoped_lock lock { impl->pipelineMutex };
+
+        std::erase_if(impl->pipelines, [&](const auto& it) {
+            auto& key = it.first;
+            auto pipeline = it.second;
+
+            for (auto sm : key.shaders)
+            {
+                if (sm && impl->deletedShaders.contains(sm))
+                {
+                    vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        impl->deletedShaders.clear();
     }
 }

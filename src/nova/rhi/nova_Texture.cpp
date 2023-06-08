@@ -157,8 +157,7 @@ namespace nova
     void CommandList::CopyToTexture(Texture dst, Buffer src, u64 srcOffset) const
     {
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_PIPELINE_STAGE_2_COPY_BIT,
-            VK_ACCESS_2_TRANSFER_WRITE_BIT);
+            VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
         vkCmdCopyBufferToImage(impl->buffer, src->buffer, dst->image, impl->state->Get(dst).layout, 1, Temp(VkBufferImageCopy {
             .bufferOffset = srcOffset,
@@ -192,7 +191,7 @@ namespace nova
                     .srcStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
                     .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
                     .dstStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-                    .dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+                    .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT,
 
                     .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -244,25 +243,7 @@ namespace nova
         if (state.layout == newLayout && state.stage == newStages && state.access == newAccess)
             return;
 
-        // vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
-        //     .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        //     .imageMemoryBarrierCount = 1,
-        //     .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
-        //         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-
-        //         .srcStageMask = state.stage,
-        //         .srcAccessMask = state.access,
-        //         .dstStageMask = newStages,
-        //         .dstAccessMask = newAccess,
-
-        //         .oldLayout = state.layout,
-        //         .newLayout = newLayout,
-        //         .image = texture->image,
-        //         .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
-        //     })
-        // }));
-
-        // TODO: Temporary fix
+        // TODO: Revert temporary fix
 
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -270,10 +251,12 @@ namespace nova
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
+                // .srcStageMask = state.stage,
                 .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .srcAccessMask = 0,
+                .srcAccessMask = state.access,
+                // .dstStageMask = newStages,
                 .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                .dstAccessMask = 0,
+                .dstAccessMask = newAccess,
 
                 .oldLayout = state.layout,
                 .newLayout = newLayout,

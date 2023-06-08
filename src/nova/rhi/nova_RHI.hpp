@@ -360,6 +360,14 @@ namespace nova
             const std::string& filename, const std::string& sourceCode,
             PipelineLayout layout);
 
+        struct ShaderStageInfo
+        {
+            ShaderStage stage;
+            std::string_view filename;
+            std::string_view sourceCode;
+        };
+        Shader(Context context, PipelineLayout layout, Span<ShaderStageInfo> stage);
+
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
     };
@@ -580,39 +588,18 @@ namespace nova
 
     struct PipelineState
     {
-        Topology      topology = Topology::Triangles;
-        CullMode      cullMode = CullMode::Back;
-        FrontFace    frontFace = FrontFace::CounterClockwise;
-        PolygonMode   polyMode = PolygonMode::Fill;
-        f32          lineWidth = 1.f;
-        CompareOp depthCompare = CompareOp::Greater;
-        u32   blendEnable : 1 = false; // TODO: Blend types (per attach blend?)
-        u32    depthEnable : 1 = false;
-        u32     depthWrite : 1 = true;
+        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT
+        CullMode      cullMode = CullMode::Back;              // VK_DYNAMIC_STATE_CULL_MODE_EXT
+        FrontFace    frontFace = FrontFace::CounterClockwise; // VK_DYNAMIC_STATE_FRONT_FACE_EXT
+        PolygonMode   polyMode = PolygonMode::Fill;           // N/A
+        f32          lineWidth = 1.f;                         // VK_DYNAMIC_STATE_LINE_WIDTH
+        CompareOp depthCompare = CompareOp::Greater;          // VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
+        u32   blendEnable : 1 = false;                        // n/a
+            // TODO: Blend types (per attach blend?)
+        u32    depthEnable : 1 = false;                       // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
+        u32     depthWrite : 1 = true;                        // VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
         u32   flipVertical : 1 = false;
     };
-
-    // enum class RenderingDescriptionID : u32;
-    // enum class PipelineStateID : u32;
-    // enum class ShaderGroupID : u32;
-
-    // struct GraphicsPipeline : ImplHandle<GraphicsPipelineImpl>
-    // {
-    //     NOVA_DECLARE_HANDLE_OPERATIONS(GraphicsPipeline)
-    // };
-
-    // struct PipelineCache : ImplHandle<PipelineCacheImpl>
-    // {
-    //     NOVA_DECLARE_HANDLE_OPERATIONS(PipelineCache)
-
-    // public:
-    //     PipelineCache(Context context);
-
-    // public:
-    //     RenderingDescriptionID GetRenderingDescriptionID(const RenderingDescription& renderingDesc);
-    //     PipelineStateID GetPipelineStateID(const PipelineState& state);
-    //     ShaderGroupID GetShaderGroupID(Span<Shader> shaders);
-    // };
 
 // -----------------------------------------------------------------------------
 
@@ -674,6 +661,8 @@ namespace nova
         void PushStorageTexture(PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) const;
         void PushAccelerationStructure(PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) const;
 
+        void Dispatch(Vec3U groups) const;
+
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
         void ExecuteCommands(Span<CommandList> commands) const;
@@ -705,5 +694,7 @@ namespace nova
         void WaitForIdle() const;
 
         Queue GetQueue(QueueFlags flags) const noexcept;
+
+        void CleanPipelines() const;
     };
 }

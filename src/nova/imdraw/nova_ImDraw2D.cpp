@@ -42,6 +42,9 @@ namespace nova
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_nonuniform_qualifier : require
 
+#define BR_DECLARE(type) layout(buffer_reference, scalar) buffer type##_BR { type data[]; }
+#define BR_GET(type, va, index) type##_BR(va).data[index]
+
 struct ImRoundRect
 {
     vec4 centerColor;
@@ -58,7 +61,7 @@ struct ImRoundRect
     vec2 texCenterPos;
     vec2 texHalfExtent;
 };
-layout(buffer_reference, scalar) buffer ImRoundRectRef { ImRoundRect data[]; };
+BR_DECLARE(ImRoundRect);
 
 layout(push_constant) uniform PushConstants {
     vec2 invHalfExtent;
@@ -84,7 +87,7 @@ void main()
     uint instanceID = gl_VertexIndex / 6;
     uint vertexID = gl_VertexIndex % 6;
 
-    ImRoundRect box = ImRoundRectRef(pc.rectInstancesVA).data[instanceID];
+    ImRoundRect box = BR_GET(ImRoundRect, pc.rectInstancesVA, instanceID);
     vec2 delta = deltas[vertexID];
     outTex = delta * box.halfExtent;
     outInstanceID = instanceID;
@@ -106,7 +109,7 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    ImRoundRect box = ImRoundRectRef(pc.rectInstancesVA).data[inInstanceID];
+    ImRoundRect box = BR_GET(ImRoundRect, pc.rectInstancesVA, inInstanceID);
 
     vec2 absPos = abs(inTex);
     vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);

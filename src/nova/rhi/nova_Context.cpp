@@ -61,7 +61,10 @@ namespace nova
         instanceExtensions.push_back("VK_KHR_win32_surface");
     #endif
         if (config.debug)
+        {
             instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+        }
 
         volkInitialize();
 
@@ -77,9 +80,22 @@ namespace nova
             .pUserData = impl,
         };
 
+        std::array validationFeaturesEnabled {
+            // VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+            // VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+        };
+
+        VkValidationFeaturesEXT validationFeatures {
+            .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+            .pNext = &debugMessengerCreateInfo,
+            .enabledValidationFeatureCount = u32(validationFeaturesEnabled.size()),
+            .pEnabledValidationFeatures = validationFeaturesEnabled.data(),
+        };
+
         VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pNext = config.debug ? &debugMessengerCreateInfo : nullptr,
+            .pNext = config.debug ? &validationFeatures : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
@@ -149,8 +165,8 @@ namespace nova
             f13.maintenance4 = VK_TRUE;
 
             chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            auto& bary = chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR);
-            bary.fragmentShaderBarycentric = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
+                .fragmentShaderBarycentric = VK_TRUE;
         }
 
         if (config.shaderObjects)
