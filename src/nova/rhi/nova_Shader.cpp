@@ -127,8 +127,8 @@ namespace nova
         break;default: NOVA_THROW("Unknown stage: {}", int(impl->stage));
         }
 
-        // TODO: Shader object optional support
-        supportsShaderObjects = false;
+        if (!context->config.shaderObjects)
+            supportsShaderObjects = false;
 
         glslang::TShader glslShader { glslangStage };
         auto resource = (const TBuiltInResource*)glslang_default_resource();

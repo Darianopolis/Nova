@@ -19,11 +19,6 @@ namespace nova
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        // impl->descriptorBuffer = Buffer(context,
-        //     impl->descriptorSetLayout.GetSize(),
-        //     BufferUsage::DescriptorSamplers,
-        //     BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
-
         impl->descriptorSet = DescriptorSet(impl->descriptorSetLayout);
 
         impl->pipelineLayout = PipelineLayout(context,
@@ -179,7 +174,6 @@ void main()
             impl->textureSlotFreelist.pop_back();
         }
 
-        // impl->descriptorSetLayout.WriteSampledTexture(impl->descriptorBuffer.GetMapped(), 0, texture, sampler, index);
         impl->descriptorSet.WriteSampledTexture(0, texture, sampler, index);
 
         return ImTextureID(index);
@@ -208,9 +202,6 @@ void main()
 
         struct Pixel { u8 r, g, b, a; };
         std::vector<Pixel> pixels;
-
-        // auto font = new ImFont;
-        // NOVA_ON_SCOPE_FAILURE(&) { DestroyFont(font); };
 
         ImFont font;
         font.SetImpl(new ImFontImpl);
@@ -348,8 +339,6 @@ void main()
                 .rectInstancesVA = impl->rectBuffer.GetAddress(),
             }));
 
-        // cmd.BindDescriptorBuffers({impl->descriptorBuffer});
-        // cmd.SetDescriptorSetOffsets(impl->pipelineLayout, 0, {{0}});
         cmd.BindDescriptorSets(impl->pipelineLayout, 0, {impl->descriptorSet});
 
         for (auto& command : impl->drawCommands)
@@ -357,7 +346,6 @@ void main()
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                // cmd.BindShaders({impl->rectVertShader, impl->rectFragShader});
                 cmd.SetGraphicsState({impl->rectVertShader, impl->rectFragShader}, {
                     .blendEnable = true,
                 });

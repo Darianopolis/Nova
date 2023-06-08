@@ -42,7 +42,7 @@ namespace nova
         // Create
 
         VkPipeline pipeline;
-        VkCall(vkCreateGraphicsPipelines(context->device, nullptr,
+        VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
             1, Temp(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                 .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -52,7 +52,9 @@ namespace nova
                     .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
                     .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
                 }),
-                // .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
+                .flags = context->config.descriptorBuffers
+                    ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                    : VkPipelineCreateFlags(0),
                 .stageCount = u32(shaders.size()),
                 .pStages = stages,
                 .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
@@ -111,96 +113,91 @@ namespace nova
 
     void CommandList::SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const
     {
-        // bool shaderObject = std::all_of(
-        //     shaders.begin(), shaders.end(), [](auto& shader) { return shader->shader; });
-
-        bool shaderObject = false;
-
-        if (shaderObject)
+        if (impl->pool->context->config.shaderObjects)
         {
-            // // Viewport + Scissors
+            // Viewport + Scissors
 
-            // {
-            //     auto size = impl->state->renderingExtent;
+            {
+                auto size = impl->state->renderingExtent;
 
-            //     if (state.flipVertical)
-            //     {
-            //         vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
-            //             .y = f32(size.y),
-            //             .width = f32(size.x), .height = -f32(size.y),
-            //             .minDepth = 0.f, .maxDepth = 1.f,
-            //         }));
-            //     }
-            //     else
-            //     {
-            //         vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
-            //             .width = f32(size.x), .height = f32(size.y),
-            //             .minDepth = 0.f, .maxDepth = 1.f,
-            //         }));
-            //     }
-            //     vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
-            //         .extent = { size.x, size.y },
-            //     }));
-            // }
+                if (state.flipVertical)
+                {
+                    vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
+                        .y = f32(size.y),
+                        .width = f32(size.x), .height = -f32(size.y),
+                        .minDepth = 0.f, .maxDepth = 1.f,
+                    }));
+                }
+                else
+                {
+                    vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
+                        .width = f32(size.x), .height = f32(size.y),
+                        .minDepth = 0.f, .maxDepth = 1.f,
+                    }));
+                }
+                vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
+                    .extent = { size.x, size.y },
+                }));
+            }
 
-            // // Shaders
+            // Shaders
 
-            // BindShaders(shaders);
+            BindShaders(shaders);
 
-            // // Input Assembly
+            // Input Assembly
 
-            // vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(state.topology));
+            vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(state.topology));
 
-            // // Rasterization
+            // Rasterization
 
-            // vkCmdSetCullMode(impl->buffer, VkCullModeFlags(state.cullMode));
-            // vkCmdSetFrontFace(impl->buffer, VkFrontFace(state.frontFace));
-            // vkCmdSetPolygonModeEXT(impl->buffer, VkPolygonMode(state.polyMode));
-            // vkCmdSetLineWidth(impl->buffer, state.lineWidth);
+            vkCmdSetCullMode(impl->buffer, VkCullModeFlags(state.cullMode));
+            vkCmdSetFrontFace(impl->buffer, VkFrontFace(state.frontFace));
+            vkCmdSetPolygonModeEXT(impl->buffer, VkPolygonMode(state.polyMode));
+            vkCmdSetLineWidth(impl->buffer, state.lineWidth);
 
-            // // Depth + Stencil
+            // Depth + Stencil
 
-            // vkCmdSetDepthTestEnable(impl->buffer, state.depthEnable);
-            // if (state.depthEnable)
-            // {
-            //     vkCmdSetDepthWriteEnable(impl->buffer, state.depthWrite);
-            //     vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(state.depthCompare));
-            // }
+            vkCmdSetDepthTestEnable(impl->buffer, state.depthEnable);
+            if (state.depthEnable)
+            {
+                vkCmdSetDepthWriteEnable(impl->buffer, state.depthWrite);
+                vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(state.depthCompare));
+            }
 
-            // // Blending
+            // Blending
 
-            // {
-            //     auto colorAttachmentCount = u32(impl->state->colorAttachmentsFormats.size());
-            //     auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
-            //     auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
-            //     auto blendEquations = state.blendEnable
-            //         ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
-            //         : nullptr;
+            {
+                auto colorAttachmentCount = u32(impl->state->colorAttachmentsFormats.size());
+                auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
+                auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
+                auto blendEquations = state.blendEnable
+                    ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
+                    : nullptr;
 
-            //     for (u32 i = 0; i < colorAttachmentCount; ++i)
-            //     {
-            //         components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-            //             | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            //         blendEnableBools[i] = state.blendEnable;
+                for (u32 i = 0; i < colorAttachmentCount; ++i)
+                {
+                    components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                        | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                    blendEnableBools[i] = state.blendEnable;
 
-            //         if (state.blendEnable)
-            //         {
-            //             blendEquations[i] = {
-            //                 .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-            //                 .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-            //                 .colorBlendOp = VK_BLEND_OP_ADD,
-            //                 .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-            //                 .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-            //                 .alphaBlendOp = VK_BLEND_OP_ADD,
-            //             };
-            //         }
-            //     }
+                    if (state.blendEnable)
+                    {
+                        blendEquations[i] = {
+                            .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                            .colorBlendOp = VK_BLEND_OP_ADD,
+                            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                            .alphaBlendOp = VK_BLEND_OP_ADD,
+                        };
+                    }
+                }
 
-            //     vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
-            //     vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
-            //     if (state.blendEnable)
-            //         vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
-            // }
+                vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
+                vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
+                if (state.blendEnable)
+                    vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
+            }
         }
         else
         {

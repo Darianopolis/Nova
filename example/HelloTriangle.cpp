@@ -80,13 +80,6 @@ void main()
         cmdPool.Reset();
         auto cmd = cmdPool.Begin(state);
 
-        // cmd.SetViewport(swapchain.GetExtent(), false);
-        // cmd.SetBlendState(1, false);
-        // cmd.SetDepthState(false, false, nova::CompareOp::Greater);
-        // cmd.SetTopology(nova::Topology::Triangles);
-        // cmd.SetCullState(nova::CullMode::None, nova::FrontFace::CounterClockwise);
-        // cmd.BindShaders({vertexShader, fragmentShader});
-
         cmd.BeginRendering({swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.SetGraphicsState({vertexShader, fragmentShader}, {});

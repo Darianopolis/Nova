@@ -186,9 +186,6 @@ void TryMain()
         commandPool.Reset();
 
         auto cmd = commandPool.Begin(state);
-        // cmd.SetViewport(imDraw.GetBounds().Size(), false);
-        // cmd.SetBlendState(1, true);
-        // cmd.SetTopology(nova::Topology::Triangles);
 
         // Update window size, record primary buffer and present
 

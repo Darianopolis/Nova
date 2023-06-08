@@ -11,7 +11,6 @@ namespace nova
     struct ImGuiWrapperImpl : ImplBase
     {
         ContextImpl*            context = {};
-        VkDescriptorPool descriptorPool = {};
         VkRenderPass         renderPass = {};
         VkFramebuffer       framebuffer = {};
 

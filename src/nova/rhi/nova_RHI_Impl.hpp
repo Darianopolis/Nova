@@ -366,6 +366,8 @@ namespace nova
 
     struct ContextImpl : ImplBase
     {
+        ContextConfig config = {};
+
         VkInstance  instance = {};
         VkPhysicalDevice gpu = {};
         VkDevice      device = {};
@@ -440,8 +442,10 @@ namespace nova
         VkAllocationCallbacks* pAlloc = &alloc;
 
         ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
+        VkPipelineCache                                        pipelineCache = {};
 
-        VkDescriptorPool descriptorPool = {};
+        std::shared_mutex descriptorPoolMutex;
+        VkDescriptorPool       descriptorPool = {};
 
     public:
         ~ContextImpl();

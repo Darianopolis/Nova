@@ -364,16 +364,21 @@ namespace nova
         if (impl->pipeline)
             vkDestroyPipeline(context->device, impl->pipeline, context->pAlloc);
 
-        VkCall(vkCreateRayTracingPipelinesKHR(context->device, 0, nullptr, 1, Temp(VkRayTracingPipelineCreateInfoKHR {
-            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-            .flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
-            .stageCount = u32(stages.size()),
-            .pStages = stages.data(),
-            .groupCount = u32(groups.size()),
-            .pGroups = groups.data(),
-            .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
-            .layout = layout->layout,
-        }), context->pAlloc, &impl->pipeline));
+        VkCall(vkCreateRayTracingPipelinesKHR(context->device,
+            0, context->pipelineCache,
+            1, Temp(VkRayTracingPipelineCreateInfoKHR {
+                .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+                .flags = context->config.descriptorBuffers
+                    ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                    : VkPipelineCreateFlags(0),
+                .stageCount = u32(stages.size()),
+                .pStages = stages.data(),
+                .groupCount = u32(groups.size()),
+                .pGroups = groups.data(),
+                .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
+                .layout = layout->layout,
+            }),
+            context->pAlloc, &impl->pipeline));
 
         // Compute table parameters
 

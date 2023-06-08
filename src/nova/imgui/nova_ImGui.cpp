@@ -49,18 +49,6 @@ namespace nova
             }),
         }), context->pAlloc, &impl->renderPass));
 
-        // Create fixed sampler only descriptor pool for ImGui
-        // All application descriptor sets will be managed by descriptor buffers
-
-        constexpr u32 MaxSamplers = 65'536;
-        VkCall(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = MaxSamplers,
-            .poolSizeCount = 1,
-            .pPoolSizes = Temp(VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxSamplers }),
-        }), context->pAlloc, &impl->descriptorPool));
-
         // Create ImGui context and initialize
 
         impl->imguiCtx = ImGui::CreateContext();
@@ -76,7 +64,7 @@ namespace nova
             .Device = context->device,
             .QueueFamily = context->graphics->family,
             .Queue = context->graphics->handle,
-            .DescriptorPool = impl->descriptorPool,
+            .DescriptorPool = impl->context->descriptorPool,
             .Subpass = 0,
             .MinImageCount = framesInFlight,
             .ImageCount = framesInFlight,
@@ -102,7 +90,6 @@ namespace nova
 
         vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
         vkDestroyRenderPass(context->device, renderPass, context->pAlloc);
-        vkDestroyDescriptorPool(context->device, descriptorPool, context->pAlloc);
 
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);

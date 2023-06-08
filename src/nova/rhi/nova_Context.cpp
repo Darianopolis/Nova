@@ -50,6 +50,8 @@ namespace nova
     Context::Context(const ContextConfig& config)
         : ImplHandle(new ContextImpl)
     {
+        impl->config = config;
+
         std::vector<const char*> instanceLayers;
         if (config.debug)
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
@@ -263,6 +265,11 @@ namespace nova
                 .pPoolSizes = sizes.data(),
             }), impl->pAlloc, &impl->descriptorPool));
         }
+
+        VkCall(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+            .initialDataSize = 0,
+        }), impl->pAlloc, &impl->pipelineCache));
     }
 
     ContextImpl::~ContextImpl()
@@ -271,6 +278,8 @@ namespace nova
             vkDestroyPipeline(device, pipeline, pAlloc);
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
+
+        vkDestroyPipelineCache(device, pipelineCache, pAlloc);
 
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);

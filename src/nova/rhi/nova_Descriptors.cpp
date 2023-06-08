@@ -37,9 +37,9 @@ namespace nova
                 .bindingCount = u32(bindings.size()),
                 .pBindingFlags = flags,
             }),
-            .flags =
-                // VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                0
+            .flags = (context->config.descriptorBuffers
+                    ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                    : VkDescriptorBindingFlags(0))
                 | (pushDescriptor
                     ? VkDescriptorBindingFlags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR)
                     : VkDescriptorBindingFlags(0)),
@@ -47,11 +47,14 @@ namespace nova
             .pBindings = vkBindings,
         }), context->pAlloc, &impl->layout));
 
-        // vkGetDescriptorSetLayoutSizeEXT(context->device, impl->layout, &impl->size);
+        if (context->config.descriptorBuffers)
+        {
+            vkGetDescriptorSetLayoutSizeEXT(context->device, impl->layout, &impl->size);
 
-        // impl->offsets.resize(bindings.size());
-        // for (u32 i = 0; i < bindings.size(); ++i)
-        //     vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, impl->layout, i, &impl->offsets[i]);
+            impl->offsets.resize(bindings.size());
+            for (u32 i = 0; i < bindings.size(); ++i)
+                vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, impl->layout, i, &impl->offsets[i]);
+        }
     }
 
     DescriptorSetLayoutImpl::~DescriptorSetLayoutImpl()
@@ -151,6 +154,7 @@ namespace nova
 
         impl->layout = layout.GetImpl();
 
+        std::scoped_lock lock { layout->context->descriptorPoolMutex };
         vkAllocateDescriptorSets(layout->context->device, Temp(VkDescriptorSetAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .descriptorPool = layout->context->descriptorPool,
@@ -161,7 +165,11 @@ namespace nova
 
     DescriptorSetImpl::~DescriptorSetImpl()
     {
-        vkFreeDescriptorSets(layout->context->device, layout->context->descriptorPool, 1, &set);
+        if (set)
+        {
+            std::scoped_lock lock { layout->context->descriptorPoolMutex };
+            vkFreeDescriptorSets(layout->context->device, layout->context->descriptorPool, 1, &set);
+        }
     }
 
     void CommandList::BindDescriptorSets(PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) const
