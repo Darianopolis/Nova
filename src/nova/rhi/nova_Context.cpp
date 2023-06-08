@@ -265,8 +265,9 @@ namespace nova
         }), &impl->vma));
 
         {
-            // TODO: Profile guided
-            //   Or just drop entirely once descriptor buffers have better support
+            // Already rely on a bottomless descriptor pool, so not going to pretend to pass some bogus sizes here.
+            // TODO: Check what platforms have bottomless implementations
+            // TODO: Runtime profile-based amortized constant pool reallocation?
 
             constexpr u32 MaxDescriptorPerType = 65'536;
             constexpr auto sizes = std::array {
@@ -307,6 +308,8 @@ namespace nova
         for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
+
+        for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
 

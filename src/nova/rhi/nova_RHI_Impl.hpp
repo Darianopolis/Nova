@@ -340,9 +340,17 @@ namespace nova
 
     struct GraphicsPipelineLibrarySetKey
     {
-        std::array<VkPipeline, 4> libraries;
+        std::array<VkPipeline, 4> stages;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineLibrarySetKey)
+    };
+
+    struct ComputePipelineKey
+    {
+        VkShaderModule shader;
+        VkPipelineLayout layout;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(ComputePipelineKey)
     };
 }
 
@@ -352,6 +360,7 @@ NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
+NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
 
 // -----------------------------------------------------------------------------
 
@@ -397,6 +406,8 @@ namespace nova
 
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
+    public: // Device properties
+
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
         };
@@ -413,8 +424,12 @@ namespace nova
 
         Queue graphics = {};
 
+    public: // Pipeline cache
+
         std::shared_mutex                                              pipelineMutex;
         ankerl::unordered_dense::map<GraphicsPipelineStateKey, VkPipeline> pipelines;
+
+        bool usePipelineLibraries = true;
 
         ankerl::unordered_dense::map<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
         ankerl::unordered_dense::map<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
@@ -422,11 +437,18 @@ namespace nova
         ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
         ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
 
+        ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline> computePipelines;
+
         ankerl::unordered_dense::set<VkShaderModule>          deletedShaders;
+        ankerl::unordered_dense::set<VkPipeline>            deletedPipelines;
         VkPipelineCache                                        pipelineCache = {};
+
+    public: // Descriptor Pool
 
         std::shared_mutex descriptorPoolMutex;
         VkDescriptorPool       descriptorPool = {};
+
+    public: // Allocation callbacks
 
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {

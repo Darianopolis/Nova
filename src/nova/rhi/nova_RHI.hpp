@@ -13,6 +13,7 @@ namespace nova
     inline std::atomic<u64> adapting1 = 0;
     inline std::atomic<u64> adapting2 = 0;
     inline std::atomic<u64> presenting = 0;
+    inline std::atomic<u64> TimeSettingGraphicsState = 0;
 
     inline
     void VkCall(VkResult res)
@@ -642,6 +643,7 @@ namespace nova
         void SetDepthState(bool enable, bool write, CompareOp compareOp) const;
 
         void SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const;
+        void SetComputeState(Shader shader) const;
 
         void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false) const;
         void EndRendering() const;

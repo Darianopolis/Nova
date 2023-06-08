@@ -77,6 +77,9 @@ namespace nova
                     }),
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics vertex input    stage permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
 
             context->vertexInputStages[key] = pipeline;
         }
@@ -141,7 +144,7 @@ namespace nova
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
-            NOVA_LOG("Compiled new graphics vertex input stage permutation in {}",
+            NOVA_LOG("Compiled new graphics pre-raster      stage permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
 
             context->preRasterStages[key] = pipeline;
@@ -311,7 +314,7 @@ namespace nova
         VkPipelineLayout    layout)
     {
         auto key = GraphicsPipelineLibrarySetKey {};
-        std::memcpy(key.libraries.data(), libraries.data(), libraries.size() * sizeof(VkPipeline));
+        std::memcpy(key.stages.data(), libraries.data(), libraries.size() * sizeof(VkPipeline));
 
         auto pipeline = context->graphicsPipelineSets[key];
 
@@ -330,7 +333,7 @@ namespace nova
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
-            NOVA_LOG("Compiled new graphics shader set permutation in {}",
+            NOVA_LOG("Compiled new graphics shader            set permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
 
             context->graphicsPipelineSets[key] = pipeline;
@@ -471,6 +474,8 @@ namespace nova
 
     void CommandList::SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const
     {
+        auto start = std::chrono::steady_clock::now();
+
         // Viewport + Scissors
 
         {
@@ -578,8 +583,7 @@ namespace nova
             auto context = impl->pool->context.GetImpl();
 
             VkPipeline pipeline;
-            constexpr bool UseLibraries = true;
-            if (UseLibraries)
+            if (context->usePipelineLibraries)
             {
                 auto vi = GetGraphicsVertexInputStage(context, state);
                 auto pr = GetGraphicsPreRasterizationStage(context, preRasterStageShaders, state, layout);
@@ -603,29 +607,104 @@ namespace nova
 
             vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         }
+
+        TimeSettingGraphicsState += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
+    }
+
+// -----------------------------------------------------------------------------
+//                             Compute shaders
+// -----------------------------------------------------------------------------
+
+    void CommandList::SetComputeState(Shader shader) const
+    {
+        auto context = impl->pool->context.GetImpl();
+
+        auto key = ComputePipelineKey {};
+        key.shader = shader->module;
+        key.layout = shader->layout->layout;
+
+        auto pipeline = context->computePipelines[key];
+        if (!pipeline)
+        {
+            VkCall(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                .stage = shader.GetStageInfo(),
+                .layout = key.layout,
+                .basePipelineIndex = -1,
+            }), context->pAlloc, &pipeline));
+
+            context->computePipelines[key] = pipeline;
+        }
+
+        vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     }
 
     void Context::CleanPipelines() const
     {
-        // TODO
+        std::scoped_lock lock { impl->pipelineMutex };
 
-        // std::scoped_lock lock { impl->pipelineMutex };
+        auto eraseIfDeleted = [&](VkShaderModule shader, VkPipeline pipeline) {
+            if (shader && impl->deletedShaders.contains(shader))
+            {
+                vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+                impl->deletedPipelines.emplace(pipeline);
+                return true;
+            }
 
-        // std::erase_if(impl->pipelines, [&](const auto& it) {
-        //     auto& key = it.first;
-        //     auto pipeline = it.second;
+            return false;
+        };
 
-        //     for (auto sm : key.shaders)
-        //     {
-        //         if (sm && impl->deletedShaders.contains(sm))
-        //         {
-        //             vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        //             return true;
-        //         }
-        //     }
-        //     return false;
-        // });
+        // Clear traditional pipelines
 
-        // impl->deletedShaders.clear();
+        std::erase_if(impl->pipelines, [&](const auto& it) {
+            for (auto sm : it.first.shaders)
+            {
+                if (eraseIfDeleted(sm, it.second))
+                    return true;
+            }
+
+            return false;
+        });
+
+        // Clear compute pipelines
+
+        std::erase_if(impl->computePipelines, [&](const auto& it) {
+            return eraseIfDeleted(it.first.shader, it.second);
+        });
+
+        // Clear pipelines from pre-raster and vertex fragment shader stages that have dead shader links
+
+        std::erase_if(impl->preRasterStages, [&](const auto& it) {
+            for (auto sm : it.first.shaders)
+            {
+                if (eraseIfDeleted(sm, it.second))
+                    return true;
+            }
+
+            return false;
+        });
+
+        std::erase_if(impl->fragmentShaderStages, [&](const auto& it) {
+            return eraseIfDeleted(it.first.shader, it.second);
+        });
+
+        impl->deletedShaders.clear();
+
+        // Clear pipeline library permutations with deleted stages
+
+        std::erase_if(impl->graphicsPipelineSets, [&](auto it) {
+            for (auto library : it.first.stages)
+            {
+                if (library && impl->deletedPipelines.contains(library))
+                {
+                    vkDestroyPipeline(impl->device, it.second, impl->pAlloc);
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        impl->deletedPipelines.clear();
     }
 }

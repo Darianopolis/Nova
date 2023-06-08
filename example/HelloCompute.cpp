@@ -36,7 +36,6 @@ int main()
     auto context = nova::Context({
         .debug = true,
         .rayTracing = true,
-        .shaderObjects = true,
     });
 
     // Create surface and swapchain for GLFW window
@@ -61,9 +60,7 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::DescriptorSetLayout(context, {
-        {nova::DescriptorType::StorageTexture},
-    }, true);
+    auto descLayout = nova::DescriptorSetLayout(context, {{nova::DescriptorType::StorageTexture}}, true);
 
     // Create a pipeline layout for the above set layout
 
@@ -79,7 +76,7 @@ int main()
 
 layout(set = 0, binding = 0, rgba8) uniform image2D outImage;
 
-layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
     ivec2 pos = ivec2(gl_WorkGroupID.xy);
@@ -120,8 +117,8 @@ void main()
 
         // Trace rays
 
-        cmd.BindShaders({computeShader});
-        cmd.Dispatch(Vec3U(swapchain.GetExtent() / Vec2U(32), 1));
+        cmd.SetComputeState({computeShader});
+        cmd.Dispatch(Vec3U(swapchain.GetExtent(), 1));
 
         // Submit and present work
 
