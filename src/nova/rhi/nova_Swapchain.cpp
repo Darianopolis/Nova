@@ -9,7 +9,9 @@ namespace nova
     {
         impl->context = context.GetImpl();
         impl->surface = surface;
-        impl->usage = VkImageUsageFlags(_usage);
+        impl->usage = VkImageUsageFlags(_usage)
+            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+            | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         impl->presentMode = VkPresentModeKHR(_presentMode);
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
@@ -228,6 +230,7 @@ namespace nova
                         texture.SetImpl(new TextureImpl);
                         texture->context = context;
                         texture->image = vkImages[i];
+                        texture->usage = swapchain->usage;
 
                         VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

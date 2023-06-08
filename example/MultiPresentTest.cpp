@@ -17,11 +17,10 @@ using namespace nova::types;
 
 int main()
 {
-    auto context = nova::Context({ .debug = false });
+    auto context = nova::Context({ .debug = true });
 
     auto presentMode = nova::PresentMode::Mailbox;
-    auto swapchainUsage = nova::TextureUsage::TransferDst
-        | nova::TextureUsage::ColorAttach
+    auto swapchainUsage = nova::TextureUsage::ColorAttach
         | nova::TextureUsage::Storage;
 
     glfwInit();

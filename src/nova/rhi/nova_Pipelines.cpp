@@ -3,168 +3,526 @@
 namespace nova
 {
     static
-    VkPipeline BuildGraphicsPipeline(
+    constexpr std::array DynamicStates {
+        VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
+        VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT,
+        VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
+        VK_DYNAMIC_STATE_CULL_MODE,
+        VK_DYNAMIC_STATE_FRONT_FACE,
+        VK_DYNAMIC_STATE_LINE_WIDTH,
+        VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+        VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+        VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+    };
+
+    static
+    VkPipeline GetGraphicsVertexInputStage(
+        ContextImpl* context,
+        const PipelineState& state)
+    {
+        auto key = GraphicsPipelineVertexInputStageKey {};
+
+        // Set topology class
+        switch (VkPrimitiveTopology(state.topology))
+        {
+        break;case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+            key.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+
+        break;case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+                case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+                case VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
+                case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY:
+            key.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+        break;case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
+                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
+                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
+                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY:
+                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY:
+            key.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        break;case VK_PRIMITIVE_TOPOLOGY_PATCH_LIST:
+            key.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+        };
+
+        auto pipeline = context->vertexInputStages[key];
+
+        if (!pipeline)
+        {
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+                        .pNext = Temp(VkPipelineRenderingCreateInfo {
+                            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        }),
+                        .flags = VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT,
+                    }),
+                    .flags = context->config.descriptorBuffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
+                    .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                    }),
+                    .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                        .topology = VkPrimitiveTopology(state.topology),
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+
+            context->vertexInputStages[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    static
+    VkPipeline GetGraphicsPreRasterizationStage(
+        ContextImpl*       context,
+        Span<Shader>       shaders,
+        const PipelineState& state,
+        VkPipelineLayout    layout)
+    {
+        auto key = GraphicsPipelinePreRasterizationStageKey {};
+
+        // Set required fixed state
+        key.polyMode = VkPolygonMode(state.polyMode);
+
+        // Set shaders and layout
+        for (u32 i = 0; i < shaders.size(); ++i)
+            key.shaders[i] = shaders[i]->module;
+        key.layout = shaders[0]->layout->layout;
+
+        auto pipeline = context->preRasterStages[key];
+
+        if (!pipeline)
+        {
+            auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
+            for (u32 i = 0; i < shaders.size(); ++i)
+                stages[i] = shaders[i].GetStageInfo();
+
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+                            .flags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT,
+                        }),
+                    }),
+                    .flags = context->config.descriptorBuffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
+                    .stageCount = u32(shaders.size()),
+                    .pStages = stages,
+                    .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                    }),
+                    .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                        .polygonMode = VkPolygonMode(state.polyMode),
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .layout = layout,
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics vertex input stage permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->preRasterStages[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    static
+    VkPipeline GetGraphicsFragmentShaderStage(
+        ContextImpl*       context,
+        Shader              shader,
+        const PipelineState& state,
+        VkPipelineLayout    layout)
+    {
+        (void)state;
+
+        auto key = GraphicsPipelineFragmentShaderStageKey {};
+        key.shader = shader->module;
+        key.layout = layout;
+
+        auto pipeline = context->fragmentShaderStages[key];
+
+        if (!pipeline)
+        {
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+                            .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT,
+                        }),
+                    }),
+                    .flags = context->config.descriptorBuffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
+                    .stageCount = 1,
+                    .pStages = Temp(shader.GetStageInfo()),
+                    .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    }),
+                    .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                        .depthTestEnable = true,
+                        .minDepthBounds = 0.f,
+                        .maxDepthBounds = 1.f,
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .layout = layout,
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics fragment shader stage permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->fragmentShaderStages[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    static
+    VkPipeline GetGraphicsFragmentOutputStage(
+        ContextImpl*       context,
+        RenderingDescription renderingDesc,
+        const PipelineState& state)
+    {
+        auto key = GraphicsPipelineFragmentOutputStageKey {};
+
+        // Set rendering info
+        std::memcpy(key.colorAttachments.data(),
+            renderingDesc.colorFormats.data(),
+            renderingDesc.colorFormats.size() * sizeof(VkFormat));
+        key.depthAttachment = VkFormat(renderingDesc.depthFormat);
+        key.stencilAttachment = VkFormat(renderingDesc.stencilFormat);
+
+        key.blendEnable = state.blendEnable;
+
+        auto pipeline = context->fragmentOutputStages[key];
+
+        if (!pipeline)
+        {
+
+            // Blend states
+
+            auto attachBlendStates = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, renderingDesc.colorFormats.size());
+
+            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
+            {
+                auto& attachState = attachBlendStates[i];
+
+                attachState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                    | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                attachState.blendEnable = state.blendEnable;
+
+                if (state.blendEnable)
+                {
+                    attachState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                    attachState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    attachState.colorBlendOp = VK_BLEND_OP_ADD;
+                    attachState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                    attachState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    attachState.alphaBlendOp = VK_BLEND_OP_ADD;
+                }
+            }
+
+            // Create
+
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
+                            .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT,
+                        }),
+                        .colorAttachmentCount = u32(renderingDesc.colorFormats.size()),
+                        .pColorAttachmentFormats = reinterpret_cast<const VkFormat*>(renderingDesc.colorFormats.data()),
+                        .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
+                        .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
+                    }),
+                    .flags = context->config.descriptorBuffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
+                    .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    }),
+                    .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                        .logicOpEnable = VK_FALSE,
+                        .logicOp = VK_LOGIC_OP_COPY,
+                        .attachmentCount = u32(renderingDesc.colorFormats.size()),
+                        .pAttachments = attachBlendStates,
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics fragment output stage permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->fragmentOutputStages[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    static
+    VkPipeline GetGraphicsPipelineLibrarySet(
+        ContextImpl*       context,
+        Span<VkPipeline> libraries,
+        VkPipelineLayout    layout)
+    {
+        auto key = GraphicsPipelineLibrarySetKey {};
+        std::memcpy(key.libraries.data(), libraries.data(), libraries.size() * sizeof(VkPipeline));
+
+        auto pipeline = context->graphicsPipelineSets[key];
+
+        if (!pipeline)
+        {
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineLibraryCreateInfoKHR {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR,
+                        .libraryCount = u32(libraries.size()),
+                        .pLibraries = libraries.data(),
+                    }),
+                    .layout = layout,
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics shader set permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->graphicsPipelineSets[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+    static
+    VkPipeline GetGraphicsPipeline(
         ContextImpl* context,
         RenderingDescription renderingDesc,
         const PipelineState&         state,
         Span<Shader>               shaders,
         VkPipelineLayout            layout)
     {
-        // Shaders
+        GraphicsPipelineStateKey key = {};
 
-        auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
+        // Set rendering info
+        std::memcpy(key.colorAttachments.data(),
+            renderingDesc.colorFormats.data(),
+            renderingDesc.colorFormats.size() * sizeof(VkFormat));
+        key.depthAttachment = VkFormat(renderingDesc.depthFormat);
+        key.stencilAttachment = VkFormat(renderingDesc.stencilFormat);
+
+        // Set required fixed state
+        key.polyMode = state.polyMode;
+        key.blendEnable = state.blendEnable;
+
+        // Set shaders and layout
         for (u32 i = 0; i < shaders.size(); ++i)
-            stages[i] = shaders[i].GetStageInfo();
+            key.shaders[i] = shaders[i]->module;
+        key.layout = shaders[0]->layout->layout;
 
-        // Blend states
+        // Query pipeline and build missing permutations on demand
 
-        auto attachBlendStates = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, renderingDesc.colorFormats.size());
+        auto pipeline = context->pipelines[key];
 
-        for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
+        if (!pipeline)
         {
-            auto& attachState = attachBlendStates[i];
+            // Shaders
 
-            attachState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-                | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            attachState.blendEnable = state.blendEnable;
+            auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
+            for (u32 i = 0; i < shaders.size(); ++i)
+                stages[i] = shaders[i].GetStageInfo();
 
-            if (state.blendEnable)
+            // Blend states
+
+            auto attachBlendStates = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, renderingDesc.colorFormats.size());
+
+            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
             {
-                attachState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-                attachState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-                attachState.colorBlendOp = VK_BLEND_OP_ADD;
-                attachState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-                attachState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-                attachState.alphaBlendOp = VK_BLEND_OP_ADD;
+                auto& attachState = attachBlendStates[i];
+
+                attachState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                    | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                attachState.blendEnable = state.blendEnable;
+
+                if (state.blendEnable)
+                {
+                    attachState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                    attachState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    attachState.colorBlendOp = VK_BLEND_OP_ADD;
+                    attachState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                    attachState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                    attachState.alphaBlendOp = VK_BLEND_OP_ADD;
+                }
             }
+
+            // Create
+
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        .colorAttachmentCount = u32(renderingDesc.colorFormats.size()),
+                        .pColorAttachmentFormats = reinterpret_cast<const VkFormat*>(renderingDesc.colorFormats.data()),
+                        .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
+                        .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
+                    }),
+                    .flags = context->config.descriptorBuffers
+                        ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                        : VkPipelineCreateFlags(0),
+                    .stageCount = u32(shaders.size()),
+                    .pStages = stages,
+                    .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                    }),
+                    .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                        .topology = VkPrimitiveTopology(state.topology),
+                    }),
+                    .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                    }),
+                    .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                        .polygonMode = VkPolygonMode(state.polyMode),
+                    }),
+                    .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    }),
+                    .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                        .depthTestEnable = true,
+                        .minDepthBounds = 0.f,
+                        .maxDepthBounds = 1.f,
+                    }),
+                    .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                        .logicOpEnable = VK_FALSE,
+                        .logicOp = VK_LOGIC_OP_COPY,
+                        .attachmentCount = u32(renderingDesc.colorFormats.size()),
+                        .pAttachments = attachBlendStates,
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .layout = layout,
+                    .renderPass = nullptr,
+                    .subpass = 0,
+                    .basePipelineIndex = -1,
+                }), context->pAlloc, &pipeline));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new graphics pipeline permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->pipelines[key] = pipeline;
         }
-
-        // Create
-
-        VkPipeline pipeline;
-        VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineRenderingCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                    .colorAttachmentCount = u32(renderingDesc.colorFormats.size()),
-                    .pColorAttachmentFormats = reinterpret_cast<const VkFormat*>(renderingDesc.colorFormats.data()),
-                    .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
-                    .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
-                }),
-                .flags = context->config.descriptorBuffers
-                    ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                    : VkPipelineCreateFlags(0),
-                .stageCount = u32(shaders.size()),
-                .pStages = stages,
-                .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-                }),
-                .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-                    .topology = VkPrimitiveTopology(state.topology),
-                }),
-                .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-                    .viewportCount = 1,
-                    .scissorCount = 1,
-                }),
-                .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                    .polygonMode = VkPolygonMode(state.polyMode),
-                    .cullMode = VkCullModeFlags(state.cullMode),
-                    .frontFace = VkFrontFace(state.frontFace),
-                }),
-                .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-                    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-                }),
-                .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-                    .depthTestEnable = state.depthEnable,
-                    .depthWriteEnable = state.depthWrite,
-                    .depthCompareOp = VkCompareOp(state.depthCompare),
-                    .minDepthBounds = 0.f,
-                    .maxDepthBounds = 1.f,
-                }),
-                .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-                    .logicOpEnable = VK_FALSE,
-                    .logicOp = VK_LOGIC_OP_COPY,
-                    .attachmentCount = u32(renderingDesc.colorFormats.size()),
-                    .pAttachments = attachBlendStates,
-                }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-                    .dynamicStateCount = 2,
-                    .pDynamicStates = std::array {
-                        VK_DYNAMIC_STATE_VIEWPORT,
-                        VK_DYNAMIC_STATE_SCISSOR,
-                    }.data(),
-                }),
-                .layout = layout,
-                .renderPass = nullptr, // TODO: Non-dynamic rendering
-                .subpass = 0,
-                .basePipelineIndex = -1,
-            }), context->pAlloc, &pipeline));
 
         return pipeline;
     }
 
     void CommandList::SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const
     {
-        if (impl->pool->context->config.shaderObjects)
+        // Viewport + Scissors
+
         {
-            // Viewport + Scissors
+            auto size = impl->state->renderingExtent;
 
+            if (state.flipVertical)
             {
-                auto size = impl->state->renderingExtent;
-
-                if (state.flipVertical)
-                {
-                    vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
-                        .y = f32(size.y),
-                        .width = f32(size.x), .height = -f32(size.y),
-                        .minDepth = 0.f, .maxDepth = 1.f,
-                    }));
-                }
-                else
-                {
-                    vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
-                        .width = f32(size.x), .height = f32(size.y),
-                        .minDepth = 0.f, .maxDepth = 1.f,
-                    }));
-                }
-                vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
-                    .extent = { size.x, size.y },
+                vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
+                    .y = f32(size.y),
+                    .width = f32(size.x), .height = -f32(size.y),
+                    .minDepth = 0.f, .maxDepth = 1.f,
                 }));
             }
+            else
+            {
+                vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
+                    .width = f32(size.x), .height = f32(size.y),
+                    .minDepth = 0.f, .maxDepth = 1.f,
+                }));
+            }
+            vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
+                .extent = { size.x, size.y },
+            }));
+        }
 
-            // Shaders
+        // Input Assembly
+
+        vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(state.topology));
+
+        // Pre-rasterization (dynamic 2)
+
+        vkCmdSetCullMode(impl->buffer, VkCullModeFlags(state.cullMode));
+        vkCmdSetFrontFace(impl->buffer, VkFrontFace(state.frontFace));
+        vkCmdSetLineWidth(impl->buffer, state.lineWidth);
+
+        // Depth + Stencil
+
+        vkCmdSetDepthTestEnable(impl->buffer, state.depthEnable);
+        vkCmdSetDepthWriteEnable(impl->buffer, state.depthWrite);
+        vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(state.depthCompare));
+
+        if (impl->pool->context->config.shaderObjects)
+        {
+            // Vertex input
 
             BindShaders(shaders);
 
-            // Input Assembly
+            // Pre-rasterization (dynamic 3)
 
-            vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(state.topology));
-
-            // Rasterization
-
-            vkCmdSetCullMode(impl->buffer, VkCullModeFlags(state.cullMode));
-            vkCmdSetFrontFace(impl->buffer, VkFrontFace(state.frontFace));
             vkCmdSetPolygonModeEXT(impl->buffer, VkPolygonMode(state.polyMode));
-            vkCmdSetLineWidth(impl->buffer, state.lineWidth);
 
-            // Depth + Stencil
-
-            vkCmdSetDepthTestEnable(impl->buffer, state.depthEnable);
-            if (state.depthEnable)
-            {
-                vkCmdSetDepthWriteEnable(impl->buffer, state.depthWrite);
-                vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(state.depthCompare));
-            }
-
-            // Blending
+            // Fragment Output
 
             {
                 auto colorAttachmentCount = u32(impl->state->colorAttachmentsFormats.size());
@@ -201,65 +559,46 @@ namespace nova
         }
         else
         {
-            // Viewport + Scissors
+            // Separate components
 
+            Shader fragmentShader;
+            std::vector<Shader> preRasterStageShaders;
+            for (auto& shader : shaders)
             {
-                auto size = impl->state->renderingExtent;
-
-                if (state.flipVertical)
-                {
-                    vkCmdSetViewport(impl->buffer, 0, 1, nova::Temp(VkViewport {
-                        .y = f32(size.y),
-                        .width = f32(size.x), .height = -f32(size.y),
-                        .minDepth = 0.f, .maxDepth = 1.f,
-                    }));
-                }
+                if (shader->stage == VK_SHADER_STAGE_FRAGMENT_BIT)
+                    fragmentShader = shader;
                 else
-                {
-                    vkCmdSetViewport(impl->buffer, 0, 1, nova::Temp(VkViewport {
-                        .width = f32(size.x), .height = f32(size.y),
-                        .minDepth = 0.f, .maxDepth = 1.f,
-                    }));
-                }
-                vkCmdSetScissor(impl->buffer, 0, 1, nova::Temp(VkRect2D {
-                    .extent = { size.x, size.y },
-                }));
+                    preRasterStageShaders.emplace_back(shader);
             }
 
-            // Build pipeline hash key
+            auto layout = shaders[0]->layout->layout;
 
-            PipelineStateKey key = {};
-            std::memcpy(key.colorAttachments.data(),
-                impl->state->colorAttachmentsFormats.data(),
-                impl->state->colorAttachmentsFormats.size() * sizeof(VkFormat));
-            key.depthAttachment = VkFormat(impl->state->depthAttachmentFormat);
-            key.stencilAttachment = VkFormat(impl->state->stencilAttachmentFormat);
-            key.state = state;
-            key.state.flipVertical = false;
-            for (u32 i = 0; i < shaders.size(); ++i)
-                key.shaders[i] = shaders[i]->module;
-            key.layout = shaders[0]->layout->layout;
+            // Request pipeline library stages
 
-            // Query pipeline and build missing permutations on demand
+            auto context = impl->pool->context.GetImpl();
 
-            std::unique_lock lock { impl->pool->context->pipelineMutex };
-            auto pipeline = impl->pool->context->pipelines[key];
-            lock.unlock();
-            if (!pipeline) [[unlikely]]
+            VkPipeline pipeline;
+            constexpr bool UseLibraries = true;
+            if (UseLibraries)
             {
-                auto start = std::chrono::steady_clock::now();
-                pipeline = BuildGraphicsPipeline(impl->pool->context, {
-                    .colorFormats = impl->state->colorAttachmentsFormats,
-                    .depthFormat = impl->state->depthAttachmentFormat,
-                    .stencilFormat = impl->state->stencilAttachmentFormat,
-                }, state, shaders, key.layout);
-                auto dur = std::chrono::steady_clock::now() - start;
-                NOVA_LOG("Compiled new shader permutation in {}",
-                    std::chrono::duration_cast<std::chrono::microseconds>(dur));
+                auto vi = GetGraphicsVertexInputStage(context, state);
+                auto pr = GetGraphicsPreRasterizationStage(context, preRasterStageShaders, state, layout);
+                auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader, state, layout);
+                auto fo = GetGraphicsFragmentOutputStage(context, {
+                        .colorFormats = impl->state->colorAttachmentsFormats,
+                        .depthFormat = impl->state->depthAttachmentFormat,
+                        .stencilFormat = impl->state->stencilAttachmentFormat,
+                    }, state);
 
-                lock.lock();
-                impl->pool->context->pipelines[key] = pipeline;
-                lock.unlock();
+                pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo }, layout);
+            }
+            else
+            {
+                pipeline = GetGraphicsPipeline(context, {
+                        .colorFormats = impl->state->colorAttachmentsFormats,
+                        .depthFormat = impl->state->depthAttachmentFormat,
+                        .stencilFormat = impl->state->stencilAttachmentFormat,
+                    }, state, shaders, layout);
             }
 
             vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -268,23 +607,25 @@ namespace nova
 
     void Context::CleanPipelines() const
     {
-        std::scoped_lock lock { impl->pipelineMutex };
+        // TODO
 
-        std::erase_if(impl->pipelines, [&](const auto& it) {
-            auto& key = it.first;
-            auto pipeline = it.second;
+        // std::scoped_lock lock { impl->pipelineMutex };
 
-            for (auto sm : key.shaders)
-            {
-                if (sm && impl->deletedShaders.contains(sm))
-                {
-                    vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-                    return true;
-                }
-            }
-            return false;
-        });
+        // std::erase_if(impl->pipelines, [&](const auto& it) {
+        //     auto& key = it.first;
+        //     auto pipeline = it.second;
 
-        impl->deletedShaders.clear();
+        //     for (auto sm : key.shaders)
+        //     {
+        //         if (sm && impl->deletedShaders.contains(sm))
+        //         {
+        //             vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        //             return true;
+        //         }
+        //     }
+        //     return false;
+        // });
+
+        // impl->deletedShaders.clear();
     }
 }

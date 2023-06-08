@@ -167,6 +167,17 @@ namespace nova
             chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
             chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
+
+            chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT)
+                .extendedDynamicState = VK_TRUE;
+
+            chain.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT)
+                .extendedDynamicState2 = VK_TRUE;
+
+            chain.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+            chain.Extension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
+                .graphicsPipelineLibrary = VK_TRUE;
         }
 
         if (config.shaderObjects)
@@ -186,7 +197,6 @@ namespace nova
         if (config.rayTracing)
         {
             chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-            chain.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
             chain.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
             chain.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
             chain.Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR)
@@ -290,8 +300,13 @@ namespace nova
 
     ContextImpl::~ContextImpl()
     {
-        for (auto&[key, pipeline] : pipelines)
-            vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : pipelines)            vkDestroyPipeline(device, pipeline, pAlloc);
+
+        for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
 

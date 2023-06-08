@@ -273,34 +273,85 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct PipelineStateKey
+#define NOVA_DEFINE_WYHASH_EQUALITY(type)                    \
+    bool operator==(const type& other) const                 \
+    {                                                        \
+        return std::memcmp(this, &other, sizeof(type)) == 0; \
+    }
+
+#define NOVA_DEFINE_WYHASH_FOR(type)                          \
+    template<> struct ankerl::unordered_dense::hash<type> {   \
+        using is_avalanching = void;                          \
+        uint64_t operator()(const type& key) const noexcept { \
+            return detail::wyhash::hash(&key, sizeof(key));   \
+        }                                                     \
+    }
+
+    struct GraphicsPipelineStateKey
     {
         std::array<VkFormat, 8> colorAttachments;
         VkFormat                 depthAttachment;
         VkFormat               stencilAttachment;
-        u32                              subpass;
 
-        PipelineState state;
+        Topology    topology;
+        PolygonMode polyMode;
+        u32  blendEnable : 1;
 
         std::array<VkShaderModule, 5> shaders;
         VkPipelineLayout               layout;
 
-        bool operator==(const PipelineStateKey& other) const
-        {
-            return std::memcmp(this, &other, sizeof(PipelineStateKey)) == 0;
-        }
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineStateKey)
+    };
+
+    struct GraphicsPipelineVertexInputStageKey
+    {
+        VkPrimitiveTopology topology;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineVertexInputStageKey)
+    };
+
+    struct GraphicsPipelinePreRasterizationStageKey
+    {
+        std::array<VkShaderModule, 4> shaders;
+        VkPipelineLayout               layout;
+        VkPolygonMode                polyMode;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
+    };
+
+    struct GraphicsPipelineFragmentShaderStageKey
+    {
+        VkShaderModule   shader;
+        VkPipelineLayout layout;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentShaderStageKey)
+    };
+
+    struct GraphicsPipelineFragmentOutputStageKey
+    {
+        std::array<VkFormat, 8> colorAttachments;
+        VkFormat                 depthAttachment;
+        VkFormat               stencilAttachment;
+
+        VkBool32 blendEnable;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentOutputStageKey)
+    };
+
+    struct GraphicsPipelineLibrarySetKey
+    {
+        std::array<VkPipeline, 4> libraries;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineLibrarySetKey)
     };
 }
 
-template<>
-struct ankerl::unordered_dense::hash<nova::PipelineStateKey> {
-    using is_avalanching = void;
-
-    uint64_t operator()(const nova::PipelineStateKey& key) const noexcept
-    {
-        return detail::wyhash::hash(&key, sizeof(key));
-    }
-};
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineStateKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineVertexInputStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
 
 // -----------------------------------------------------------------------------
 
@@ -362,8 +413,15 @@ namespace nova
 
         Queue graphics = {};
 
-        std::shared_mutex                                      pipelineMutex;
-        ankerl::unordered_dense::map<PipelineStateKey, VkPipeline> pipelines;
+        std::shared_mutex                                              pipelineMutex;
+        ankerl::unordered_dense::map<GraphicsPipelineStateKey, VkPipeline> pipelines;
+
+        ankerl::unordered_dense::map<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
+        ankerl::unordered_dense::map<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
+        ankerl::unordered_dense::map<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
+        ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
+        ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
+
         ankerl::unordered_dense::set<VkShaderModule>          deletedShaders;
         VkPipelineCache                                        pipelineCache = {};
 

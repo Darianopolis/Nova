@@ -588,14 +588,13 @@ namespace nova
 
     struct PipelineState
     {
-        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT
+        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT (partial - dynamic within class)
         CullMode      cullMode = CullMode::Back;              // VK_DYNAMIC_STATE_CULL_MODE_EXT
         FrontFace    frontFace = FrontFace::CounterClockwise; // VK_DYNAMIC_STATE_FRONT_FACE_EXT
         PolygonMode   polyMode = PolygonMode::Fill;           // N/A
         f32          lineWidth = 1.f;                         // VK_DYNAMIC_STATE_LINE_WIDTH
         CompareOp depthCompare = CompareOp::Greater;          // VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
-        u32   blendEnable : 1 = false;                        // n/a
-            // TODO: Blend types (per attach blend?)
+        u32    blendEnable : 1 = false;                       // N/A
         u32    depthEnable : 1 = false;                       // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
         u32     depthWrite : 1 = true;                        // VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
         u32   flipVertical : 1 = false;
