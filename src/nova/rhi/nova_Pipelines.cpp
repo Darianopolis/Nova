@@ -581,7 +581,7 @@ namespace nova
 
             // Request pipeline library stages
 
-            auto context = impl->pool->context.GetImpl();
+            auto context = impl->pool->context;
 
             VkPipeline pipeline;
             if (context->usePipelineLibraries)
@@ -618,7 +618,7 @@ namespace nova
 
     void CommandList::SetComputeState(Shader shader) const
     {
-        auto context = impl->pool->context.GetImpl();
+        auto context = impl->pool->context;
 
         auto key = ComputePipelineKey {};
         key.shader = shader->module;

@@ -37,8 +37,14 @@ namespace nova
     };
 
     template<class TImpl>
+    class ImplHandleArc;
+
+    template<class TImpl>
     class ImplHandle
     {
+    public:
+        using ImplType = TImpl;
+
     protected:
         TImpl* impl = {};
 
@@ -47,48 +53,7 @@ namespace nova
 
         ImplHandle(TImpl* _impl) noexcept
             : impl(_impl)
-        {
-            if (impl) impl->Acquire();
-        }
-
-        ~ImplHandle() noexcept
-        {
-            if (impl && impl->Release()) delete impl;
-        }
-
-// -----------------------------------------------------------------------------
-
-        ImplHandle(const ImplHandle& other) noexcept
-            : impl(other.impl)
-        {
-            if (impl) impl->Acquire();
-        }
-
-        ImplHandle& operator=(const ImplHandle& other) noexcept
-        {
-            if (impl != other.impl)
-            {
-                this->~ImplHandle();
-                new (this) ImplHandle(other);
-            }
-            return *this;
-        }
-
-        ImplHandle(ImplHandle&& other) noexcept
-            : impl(other.impl)
-        {
-            other.impl = nullptr;
-        }
-
-        ImplHandle& operator=(ImplHandle&& other) noexcept
-        {
-            if (impl != other.impl)
-            {
-                this->~ImplHandle();
-                new (this) ImplHandle(std::move(other));
-            }
-            return *this;
-        }
+        {}
 
 // -----------------------------------------------------------------------------
 
@@ -102,42 +67,101 @@ namespace nova
         bool IsValid() const noexcept { return impl; }
 
         void SetImpl(TImpl* _impl) noexcept {
-            if (impl != _impl)
-            {
-                if (impl && impl->Release()) delete impl;
-                impl = _impl;
-                if (impl) impl->Acquire();
-            }
+            impl = _impl;
         }
 
         TImpl* GetImpl() const noexcept { return impl; }
 
         operator TImpl*() const noexcept { return impl; }
-
-        // TODO: Should this really be treated like a smart pointer externally?
         TImpl* operator->() const noexcept { return impl; };
+    };
+
+    template<class TImplHandle>
+    class ImplHandleArc : public TImplHandle
+    {
+    public:
+        ImplHandleArc() = default;
+        ImplHandleArc(TImplHandle::ImplType* _impl) noexcept;
+
+// -----------------------------------------------------------------------------
+
+        ImplHandleArc& operator=(const ImplHandleArc& other) noexcept
+        {
+            if (this->impl != other.impl)
+            {
+                this->~ImplHandleArc();
+                new (this) ImplHandleArc(other);
+            }
+            return *this;
+        }
+
+        ImplHandleArc(ImplHandleArc&& other) noexcept
+            : TImplHandle(other.impl)
+        {
+            other.impl = nullptr;
+        }
+
+        ImplHandleArc& operator=(ImplHandleArc&& other) noexcept
+        {
+            if (this->impl != other.impl)
+            {
+                this->~ImplHandleArc();
+                new (this) ImplHandleArc(std::move(other));
+            }
+            return *this;
+        }
+
+// -----------------------------------------------------------------------------
+
+        bool operator==(const ImplHandleArc& other) const noexcept
+        {
+            return this->impl == other.impl;
+        }
+
+// -----------------------------------------------------------------------------
+
+        ~ImplHandleArc() noexcept;
+        ImplHandleArc(const ImplHandleArc& other) noexcept;
+        void SetImpl(TImplHandle::ImplType* impl) noexcept;
     };
 
 #define NOVA_DECLARE_HANDLE_OBJECT(type) \
     struct type;                         \
-    struct type##Impl;                   \
-    using H##type = type##Impl*;
+    struct type##Impl;
 
-#define NOVA_DECLARE_HANDLE_OPERATIONS(type)      \
-    type() noexcept;                              \
-    type(type##Impl* impl) noexcept;              \
-    ~type();                                      \
-    type(const type& other) noexcept;             \
-    type& operator=(const type& other) noexcept;  \
-    type(type&& other) noexcept;                  \
-    type& operator=(type&& other) noexcept;
+#define NOVA_DECLARE_HANDLE_OPERATIONS(type) \
+    type() noexcept;                         \
+    type(type##Impl* impl) noexcept;         \
+    using Arc = ImplHandleArc<type>;         \
+    Arc operator+() const;
 
-#define NOVA_DEFINE_HANDLE_OPERATIONS(type)                      \
-    type::type() noexcept = default;                             \
-    type::type(type##Impl* impl) noexcept : ImplHandle(impl) {}  \
-    type::~type() = default;                                     \
-    type::type(const type& other) noexcept = default;            \
-    type& type::operator=(const type& other) noexcept = default; \
-    type::type(type&& other) noexcept = default;                 \
-    type& type::operator=(type&& other) noexcept = default;
+#define NOVA_DEFINE_HANDLE_OPERATIONS(type)                                   \
+    type::type() noexcept = default;                                          \
+    type::type(type##Impl* impl) noexcept : ImplHandle(impl) {}               \
+    type::Arc type::operator+() const { return type::Arc(impl); }             \
+    template<> ImplHandleArc<type>::ImplHandleArc(type##Impl* _impl) noexcept \
+        : type(_impl)                                                         \
+    {                                                                         \
+        if (this->impl) this->impl->Acquire();                                \
+    }                                                                         \
+    template<> ImplHandleArc<type>::~ImplHandleArc() noexcept                 \
+    {                                                                         \
+        if (this->impl && this->impl->Release())                              \
+            delete this->impl;                                                \
+    }                                                                         \
+    template<> ImplHandleArc<type>::ImplHandleArc(                            \
+            const ImplHandleArc<type>& other) noexcept                        \
+        : type(other.impl)                                                    \
+    {                                                                         \
+        if (this->impl) this->impl->Acquire();                                \
+    }                                                                         \
+    template<> void ImplHandleArc<type>::SetImpl(type##Impl* _impl) noexcept  \
+    {                                                                         \
+        if (this->impl != _impl)                                              \
+        {                                                                     \
+            if (this->impl && this->impl->Release()) delete this->impl;       \
+            this->impl = _impl;                                               \
+            if (this->impl) this->impl->Acquire();                            \
+        }                                                                     \
+    }
 }

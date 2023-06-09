@@ -33,24 +33,24 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    auto context = nova::Context({
+    auto context = +nova::Context({
         .debug = true,
         .rayTracing = true,
     });
 
     // Create surface and swapchain for GLFW window
 
-    auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, surface,
+    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     // Create required Nova objects
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto cmdPool = nova::CommandPool(context, queue);
-    auto fence = nova::Fence(context);
-    auto state = nova::CommandState(context);
+    auto cmdPool = +nova::CommandPool(context, queue);
+    auto fence = +nova::Fence(context);
+    auto state = +nova::CommandState(context);
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -60,15 +60,15 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::DescriptorSetLayout(context, {{nova::DescriptorType::StorageTexture}}, true);
+    auto descLayout = +nova::DescriptorSetLayout(context, {{nova::DescriptorType::StorageTexture}}, true);
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
+    auto pipelineLayout = +nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto computeShader = nova::Shader(context,
+    auto computeShader = +nova::Shader(context,
         nova::ShaderStage::Compute, {},
         "compute",
         R"(

@@ -9,7 +9,7 @@ namespace nova
     AccelerationStructureBuilder::AccelerationStructureBuilder(Context context)
         : ImplHandle(new AccelerationStructureBuilderImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
@@ -242,9 +242,9 @@ namespace nova
     AccelerationStructure::AccelerationStructure(Context context, usz size, AccelerationStructureType type)
         : ImplHandle(new AccelerationStructureImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
-        impl->buffer = Buffer(context, size,
+        impl->buffer = +Buffer(context, size,
             nova::BufferUsage::AccelStorage,
             nova::BufferFlags::DeviceLocal);
 
@@ -279,7 +279,7 @@ namespace nova
     RayTracingPipeline::RayTracingPipeline(Context context)
         : ImplHandle(new RayTracingPipelineImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
     }
 
     RayTracingPipelineImpl::~RayTracingPipelineImpl()
@@ -394,7 +394,7 @@ namespace nova
 
         if (!impl->sbtBuffer.IsValid() || tableSize > impl->sbtBuffer->size)
         {
-            impl->sbtBuffer = Buffer(context,
+            impl->sbtBuffer = +Buffer(context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
                 BufferFlags::DeviceLocal | BufferFlags::CreateMapped);

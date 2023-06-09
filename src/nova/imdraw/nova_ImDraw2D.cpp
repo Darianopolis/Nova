@@ -8,6 +8,9 @@
 
 namespace nova
 {
+    NOVA_DEFINE_HANDLE_OPERATIONS(ImDraw2D)
+    NOVA_DEFINE_HANDLE_OPERATIONS(ImFont)
+
     ImDraw2D::ImDraw2D(Context context)
         : ImplHandle(new ImDraw2DImpl)
     {
@@ -15,20 +18,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        impl->descriptorSetLayout = DescriptorSetLayout(context, {
+        impl->descriptorSetLayout = +DescriptorSetLayout(context, {
             { DescriptorType::SampledTexture, 65'536 }
         });
 
-        impl->descriptorSet = DescriptorSet(impl->descriptorSetLayout);
+        impl->descriptorSet = +DescriptorSet(impl->descriptorSetLayout);
 
-        impl->pipelineLayout = PipelineLayout(context,
+        impl->pipelineLayout = +PipelineLayout(context,
             {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(ImDraw2DImpl::PushConstants)}},
             {impl->descriptorSetLayout},
             nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
-        impl->rectBuffer = Buffer(context, sizeof(ImRoundRect) * ImDraw2DImpl::MaxPrimitives,
+        impl->rectBuffer = +Buffer(context, sizeof(ImRoundRect) * ImDraw2DImpl::MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
 
@@ -70,7 +73,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
     )";
 
-    impl->rectVertShader = Shader(context,
+    impl->rectVertShader = +Shader(context,
         ShaderStage::Vertex, {},
         "vertex",
         preamble + R"(
@@ -96,7 +99,7 @@ void main()
         )",
         impl->pipelineLayout);
 
-    impl->rectFragShader = Shader(context,
+    impl->rectFragShader = +Shader(context,
         ShaderStage::Fragment, {},
         "fragment",
         preamble + R"(
@@ -143,7 +146,7 @@ void main()
 
 // -----------------------------------------------------------------------------
 
-        impl->defaultSampler = Sampler(context,
+        impl->defaultSampler = +Sampler(context,
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
@@ -210,9 +213,8 @@ void main()
         font.SetImpl(new ImFontImpl);
         font->imDraw = *this;
 
-        nova::Buffer staging(impl->context, u64(size) * u64(size) * 4,
-            BufferUsage::TransferSrc,
-            BufferFlags::CreateMapped);
+        auto staging = +nova::Buffer(impl->context, u64(size) * u64(size) * 4,
+            BufferUsage::TransferSrc, BufferFlags::CreateMapped);
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)
@@ -237,7 +239,7 @@ void main()
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = Texture(impl->context,
+            glyph.texture = +Texture(impl->context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8U);

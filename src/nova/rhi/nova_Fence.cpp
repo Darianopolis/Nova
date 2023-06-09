@@ -7,7 +7,7 @@ namespace nova
     Fence::Fence(Context context)
         : ImplHandle(new FenceImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = Temp(VkSemaphoreTypeCreateInfo {

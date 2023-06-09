@@ -7,7 +7,7 @@ namespace nova
     Texture::Texture(Context context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
         : ImplHandle(new TextureImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->format = VkFormat(_format);
 
         impl->usage = VkImageUsageFlags(_usage);

@@ -15,26 +15,26 @@ int main()
         glfwTerminate();
     };
 
-    auto context = nova::Context({
+    auto context = +nova::Context({
         .debug = true,
     });
 
-    auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, surface,
+    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto cmdPool = nova::CommandPool(context, queue);
-    auto fence = nova::Fence(context);
-    auto state = nova::CommandState(context);
+    auto cmdPool = +nova::CommandPool(context, queue);
+    auto fence = +nova::Fence(context);
+    auto state = +nova::CommandState(context);
 
     // Pipeline
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
+    auto pipelineLayout = +nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
 
-    auto vertexShader = nova::Shader(context,
+    auto vertexShader = +nova::Shader(context,
         nova::ShaderStage::Vertex, nova::ShaderStage::Fragment,
         "vertex",
         R"(
@@ -53,7 +53,7 @@ void main()
         )",
         pipelineLayout);
 
-    auto fragmentShader = nova::Shader(context,
+    auto fragmentShader = +nova::Shader(context,
         nova::ShaderStage::Fragment, {},
         "fragment",
         R"(

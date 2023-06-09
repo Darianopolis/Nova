@@ -97,14 +97,14 @@ namespace nova
         Context context = {};
         Surface surface = {};
 
-        VkSwapchainKHR       swapchain = nullptr;
-        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        VkImageUsageFlags        usage = 0;
-        VkPresentModeKHR   presentMode = VK_PRESENT_MODE_FIFO_KHR;
-        std::vector<Texture>  textures = {};
-        uint32_t                 index = UINT32_MAX;
-        VkExtent2D              extent = { 0, 0 };
-        bool                   invalid = false;
+        VkSwapchainKHR           swapchain = nullptr;
+        VkSurfaceFormatKHR          format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        VkImageUsageFlags            usage = 0;
+        VkPresentModeKHR       presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        std::vector<Texture::Arc> textures = {};
+        uint32_t                     index = UINT32_MAX;
+        VkExtent2D                  extent = { 0, 0 };
+        bool                       invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
@@ -117,17 +117,16 @@ namespace nova
 
     struct QueueImpl : ImplBase
     {
-        ContextImpl* context = {};
-
-        VkQueue handle = {};
-        u32     family = UINT32_MAX;
+        Context context = {};
+        VkQueue  handle = {};
+        u32      family = UINT32_MAX;
     };
 
 // -----------------------------------------------------------------------------
 
     struct FenceImpl : ImplBase
     {
-        ContextImpl* context = {};
+        Context context = {};
 
         VkSemaphore semaphore = {};
         u64             value = 0;
@@ -247,7 +246,7 @@ namespace nova
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer buffer = {};
+        Buffer::Arc buffer = {};
 
     public:
         ~AccelerationStructureImpl();
@@ -260,7 +259,7 @@ namespace nova
         Context context = {};
 
         VkPipeline pipeline = {};
-        Buffer    sbtBuffer = {};
+        Buffer::Arc    sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
@@ -371,12 +370,12 @@ namespace nova
         Context context = {};
         Queue     queue = {};
 
-        VkCommandPool               pool = {};
-        std::vector<CommandList> buffers = {};
-        u32                        index = 0;
+        VkCommandPool                    pool = {};
+        std::vector<CommandList::Arc> buffers = {};
+        u32                             index = 0;
 
-        std::vector<CommandList> secondaryBuffers = {};
-        u32                        secondaryIndex = 0;
+        std::vector<CommandList::Arc> secondaryBuffers = {};
+        u32                             secondaryIndex = 0;
 
     public:
         ~CommandPoolImpl();
@@ -384,7 +383,7 @@ namespace nova
 
     struct CommandListImpl : ImplBase
     {
-        CommandPoolImpl*  pool = {};
+        CommandPool       pool = {};
         CommandState     state = {};
         VkCommandBuffer buffer = {};
     };
@@ -422,7 +421,7 @@ namespace nova
             .pNext = &accelStructureProperties,
         };
 
-        Queue graphics = {};
+        Queue::Arc graphics = {};
 
     public: // Pipeline cache
 

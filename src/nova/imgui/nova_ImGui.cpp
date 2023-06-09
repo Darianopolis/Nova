@@ -8,12 +8,14 @@
 
 namespace nova
 {
+    NOVA_DEFINE_HANDLE_OPERATIONS(ImGuiWrapper)
+
     ImGuiWrapper::ImGuiWrapper(Context context,
             CommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config)
         : ImplHandle(new ImGuiWrapperImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
         u32 framesInFlight = std::max(config.imageCount, 2u);
 
@@ -146,7 +148,7 @@ namespace nova
     {
         ImGui::Render();
 
-        auto* context = impl->context;
+        auto context = impl->context;
 
         if (Vec2U(texture.GetExtent()) != impl->lastSize
             || texture->usage != impl->lastUsage)

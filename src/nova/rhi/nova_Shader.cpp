@@ -91,9 +91,9 @@ namespace nova
             PipelineLayout layout)
         : ImplHandle(new ShaderImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->stage = VkShaderStageFlagBits(stage);
-        impl->layout = layout.GetImpl();
+        impl->layout = layout;
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };

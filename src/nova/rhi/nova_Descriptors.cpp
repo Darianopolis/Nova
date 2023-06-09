@@ -8,7 +8,7 @@ namespace nova
     DescriptorSetLayout::DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor)
         : ImplHandle(new DescriptorSetLayoutImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
         auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
         auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
@@ -152,7 +152,7 @@ namespace nova
     {
         (void)customSize;
 
-        impl->layout = layout.GetImpl();
+        impl->layout = layout;
 
         std::scoped_lock lock { layout->context->descriptorPoolMutex };
         vkAllocateDescriptorSets(layout->context->device, Temp(VkDescriptorSetAllocateInfo {
@@ -194,7 +194,7 @@ namespace nova
             BindPoint bindPoint)
         : ImplHandle(new PipelineLayoutImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->bindPoint = bindPoint;
 
         for (auto& range : pushConstantRanges)

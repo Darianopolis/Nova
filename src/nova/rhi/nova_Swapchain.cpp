@@ -7,7 +7,7 @@ namespace nova
     Swapchain::Swapchain(Context context, Surface surface, TextureUsage _usage, PresentMode _presentMode)
         : ImplHandle(new SwapchainImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->surface = surface;
         impl->usage = VkImageUsageFlags(_usage)
             | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
@@ -150,7 +150,7 @@ namespace nova
         {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
             {
-                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i].GetImpl(), int(results[i]));
+                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i]->swapchain, int(results[i]));
                 swapchains[i]->invalid = true;
             }
             else
@@ -261,7 +261,7 @@ namespace nova
                 {
                     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                     {
-                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.GetImpl(), int(result));
+                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(result));
                         swapchain->invalid = true;
                     }
                     else
@@ -319,7 +319,7 @@ namespace nova
     Surface::Surface(Context context, void* handle)
         : ImplHandle(new SurfaceImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
         VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,

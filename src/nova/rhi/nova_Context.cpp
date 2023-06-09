@@ -127,7 +127,7 @@ namespace nova
         // ---- Logical Device ----
 
         vkGetPhysicalDeviceQueueFamilyProperties2(impl->gpu, Temp(0u), nullptr);
-        impl->graphics = Queue(*this, nullptr, 0);
+        impl->graphics = +Queue(*this, nullptr, 0);
 
         VulkanFeatureChain chain;
 
@@ -369,7 +369,7 @@ Validation: {} ({})
     Queue::Queue(Context context, VkQueue queue, u32 family)
         : ImplHandle(new QueueImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->handle = queue;
         impl->family = family;
     }

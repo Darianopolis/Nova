@@ -33,26 +33,26 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    auto context = nova::Context({
+    auto context = +nova::Context({
         .debug = true,
         .rayTracing = true,
     });
 
     // Create surface and swapchain for GLFW window
 
-    auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, surface,
+    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     // Create required Nova objects
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto cmdPool = nova::CommandPool(context, queue);
-    auto fence = nova::Fence(context);
-    auto state = nova::CommandState(context);
+    auto cmdPool = +nova::CommandPool(context, queue);
+    auto fence = +nova::Fence(context);
+    auto state = +nova::CommandState(context);
 
-    auto builder = nova::AccelerationStructureBuilder(context);
+    auto builder = +nova::AccelerationStructureBuilder(context);
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -62,18 +62,18 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::DescriptorSetLayout(context, {
+    auto descLayout = +nova::DescriptorSetLayout(context, {
         {nova::DescriptorType::StorageTexture},
         {nova::DescriptorType::AccelerationStructure},
     }, true);
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::RayTracing);
+    auto pipelineLayout = +nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::RayTracing);
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto rayGenShader = nova::Shader(context,
+    auto rayGenShader = +nova::Shader(context,
         nova::ShaderStage::RayGen, {},
         "raygen",
         R"(
@@ -112,7 +112,7 @@ void main()
 
     // Create a ray tracing pipeline with one ray gen shader
 
-    auto pipeline = nova::RayTracingPipeline(context);
+    auto pipeline = +nova::RayTracingPipeline(context);
     pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
     NOVA_TIMEIT("pipeline");
@@ -123,14 +123,14 @@ void main()
 
     // Vertex data
 
-    auto vertices = nova::Buffer(context, 3 * sizeof(Vec3),
+    auto vertices = +nova::Buffer(context, 3 * sizeof(Vec3),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
     // Index data
 
-    auto indices = nova::Buffer(context, 3 * sizeof(u32),
+    auto indices = +nova::Buffer(context, 3 * sizeof(u32),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     indices.Set<u32>({ 0u, 1u, 2u });
@@ -146,9 +146,9 @@ void main()
 
     // Create BLAS and scratch buffer
 
-    auto uncompactedBlas = nova::AccelerationStructure(context, builder.GetBuildSize(),
+    auto uncompactedBlas = +nova::AccelerationStructure(context, builder.GetBuildSize(),
         nova::AccelerationStructureType::BottomLevel);
-    auto scratch = nova::Buffer(context, builder.GetBuildScratchSize(),
+    auto scratch = +nova::Buffer(context, builder.GetBuildScratchSize(),
         nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
 
     // Build BLAS
@@ -160,7 +160,7 @@ void main()
 
     // Compact BLAS
 
-    auto blas = nova::AccelerationStructure(context, builder.GetCompactSize(),
+    auto blas = +nova::AccelerationStructure(context, builder.GetCompactSize(),
         nova::AccelerationStructureType::BottomLevel);
 
     cmd = cmdPool.Begin(state);
@@ -180,7 +180,7 @@ void main()
 
     // Instance data
 
-    auto instances = nova::Buffer(context, builder.GetInstanceSize(),
+    auto instances = +nova::Buffer(context, builder.GetInstanceSize(),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
 
@@ -192,7 +192,7 @@ void main()
 
     // Create TLAS and resize scratch buffer
 
-    auto tlas = nova::AccelerationStructure(context, builder.GetBuildSize(),
+    auto tlas = +nova::AccelerationStructure(context, builder.GetBuildSize(),
         nova::AccelerationStructureType::TopLevel);
     scratch.Resize(builder.GetBuildScratchSize());
 

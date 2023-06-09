@@ -7,7 +7,7 @@ namespace nova
     Sampler::Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy)
         : ImplHandle(new SamplerImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
 
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,

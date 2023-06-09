@@ -25,41 +25,41 @@ void TryMain()
         glfwTerminate();
     };
 
-    auto context = nova::Context({
+    auto context = +nova::Context({
         .debug = true,
     });
 
-    auto surface = nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = nova::Swapchain(context, surface,
+    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+    auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto commandPool = nova::CommandPool(context, queue);
-    auto fence = nova::Fence(context);
-    auto state = nova::CommandState(context);
+    auto commandPool = +nova::CommandPool(context, queue);
+    auto fence = +nova::Fence(context);
+    auto state = +nova::CommandState(context);
 
 // -----------------------------------------------------------------------------
 
-    auto imDraw = nova::ImDraw2D(context);
+    auto imDraw = +nova::ImDraw2D(context);
 
 // -----------------------------------------------------------------------------
 
-    nova::Texture texture;
+    nova::Texture::Arc texture;
     nova::ImTextureID texID;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = nova::Texture(context,
+        texture = +nova::Texture(context,
             Vec3(f32(w), f32(h), 0.f),
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        nova::Buffer staging(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
+        auto staging = +nova::Buffer(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
         std::memcpy(staging.GetMapped(), data, size);
 
         auto cmd = commandPool.Begin(state);
@@ -81,7 +81,7 @@ void TryMain()
 
     std::cout << "Monitor size = " << mWidth << ", " << mHeight << '\n';
 
-    auto font = imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, state, fence, queue);
+    auto font = +imDraw.LoadFont("assets/fonts/arial.ttf", 20.f, commandPool, state, fence, queue);
 
     nova::ImRoundRect box1 {
         .centerColor = { 1.f, 0.f, 0.f, 0.5f },

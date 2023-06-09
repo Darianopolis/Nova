@@ -10,9 +10,9 @@ namespace nova
 {
     struct ImGuiWrapperImpl : ImplBase
     {
-        ContextImpl*            context = {};
-        VkRenderPass         renderPass = {};
-        VkFramebuffer       framebuffer = {};
+        Context           context = {};
+        VkRenderPass   renderPass = {};
+        VkFramebuffer framebuffer = {};
 
         Vec2U              lastSize = {};
         VkImageUsageFlags lastUsage = {};
@@ -36,8 +36,9 @@ namespace nova
 
     struct ImGuiWrapper : ImplHandle<ImGuiWrapperImpl>
     {
+        NOVA_DECLARE_HANDLE_OPERATIONS(ImGuiWrapper)
+
     public:
-        ImGuiWrapper() = default;
         ImGuiWrapper(Context context,
             CommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config);

@@ -8,8 +8,8 @@ namespace nova
     CommandPool::CommandPool(Context context, Queue queue)
         : ImplHandle(new CommandPoolImpl)
     {
-        impl->context = context.GetImpl();
-        impl->queue = queue.GetImpl();
+        impl->context = context;
+        impl->queue = queue;
 
         VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -49,7 +49,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->state = state.GetImpl();
+        cmd->state = state;
 
         return cmd;
     }
@@ -103,7 +103,7 @@ namespace nova
             })));
         }
 
-        cmd->state = state.GetImpl();
+        cmd->state = state;
 
         return cmd;
     }

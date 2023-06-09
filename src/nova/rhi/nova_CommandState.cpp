@@ -7,7 +7,7 @@ namespace nova
     CommandState::CommandState(Context context)
         : ImplHandle(new CommandStateImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
     }
 
 // -----------------------------------------------------------------------------

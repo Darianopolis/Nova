@@ -7,7 +7,7 @@ namespace nova
     Buffer::Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags)
         : ImplHandle(new BufferImpl)
     {
-        impl->context = context.GetImpl();
+        impl->context = context;
         impl->flags = flags;
         impl->usage = VkBufferUsageFlags(usage)
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -20,20 +20,20 @@ namespace nova
     }
 
     static
-    void ResetBuffer(BufferImpl& buffer)
+    void ResetBuffer(Buffer buffer)
     {
-        if (!buffer.buffer)
+        if (!buffer->buffer)
             return;
 
-        if (buffer.mapped && buffer.flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(buffer.context->vma, buffer.allocation);
+        if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
+            vmaUnmapMemory(buffer->context->vma, buffer->allocation);
 
-        vmaDestroyBuffer(buffer.context->vma, buffer.buffer, buffer.allocation);
+        vmaDestroyBuffer(buffer->context->vma, buffer->buffer, buffer->allocation);
     }
 
     BufferImpl::~BufferImpl()
     {
-        ResetBuffer(*this);
+        ResetBuffer(this);
     }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +72,7 @@ namespace nova
 
         impl->size = size;
 
-        ResetBuffer(*GetImpl());
+        ResetBuffer(*this);
 
         VkCall(vmaCreateBuffer(
             impl->context->vma,

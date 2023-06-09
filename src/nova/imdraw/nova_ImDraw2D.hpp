@@ -61,7 +61,7 @@ namespace nova
 
     struct ImGlyph
     {
-        Texture texture;
+        Texture::Arc texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -71,11 +71,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct ImFont : ImplHandle<struct ImFontImpl> {};
+    struct ImFont : ImplHandle<struct ImFontImpl>
+    {
+        NOVA_DECLARE_HANDLE_OPERATIONS(ImFont)
+    };
 
     struct ImDraw2D : ImplHandle<struct ImDraw2DImpl>
     {
-        ImDraw2D() = default;
+        NOVA_DECLARE_HANDLE_OPERATIONS(ImDraw2D)
+
+    public:
         ImDraw2D(Context context);
 
         Sampler GetDefaultSampler() const noexcept;
@@ -125,19 +130,19 @@ namespace nova
     public:
         Context context = {};
 
-        Sampler defaultSampler = {};
+        Sampler::Arc defaultSampler = {};
 
-        PipelineLayout pipelineLayout = {};
+        PipelineLayout::Arc pipelineLayout = {};
 
-        DescriptorSetLayout  descriptorSetLayout = {};
-        DescriptorSet              descriptorSet = {};
-        u32                      nextTextureSlot = 0;
-        std::vector<u32>     textureSlotFreelist = {};
+        DescriptorSetLayout::Arc descriptorSetLayout = {};
+        DescriptorSet::Arc             descriptorSet = {};
+        u32                          nextTextureSlot = 0;
+        std::vector<u32>         textureSlotFreelist = {};
 
-        Shader rectVertShader = {};
-        Shader rectFragShader = {};
-        Buffer     rectBuffer = {};
-        u32         rectIndex = 0;
+        Shader::Arc rectVertShader = {};
+        Shader::Arc rectFragShader = {};
+        Buffer::Arc     rectBuffer = {};
+        u32             rectIndex = 0;
 
         ImBounds2D bounds;
 

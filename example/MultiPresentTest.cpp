@@ -17,7 +17,7 @@ using namespace nova::types;
 
 int main()
 {
-    auto context = nova::Context({ .debug = true });
+    auto context = +nova::Context({ .debug = true });
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach
@@ -29,21 +29,21 @@ int main()
 
     auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window1); };
-    auto surface1 = nova::Surface(context, glfwGetWin32Window(window1));
-    auto swapchain = nova::Swapchain(context, surface1, swapchainUsage, presentMode);
+    auto surface1 = +nova::Surface(context, glfwGetWin32Window(window1));
+    auto swapchain = +nova::Swapchain(context, surface1, swapchainUsage, presentMode);
 
     auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
-    auto surface2 = nova::Surface(context, glfwGetWin32Window(window2));
-    auto swapchain2 = nova::Swapchain(context, surface2, swapchainUsage, presentMode);
+    auto surface2 = +nova::Surface(context, glfwGetWin32Window(window2));
+    auto swapchain2 = +nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto state = nova::CommandState(context);
-    nova::Fence fences[] { {context}, {context} };
-    nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
+    auto queue = +context.GetQueue(nova::QueueFlags::Graphics);
+    auto state = +nova::CommandState(context);
+    nova::Fence::Arc fences[] { +nova::Fence{context}, +nova::Fence{context} };
+    nova::CommandPool::Arc commandPools[] { +nova::CommandPool{context, queue}, +nova::CommandPool{context, queue} };
 
     auto cmd = commandPools[0].Begin(state);
-    auto imgui = nova::ImGuiWrapper(context, cmd, swapchain.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
+    auto imgui = +nova::ImGuiWrapper(context, cmd, swapchain.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
     queue.Submit({cmd}, {}, {fences[0]});
     fences[0].Wait();
 
