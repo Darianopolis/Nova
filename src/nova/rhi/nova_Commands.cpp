@@ -169,7 +169,7 @@ namespace nova
             .signalSemaphoreInfoCount = u32(signals.size()),
             .pSignalSemaphoreInfos = signalInfos,
         }), nullptr));
-        submitting += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
+        TimeSubmitting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
     }
 
 // -----------------------------------------------------------------------------

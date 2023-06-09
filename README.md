@@ -2,10 +2,13 @@
 
 Nova is a highly experimental take on a Vulkan GPGPU framework, intended as a sandbox to play around with all the latest shiny new Vulkan extensions.
 
- - Descriptor Buffers
+ - Descriptor management
    - Optimized for bindless rendering with BDAs
- - Shader Objects
-   - No explicit raster/compute pipelines
+   - Supports both traditional Descriptor Sets and Descriptor Buffers (no debugger support yet)
+ - Automatic pipeline management
+   - Simply set pipeline state and shaders at recording time
+   - Nova transparently uses dynamic state and pipeline libraries to manage pipeline permutations
+   - Optional use of shader objects to avoid pipeline creation entirely (no debugger support yet)
  - Ray Tracing
    - Combined SBT and pipelines
    - Acceleration structure builders
@@ -26,11 +29,12 @@ Core device extensions:
  - VK_EXT_shader_object
  - VK_EXT_descriptor_buffer
  - VK_KHR_push_descriptor
+ - VK_KHR_pipeline_library
+ - VK_EXT_graphics_pipeline_library
  - VK_KHR_fragment_shader_barycentrics
 
 Ray Tracing device extensions:
  - VK_KHR_deferred_host_operations
- - VK_KHR_pipeline_library
  - VK_KHR_ray_tracing_pipeline
  - VK_KHR_acceleration_structure
  - VK_KHR_ray_query

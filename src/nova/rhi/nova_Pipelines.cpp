@@ -567,13 +567,14 @@ namespace nova
             // Separate components
 
             Shader fragmentShader;
-            std::vector<Shader> preRasterStageShaders;
+            std::array<Shader, 4> preRasterStageShaders;
+            u32 preRasterStageShaderIndex = 0;
             for (auto& shader : shaders)
             {
                 if (shader->stage == VK_SHADER_STAGE_FRAGMENT_BIT)
                     fragmentShader = shader;
                 else
-                    preRasterStageShaders.emplace_back(shader);
+                    preRasterStageShaders[preRasterStageShaderIndex++] = shader;
             }
 
             auto layout = shaders[0]->layout->layout;
@@ -586,7 +587,7 @@ namespace nova
             if (context->usePipelineLibraries)
             {
                 auto vi = GetGraphicsVertexInputStage(context, state);
-                auto pr = GetGraphicsPreRasterizationStage(context, preRasterStageShaders, state, layout);
+                auto pr = GetGraphicsPreRasterizationStage(context, { preRasterStageShaders.data(), preRasterStageShaderIndex }, state, layout);
                 auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader, state, layout);
                 auto fo = GetGraphicsFragmentOutputStage(context, {
                         .colorFormats = impl->state->colorAttachmentsFormats,
@@ -608,7 +609,7 @@ namespace nova
             vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         }
 
-        TimeSettingGraphicsState += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
+        TimeSettingGraphicsState += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
     }
 
 // -----------------------------------------------------------------------------

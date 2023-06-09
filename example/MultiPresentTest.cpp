@@ -59,11 +59,12 @@ int main()
         {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
                 frames, nova::ContextImpl::AllocationCount.load(), nova::ContextImpl::NewAllocationCount.exchange(0));
-            NOVA_LOG("submit :: clear     = {}\nsubmit :: adapting1 = {}\nsubmit :: adapting2 = {}\npresent             = {}",
-                nova::submitting.exchange(0) / frames,
-                nova::adapting1.exchange(0)  / frames,
-                nova::adapting2.exchange(0)  / frames,
-                nova::presenting.exchange(0) / frames);
+            f64 divisor = 1000.0 * frames;
+            NOVA_LOG("submit :: clear     = {:.2f}\nsubmit :: adapting1 = {:.2f}\nsubmit :: adapting2 = {:.2f}\npresent             = {:.2f}",
+                nova::TimeSubmitting.exchange(0) / divisor,
+                nova::TimeAdaptingFromAcquire.exchange(0)  / divisor,
+                nova::TimeAdaptingToPresent.exchange(0)  / divisor,
+                nova::TimePresenting.exchange(0) / divisor);
 
             NOVA_LOG("Atomic Operations = {}", nova::NumHandleOperations.load());
 

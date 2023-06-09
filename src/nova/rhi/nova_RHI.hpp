@@ -9,10 +9,10 @@
 
 namespace nova
 {
-    inline std::atomic<u64> submitting = 0;
-    inline std::atomic<u64> adapting1 = 0;
-    inline std::atomic<u64> adapting2 = 0;
-    inline std::atomic<u64> presenting = 0;
+    inline std::atomic<u64> TimeSubmitting = 0;
+    inline std::atomic<u64> TimeAdaptingFromAcquire = 0;
+    inline std::atomic<u64> TimeAdaptingToPresent = 0;
+    inline std::atomic<u64> TimePresenting = 0;
     inline std::atomic<u64> TimeSettingGraphicsState = 0;
 
     inline
