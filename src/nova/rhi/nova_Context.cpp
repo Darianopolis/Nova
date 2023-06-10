@@ -137,16 +137,22 @@ namespace nova
             chain.Extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
             chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 
-            auto& f2 = chain.Feature<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
-            f2.features.shaderInt64 = VK_TRUE;
-            f2.features.samplerAnisotropy = VK_TRUE;
+            auto& f2 = chain.Feature<VkPhysicalDeviceFeatures2>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
             f2.features.wideLines = VK_TRUE;
-            f2.features.multiDrawIndirect = VK_TRUE;
+            f2.features.shaderInt64 = VK_TRUE;
             f2.features.fillModeNonSolid = VK_TRUE;
+            f2.features.samplerAnisotropy = VK_TRUE;
+            f2.features.multiDrawIndirect = VK_TRUE;
 
-            auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
-            f12.bufferDeviceAddress = VK_TRUE;
+            auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
+            f12.drawIndirectCount = VK_TRUE;
+            f12.timelineSemaphore = VK_TRUE;
             f12.descriptorIndexing = VK_TRUE;
+            f12.samplerFilterMinmax = VK_TRUE;
+            f12.bufferDeviceAddress = VK_TRUE;
+            f12.imagelessFramebuffer = VK_TRUE;
             f12.runtimeDescriptorArray = VK_TRUE;
             f12.descriptorBindingPartiallyBound = VK_TRUE;
             f12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -154,42 +160,46 @@ namespace nova
             f12.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
             f12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
             f12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
-            f12.drawIndirectCount = VK_TRUE;
-            f12.samplerFilterMinmax = VK_TRUE;
-            f12.timelineSemaphore = VK_TRUE;
-            f12.imagelessFramebuffer = VK_TRUE;
 
-            auto& f13 = chain.Feature<VkPhysicalDeviceVulkan13Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+            auto& f13 = chain.Feature<VkPhysicalDeviceVulkan13Features>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+            f13.maintenance4 = VK_TRUE;
             f13.dynamicRendering = VK_TRUE;
             f13.synchronization2 = VK_TRUE;
-            f13.maintenance4 = VK_TRUE;
 
             chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
+            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
 
-            chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT)
+            chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT)
                 .extendedDynamicState = VK_TRUE;
 
-            chain.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT)
+            chain.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT)
                 .extendedDynamicState2 = VK_TRUE;
 
             chain.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
             chain.Extension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
+            chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
                 .graphicsPipelineLibrary = VK_TRUE;
         }
 
         if (config.shaderObjects)
         {
             chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT).shaderObject = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
+                .shaderObject = VK_TRUE;
         }
 
         if (config.descriptorBuffers)
         {
             chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
+            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
             db.descriptorBuffer = VK_TRUE;
             db.descriptorBufferPushDescriptors = VK_TRUE;
         }
@@ -199,21 +209,26 @@ namespace nova
             chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
             chain.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
             chain.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR)
+            chain.Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR)
                 .rayTracingPipeline = VK_TRUE;
-            chain.Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR)
+            chain.Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR)
                 .accelerationStructure = VK_TRUE;
 
             chain.Extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceRayQueryFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR)
+            chain.Feature<VkPhysicalDeviceRayQueryFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR)
                 .rayQuery = VK_TRUE;
 
             chain.Extension(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV)
+            chain.Feature<VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV)
                 .rayTracingInvocationReorder = VK_TRUE;
 
             chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
+            chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
                 .rayTracingPositionFetch = VK_TRUE;
         }
 

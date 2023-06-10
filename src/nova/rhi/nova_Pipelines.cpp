@@ -17,7 +17,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsVertexInputStage(
-        ContextImpl* context,
+        Context context,
         const PipelineState& state)
     {
         auto key = GraphicsPipelineVertexInputStageKey {};
@@ -89,7 +89,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsPreRasterizationStage(
-        ContextImpl*       context,
+        Context            context,
         Span<Shader>       shaders,
         const PipelineState& state,
         VkPipelineLayout    layout)
@@ -155,7 +155,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsFragmentShaderStage(
-        ContextImpl*       context,
+        Context            context,
         Shader              shader,
         const PipelineState& state,
         VkPipelineLayout    layout)
@@ -216,9 +216,9 @@ namespace nova
 
     static
     VkPipeline GetGraphicsFragmentOutputStage(
-        ContextImpl*       context,
+        Context                    context,
         RenderingDescription renderingDesc,
-        const PipelineState& state)
+        const PipelineState&         state)
     {
         auto key = GraphicsPipelineFragmentOutputStageKey {};
 
@@ -309,7 +309,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsPipelineLibrarySet(
-        ContextImpl*       context,
+        Context            context,
         Span<VkPipeline> libraries,
         VkPipelineLayout    layout)
     {
@@ -344,7 +344,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsPipeline(
-        ContextImpl* context,
+        Context                    context,
         RenderingDescription renderingDesc,
         const PipelineState&         state,
         Span<Shader>               shaders,

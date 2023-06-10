@@ -37,7 +37,7 @@ int main()
     auto surface2 = +nova::Surface(context, glfwGetWin32Window(window2));
     auto swapchain2 = +nova::Swapchain(context, surface2, swapchainUsage, presentMode);
 
-    auto queue = +context.GetQueue(nova::QueueFlags::Graphics);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto state = +nova::CommandState(context);
     nova::Fence::Arc fences[] { +nova::Fence{context}, +nova::Fence{context} };
     nova::CommandPool::Arc commandPools[] { +nova::CommandPool{context, queue}, +nova::CommandPool{context, queue} };
@@ -73,8 +73,8 @@ int main()
         }
 
         // Pick fence and commandPool for frame in flight
-        auto fence = fences[frame % 2];
-        auto commandPool = commandPools[frame % 2];
+        auto fence = -fences[frame % 2];
+        auto commandPool = -commandPools[frame % 2];
         frame++;
 
         // Wait for previous commands in frame to complete

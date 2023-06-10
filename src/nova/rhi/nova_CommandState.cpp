@@ -44,7 +44,11 @@ namespace nova
         impl->Get(texture).version = impl->version + 1;
     }
 
-    void CommandState::Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept
+    void CommandState::Set(
+        Texture texture,
+        VkImageLayout layout,
+        VkPipelineStageFlags2 stage,
+        VkAccessFlags2 access) const noexcept
     {
         impl->Get(texture) = {
             .layout = layout,

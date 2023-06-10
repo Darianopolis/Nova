@@ -36,6 +36,10 @@ namespace nova
         }
     };
 
+// -----------------------------------------------------------------------------
+//                            Base Impl Handle
+// -----------------------------------------------------------------------------
+
     template<class TImpl>
     class ImplHandleArc;
 
@@ -66,15 +70,17 @@ namespace nova
 
         bool IsValid() const noexcept { return impl; }
 
-        void SetImpl(TImpl* _impl) noexcept {
-            impl = _impl;
-        }
+        void SetImpl(TImpl* _impl) noexcept { impl = _impl; }
 
-        TImpl* GetImpl() const noexcept { return impl; }
-
-        operator TImpl*() const noexcept { return impl; }
+        TImpl* GetImpl()    const noexcept { return impl; }
         TImpl* operator->() const noexcept { return impl; };
+
+        ImplHandle operator-() const noexcept { return *this; }
     };
+
+// -----------------------------------------------------------------------------
+//                       Reference counted Impl Handle
+// -----------------------------------------------------------------------------
 
     template<class TImplHandle>
     class ImplHandleArc : public TImplHandle
@@ -82,6 +88,9 @@ namespace nova
     public:
         ImplHandleArc() = default;
         ImplHandleArc(TImplHandle::ImplType* _impl) noexcept;
+        ~ImplHandleArc() noexcept;
+        ImplHandleArc(const ImplHandleArc& other) noexcept;
+        void SetImpl(TImplHandle::ImplType* impl) noexcept;
 
 // -----------------------------------------------------------------------------
 
@@ -120,10 +129,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        ~ImplHandleArc() noexcept;
-        ImplHandleArc(const ImplHandleArc& other) noexcept;
-        void SetImpl(TImplHandle::ImplType* impl) noexcept;
+        TImplHandle operator-() const noexcept { return this->impl; }
     };
+
+// -----------------------------------------------------------------------------
+//                      Handle Declare/Define Helpers
+// -----------------------------------------------------------------------------
 
 #define NOVA_DECLARE_HANDLE_OBJECT(type) \
     struct type;                         \

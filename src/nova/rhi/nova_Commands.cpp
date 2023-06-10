@@ -29,7 +29,7 @@ namespace nova
         if (impl->index >= impl->buffers.size())
         {
             cmd.SetImpl(new CommandListImpl);
-            impl->buffers.emplace_back(cmd);
+            impl->buffers.emplace_back(+cmd);
 
             cmd->pool = impl;
             VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
@@ -60,7 +60,7 @@ namespace nova
         if (impl->secondaryIndex >= impl->secondaryBuffers.size())
         {
             cmd.SetImpl(new CommandListImpl);
-            impl->secondaryBuffers.emplace_back(cmd);
+            impl->secondaryBuffers.emplace_back(+cmd);
 
             VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
