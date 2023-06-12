@@ -190,10 +190,11 @@ namespace nova
     return ::nova::NovaFormatOutput;                                                             \
 }())
 
-#define NOVA_DEBUG() std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
+#define NOVA_DEBUG() \
+    std::format_to(std::ostream_iterator<char>(std::cout), "    Debug :: {} - {}\n", __LINE__, __FILE__)
 
 #define NOVA_LOG(fmt, ...) \
-    std::cout << std::format(fmt"\n" __VA_OPT__(,) __VA_ARGS__)
+    std::format_to(std::ostream_iterator<char>(std::cout), fmt"\n" __VA_OPT__(,) __VA_ARGS__)
 
 #define NOVA_LOGEXPR(expr) do {           \
     std::osyncstream sso(std::cout);      \
@@ -223,7 +224,7 @@ namespace nova
 
 #define NOVA_TIMEIT(...) do {                                                        \
     using namespace std::chrono;                                                     \
-    std::cout << std::format("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}\n",    \
+    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                      \
         duration_cast<milliseconds>(steady_clock::now()                              \
             - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
     ::nova::NovaTimeitLast = steady_clock::now();                                    \
@@ -316,9 +317,9 @@ namespace nova
 
 #define NOVA_CONCAT_INTERNAL(a, b) a##b
 #define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
-#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(_scope_guard_$_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(nova_OnScopeExit, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(nova_OnScopeSuccess_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(nova_OnScopeFailure_, __COUNTER__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 

@@ -100,7 +100,7 @@ namespace nova
         void Submit(Job* job)
         {
             std::scoped_lock lock { mutex };
-            queue.push(std::move(job));
+            queue.push(job);
             cv.notify_one();
         }
     };

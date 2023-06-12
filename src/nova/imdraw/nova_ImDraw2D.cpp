@@ -74,7 +74,7 @@ layout(push_constant) uniform PushConstants {
     )";
 
     impl->rectVertShader = +Shader(context,
-        ShaderStage::Vertex, {},
+        ShaderStage::Vertex,
         "vertex",
         preamble + R"(
 const vec2[6] deltas = vec2[] (
@@ -96,11 +96,10 @@ void main()
     outInstanceID = instanceID;
     gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
 }
-        )",
-        impl->pipelineLayout);
+        )");
 
     impl->rectFragShader = +Shader(context,
-        ShaderStage::Fragment, {},
+        ShaderStage::Fragment,
         "fragment",
         preamble + R"(
 layout(location = 0) in vec2 inTex;
@@ -141,8 +140,7 @@ void main()
             : centerColor;
     }
 }
-        )",
-        impl->pipelineLayout);
+        )");
 
 // -----------------------------------------------------------------------------
 
@@ -334,7 +332,7 @@ void main()
 
     void ImDraw2D::Record(CommandList cmd) const
     {
-        cmd.SetTopology(Topology::Triangles);
+        // cmd.SetTopology(Topology::Triangles);
         cmd.PushConstants(impl->pipelineLayout,
             ShaderStage::Vertex | ShaderStage::Fragment,
             ImDraw2DImpl::PushConstantsRange.offset, ImDraw2DImpl::PushConstantsRange.size,
@@ -351,9 +349,9 @@ void main()
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd.SetGraphicsState({impl->rectVertShader, impl->rectFragShader}, {
-                    .blendEnable = true,
-                });
+                cmd.SetGraphicsState(impl->pipelineLayout,
+                    {impl->rectVertShader, impl->rectFragShader},
+                    { .blendEnable = true });
                 cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }

@@ -35,7 +35,7 @@ int main()
     auto pipelineLayout = +nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
 
     auto vertexShader = +nova::Shader(context,
-        nova::ShaderStage::Vertex, nova::ShaderStage::Fragment,
+        nova::ShaderStage::Vertex,
         "vertex",
         R"(
 #version 460
@@ -50,11 +50,10 @@ void main()
     color = colors[gl_VertexIndex];
     gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
 }
-        )",
-        pipelineLayout);
+        )");
 
     auto fragmentShader = +nova::Shader(context,
-        nova::ShaderStage::Fragment, {},
+        nova::ShaderStage::Fragment,
         "fragment",
         R"(
 #version 460
@@ -66,8 +65,7 @@ void main()
 {
     fragColor = vec4(inColor, 1);
 }
-        )",
-        pipelineLayout);
+        )");
 
     // Draw
 
@@ -82,7 +80,7 @@ void main()
 
         cmd.BeginRendering({swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
-        cmd.SetGraphicsState({vertexShader, fragmentShader}, {});
+        cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 

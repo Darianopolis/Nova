@@ -12,6 +12,12 @@
 
 namespace nova
 {
+    enum class UID : u64 {
+        Invalid = 0,
+    };
+
+// -----------------------------------------------------------------------------
+
     struct BufferImpl : ImplBase
     {
         Context context = {};
@@ -66,11 +72,12 @@ namespace nova
     struct ShaderImpl : ImplBase
     {
         Context       context = {};
-        PipelineLayout layout = {};
+        UID                id = UID::Invalid;
 
-        VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
-        VkShaderEXT          shader = {};
+        // VkShaderEXT          shader = {};
+        std::vector<u32>      spirv = {};
         VkShaderModule       module = {};
+        VkShaderStageFlagBits stage = VkShaderStageFlagBits(0);
 
         constexpr static const char* EntryPoint = "main";
 
@@ -164,6 +171,7 @@ namespace nova
     struct PipelineLayoutImpl : ImplBase
     {
         Context context = {};
+        UID          id = UID::Invalid;
 
         VkPipelineLayout layout = {};
 
@@ -296,8 +304,8 @@ namespace nova
         PolygonMode polyMode;
         u32  blendEnable : 1;
 
-        std::array<VkShaderModule, 5> shaders;
-        VkPipelineLayout               layout;
+        std::array<UID, 5> shaders;
+        UID                 layout;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineStateKey)
     };
@@ -311,17 +319,17 @@ namespace nova
 
     struct GraphicsPipelinePreRasterizationStageKey
     {
-        std::array<VkShaderModule, 4> shaders;
-        VkPipelineLayout               layout;
-        VkPolygonMode                polyMode;
+        std::array<UID, 4> shaders;
+        UID                 layout;
+        VkPolygonMode     polyMode;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
     };
 
     struct GraphicsPipelineFragmentShaderStageKey
     {
-        VkShaderModule   shader;
-        VkPipelineLayout layout;
+        UID shader;
+        UID layout;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentShaderStageKey)
     };
@@ -346,10 +354,18 @@ namespace nova
 
     struct ComputePipelineKey
     {
-        VkShaderModule shader;
-        VkPipelineLayout layout;
+        UID shader;
+        UID layout;
 
         NOVA_DEFINE_WYHASH_EQUALITY(ComputePipelineKey)
+    };
+
+    struct ShaderObjectKey
+    {
+        UID shader;
+        UID layout;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(ShaderObjectKey)
     };
 }
 
@@ -360,6 +376,7 @@ NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
 NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
+NOVA_DEFINE_WYHASH_FOR(nova::ShaderObjectKey);
 
 // -----------------------------------------------------------------------------
 
@@ -425,8 +442,14 @@ namespace nova
 
     public: // Pipeline cache
 
+        std::atomic_uint64_t nextUID = 1;
+        UID GetUID() noexcept { return UID(nextUID++); };
+        void PushDeletedObject(UID objectID);
+
         std::shared_mutex                                              pipelineMutex;
         ankerl::unordered_dense::map<GraphicsPipelineStateKey, VkPipeline> pipelines;
+
+        ankerl::unordered_dense::map<ShaderObjectKey, VkShaderEXT> shaderObjects;
 
         bool usePipelineLibraries = true;
 
@@ -438,9 +461,9 @@ namespace nova
 
         ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline> computePipelines;
 
-        ankerl::unordered_dense::set<VkShaderModule>          deletedShaders;
-        ankerl::unordered_dense::set<VkPipeline>            deletedPipelines;
-        VkPipelineCache                                        pipelineCache = {};
+        ankerl::unordered_dense::set<UID>          deletedObjects;
+        ankerl::unordered_dense::set<VkPipeline> deletedPipelines;
+        VkPipelineCache                             pipelineCache = {};
 
     public: // Descriptor Pool
 

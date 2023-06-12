@@ -33,6 +33,7 @@ namespace nova
                 f.pNext = pNext;
                 pNext = &f;
             }
+
             return std::any_cast<T&>(feature);
         }
 
@@ -316,20 +317,28 @@ namespace nova
 
     ContextImpl::~ContextImpl()
     {
-        for (auto&[key, pipeline] : pipelines)            vkDestroyPipeline(device, pipeline, pAlloc);
+        // Destroy combined graphics piplines
+        for (auto&[key, pipeline] : pipelines)
+            vkDestroyPipeline(device, pipeline, pAlloc);
 
+        // Destroy shader objects
+        for (auto&[key, shader] : shaderObjects)
+            vkDestroyShaderEXT(device, shader, pAlloc);
+
+        // Combine graphics shader library stages
         for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
 
-        for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
-
-        vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
+        // Destroy compute pipelines
+        for (auto&[key, pipeline] : computePipelines)
+            vkDestroyPipeline(device, pipeline, pAlloc);
 
         vkDestroyPipelineCache(device, pipelineCache, pAlloc);
 
+        vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);
         if (debugMessenger)
@@ -375,6 +384,15 @@ Validation: {} ({})
         (void)flags;
 
         return impl->graphics;
+    }
+
+    void ContextImpl::PushDeletedObject(UID id)
+    {
+        if (id != UID::Invalid)
+        {
+            std::scoped_lock lock { pipelineMutex };
+            deletedObjects.emplace(id);
+        }
     }
 
 // -----------------------------------------------------------------------------

@@ -196,67 +196,6 @@ namespace nova
         }));
     }
 
-    void CommandList::SetTopology(Topology topology) const
-    {
-        vkCmdSetPrimitiveTopology(impl->buffer, VkPrimitiveTopology(topology));
-    }
-
-    void CommandList::SetCullState(CullMode mode, FrontFace frontFace) const
-    {
-        vkCmdSetCullMode(impl->buffer, VkCullModeFlags(mode));
-        vkCmdSetFrontFace(impl->buffer, VkFrontFace(frontFace));
-    }
-
-    void CommandList::SetPolyState(PolygonMode poly, f32 lineWidth) const
-    {
-        vkCmdSetPolygonModeEXT(impl->buffer, VkPolygonMode(poly));
-        vkCmdSetLineWidth(impl->buffer, lineWidth);
-    }
-
-    NOVA_NO_INLINE
-    void CommandList::SetBlendState(u32 colorAttachmentCount, bool blendEnable) const
-    {
-        auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
-        auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
-        auto blendEquations = blendEnable
-            ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
-            : nullptr;
-
-        for (u32 i = 0; i < colorAttachmentCount; ++i)
-        {
-            components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-                | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            blendEnableBools[i] = blendEnable;
-
-            if (blendEnable)
-            {
-                blendEquations[i] = {
-                    .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .colorBlendOp = VK_BLEND_OP_ADD,
-                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                    .alphaBlendOp = VK_BLEND_OP_ADD,
-                };
-            }
-        }
-
-        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
-        vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
-        if (blendEnable)
-            vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
-    }
-
-    void CommandList::SetDepthState(bool enable, bool write, CompareOp compareOp) const
-    {
-        vkCmdSetDepthTestEnable(impl->buffer, enable);
-        if (enable)
-        {
-            vkCmdSetDepthWriteEnable(impl->buffer, write);
-            vkCmdSetDepthCompareOp(impl->buffer, VkCompareOp(compareOp));
-        }
-    }
-
     NOVA_NO_INLINE
     void CommandList::BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment, bool allowSecondary) const
     {

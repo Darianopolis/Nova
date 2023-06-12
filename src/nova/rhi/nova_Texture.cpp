@@ -243,7 +243,7 @@ namespace nova
         if (state.layout == newLayout && state.stage == newStages && state.access == newAccess)
             return;
 
-        // TODO: Revert temporary fix
+        // TODO: Don't flush full pipeline
 
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -270,53 +270,77 @@ namespace nova
         state.access = newAccess;
     }
 
-    void CommandList::Transition(Texture texture, ResourceState state, BindPoint bindPoint) const
+    void CommandList::Transition(Texture texture, ResourceState state, PipelineStage stages) const
     {
         VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
-        VkPipelineStageFlags2 stages = VK_PIPELINE_STAGE_2_NONE;
+        VkPipelineStageFlags2 vkStages = VK_PIPELINE_STAGE_2_NONE;
         VkAccessFlags2 access = VkAccessFlags2(0);
-
-        bool set = false;
 
         switch (state)
         {
         break;case ResourceState::Sampled:
             layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            access = VK_ACCESS_2_SHADER_READ_BIT;
-            stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-            set = true;
-        break;case ResourceState::GeneralImage:
-            layout = VK_IMAGE_LAYOUT_GENERAL;
-            access = VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT;
-            stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-            set = true;
+
+        break;case ResourceState::ColorAttachment:
+            layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        break;case ResourceState::DepthStencilAttachment:
+            layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
         break;case ResourceState::Present:
             layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            stages = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
-            set = true;
+
+        break;case ResourceState::GeneralImage:
+            layout = VK_IMAGE_LAYOUT_GENERAL;
         }
 
-        switch (bindPoint)
+        switch (stages)
         {
-        break;case BindPoint::Compute:
-            stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-            set = true;
-        break;case BindPoint::Graphics:
-            stages = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
-            set = true;
-        break;case BindPoint::RayTracing:
-            stages = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
-            set = true;
+        break;case PipelineStage::Graphics:
+            // TODO: Support graphics image reads outside of fragment shader
+            switch (state)
+            {
+            break;case ResourceState::Sampled:
+                vkStages = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+            break;case ResourceState::ColorAttachment:
+                vkStages = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+                access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+
+            break;case ResourceState::DepthStencilAttachment:
+                vkStages = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+                access = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+
+            break;case ResourceState::GeneralImage:
+                vkStages = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+                access = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+            }
+        break;case PipelineStage::Compute:
+            switch (state)
+            {
+            break;case ResourceState::Sampled:
+                vkStages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+                access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+            break;case ResourceState::GeneralImage:
+                vkStages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+                access = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+            }
+        break;case PipelineStage::RayTracing:
+            switch (state)
+            {
+            break;case ResourceState::Sampled:
+                vkStages = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+                access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+
+            break;case ResourceState::GeneralImage:
+                vkStages = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+                access = VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+            }
         }
 
-        if (set)
-        {
-            Transition(texture, layout, stages, access);
-        }
-        else
-        {
-            NOVA_THROW("Unknown transition ({}, {})", u32(state), u32(bindPoint));
-        }
+        Transition(texture, layout, vkStages, access);
     }
 
     void CommandList::BlitImage(Texture dst, Texture src, Filter filter) const

@@ -21,6 +21,7 @@ if Project "nova" then
 
         -- Test
         "stb",
+        "fastgltf",
 
         -- Miscellaneous
         "sqlite3",
@@ -55,4 +56,10 @@ if Project "nova-compute-test" then
     Compile "example/HelloCompute.cpp"
     Import "nova"
     Artifact { "out/compute-test", type = "Console" }
+end
+
+if Project "nova-mesh-test" then
+    Compile "example/HelloMesh.cpp"
+    Import "nova"
+    Artifact { "out/mesh-test", type = "Console" }
 end

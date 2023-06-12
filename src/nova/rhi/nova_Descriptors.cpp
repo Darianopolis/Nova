@@ -196,6 +196,7 @@ namespace nova
     {
         impl->context = context;
         impl->bindPoint = bindPoint;
+        impl->id = context->GetUID();
 
         for (auto& range : pushConstantRanges)
             impl->ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
@@ -214,6 +215,8 @@ namespace nova
 
     PipelineLayoutImpl::~PipelineLayoutImpl()
     {
+        context->PushDeletedObject(id);
+
         if (layout)
             vkDestroyPipelineLayout(context->device, layout, context->pAlloc);
     }

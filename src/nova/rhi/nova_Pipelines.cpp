@@ -92,7 +92,7 @@ namespace nova
         Context            context,
         Span<Shader>       shaders,
         const PipelineState& state,
-        VkPipelineLayout    layout)
+        PipelineLayout      layout)
     {
         auto key = GraphicsPipelinePreRasterizationStageKey {};
 
@@ -101,8 +101,8 @@ namespace nova
 
         // Set shaders and layout
         for (u32 i = 0; i < shaders.size(); ++i)
-            key.shaders[i] = shaders[i]->module;
-        key.layout = shaders[0]->layout->layout;
+            key.shaders[i] = shaders[i]->id;
+        key.layout = layout->id;
 
         auto pipeline = context->preRasterStages[key];
 
@@ -140,7 +140,7 @@ namespace nova
                         .dynamicStateCount = u32(DynamicStates.size()),
                         .pDynamicStates = DynamicStates.data(),
                     }),
-                    .layout = layout,
+                    .layout = layout->layout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
@@ -158,13 +158,13 @@ namespace nova
         Context            context,
         Shader              shader,
         const PipelineState& state,
-        VkPipelineLayout    layout)
+        PipelineLayout      layout)
     {
         (void)state;
 
         auto key = GraphicsPipelineFragmentShaderStageKey {};
-        key.shader = shader->module;
-        key.layout = layout;
+        key.shader = shader->id;
+        key.layout = layout->id;
 
         auto pipeline = context->fragmentShaderStages[key];
 
@@ -201,7 +201,7 @@ namespace nova
                         .dynamicStateCount = u32(DynamicStates.size()),
                         .pDynamicStates = DynamicStates.data(),
                     }),
-                    .layout = layout,
+                    .layout = layout->layout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
@@ -333,7 +333,7 @@ namespace nova
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
-            NOVA_LOG("Compiled new graphics shader            set permutation in {}",
+            NOVA_LOG("Linked new graphics library set permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
 
             context->graphicsPipelineSets[key] = pipeline;
@@ -348,7 +348,7 @@ namespace nova
         RenderingDescription renderingDesc,
         const PipelineState&         state,
         Span<Shader>               shaders,
-        VkPipelineLayout            layout)
+        PipelineLayout              layout)
     {
         GraphicsPipelineStateKey key = {};
 
@@ -365,8 +365,8 @@ namespace nova
 
         // Set shaders and layout
         for (u32 i = 0; i < shaders.size(); ++i)
-            key.shaders[i] = shaders[i]->module;
-        key.layout = shaders[0]->layout->layout;
+            key.shaders[i] = shaders[i]->id;
+        key.layout = layout->id;
 
         // Query pipeline and build missing permutations on demand
 
@@ -457,7 +457,7 @@ namespace nova
                         .dynamicStateCount = u32(DynamicStates.size()),
                         .pDynamicStates = DynamicStates.data(),
                     }),
-                    .layout = layout,
+                    .layout = layout->layout,
                     .renderPass = nullptr,
                     .subpass = 0,
                     .basePipelineIndex = -1,
@@ -472,8 +472,70 @@ namespace nova
         return pipeline;
     }
 
-    void CommandList::SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const
+    static
+    VkShaderEXT GetShaderObject(
+        Context       context,
+        Shader         shader,
+        PipelineLayout layout)
     {
+        auto key = ShaderObjectKey {};
+        key.shader = shader->id;
+        key.layout = layout->id;
+        auto shaderObject = context->shaderObjects[key];
+        if (!shaderObject)
+        {
+            VkShaderStageFlags nextStages = {};
+            switch (shader->stage)
+            {
+            break;case VK_SHADER_STAGE_VERTEX_BIT:
+                nextStages = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT
+                            | VK_SHADER_STAGE_GEOMETRY_BIT
+                            | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+            break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+                nextStages = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+
+            break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+                nextStages = VK_SHADER_STAGE_GEOMETRY_BIT
+                            | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+            break;case VK_SHADER_STAGE_GEOMETRY_BIT:
+                nextStages = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+            break;case VK_SHADER_STAGE_TASK_BIT_EXT:
+                nextStages = VK_SHADER_STAGE_MESH_BIT_EXT;
+
+            break;case VK_SHADER_STAGE_MESH_BIT_EXT:
+                nextStages = VK_SHADER_STAGE_FRAGMENT_BIT;
+            }
+
+            auto start = std::chrono::steady_clock::now();
+            VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
+                .stage = shader->stage,
+                .nextStage = nextStages,
+                .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
+                .codeSize = shader->spirv.size() * 4,
+                .pCode = shader->spirv.data(),
+                .pName = "main",
+                .setLayoutCount = u32(layout->sets.size()),
+                .pSetLayouts = layout->sets.data(),
+                .pushConstantRangeCount = u32(layout->ranges.size()),
+                .pPushConstantRanges = layout->ranges.data(),
+            }), context->pAlloc, &shaderObject));
+            auto dur = std::chrono::steady_clock::now() - start;
+            NOVA_LOG("Compiled new shader object layout permutation in {}",
+                std::chrono::duration_cast<std::chrono::microseconds>(dur));
+
+            context->shaderObjects[key] = shaderObject;
+        }
+
+        return shaderObject;
+    }
+
+    void CommandList::SetGraphicsState(PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) const
+    {
+        auto context = impl->pool->context;
         auto start = std::chrono::steady_clock::now();
 
         // Viewport + Scissors
@@ -521,7 +583,14 @@ namespace nova
         {
             // Vertex input
 
-            BindShaders(shaders);
+            auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
+            auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
+            for (u32 i = 0; i < shaders.size(); ++i)
+            {
+                stageFlags[i] = shaders[i]->stage;
+                shaderObjects[i] = GetShaderObject(context, shaders[i], layout);
+            }
+            vkCmdBindShadersEXT(impl->buffer, u32(shaders.size()), stageFlags, shaderObjects);
 
             // Pre-rasterization (dynamic 3)
 
@@ -529,42 +598,40 @@ namespace nova
 
             // Fragment Output
 
+            auto colorAttachmentCount = u32(impl->state->colorAttachmentsFormats.size());
+            auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
+            auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
+            auto blendEquations = state.blendEnable
+                ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
+                : nullptr;
+
+            for (u32 i = 0; i < colorAttachmentCount; ++i)
             {
-                auto colorAttachmentCount = u32(impl->state->colorAttachmentsFormats.size());
-                auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
-                auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
-                auto blendEquations = state.blendEnable
-                    ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
-                    : nullptr;
+                components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                    | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                blendEnableBools[i] = state.blendEnable;
 
-                for (u32 i = 0; i < colorAttachmentCount; ++i)
-                {
-                    components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-                        | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-                    blendEnableBools[i] = state.blendEnable;
-
-                    if (state.blendEnable)
-                    {
-                        blendEquations[i] = {
-                            .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                            .colorBlendOp = VK_BLEND_OP_ADD,
-                            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                            .alphaBlendOp = VK_BLEND_OP_ADD,
-                        };
-                    }
-                }
-
-                vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
-                vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
                 if (state.blendEnable)
-                    vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
+                {
+                    blendEquations[i] = {
+                        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        .colorBlendOp = VK_BLEND_OP_ADD,
+                        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        .alphaBlendOp = VK_BLEND_OP_ADD,
+                    };
+                }
             }
+
+            vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
+            vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
+            if (state.blendEnable)
+                vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
         }
         else
         {
-            // Separate components
+            // Separate shaders
 
             Shader fragmentShader;
             std::array<Shader, 4> preRasterStageShaders;
@@ -577,17 +644,14 @@ namespace nova
                     preRasterStageShaders[preRasterStageShaderIndex++] = shader;
             }
 
-            auto layout = shaders[0]->layout->layout;
-
-            // Request pipeline library stages
-
-            auto context = impl->pool->context;
+            // Request pipeline
 
             VkPipeline pipeline;
             if (context->usePipelineLibraries)
             {
                 auto vi = GetGraphicsVertexInputStage(context, state);
-                auto pr = GetGraphicsPreRasterizationStage(context, { preRasterStageShaders.data(), preRasterStageShaderIndex }, state, layout);
+                auto pr = GetGraphicsPreRasterizationStage(context,
+                    { preRasterStageShaders.data(), preRasterStageShaderIndex }, state, layout);
                 auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader, state, layout);
                 auto fo = GetGraphicsFragmentOutputStage(context, {
                         .colorFormats = impl->state->colorAttachmentsFormats,
@@ -595,7 +659,7 @@ namespace nova
                         .stencilFormat = impl->state->stencilAttachmentFormat,
                     }, state);
 
-                pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo }, layout);
+                pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo }, layout->layout);
             }
             else
             {
@@ -616,13 +680,13 @@ namespace nova
 //                             Compute shaders
 // -----------------------------------------------------------------------------
 
-    void CommandList::SetComputeState(Shader shader) const
+    void CommandList::SetComputeState(PipelineLayout layout, Shader shader) const
     {
         auto context = impl->pool->context;
 
         auto key = ComputePipelineKey {};
-        key.shader = shader->module;
-        key.layout = shader->layout->layout;
+        key.shader = shader->id;
+        key.layout = layout->id;
 
         auto pipeline = context->computePipelines[key];
         if (!pipeline)
@@ -630,7 +694,7 @@ namespace nova
             VkCall(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                 .stage = shader.GetStageInfo(),
-                .layout = key.layout,
+                .layout = layout->layout,
                 .basePipelineIndex = -1,
             }), context->pAlloc, &pipeline));
 
@@ -644,8 +708,8 @@ namespace nova
     {
         std::scoped_lock lock { impl->pipelineMutex };
 
-        auto eraseIfDeleted = [&](VkShaderModule shader, VkPipeline pipeline) {
-            if (shader && impl->deletedShaders.contains(shader))
+        auto eraseIfDeleted = [&](UID shaderID, VkPipeline pipeline) {
+            if (shaderID != UID::Invalid && impl->deletedObjects.contains(shaderID))
             {
                 vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
                 impl->deletedPipelines.emplace(pipeline);
@@ -663,6 +727,19 @@ namespace nova
                 if (eraseIfDeleted(sm, it.second))
                     return true;
             }
+
+            return false;
+        });
+
+        // Clear shader objects
+
+        std::erase_if(impl->shaderObjects, [&](const auto& it) {
+            auto shaderID = it.first.shader;
+            if (shaderID != UID::Invalid && impl->deletedObjects.contains(shaderID))
+            {
+                vkDestroyShaderEXT(impl->device, it.second, impl->pAlloc);
+                return true;
+            };
 
             return false;
         });
@@ -689,7 +766,7 @@ namespace nova
             return eraseIfDeleted(it.first.shader, it.second);
         });
 
-        impl->deletedShaders.clear();
+        impl->deletedObjects.clear();
 
         // Clear pipeline library permutations with deleted stages
 

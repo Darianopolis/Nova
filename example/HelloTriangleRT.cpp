@@ -74,7 +74,7 @@ int main()
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = +nova::Shader(context,
-        nova::ShaderStage::RayGen, {},
+        nova::ShaderStage::RayGen,
         "raygen",
         R"(
 #version 460
@@ -107,8 +107,7 @@ void main()
         imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
     }
 }
-        )",
-        pipelineLayout);
+        )");
 
     // Create a ray tracing pipeline with one ray gen shader
 
@@ -226,7 +225,7 @@ void main()
 
         cmd.Transition(swapchain.GetCurrent(),
             nova::ResourceState::GeneralImage,
-            nova::BindPoint::RayTracing);
+            nova::PipelineStage::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 

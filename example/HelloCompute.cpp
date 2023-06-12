@@ -35,7 +35,7 @@ int main()
 
     auto context = +nova::Context({
         .debug = true,
-        .rayTracing = true,
+        .shaderObjects = false,
     });
 
     // Create surface and swapchain for GLFW window
@@ -69,7 +69,7 @@ int main()
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto computeShader = +nova::Shader(context,
-        nova::ShaderStage::Compute, {},
+        nova::ShaderStage::Compute,
         "compute",
         R"(
 #version 460
@@ -83,8 +83,7 @@ void main()
     vec2 uv = vec2(pos) / vec2(gl_NumWorkGroups.xy);
     imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
 }
-        )",
-        pipelineLayout);
+        )");
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -109,7 +108,7 @@ void main()
 
         cmd.Transition(swapchain.GetCurrent(),
             nova::ResourceState::GeneralImage,
-            nova::BindPoint::Compute);
+            nova::PipelineStage::Compute);
 
         // Push swapchain image and TLAS descriptors
 
@@ -117,7 +116,7 @@ void main()
 
         // Trace rays
 
-        cmd.SetComputeState({computeShader});
+        cmd.SetComputeState(pipelineLayout, {computeShader});
         cmd.Dispatch(Vec3U(swapchain.GetExtent(), 1));
 
         // Submit and present work

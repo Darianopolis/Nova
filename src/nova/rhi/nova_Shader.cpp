@@ -86,49 +86,70 @@ namespace nova
 
     NOVA_DEFINE_HANDLE_OPERATIONS(Shader)
 
-    Shader::Shader(Context context, ShaderStage stage, ShaderStage _nextStage,
-            const std::string& filename, const std::string& sourceCode,
-            PipelineLayout layout)
+    Shader::Shader(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
         : ImplHandle(new ShaderImpl)
     {
         impl->context = context;
         impl->stage = VkShaderStageFlagBits(stage);
-        impl->layout = layout;
+        impl->id = context->GetUID();
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
-        auto nextStage = VkShaderStageFlags(_nextStage);
-
         EShLanguage glslangStage;
-        bool supportsShaderObjects = true;
+        bool createShaderObject = context->config.shaderObjects;
         switch (impl->stage)
         {
-        break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
-        break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
-        break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: glslangStage = EShLangTessEvaluation;
-        break;case VK_SHADER_STAGE_GEOMETRY_BIT:                glslangStage = EShLangGeometry;
-        break;case VK_SHADER_STAGE_FRAGMENT_BIT:                glslangStage = EShLangFragment;
-        break;case VK_SHADER_STAGE_COMPUTE_BIT:                 glslangStage = EShLangCompute;
-        break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              glslangStage = EShLangRayGen;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             glslangStage = EShLangAnyHit;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         glslangStage = EShLangClosestHit;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_MISS_BIT_KHR:                glslangStage = EShLangMiss;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        glslangStage = EShLangIntersect;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            glslangStage = EShLangCallable;
-                                                                supportsShaderObjects = false;
-        break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
-        break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
+        break;case VK_SHADER_STAGE_VERTEX_BIT:
+            glslangStage = EShLangVertex;
+
+        break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+            glslangStage = EShLangTessControl;
+
+        break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+            glslangStage = EShLangTessEvaluation;
+
+        break;case VK_SHADER_STAGE_GEOMETRY_BIT:
+            glslangStage = EShLangGeometry;
+
+        break;case VK_SHADER_STAGE_FRAGMENT_BIT:
+            glslangStage = EShLangFragment;
+
+        break;case VK_SHADER_STAGE_COMPUTE_BIT:
+            glslangStage = EShLangCompute;
+
+        break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:
+            glslangStage = EShLangRayGen;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:
+            glslangStage = EShLangAnyHit;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:
+            glslangStage = EShLangClosestHit;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_MISS_BIT_KHR:
+            glslangStage = EShLangMiss;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:
+            glslangStage = EShLangIntersect;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:
+            glslangStage = EShLangCallable;
+            createShaderObject = false;
+
+        break;case VK_SHADER_STAGE_TASK_BIT_EXT:
+            glslangStage = EShLangTask;
+
+        break;case VK_SHADER_STAGE_MESH_BIT_EXT:
+            glslangStage = EShLangMesh;
+
         break;default: NOVA_THROW("Unknown stage: {}", int(impl->stage));
         }
-
-        if (!context->config.shaderObjects)
-            supportsShaderObjects = false;
 
         glslang::TShader glslShader { glslangStage };
         auto resource = (const TBuiltInResource*)glslang_default_resource();
@@ -139,9 +160,9 @@ namespace nova
         // ---- Source ----
 
         const std::string& glslCode = sourceCode.empty() ? ReadFileToString(filename) : sourceCode;
-        const char* source = glslCode.c_str();
-        int sourceLength = (int)glslCode.size();
-        const char* sourceName = filename.c_str();
+        const char* source = glslCode.data();
+        i32 sourceLength = i32(glslCode.size());
+        const char* sourceName = filename.data();
         glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
 
         // ---- Defines ----
@@ -218,35 +239,13 @@ namespace nova
             .pCode = spirv.data(),
         }), context->pAlloc, &impl->module));
 
-        if (supportsShaderObjects)
-        {
-            // TODO: Only use ranges and descriptor sets that are included in this shader stage?
-            //   Vulkan should already handle this?
-            VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
-                .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
-                .stage = impl->stage,
-                .nextStage = nextStage,
-                .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
-                .codeSize = spirv.size() * 4,
-                .pCode = spirv.data(),
-                .pName = "main",
-                .setLayoutCount = u32(layout->sets.size()),
-                .pSetLayouts = layout->sets.data(),
-                .pushConstantRangeCount = u32(layout->ranges.size()),
-                .pPushConstantRanges = layout->ranges.data(),
-            }), context->pAlloc, &impl->shader));
-        }
+        if (createShaderObject)
+            impl->spirv = std::move(spirv);
     }
 
     ShaderImpl::~ShaderImpl()
     {
-        {
-            std::scoped_lock lock { context->pipelineMutex };
-            context->deletedShaders.emplace(module);
-        }
-
-        if (shader)
-            vkDestroyShaderEXT(context->device, shader, context->pAlloc);
+        context->PushDeletedObject(id);
 
         if (module)
             vkDestroyShaderModule(context->device, module, context->pAlloc);
@@ -260,21 +259,5 @@ namespace nova
             .module = impl->module,
             .pName = ShaderImpl::EntryPoint,
         };
-    }
-
-// -----------------------------------------------------------------------------
-
-    NOVA_NO_INLINE
-    void CommandList::BindShaders(Span<Shader> shaders) const
-    {
-        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
-        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
-        for (u32 i = 0; i < shaders.size(); ++i)
-        {
-            stageFlags[i] = shaders[i]->stage;
-            shaderObjects[i] = shaders[i]->shader;
-        }
-
-        vkCmdBindShadersEXT(impl->buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 }

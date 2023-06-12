@@ -191,7 +191,16 @@ namespace nova
     {
         Sampled,
         GeneralImage,
+        ColorAttachment,
+        DepthStencilAttachment,
         Present,
+    };
+
+    enum class PipelineStage
+    {
+        Compute = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        Graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+        RayTracing = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
     };
 
     enum class BindPoint : u32
@@ -357,9 +366,7 @@ namespace nova
         NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
 
     public:
-        Shader(Context context, ShaderStage stage, ShaderStage nextStage,
-            const std::string& filename, const std::string& sourceCode,
-            PipelineLayout layout);
+        Shader(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode = {});
 
         struct ShaderStageInfo
         {
@@ -632,18 +639,13 @@ namespace nova
 
         void Clear(Texture texture, Vec4 color) const;
         void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const;
-        void Transition(Texture texture, ResourceState state, BindPoint bindPoint) const;
+        void Transition(Texture texture, ResourceState state, PipelineStage stages) const;
         void Present(Texture texture) const;
 
         void SetViewport(Vec2U size, bool flipVertical) const;
-        void SetTopology(Topology topology) const;
-        void SetCullState(CullMode mode, FrontFace frontFace) const;
-        void SetPolyState(PolygonMode poly, f32 lineWidth) const;
-        void SetBlendState(u32 colorAttachmentCount, bool blendEnable) const;
-        void SetDepthState(bool enable, bool write, CompareOp compareOp) const;
 
-        void SetGraphicsState(Span<Shader> shaders, const PipelineState& state) const;
-        void SetComputeState(Shader shader) const;
+        void SetGraphicsState(PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) const;
+        void SetComputeState(PipelineLayout layout, Shader shader) const;
 
         void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false) const;
         void EndRendering() const;
@@ -655,7 +657,6 @@ namespace nova
         void BindDescriptorBuffers(Span<Buffer> buffers) const;
         void SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const;
 
-        void BindShaders(Span<Shader> shaders) const;
         void BindIndexBuffer(Buffer buffer, IndexType indexType, u64 offset = 0) const;
         void PushConstants(PipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data) const;
 
