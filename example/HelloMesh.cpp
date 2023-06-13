@@ -1,4 +1,5 @@
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/nova_RHI_Impl.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -26,16 +27,19 @@ static Mat4 ProjInfReversedZRH(f32 fovY, f32 aspectWbyH, f32 zNear)
 
 template<>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<f32, fastgltf::AccessorType::Vec3> {};
+template<>
+struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<f32, fastgltf::AccessorType::Vec2> {};
 
-// struct Vertex
-// {
-//     Vec3 pos;
-//     Vec3 color;
-// };
+struct Vertex
+{
+    Vec3 pos;
+    Vec2 uv;
+    u32 texIndex;
+};
 
 struct Mesh
 {
-    std::vector<glm::vec3> vertices;
+    std::vector<Vertex> vertices;
     std::vector<u32> indices;
 
     // nova::Buffer::Arc vertexBuffer;
@@ -50,47 +54,40 @@ struct MeshInstance
     std::shared_ptr<Mesh> mesh;
 };
 
-// ankerl::unordered_dense::map<usz, usz> visitedNodes;
 ankerl::unordered_dense::map<usz, std::shared_ptr<Mesh>> loadedMeshes;
 
 void ProcessNode(fastgltf::Asset& asset, nova::Context context, Mat4 parentTransform, usz nodeId, std::vector<MeshInstance>& outputMeshes)
 {
     auto& node = asset.nodes[nodeId];
-    // NOVA_LOG("Processing node: {}", node.name);
-    // if (visitedNodes.contains(nodeId))
-    // {
-    //     NOVA_LOG("Visited duplicate node, count = {}", loadedMeshes[nodeId]);
-    // }
-    // visitedNodes[nodeId]++;
 
-    Mat4 transform;
+    Mat4 hierarchyTransform;
+    Mat4 instanceTransform;
     if (auto trs = std::get_if<fastgltf::Node::TRS>(&node.transform))
     {
         // NOVA_LOG(" - Has TRS");
         auto r = glm::mat4_cast(Quat(trs->rotation[3], trs->rotation[0], trs->rotation[1], trs->rotation[2]));
+        // auto r = glm::mat4_cast(Quat(trs->rotation[0], trs->rotation[1], trs->rotation[2], trs->rotation[3]));
         auto t = glm::translate(Mat4(1.f), std::bit_cast<glm::vec3>(trs->translation));
         auto s = glm::scale(Mat4(1.f), std::bit_cast<glm::vec3>(trs->scale));
-        transform = (t * r * s) * parentTransform;
+        // auto s = glm::scale(Mat4(1.f), Vec3(1.f));
+        hierarchyTransform = parentTransform * (t * r);
+        instanceTransform = parentTransform * (t * r * s);
     }
     else if (auto tform = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform))
     {
         // NOVA_LOG(" - Has Transform");
         auto glmTform = std::bit_cast<Mat4>(*tform);
-        transform = glmTform * parentTransform;
+        instanceTransform = glmTform * parentTransform;
+        hierarchyTransform = instanceTransform;
     }
     else
     {
-        transform = parentTransform;
+        instanceTransform = parentTransform;
+        hierarchyTransform = parentTransform;
     }
 
     if (node.meshIndex.has_value())
     {
-        // if (loadedMeshes.contains(node.meshIndex.value()))
-        // {
-        //     NOVA_LOG("Found duplicate mesh, count = {}", loadedMeshes[node.meshIndex.value()]);
-        // }
-        // loadedMeshes[node.meshIndex.value()]++;
-
         auto& pOutMesh = loadedMeshes[node.meshIndex.value()];
 
         if (!pOutMesh)
@@ -121,31 +118,32 @@ void ProcessNode(fastgltf::Asset& asset, nova::Context context, Mat4 parentTrans
                     outMesh.indices.push_back(offset + index);
                 });
 
-                outMesh.vertices.reserve(outMesh.vertices.size() + positionAccessor.count);
+                outMesh.vertices.resize(outMesh.vertices.size() + positionAccessor.count);
+                u32 vid = offset;
                 fastgltf::iterateAccessor<glm::vec3>(asset, positionAccessor, [&](glm::vec3 pos) {
-                    outMesh.vertices.push_back(pos);
+                    outMesh.vertices[vid++].pos = pos;
                 }, fastgltf::DefaultBufferDataAdapter{});
+
+                if (prim.attributes.find("TEXCOORD_0") != prim.attributes.end())
+                {
+                    auto& texCoordAccessor = asset.accessors[prim.attributes.at("TEXCOORD_0")];
+
+                    vid = offset;
+                    fastgltf::iterateAccessor<glm::vec2>(asset, texCoordAccessor, [&](glm::vec2 uv) {
+                        outMesh.vertices[vid++].uv = uv;
+                    }, fastgltf::DefaultBufferDataAdapter{});
+                }
             }
-
-            // Create buffers
-
-            // outMesh.vertexBuffer = +nova::Buffer(context, outMesh.vertices.size() * sizeof(Vec3),
-            //     nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
-            // outMesh.vertexBuffer.Set<Vec3>(outMesh.vertices);
-
-            // outMesh.indexBuffer = +nova::Buffer(context, outMesh.indices.size() * 4,
-            //     nova::BufferUsage::Index, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
-            // outMesh.indexBuffer.Set<u32>(outMesh.indices);
         }
 
         auto& meshInstance =  outputMeshes.emplace_back();
-        meshInstance.transform = transform;
+        meshInstance.transform = instanceTransform;
         meshInstance.mesh = pOutMesh;
     }
 
     for (usz child : node.children)
     {
-        ProcessNode(asset, context, transform, child, outputMeshes);
+        ProcessNode(asset, context, hierarchyTransform, child, outputMeshes);
     }
 }
 
@@ -225,14 +223,14 @@ void TryMain()
     };
 
     auto context = +nova::Context({
-        .debug = true,
+        .debug = false,
     });
 
     auto surface = +nova::Surface(context, glfwGetWin32Window(window));
     auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
-        nova::PresentMode::Fifo);
+        nova::PresentMode::Immediate);
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto cmdPool = +nova::CommandPool(context, queue);
@@ -298,13 +296,11 @@ void TryMain()
         NOVA_LOGEXPR(vertexCount);
         NOVA_LOGEXPR(indexCount);
 
-        vertexBuffer = +nova::Buffer(context, vertexCount * sizeof(Vec3),
+        vertexBuffer = +nova::Buffer(context, vertexCount * sizeof(Vertex),
             nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
-        // vertexBuffer.Set<Vec3>(outMesh.vertices);
 
         indexBuffer = +nova::Buffer(context, indexCount * 4,
             nova::BufferUsage::Index, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
-        // indexBuffer.Set<u32>(outMesh.indices);
 
         vertexCount = 0;
         indexCount = 0;
@@ -314,7 +310,7 @@ void TryMain()
             mesh->vertexOffset = vertexCount;
             mesh->indexOffset = indexCount;
 
-            vertexBuffer.Set<Vec3>(mesh->vertices, vertexCount);
+            vertexBuffer.Set<Vertex>(mesh->vertices, vertexCount);
             indexBuffer.Set<u32>(mesh->indices, indexCount);
 
             vertexCount += mesh->vertices.size();
@@ -322,15 +318,34 @@ void TryMain()
         }
     }
 
-    // struct GpuMeshInstance
-    // {
-    //     glm::mat4 model;
-    //     u64 vertexVA;
-    // };
+    {
+        usz totalIndexCount = 0;
 
-    // auto instanceBuffer = +nova::Buffer(context, meshes.size() * sizeof(GpuMeshInstance),
-    //     nova::BufferUsage::Storage,
-    //     nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+        for (auto& instance : meshes)
+            totalIndexCount += instance.mesh->indices.size();
+
+        NOVA_LOG("Instances = {}", meshes.size());
+        NOVA_LOG("Unique meshes = {}", loadedMeshes.size());
+        NOVA_LOG("Total Triangles = {}", totalIndexCount / 3);
+    }
+
+    struct GpuMeshInstance
+    {
+        glm::mat4 model;
+        u64 vertexVA;
+    };
+
+    auto instanceBuffer = +nova::Buffer(context, meshes.size() * sizeof(GpuMeshInstance),
+        nova::BufferUsage::Storage,
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+
+    for (u32 i = 0; i < meshes.size(); ++i)
+    {
+        instanceBuffer.Get<GpuMeshInstance>(i) = {
+            .model = meshes[i].transform,
+            .vertexVA = vertexBuffer.GetAddress() + (meshes[i].mesh->vertexOffset * sizeof(Vertex)),
+        };
+    }
 
     // auto countBuffer = +nova::Buffer(context, 4,
     //     nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
@@ -340,10 +355,11 @@ void TryMain()
     //     nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     struct PushConstants
     {
-        alignas(16) glm::mat4 model;
+        // alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 viewProj;
-        u64 vertexVA;
-        u64 countVA;
+        // u64 vertexVA;
+        u64 instanceVA;
+        // u64 countVA;
     };
 
     // Pipeline
@@ -367,16 +383,25 @@ void TryMain()
 struct Vertex
 {
     vec3 pos;
-    // vec3 color;
+    vec2 uv;
+    uint texIndex;
 };
 layout(buffer_reference, scalar) buffer VertexBR { Vertex data[]; };
 
-layout(push_constant) uniform PushConstants
+struct GpuMeshInstance
 {
     mat4 model;
-    mat4 viewProj;
     uint64_t vertexVA;
-    uint64_t countVA;
+};
+layout(buffer_reference, scalar) buffer GpuMeshInstanceBR { GpuMeshInstance data[]; };
+
+layout(push_constant) uniform PushConstants
+{
+    // mat4 model;
+    mat4 viewProj;
+    uint64_t instanceVA;
+    // uint64_t vertexVA;
+    // uint64_t countVA;
 } pc;
 layout(buffer_reference, scalar) buffer CountBR { uint data[]; };
 
@@ -385,15 +410,18 @@ layout(buffer_reference, scalar) buffer CountBR { uint data[]; };
 
 // layout(location = 0) out vec3 color;
 layout(location = 0) out vec3 outPosition;
+layout(location = 1) out vec2 outTexCoord;
 
 void main()
 {
+    GpuMeshInstance instance = GpuMeshInstanceBR(pc.instanceVA).data[gl_InstanceIndex];
     // uint vertexId = atomicAdd(CountBR(pc.countVA).data[0], 1);
     // Vertex v = VertexBR(pc.vertexVA).data[vertexId];
-    Vertex v = VertexBR(pc.vertexVA).data[gl_VertexIndex];
+    Vertex v = VertexBR(instance.vertexVA).data[gl_VertexIndex];
     // color = v.color;
-    outPosition = vec3(pc.model * vec4(v.pos, 1.0));
+    outPosition = vec3(instance.model * vec4(v.pos, 1.0));
     gl_Position = pc.viewProj * vec4(outPosition, 1);
+    outTexCoord = v.uv;
 }
         )");
 
@@ -407,18 +435,19 @@ void main()
 
 // layout(location = 0) in vec3 inColor;
 layout(location = 0) in pervertexEXT vec3 inPositions[3];
+layout(location = 1) in pervertexEXT vec2 inTexCoord[3];
 layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-    // fragColor = vec4(inColor, 1);
     // fragColor = vec4(gl_BaryCoordEXT, 1.0);
 
-    vec3 p0 = inPositions[0];
-    vec3 p1 = inPositions[1];
-    vec3 p2 = inPositions[2];
-    vec3 nrm = normalize(cross(p1 - p0, p2 - p0));
+    vec3 nrm = normalize(cross(inPositions[1] - inPositions[0], inPositions[2] - inPositions[0]));
     fragColor = vec4(nrm * 0.5 + 0.5, 1.0);
+
+    // vec3 w = gl_BaryCoordEXT;
+    // vec2 uv = inTexCoord[0] * w.x + inTexCoord[1] * w.y + inTexCoord[1] * w.z;
+    // fragColor = vec4(uv, 0, 1);
 }
         )");
 
@@ -431,9 +460,32 @@ void main()
 
     nova::Texture::Arc depthBuffer;
 
+    auto lastReport = std::chrono::steady_clock::now();
+    auto frames = 0;
+
     NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
+        // Debug output statistics
+        frames++;
+        auto newTime = std::chrono::steady_clock::now();
+        if (newTime - lastReport > 1s)
+        {
+            NOVA_LOG("\nFps = {} ({:.2f} ms)\nAllocations = {:3} (+ {} /s)",
+                frames, (1000.0 / frames), nova::ContextImpl::AllocationCount.load(), nova::ContextImpl::NewAllocationCount.exchange(0));
+            f64 divisor = 1000.0 * frames;
+            NOVA_LOG("submit :: clear     = {:.2f}\nsubmit :: adapting1 = {:.2f}\nsubmit :: adapting2 = {:.2f}\npresent             = {:.2f}",
+                nova::TimeSubmitting.exchange(0) / divisor,
+                nova::TimeAdaptingFromAcquire.exchange(0)  / divisor,
+                nova::TimeAdaptingToPresent.exchange(0)  / divisor,
+                nova::TimePresenting.exchange(0) / divisor);
+
+            NOVA_LOG("Atomic Operations = {}", nova::NumHandleOperations.load());
+
+            lastReport = std::chrono::steady_clock::now();
+            frames = 0;
+        }
+
         {
             // Handle movement
 
@@ -505,25 +557,26 @@ void main()
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.ClearDepth(0.f, swapchain.GetExtent());
         cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {
-            .cullMode = nova::CullMode::None,
+            // .cullMode = nova::CullMode::None,
+            .cullMode = nova::CullMode::Back,
             .depthEnable = true,
             .flipVertical = true,
         });
         cmd.BindIndexBuffer(indexBuffer, nova::IndexType::U32);
+        cmd.PushConstants(pipelineLayout, nova::ShaderStage::Vertex,
+            0, sizeof(PushConstants), nova::Temp(PushConstants {
+                // .model = mesh.transform,
+                .viewProj = viewProj,
+                // .vertexVA = vertexBuffer.GetAddress() + (mesh.mesh->vertexOffset * sizeof(Vec3)),// mesh.mesh->vertexBuffer.GetAddress(),
+                .instanceVA = instanceBuffer.GetAddress(),
+                // .countVA = mesh.countBuffer.GetAddress(),
+            }));
         // for (auto& mesh : meshes)
-        for (u32 i = 2000; i < 2100; ++i)
+        // for (u32 i = 2000; i < 3000; ++i)
+        for (u32 i = 0; i < meshes.size(); ++i)
         {
             auto& mesh = meshes[i];
-
-            cmd.PushConstants(pipelineLayout, nova::ShaderStage::Vertex,
-                0, sizeof(PushConstants), nova::Temp(PushConstants {
-                    .model = mesh.transform,
-                    .viewProj = viewProj,
-                    .vertexVA = vertexBuffer.GetAddress() + (mesh.mesh->vertexOffset * sizeof(Vec3)),// mesh.mesh->vertexBuffer.GetAddress(),
-                    // .countVA = mesh.countBuffer.GetAddress(),
-                }));
-            // cmd.BindIndexBuffer(mesh.mesh->indexBuffer, nova::IndexType::U32);
-            cmd.DrawIndexed(u32(mesh.mesh->indices.size()), 1, u32(mesh.mesh->indexOffset), 0, 0);
+            cmd.DrawIndexed(u32(mesh.mesh->indices.size()), 1, u32(mesh.mesh->indexOffset), 0, i);
         }
         cmd.EndRendering();
 
