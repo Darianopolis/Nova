@@ -129,6 +129,8 @@ namespace nova
 
         D24U_X8 = VK_FORMAT_X8_D24_UNORM_PACK32,
         D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
+
+        D32 = VK_FORMAT_D32_SFLOAT,
     };
 
     enum class IndexType : u32

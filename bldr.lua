@@ -22,6 +22,7 @@ if Project "nova" then
         -- Test
         "stb",
         "fastgltf",
+        "micromesh",
 
         -- Miscellaneous
         "sqlite3",

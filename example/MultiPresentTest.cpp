@@ -30,7 +30,7 @@ int main()
     auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window1); };
     auto surface1 = +nova::Surface(context, glfwGetWin32Window(window1));
-    auto swapchain = +nova::Swapchain(context, surface1, swapchainUsage, presentMode);
+    auto swapchain1 = +nova::Swapchain(context, surface1, swapchainUsage, presentMode);
 
     auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
@@ -43,7 +43,7 @@ int main()
     nova::CommandPool::Arc commandPools[] { +nova::CommandPool{context, queue}, +nova::CommandPool{context, queue} };
 
     auto cmd = commandPools[0].Begin(state);
-    auto imgui = +nova::ImGuiWrapper(context, cmd, swapchain.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
+    auto imgui = +nova::ImGuiWrapper(context, cmd, swapchain1.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
     queue.Submit({cmd}, {}, {fences[0]});
     fences[0].Wait();
 
@@ -81,7 +81,7 @@ int main()
         fence.Wait();
 
         // Acquire new images from swapchains
-        queue.Acquire({swapchain, swapchain2}, {fence});
+        queue.Acquire({swapchain1, swapchain2}, {fence});
 
         // Clear resource state tracking
         state.Clear(3);
@@ -91,15 +91,15 @@ int main()
         cmd = commandPool.Begin(state);
 
         // Clear screen
-        cmd.Clear(swapchain.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd.Clear(swapchain1.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.EndFrame(cmd, swapchain.GetCurrent());
+        imgui.EndFrame(cmd, swapchain1.GetCurrent());
 
         // Present #1
-        cmd.Present(swapchain.GetCurrent());
+        cmd.Present(swapchain1.GetCurrent());
 
         // Clear and present #2
         cmd.Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
@@ -109,7 +109,7 @@ int main()
         queue.Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue.Present({swapchain, swapchain2}, {fence}, false);
+        queue.Present({swapchain1, swapchain2}, {fence}, false);
     };
 
     glfwSetWindowUserPointer(window1, &update);
