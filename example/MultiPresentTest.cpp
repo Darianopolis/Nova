@@ -73,8 +73,9 @@ int main()
         }
 
         // Pick fence and commandPool for frame in flight
-        auto fence = -fences[frame % 2];
-        auto commandPool = -commandPools[frame % 2];
+        auto fif = frame % 2;
+        auto fence = -fences[fif];
+        auto commandPool = -commandPools[fif];
         frame++;
 
         // Wait for previous commands in frame to complete

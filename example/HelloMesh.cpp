@@ -285,21 +285,22 @@ void TryMain()
     // indices.push_back(2);
 
     std::vector<MeshInstance> meshes;
-    LoadGltf("D:/Dev/Projects/pyrite/pyrite-v4/assets/models/monkey.gltf", context, meshes);
+    // LoadGltf("D:/Dev/Projects/pyrite/pyrite-v4/assets/models/monkey.gltf", context, meshes);
+    // LoadGltf(R"(C:\Users\Darian\Downloads\powerplant\powerplant.gltf)", context, meshes);
 
-    LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaMain\NewSponza_Main_Blender_glTF.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaCurtains\NewSponza_Curtains_glTF.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaIvy\NewSponza_IvyGrowth_glTF.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaMain\NewSponza_Main_Blender_glTF.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaCurtains\NewSponza_Curtains_glTF.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\SponzaIvy\NewSponza_IvyGrowth_glTF.gltf)", context, meshes);
 
-    LoadGltf("D:/Dev/Data/3DModels/Small_City_LVL/Small_City_LVL.gltf", context, meshes);
+    // LoadGltf("D:/Dev/Data/3DModels/Small_City_LVL/Small_City_LVL.gltf", context, meshes);
 
     LoadGltf(R"(D:\Dev\Projects\pyrite\pyrite-v4\assets\models\deccer-cubes\SM_Deccer_Cubes_Textured_Complex.gltf)", context, meshes);
 
-    LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isIronwoodA1\isIronwoodA1.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isBeach\isBeach.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isBayCedarA1\isBayCedarA1.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isMountainA\isMountainA.gltf)", context, meshes);
-    LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isMountainB\isMountainB.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isIronwoodA1\isIronwoodA1.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isBeach\isBeach.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isBayCedarA1\isBayCedarA1.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isMountainA\isMountainA.gltf)", context, meshes);
+    // LoadGltf(R"(D:\Dev\Data\3DModels\MoanaIsland\island-basepackage-v1.1\island\gltf\isMountainB\isMountainB.gltf)", context, meshes);
 
     // {
     //     auto& mesh = loadedMeshes.emplace_back(std::make_shared<Mesh>());

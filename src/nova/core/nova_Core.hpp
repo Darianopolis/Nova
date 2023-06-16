@@ -96,6 +96,13 @@ namespace nova
         using Mat3 = glm::mat3;
         using Mat4 = glm::mat4;
 
+        struct TRS
+        {
+            Vec3 translation = Vec3(0.f);
+            Quat    rotation = Vec3(0.f);
+            Vec3       scale = Vec3(1.f);
+        };
+
 // -----------------------------------------------------------------------------
 
         template<class T>
