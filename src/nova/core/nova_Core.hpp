@@ -105,6 +105,15 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+        template<class... Ts>
+        struct Overloads : Ts... {
+            using Ts::operator()...;
+        };
+
+        template<class... Ts> Overloads(Ts...) -> Overloads<Ts...>;
+
+// -----------------------------------------------------------------------------
+
         template<class T>
         class OptRef
         {
@@ -191,7 +200,7 @@ namespace nova
 
     thread_local inline std::string NovaFormatOutput;
 
-#define NOVA_FORMAT(fmt, ...) ([&]() -> const std::string& {                                     \
+#define NOVA_FORMAT_TEMP(fmt, ...) ([&]() -> const std::string& {                                     \
     ::nova::NovaFormatOutput.clear();                                                            \
     std::format_to(std::back_inserter(::nova::NovaFormatOutput), fmt __VA_OPT__(,) __VA_ARGS__); \
     return ::nova::NovaFormatOutput;                                                             \
@@ -229,12 +238,12 @@ namespace nova
 
 #define NOVA_TIMEIT_RESET() ::nova::NovaTimeitLast = std::chrono::steady_clock::now()
 
-#define NOVA_TIMEIT(...) do {                                                        \
-    using namespace std::chrono;                                                     \
-    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                      \
-        duration_cast<milliseconds>(steady_clock::now()                              \
+#define NOVA_TIMEIT(...) do {                                                  \
+    using namespace std::chrono;                                               \
+    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+        duration_cast<milliseconds>(steady_clock::now()                        \
             - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
-    ::nova::NovaTimeitLast = steady_clock::now();                                    \
+    ::nova::NovaTimeitLast = steady_clock::now();                              \
 } while (0)
 
 // -----------------------------------------------------------------------------

@@ -60,7 +60,9 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = +nova::DescriptorSetLayout(context, {{nova::DescriptorType::StorageTexture}}, true);
+    auto descLayout = +nova::DescriptorSetLayout(context, {
+        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
+    }, true);
 
     // Create a pipeline layout for the above set layout
 
@@ -71,19 +73,20 @@ int main()
     auto computeShader = +nova::Shader(context,
         nova::ShaderStage::Compute,
         "compute",
-        R"(
-#version 460
-
-layout(set = 0, binding = 0, rgba8) uniform image2D outImage;
-
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        nova::Shader::GenerateShader(
+            {},
+            {descLayout},
+            {},
+            {R"(
 void main()
 {
     ivec2 pos = ivec2(gl_WorkGroupID.xy);
     vec2 uv = vec2(pos) / vec2(gl_NumWorkGroups.xy);
     imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
 }
-        )");
+            )"},
+            nova::shader_entry_info::ComputeInfo({1u, 1u, 1u})
+        ));
 
 // -----------------------------------------------------------------------------
 //                               Main Loop

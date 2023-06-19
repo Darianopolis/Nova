@@ -81,10 +81,10 @@ namespace nova
             .pUserData = impl,
         };
 
-        std::array validationFeaturesEnabled {
+        std::vector<VkValidationFeatureEnableEXT> validationFeaturesEnabled {
             // VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
             // VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
-            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+            // VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
         };
 
         VkValidationFeaturesEXT validationFeatures {
@@ -150,6 +150,7 @@ namespace nova
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
             f12.drawIndirectCount = VK_TRUE;
             f12.timelineSemaphore = VK_TRUE;
+            f12.scalarBlockLayout = VK_TRUE;
             f12.descriptorIndexing = VK_TRUE;
             f12.samplerFilterMinmax = VK_TRUE;
             f12.bufferDeviceAddress = VK_TRUE;

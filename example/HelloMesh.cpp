@@ -617,8 +617,8 @@ NOVA_DEBUG();
 // Create descriptor layout to hold one storage image and acceleration structure
 
     auto descLayout = +nova::DescriptorSetLayout(context, {
-        {nova::DescriptorType::StorageTexture},
-        {nova::DescriptorType::AccelerationStructure},
+        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
+        nova::binding::AccelerationStructure("tlas"),
     }, true);
 
     // Create a pipeline layout for the above set layout

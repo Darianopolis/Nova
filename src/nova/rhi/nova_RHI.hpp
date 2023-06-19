@@ -118,6 +118,8 @@ namespace nova
         RGBA16F = VK_FORMAT_R16G16B16A16_SFLOAT,
         RGBA32F = VK_FORMAT_R32G32B32A32_SFLOAT,
 
+        BGRA8U = VK_FORMAT_B8G8R8A8_UNORM,
+
         RGB32F = VK_FORMAT_R32G32B32_SFLOAT,
 
         R8U = VK_FORMAT_R8_UNORM,
@@ -363,6 +365,18 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    namespace shader_entry_info
+    {
+        struct ComputeInfo
+        {
+            Vec3U workGroups = Vec3U(1);
+        };
+    }
+
+    using ShaderEntryInfo = std::variant<
+        std::monostate,
+        shader_entry_info::ComputeInfo>;
+
     struct Shader : ImplHandle<ShaderImpl>
     {
         NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
@@ -380,6 +394,13 @@ namespace nova
 
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
+
+        static std::string GenerateShader(
+            Span<std::string> structures,
+            Span<DescriptorSetLayout> sets,
+            Span<std::string> bufferReferences,
+            Span<std::string> fragments,
+            ShaderEntryInfo entryInfo = {});
     };
 
 // -----------------------------------------------------------------------------
@@ -444,11 +465,32 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct DescriptorBinding
+    namespace binding
     {
-        DescriptorType type;
-        u32           count = 1;
-    };
+        struct SampledTexture
+        {
+            std::string         name;
+            std::optional<u32> count;
+        };
+
+        struct StorageTexture
+        {
+            std::string         name;
+            Format            format;
+            std::optional<u32> count;
+        };
+
+        struct AccelerationStructure
+        {
+            std::string         name;
+            std::optional<u32> count;
+        };
+    }
+
+    using DescriptorBinding = std::variant<
+        binding::SampledTexture,
+        binding::StorageTexture,
+        binding::AccelerationStructure>;
 
     struct DescriptorSetBindingOffset
     {

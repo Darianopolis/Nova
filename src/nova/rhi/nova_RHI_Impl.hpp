@@ -148,6 +148,8 @@ namespace nova
     {
         Context context = {};
 
+        std::vector<DescriptorBinding> bindings = {};
+
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
         std::vector<u64>     offsets = {};

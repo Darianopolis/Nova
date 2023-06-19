@@ -19,15 +19,32 @@ namespace nova
 
             vkBindings[i] = {
                 .binding = i,
-                .descriptorType = VkDescriptorType(binding.type),
-                .descriptorCount = binding.count,
                 .stageFlags = VK_SHADER_STAGE_ALL,
             };
 
             // TODO: Partially bound optional?
             flags[i] = VkDescriptorBindingFlags(0);
-            if (binding.count > 1)
-                flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+
+            std::visit(Overloads {
+                [&](const binding::SampledTexture& binding) {
+                    vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    vkBindings[i].descriptorCount = binding.count.value_or(1u);
+                    if (binding.count)
+                        flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                },
+                [&](const binding::StorageTexture& binding) {
+                    vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                    vkBindings[i].descriptorCount = binding.count.value_or(1u);
+                    if (binding.count)
+                        flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                },
+                [&](const binding::AccelerationStructure& binding) {
+                    vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+                    vkBindings[i].descriptorCount = binding.count.value_or(1u);
+                    if (binding.count)
+                        flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                }
+            }, binding);
         }
 
         VkCall(vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
@@ -55,6 +72,9 @@ namespace nova
             for (u32 i = 0; i < bindings.size(); ++i)
                 vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, impl->layout, i, &impl->offsets[i]);
         }
+
+        impl->bindings.reserve(bindings.size());
+        std::move(bindings.begin(), bindings.end(), std::back_insert_iterator(impl->bindings));
     }
 
     DescriptorSetLayoutImpl::~DescriptorSetLayoutImpl()

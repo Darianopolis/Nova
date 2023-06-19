@@ -199,7 +199,7 @@ namespace nova
             u32 lineNum = 0;
             while (std::getline(iss, line))
             {
-                NOVA_LOG("{:3} : {}", lineNum++, line);
+                NOVA_LOG("{:3} : {}", ++lineNum, line);
             }
             NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
@@ -259,5 +259,102 @@ namespace nova
             .module = impl->module,
             .pName = ShaderImpl::EntryPoint,
         };
+    }
+
+// -----------------------------------------------------------------------------
+
+    std::string Shader::GenerateShader(
+        Span<std::string> structures,
+        Span<DescriptorSetLayout> sets,
+        Span<std::string> bufferReferences,
+        Span<std::string> fragments,
+        ShaderEntryInfo entryInfo)
+    {
+        std::string shader = R"(#version 460
+
+#extension GL_GOOGLE_include_directive                   : enable
+#extension GL_EXT_scalar_block_layout                    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+#extension GL_EXT_buffer_reference2                      : enable
+#extension GL_EXT_nonuniform_qualifier                   : enable
+#extension GL_EXT_ray_tracing                            : enable
+#extension GL_EXT_ray_tracing_position_fetch             : enable
+#extension GL_NV_shader_invocation_reorder               : enable
+#extension GL_EXT_fragment_shader_barycentric            : enable
+)";
+
+        for (auto& structure : structures)
+            (shader += structure) += '\n';
+
+        for (u32 setIdx = 0; setIdx < sets.size(); ++setIdx)
+        {
+            auto& set = sets[setIdx];
+
+            for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
+            {
+                auto& binding = set->bindings[bindingIdx];
+
+                auto getArrayPart = [&](std::optional<u32> count) {
+                    return count
+                        ? count.value() == UINT32_MAX
+                            ? "[]"
+                            : NOVA_FORMAT_TEMP("[{}]", count.value()).c_str()
+                        : "";
+                };
+
+                std::visit(Overloads {
+                    [&](const binding::SampledTexture& binding) {
+                        // TODO: Support 1D/3D
+                        std::format_to(std::back_inserter(shader), "layout(set = {}, binding = {}) uniform sampler2D {}{};\n",
+                            setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                    },
+                    [&](const binding::StorageTexture& binding) {
+                        // TODO: Support 1D/3D
+                        const char* formatString;
+                        const char* imageType;
+                        switch (binding.format)
+                        {
+                        break;case Format::RGBA8U:
+                                case Format::BGRA8U:
+                            formatString = "rgba8";
+                            imageType = "image2D";
+                        break;case Format::R32UInt:
+                            formatString = "r32ui";
+                            imageType = "uimage2D";
+                        break;default:
+                            NOVA_THROW("Unknown format: {}", u32(binding.format));
+                        }
+
+                        std::format_to(std::back_inserter(shader), "layout(set = {}, binding = {}, {}) uniform {} {}{};\n",
+                            setIdx, bindingIdx, formatString, imageType, binding.name, getArrayPart(binding.count));
+                    },
+                    [&](const binding::AccelerationStructure& binding) {
+                        std::format_to(std::back_inserter(shader), "layout(set = {}, binding = {}) uniform accelerationStructureEXT {}{};\n",
+                            setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                    }
+                }, binding);
+            }
+        }
+
+        for (auto& type : bufferReferences)
+        {
+            std::format_to(std::back_inserter(shader), R"(layout(buffer_reference, scalar) buffer {0}_br {{ {0} data[]; }};
+#define {0}_BR(va) {0}_br(va).data
+)", type);
+        }
+
+        std::visit(Overloads {
+            [&](shader_entry_info::ComputeInfo& compute) {
+                std::format_to(std::back_inserter(shader),
+                    "layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\n",
+                    compute.workGroups.x, compute.workGroups.y, compute.workGroups.z);
+            },
+            [](auto&) {},
+        }, entryInfo);
+
+        for (auto& fragment : fragments)
+            (shader += fragment) += '\n';
+
+        return shader;
     }
 }

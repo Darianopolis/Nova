@@ -26,7 +26,7 @@ void TryMain()
     };
 
     auto context = +nova::Context({
-        .debug = true,
+        .debug = false,
     });
 
     auto surface = +nova::Surface(context, glfwGetWin32Window(window));

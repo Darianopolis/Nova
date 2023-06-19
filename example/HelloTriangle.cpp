@@ -37,9 +37,11 @@ int main()
     auto vertexShader = +nova::Shader(context,
         nova::ShaderStage::Vertex,
         "vertex",
-        R"(
-#version 460
-
+        nova::Shader::GenerateShader(
+            {},
+            {},
+            {},
+            {R"(
 const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
 const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
 
@@ -50,14 +52,16 @@ void main()
     color = colors[gl_VertexIndex];
     gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
 }
-        )");
+            )"}));
 
     auto fragmentShader = +nova::Shader(context,
         nova::ShaderStage::Fragment,
         "fragment",
-        R"(
-#version 460
-
+        nova::Shader::GenerateShader(
+            {},
+            {},
+            {},
+            {R"(
 layout(location = 0) in  vec3   inColor;
 layout(location = 0) out vec4 fragColor;
 
@@ -65,7 +69,7 @@ void main()
 {
     fragColor = vec4(inColor, 1);
 }
-        )");
+            )"}));
 
     // Draw
 
