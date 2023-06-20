@@ -51,16 +51,20 @@ namespace nova
 
         // Extract the scale. We calculate the euclidean length of the columns. We then
         // construct a vector with those lengths.
-        auto s1 = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] *  matrix[2]);
-        auto s2 = std::sqrt(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] *  matrix[6]);
-        auto s3 = std::sqrt(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
+        float s1 = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] *  matrix[2]);
+        float s2 = std::sqrt(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] *  matrix[6]);
+        float s3 = std::sqrt(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
         trs.scale = Vec3(s1, s2, s3);
+
+        float is1 = 1.f / s1;
+        float is2 = 1.f / s2;
+        float is3 = 1.f / s3;
 
         // Remove the scaling from the matrix, leaving only the rotation. matrix is now the
         // rotation matrix.
-        matrix[0] /= s1; matrix[1] /= s1;  matrix[2] /= s1;
-        matrix[4] /= s2; matrix[5] /= s2;  matrix[6] /= s2;
-        matrix[8] /= s3; matrix[9] /= s3; matrix[10] /= s3;
+        matrix[0] *= is1; matrix[1] *= is1;  matrix[2] *= is1;
+        matrix[4] *= is2; matrix[5] *= is2;  matrix[6] *= is2;
+        matrix[8] *= is3; matrix[9] *= is3; matrix[10] *= is3;
 
         // Construct the quaternion. This algo is copied from here:
         // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm.
@@ -72,7 +76,7 @@ namespace nova
             /* z = */ std::max(0.f, 1.f - matrix[0] - matrix[5] + matrix[10]),
         };
         for (u32 i = 0; i < 4; ++i)
-            trs.rotation[i] = f32(std::sqrt(f64(trs.rotation[i])) / 2.f);
+            trs.rotation[i] = f32(std::sqrt(f64(trs.rotation[i])) * 0.5f);
         trs.rotation.x = std::copysignf(trs.rotation.x, matrix[6] - matrix[9]);
         trs.rotation.y = std::copysignf(trs.rotation.y, matrix[8] - matrix[2]);
         trs.rotation.z = std::copysignf(trs.rotation.z, matrix[1] - matrix[4]);

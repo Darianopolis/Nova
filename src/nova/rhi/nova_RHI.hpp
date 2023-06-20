@@ -365,46 +365,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    namespace shader_entry_info
-    {
-        struct ComputeInfo
-        {
-            Vec3U workGroups = Vec3U(1);
-        };
-    }
-
-    using ShaderEntryInfo = std::variant<
-        std::monostate,
-        shader_entry_info::ComputeInfo>;
-
-    struct Shader : ImplHandle<ShaderImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
-
-    public:
-        Shader(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode = {});
-
-        struct ShaderStageInfo
-        {
-            ShaderStage stage;
-            std::string_view filename;
-            std::string_view sourceCode;
-        };
-        Shader(Context context, PipelineLayout layout, Span<ShaderStageInfo> stage);
-
-    public:
-        VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
-
-        static std::string GenerateShader(
-            Span<std::string> structures,
-            Span<DescriptorSetLayout> sets,
-            Span<std::string> bufferReferences,
-            Span<std::string> fragments,
-            ShaderEntryInfo entryInfo = {});
-    };
-
-// -----------------------------------------------------------------------------
-
     struct Surface : ImplHandle<SurfaceImpl>
     {
         NOVA_DECLARE_HANDLE_OPERATIONS(Surface)
@@ -519,6 +479,125 @@ namespace nova
 
     public:
         void WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
+    };
+
+// -----------------------------------------------------------------------------
+
+    enum class ShaderVarType
+    {
+        Mat2, Mat3, Mat4,
+        Vec2, Vec3, Vec4,
+        U32, U64,
+        I32, I64,
+        F32, F64,
+    };
+
+    enum class ShaderInputFlags
+    {
+        None,
+        Flat,
+        PerVertex,
+    };
+    NOVA_DECORATE_FLAG_ENUM(ShaderInputFlags)
+
+    namespace shader
+    {
+        constexpr u32 ArrayCountUnsized = UINT32_MAX;
+    }
+
+    namespace shader_element
+    {
+        struct Member
+        {
+            std::string   name;
+            ShaderVarType type;
+            std::optional<u32> count = std::nullopt;
+        };
+
+        struct Structure
+        {
+            std::string     name;
+            Span<Member> members;
+        };
+
+        struct PushConstants
+        {
+            // TODO: Offset
+            std::string       name;
+            Span<Member> constants;
+        };
+
+        struct DescriptorSet
+        {
+            u32               index;
+            DescriptorSetLayout set;
+        };
+
+        struct BufferReference
+        {
+            std::string name;
+            std::optional<ShaderVarType> scalarType = std::nullopt;
+        };
+
+        struct Input
+        {
+            std::string       name;
+            ShaderVarType     type;
+            ShaderInputFlags flags = {};
+        };
+
+        struct Output
+        {
+            std::string   name;
+            ShaderVarType type;
+        };
+
+        struct Fragment
+        {
+            std::string glsl;
+        };
+
+        struct ComputeKernel
+        {
+            Vec3U workGroups;
+            std::string glsl;
+        };
+
+        struct Kernel
+        {
+            std::string glsl;
+        };
+    }
+
+    using ShaderElement = std::variant<
+        shader_element::Structure,
+        shader_element::PushConstants,
+        shader_element::DescriptorSet,
+        shader_element::BufferReference,
+        shader_element::Input,
+        shader_element::Output,
+        shader_element::Fragment,
+        shader_element::ComputeKernel,
+        shader_element::Kernel>;
+
+    struct Shader : ImplHandle<ShaderImpl>
+    {
+        NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
+
+    public:
+        Shader(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode = {});
+        Shader(Context context, ShaderStage stage, Span<ShaderElement> elements);
+
+        struct ShaderStageInfo
+        {
+            ShaderStage stage;
+            std::string_view filename;
+            std::string_view sourceCode;
+        };
+        Shader(Context context, PipelineLayout layout, Span<ShaderStageInfo> stage);
+
+    public:
+        VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
     };
 
 // -----------------------------------------------------------------------------

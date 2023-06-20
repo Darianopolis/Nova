@@ -73,73 +73,31 @@ int main()
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto rgenCode = nova::Shader::GenerateShader(
-        {},
-        {descLayout},
-        {},
-        {R"(
-layout(location = 0) rayPayloadEXT uint payload;
-layout(location = 0) hitObjectAttributeNV vec3 barycentric;
+    auto rayGenShader = +nova::Shader(context, nova::ShaderStage::RayGen, {
+        nova::shader_element::DescriptorSet(0, descLayout),
+        nova::shader_element::Fragment(R"(
+            layout(location = 0) rayPayloadEXT uint payload;
+            layout(location = 0) hitObjectAttributeNV vec3 barycentric;
+        )"),
+        nova::shader_element::Kernel(R"(
+            vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+            vec3 dir = vec3(0, 0, -1);
+            hitObjectNV hit;
+            hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
-void main()
-{
-    vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-    vec3 dir = vec3(0, 0, -1);
-    hitObjectNV hit;
-    hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
-
-    if (hitObjectIsHitNV(hit))
-    {
-        hitObjectGetAttributesNV(hit, 0);
-        vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
-        vec3 color = vec3(1, 0, 0) * w.x + vec3(0, 1, 0) * w.y + vec3(0, 0, 1) * w.z;
-        imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(w, 1));
-    }
-    else
-    {
-        imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
-    }
-}
-        )"});
-
-    NOVA_LOG("Ray gen code: \n {}", rgenCode);
-
-    auto rayGenShader = +nova::Shader(context,
-        nova::ShaderStage::RayGen,
-        "raygen",
-        rgenCode);
-//         R"(
-// #version 460
-
-// #extension GL_EXT_ray_tracing              : require
-// #extension GL_NV_shader_invocation_reorder : require
-
-// layout(set = 0, binding = 0, rgba8) uniform image2D       outImage;
-// layout(set = 0, binding = 1) uniform accelerationStructureEXT tlas;
-
-// layout(location = 0) rayPayloadEXT uint            payload;
-// layout(location = 0) hitObjectAttributeNV vec3 barycentric;
-
-// void main()
-// {
-//     vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-//     vec3 dir = vec3(0, 0, -1);
-//     hitObjectNV hit;
-//     hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
-
-//     if (hitObjectIsHitNV(hit))
-//     {
-//         hitObjectGetAttributesNV(hit, 0);
-//         vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
-//         vec3 color = vec3(1, 0, 0) * w.x + vec3(0, 1, 0) * w.y + vec3(0, 0, 1) * w.z;
-//         imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(w, 1));
-//     }
-//     else
-//     {
-//         imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
-//     }
-// }
-//         )");
+            if (hitObjectIsHitNV(hit))
+            {
+                hitObjectGetAttributesNV(hit, 0);
+                vec3 w = vec3(1.0 - barycentric.x - barycentric.y, barycentric.x, barycentric.y);
+                vec3 color = vec3(1, 0, 0) * w.x + vec3(0, 1, 0) * w.y + vec3(0, 0, 1) * w.z;
+                imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(w, 1));
+            }
+            else
+            {
+                imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
+            }
+        )")
+    });
 
     // Create a ray tracing pipeline with one ray gen shader
 
