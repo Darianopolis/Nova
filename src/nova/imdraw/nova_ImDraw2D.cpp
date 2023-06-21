@@ -21,13 +21,11 @@ namespace nova
         impl->descriptorSetLayout = +DescriptorSetLayout(context, {
             nova::binding::SampledTexture("textures", 65'536),
         });
-
         impl->descriptorSet = +DescriptorSet(impl->descriptorSetLayout);
 
         impl->pipelineLayout = +PipelineLayout(context,
-            {{nova::ShaderStage::Vertex | nova::ShaderStage::Fragment, sizeof(ImDraw2DImpl::PushConstants)}},
-            {impl->descriptorSetLayout},
-            nova::BindPoint::Graphics);
+            {{"pc", {ImDraw2DImpl::PushConstants::Layout.begin(), ImDraw2DImpl::PushConstants::Layout.end()}}},
+            {impl->descriptorSetLayout}, nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
@@ -37,110 +35,71 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        std::string preamble = R"(
-#version 460
+        impl->rectVertShader = +Shader(context, ShaderStage::Vertex, {
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::BufferReference("ImRoundRect"),
+            nova::shader::Layout(impl->pipelineLayout),
 
-#extension GL_EXT_scalar_block_layout : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
-#extension GL_EXT_buffer_reference2 : require
-#extension GL_EXT_nonuniform_qualifier : require
+            nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
+            nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
+            nova::shader::Fragment(R"(
+                const vec2[6] deltas = vec2[] (
+                    vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
+                    vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
+            )"),
+            nova::shader::Kernel(R"(
+                uint instanceID = gl_VertexIndex / 6;
+                uint vertexID = gl_VertexIndex % 6;
 
-#define BR_DECLARE(type) layout(buffer_reference, scalar) buffer type##_BR { type data[]; }
-#define BR_GET(type, va, index) type##_BR(va).data[index]
+                ImRoundRect box = ImRoundRect_BR(pc.rectInstancesVA)[instanceID];
+                vec2 delta = deltas[vertexID];
+                outTex = delta * box.halfExtent;
+                outInstanceID = instanceID;
+                gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
+            )")
+        });
 
-struct ImRoundRect
-{
-    vec4 centerColor;
-    vec4 borderColor;
+        impl->rectFragShader = +Shader(context, ShaderStage::Fragment, {
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::BufferReference("ImRoundRect"),
+            nova::shader::Layout(impl->pipelineLayout),
 
-    vec2 centerPos;
-    vec2 halfExtent;
+            nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
+            nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
+            nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
-    float cornerRadius;
-    float borderWidth;
+            nova::shader::Kernel(R"(
+                ImRoundRect box = ImRoundRect_BR(pc.rectInstancesVA)[inInstanceID];
 
-    vec4 texTint;
-    uint texIndex;
-    vec2 texCenterPos;
-    vec2 texHalfExtent;
-};
-BR_DECLARE(ImRoundRect);
+                vec2 absPos = abs(inTex);
+                vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
-layout(push_constant) uniform PushConstants {
-    vec2 invHalfExtent;
-    vec2 centerPos;
-    uint64_t rectInstancesVA;
-} pc;
-    )";
+                vec4 sampled = box.texTint.a > 0
+                    ? box.texTint * texture(textures[nonuniformEXT(box.texIndex)],
+                        (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
+                    : vec4(0);
+                vec4 centerColor = vec4(
+                    sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
+                    sampled.a + box.centerColor.a * (1 - sampled.a));
 
-    impl->rectVertShader = +Shader(context,
-        ShaderStage::Vertex,
-        "vertex",
-        preamble + R"(
-const vec2[6] deltas = vec2[] (
-    vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
-    vec2(-1,  1), vec2( 1,  1), vec2( 1, -1)
-);
+                if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y)
+                {
+                    float dist = length(absPos - cornerFocus);
+                    if (dist > box.cornerRadius + 0.5)
+                        discard;
 
-layout(location = 0) out vec2 outTex;
-layout(location = 1) out uint outInstanceID;
-
-void main()
-{
-    uint instanceID = gl_VertexIndex / 6;
-    uint vertexID = gl_VertexIndex % 6;
-
-    ImRoundRect box = BR_GET(ImRoundRect, pc.rectInstancesVA, instanceID);
-    vec2 delta = deltas[vertexID];
-    outTex = delta * box.halfExtent;
-    outInstanceID = instanceID;
-    gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
-}
-        )");
-
-    impl->rectFragShader = +Shader(context,
-        ShaderStage::Fragment,
-        "fragment",
-        preamble + R"(
-layout(location = 0) in vec2 inTex;
-layout(location = 1) in flat uint inInstanceID;
-
-layout(set = 0, binding = 0) uniform sampler2D textures[];
-
-layout(location = 0) out vec4 outColor;
-
-void main()
-{
-    ImRoundRect box = BR_GET(ImRoundRect, pc.rectInstancesVA, inInstanceID);
-
-    vec2 absPos = abs(inTex);
-    vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
-
-    vec4 sampled = box.texTint.a > 0
-        ? box.texTint * texture(textures[nonuniformEXT(box.texIndex)], (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
-        : vec4(0);
-    vec4 centerColor = vec4(
-        sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
-        sampled.a + box.centerColor.a * (1 - sampled.a));
-
-    if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y)
-    {
-        float dist = length(absPos - cornerFocus);
-        if (dist > box.cornerRadius + 0.5)
-            discard;
-
-        outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
-            ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
-            : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
-    }
-    else
-    {
-        outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
-            ? box.borderColor
-            : centerColor;
-    }
-}
-        )");
+                    outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
+                        ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
+                        : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
+                }
+                else
+                {
+                    outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
+                        ? box.borderColor
+                        : centerColor;
+                }
+            )")
+        });
 
 // -----------------------------------------------------------------------------
 
@@ -332,10 +291,8 @@ void main()
 
     void ImDraw2D::Record(CommandList cmd) const
     {
-        // cmd.SetTopology(Topology::Triangles);
         cmd.PushConstants(impl->pipelineLayout,
-            ShaderStage::Vertex | ShaderStage::Fragment,
-            ImDraw2DImpl::PushConstantsRange.offset, ImDraw2DImpl::PushConstantsRange.size,
+            0, sizeof(ImDraw2DImpl::PushConstants),
             Temp(ImDraw2DImpl::PushConstants {
                 .invHalfExtent = 2.f / impl->bounds.Size(),
                 .centerPos = impl->bounds.Center(),

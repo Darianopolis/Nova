@@ -298,9 +298,9 @@ namespace nova
         vkCmdEndRendering(impl->buffer);
     }
 
-    void CommandList::PushConstants(PipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data) const
+    void CommandList::PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const
     {
-        vkCmdPushConstants(impl->buffer, layout->layout, VkShaderStageFlags(stages), u32(offset), u32(size), data);
+        vkCmdPushConstants(impl->buffer, layout->layout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const

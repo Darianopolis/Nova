@@ -285,7 +285,6 @@ namespace nova
         impl->stage = VkShaderStageFlagBits(stage);
 
         std::string shader = R"(#version 460
-
 #extension GL_GOOGLE_include_directive                   : enable
 #extension GL_EXT_scalar_block_layout                    : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
@@ -383,60 +382,77 @@ namespace nova
                     write("}};\n");
                 },
 // -----------------------------------------------------------------------------
-//                             Push Constants
+//                             Pipeline Layout
 // -----------------------------------------------------------------------------
-                [&](const shader::PushConstants& pushConstants) {
-                    write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
-                    for (auto& member : pushConstants.constants)
+                [&](const shader::Layout& layout) {
+                    auto pipelineLayout = layout.layout;
+
+                    // Push Constants
+
+                    for (auto& pushConstants : pipelineLayout->pcRanges)
                     {
-                        write("    {} {}{};\n",
-                            typeToString(member.type), member.name, getArrayPart(member.count));
+                        write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
+                        for (auto& member : pushConstants.constants)
+                        {
+                            write("    {} {}{};\n",
+                                typeToString(member.type), member.name, getArrayPart(member.count));
+                        }
+                        write("}} {};\n", pushConstants.name);
                     }
-                    write("}} {};\n", pushConstants.name);
-                },
-// -----------------------------------------------------------------------------
-//                             Descriptor Set
-// -----------------------------------------------------------------------------
-                [&](const shader::DescriptorSet& descriptorSet) {
-                    auto setIdx = descriptorSet.index;
-                    auto set = descriptorSet.set;
-                    for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
+
+                    // Descriptor Sets
+
+                    for (u32 setIdx = 0; setIdx < pipelineLayout->sets.size(); ++setIdx)
                     {
-                        auto& binding = set->bindings[bindingIdx];
+                        auto set = pipelineLayout->setLayouts[setIdx];
+                        for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
+                        {
+                            auto& binding = set->bindings[bindingIdx];
 
-                        std::visit(Overloads {
-                            [&](const binding::SampledTexture& binding) {
-                                // TODO: Support 1D/3D
-                                write("layout(set = {}, binding = {}) uniform sampler2D {}{};\n",
-                                    setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
-                            },
-                            [&](const binding::StorageTexture& binding) {
-                                // TODO: Support 1D/3D
-                                const char* formatString;
-                                const char* imageType;
-                                switch (binding.format)
-                                {
-                                break;case Format::RGBA8U:
-                                        case Format::BGRA8U:
-                                        case Format::RGBA8_SRGB:
-                                        case Format::BGRA8_SRGB:
-                                    formatString = "rgba8";
-                                    imageType = "image2D";
-                                break;case Format::R32UInt:
-                                    formatString = "r32ui";
-                                    imageType = "uimage2D";
-                                break;default:
-                                    NOVA_THROW("Unknown format: {}", u32(binding.format));
+                            std::visit(Overloads {
+                                [&](const binding::SampledTexture& binding) {
+                                    // TODO: Support 1D/3D
+                                    write("layout(set = {}, binding = {}) uniform sampler2D {}{};\n",
+                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::StorageTexture& binding) {
+                                    // TODO: Support 1D/3D
+                                    const char* formatString;
+                                    const char* imageType;
+                                    switch (binding.format)
+                                    {
+                                    break;case Format::RGBA8U:
+                                            case Format::BGRA8U:
+                                            case Format::RGBA8_SRGB:
+                                            case Format::BGRA8_SRGB:
+                                        formatString = "rgba8";
+                                        imageType = "image2D";
+                                    break;case Format::R32UInt:
+                                        formatString = "r32ui";
+                                        imageType = "uimage2D";
+                                    break;default:
+                                        NOVA_THROW("Unknown format: {}", u32(binding.format));
+                                    }
+
+                                    write("layout(set = {}, binding = {}, {}) uniform {} {}{};\n",
+                                        setIdx, bindingIdx, formatString, imageType, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::AccelerationStructure& binding) {
+                                    write("layout(set = {}, binding = {}) uniform accelerationStructureEXT {}{};\n",
+                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::UniformBuffer& binding) {
+                                    write("layout(set = {}, binding = {}) uniform {} {{\n",
+                                        setIdx, bindingIdx, getAnonStructureName());
+                                    for (auto& member : binding.members)
+                                    {
+                                        write("    {} {}{};\n",
+                                            typeToString(member.type), member.name, getArrayPart(member.count));
+                                    }
+                                    write("}} {}{};\n", binding.name, getArrayPart(binding.count));
                                 }
-
-                                write("layout(set = {}, binding = {}, {}) uniform {} {}{};\n",
-                                    setIdx, bindingIdx, formatString, imageType, binding.name, getArrayPart(binding.count));
-                            },
-                            [&](const binding::AccelerationStructure& binding) {
-                                write("layout(set = {}, binding = {}) uniform accelerationStructureEXT {}{};\n",
-                                    setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
-                            }
-                        }, binding);
+                            }, binding);
+                        }
                     }
                 },
 // -----------------------------------------------------------------------------

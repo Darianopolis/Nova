@@ -30,7 +30,7 @@ int main()
     auto fence = +nova::Fence(context);
     auto state = +nova::CommandState(context);
 
-    // Pipeline
+    // Vertex data
 
     struct Vertex
     {
@@ -43,7 +43,25 @@ int main()
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
     vertices.Set<Vertex>({ {{-0.6f, 0.6f, 0.f}, {1.f,0.f,0.f}}, {{0.6f, 0.6f, 0.f},{0.f,1.f,0.f}}, {{0.f, -0.6f, 0.f},{0.f,0.f,1.f}} });
 
-    auto pipelineLayout = +nova::PipelineLayout(context, {{nova::ShaderStage::Vertex, sizeof(u64)}}, {}, nova::BindPoint::Graphics);
+    // Pipeline
+
+    auto descLayout = +nova::DescriptorSetLayout(context, {
+        nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
+    });
+    auto pcRange = nova::PushConstantRange("pc", {{"vertexVA", nova::ShaderVarType::U64},});
+    auto pipelineLayout = +nova::PipelineLayout(context, {pcRange}, {descLayout}, nova::BindPoint::Graphics);
+
+    // UBO descriptor set
+
+    auto ubo = +nova::Buffer(context, sizeof(Vec3),
+        nova::BufferUsage::Uniform,
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+    ubo.Set<Vec3>({{0.5f, 0.f, 0.f}});
+
+    auto set = +nova::DescriptorSet(descLayout);
+    set.WriteUniformBuffer(0, ubo);
+
+    // Create vertex shader
 
     auto vertexShader = +nova::Shader(context, nova::ShaderStage::Vertex, {
         nova::shader::Structure("Vertex", {
@@ -51,14 +69,13 @@ int main()
             {"color", nova::ShaderVarType::Vec3},
         }),
         nova::shader::BufferReference("Vertex"),
-        nova::shader::PushConstants("pc", {
-            {"vertexVA", nova::ShaderVarType::U64},
-        }),
+        nova::shader::Layout(pipelineLayout),
+
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Kernel(R"(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
-            gl_Position = vec4(v.position, 1);
+            gl_Position = vec4(v.position + ubo.pos, 1);
         )"),
     });
 
@@ -82,7 +99,8 @@ int main()
         cmd.BeginRendering({swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
-        cmd.PushConstants(pipelineLayout, nova::ShaderStage::Vertex, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
+        cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
+        cmd.BindDescriptorSets(pipelineLayout, 0, {set});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 

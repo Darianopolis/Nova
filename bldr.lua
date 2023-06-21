@@ -58,9 +58,3 @@ if Project "nova-compute-test" then
     Import "nova"
     Artifact { "out/compute-test", type = "Console" }
 end
-
-if Project "nova-mesh-test" then
-    Compile "example/HelloMesh.cpp"
-    Import "nova"
-    Artifact { "out/mesh-test", type = "Console" }
-end

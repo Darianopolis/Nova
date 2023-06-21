@@ -180,6 +180,9 @@ namespace nova
         // TODO: Pipeline layout used in multiple bind points?
         BindPoint bindPoint = {};
 
+        std::vector<PushConstantRange>     pcRanges;
+        std::vector<DescriptorSetLayout> setLayouts;
+
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
 

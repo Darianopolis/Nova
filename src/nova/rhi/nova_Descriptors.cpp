@@ -43,7 +43,15 @@ namespace nova
                     vkBindings[i].descriptorCount = binding.count.value_or(1u);
                     if (binding.count)
                         flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-                }
+                },
+                [&](const binding::UniformBuffer& binding) {
+                    vkBindings[i].descriptorType = binding.dynamic
+                        ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
+                        : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    vkBindings[i].descriptorCount = binding.count.value_or(1u);
+                    if (binding.count)
+                        flags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                },
             }, binding);
         }
 
@@ -122,6 +130,26 @@ namespace nova
                 .sampler = sampler->sampler,
                 .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            }),
+        }), 0, nullptr);
+    }
+
+// -----------------------------------------------------------------------------
+
+    void DescriptorSet::WriteUniformBuffer(u32 binding, Buffer buffer, u32 arrayIndex) const noexcept
+    {
+        auto& context = impl->layout->context;
+
+        vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = impl->set,
+            .dstBinding = binding,
+            .dstArrayElement = arrayIndex,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = Temp(VkDescriptorBufferInfo {
+                .buffer = buffer->buffer,
+                .range = VK_WHOLE_SIZE,
             }),
         }), 0, nullptr);
     }
@@ -219,10 +247,20 @@ namespace nova
         impl->id = context->GetUID();
 
         for (auto& range : pushConstantRanges)
-            impl->ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
+        {
+            impl->pcRanges.push_back(range);
+            // impl->ranges.emplace_back(VkShaderStageFlags(range.stages), range.offset, range.size);
+            u32 size = 0;
+            for (auto& member : range.constants)
+                size += GetShaderVarTypeSize(member.type);
+            impl->ranges.emplace_back(VK_SHADER_STAGE_ALL, range.offset, size);
+        }
 
         for (auto& setLayout : descriptorLayouts)
+        {
+            impl->setLayouts.push_back(setLayout);
             impl->sets.emplace_back(setLayout->layout);
+        }
 
         VkCall(vkCreatePipelineLayout(context->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,

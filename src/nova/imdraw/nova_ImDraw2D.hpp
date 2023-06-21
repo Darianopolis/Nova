@@ -43,6 +43,22 @@ namespace nova
         ImTextureID texIndex;
         Vec2 texCenterPos;
         Vec2 texHalfExtent;
+
+        static constexpr auto Layout = std::array {
+            Member("centerColor", nova::ShaderVarType::Vec4),
+            Member("borderColor", nova::ShaderVarType::Vec4),
+
+            Member("centerPos",  nova::ShaderVarType::Vec2),
+            Member("halfExtent", nova::ShaderVarType::Vec2),
+
+            Member("cornerRadius", nova::ShaderVarType::F32),
+            Member("borderWidth",  nova::ShaderVarType::F32),
+
+            Member("texTint",       nova::ShaderVarType::Vec4),
+            Member("texIndex",      nova::ShaderVarType::U32),
+            Member("texCenterPos",  nova::ShaderVarType::Vec2),
+            Member("texHalfExtent", nova::ShaderVarType::Vec2),
+        };
     };
 
     enum class ImDrawType
@@ -115,14 +131,15 @@ namespace nova
     {
         struct PushConstants
         {
-            alignas(8) Vec2 invHalfExtent;
-            alignas(8) Vec2 centerPos;
+            Vec2 invHalfExtent;
+            Vec2 centerPos;
             u64 rectInstancesVA;
-        };
 
-        static constexpr VkPushConstantRange PushConstantsRange {
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            .size = sizeof(PushConstants),
+            static constexpr auto Layout = std::array {
+                Member("invHalfExtent",   nova::ShaderVarType::Vec2),
+                Member("centerPos",       nova::ShaderVarType::Vec2),
+                Member("rectInstancesVA", nova::ShaderVarType::U64),
+            };
         };
 
         static constexpr u32 MaxPrimitives = 65'536;

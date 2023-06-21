@@ -74,7 +74,7 @@ int main()
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = +nova::Shader(context, nova::ShaderStage::RayGen, {
-        nova::shader::DescriptorSet(0, descLayout),
+        nova::shader::Layout(pipelineLayout),
         nova::shader::Fragment(R"(
             layout(location = 0) rayPayloadEXT uint     payload;
             layout(location = 0) hitObjectAttributeNV vec3 bary;

@@ -428,6 +428,48 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    enum class ShaderVarType
+    {
+        Mat2, Mat3, Mat4,
+        Vec2, Vec3, Vec4,
+        U32, U64,
+        I32, I64,
+        F32, F64,
+    };
+
+    inline constexpr
+    u32 GetShaderVarTypeSize(ShaderVarType type)
+    {
+        switch (type)
+        {
+        break;case ShaderVarType::Mat2: return  4 * 4;
+        break;case ShaderVarType::Mat3: return  9 * 4;
+        break;case ShaderVarType::Mat4: return 16 * 4;
+
+        break;case ShaderVarType::Vec2: return  2 * 4;
+        break;case ShaderVarType::Vec3: return  3 * 4;
+        break;case ShaderVarType::Vec4: return  4 * 4;
+
+        break;case ShaderVarType::U32:
+                case ShaderVarType::I32:
+                case ShaderVarType::F32:
+            return 4;
+
+        break;case ShaderVarType::U64:
+                case ShaderVarType::I64:
+                case ShaderVarType::F64:
+            return 8;
+        }
+        return 0;
+    }
+
+    struct Member
+    {
+        std::string_view    name;
+        ShaderVarType       type;
+        std::optional<u32> count = std::nullopt;
+    };
+
     namespace binding
     {
         struct SampledTexture
@@ -443,6 +485,14 @@ namespace nova
             std::optional<u32> count;
         };
 
+        struct UniformBuffer
+        {
+            std::string            name;
+            std::vector<Member> members;
+            bool                dynamic = false;
+            std::optional<u32>    count;
+        };
+
         struct AccelerationStructure
         {
             std::string         name;
@@ -453,7 +503,8 @@ namespace nova
     using DescriptorBinding = std::variant<
         binding::SampledTexture,
         binding::StorageTexture,
-        binding::AccelerationStructure>;
+        binding::AccelerationStructure,
+        binding::UniformBuffer>;
 
     struct DescriptorSetBindingOffset
     {
@@ -482,18 +533,32 @@ namespace nova
 
     public:
         void WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
+        void WriteUniformBuffer(u32 binding, Buffer buffer, u32 arrayIndex = 0) const noexcept;
     };
 
 // -----------------------------------------------------------------------------
 
-    enum class ShaderVarType
+    struct PushConstantRange
     {
-        Mat2, Mat3, Mat4,
-        Vec2, Vec3, Vec4,
-        U32, U64,
-        I32, I64,
-        F32, F64,
+        std::string              name;
+        std::vector<Member> constants;
+        // ShaderStage stages;
+        // u32           size;
+        u32         offset = 0;
     };
+
+    struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
+    {
+        NOVA_DECLARE_HANDLE_OPERATIONS(PipelineLayout)
+
+    public:
+        PipelineLayout(Context context,
+            Span<PushConstantRange> pushConstantRanges,
+            Span<DescriptorSetLayout> descriptorLayouts,
+            BindPoint bindPoint);
+    };
+
+// -----------------------------------------------------------------------------
 
     enum class ShaderInputFlags
     {
@@ -510,30 +575,15 @@ namespace nova
 
     namespace shader
     {
-        struct Member
-        {
-            std::string_view    name;
-            ShaderVarType       type;
-            std::optional<u32> count = std::nullopt;
-        };
-
         struct Structure
         {
             std::string     name;
             Span<Member> members;
         };
 
-        struct PushConstants
+        struct Layout
         {
-            // TODO: Offset
-            std::string       name;
-            Span<Member> constants;
-        };
-
-        struct DescriptorSet
-        {
-            u32               index;
-            DescriptorSetLayout set;
+            PipelineLayout layout;
         };
 
         struct BufferReference
@@ -574,8 +624,7 @@ namespace nova
 
     using ShaderElement = std::variant<
         shader::Structure,
-        shader::PushConstants,
-        shader::DescriptorSet,
+        shader::Layout,
         shader::BufferReference,
         shader::Input,
         shader::Output,
@@ -601,26 +650,6 @@ namespace nova
 
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct PushConstantRange
-    {
-        ShaderStage stages;
-        u32           size;
-        u32         offset = 0;
-    };
-
-    struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(PipelineLayout)
-
-    public:
-        PipelineLayout(Context context,
-            Span<PushConstantRange> pushConstantRanges,
-            Span<DescriptorSetLayout> descriptorLayouts,
-            BindPoint bindPoint);
     };
 
 // -----------------------------------------------------------------------------
@@ -784,7 +813,7 @@ namespace nova
         void SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const;
 
         void BindIndexBuffer(Buffer buffer, IndexType indexType, u64 offset = 0) const;
-        void PushConstants(PipelineLayout layout, ShaderStage stages, u64 offset, u64 size, const void* data) const;
+        void PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const;
 
         void PushStorageTexture(PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) const;
         void PushAccelerationStructure(PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) const;
