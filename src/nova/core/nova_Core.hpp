@@ -183,24 +183,22 @@ namespace nova
 #define NOVA_DECORATE_FLAG_ENUM(enumType)                                \
     inline enumType operator|(enumType l, enumType r) {                  \
         return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
-            | static_cast<std::underlying_type_t<enumType>>(r));         \
+            | std::to_underlying(r));                                    \
     }                                                                    \
     inline bool operator>=(enumType l, enumType r) {                     \
-        return static_cast<std::underlying_type_t<enumType>>(r)          \
-            == (static_cast<std::underlying_type_t<enumType>>(l)         \
-                & static_cast<std::underlying_type_t<enumType>>(r));     \
+        return std::to_underlying(r)                                     \
+            == (std::to_underlying(l) & std::to_underlying(r));          \
     }                                                                    \
     inline bool operator&(enumType l, enumType r) {                      \
         return static_cast<std::underlying_type_t<enumType>>(0)          \
-            != (static_cast<std::underlying_type_t<enumType>>(l)         \
-                & static_cast<std::underlying_type_t<enumType>>(r));     \
+            != (std::to_underlying(l) & std::to_underlying(r));          \
     }
 
 // -----------------------------------------------------------------------------
 
     thread_local inline std::string NovaFormatOutput;
 
-#define NOVA_FORMAT_TEMP(fmt, ...) ([&]() -> const std::string& {                                     \
+#define NOVA_FORMAT_TEMP(fmt, ...) ([&]() -> const std::string& {                                \
     ::nova::NovaFormatOutput.clear();                                                            \
     std::format_to(std::back_inserter(::nova::NovaFormatOutput), fmt __VA_OPT__(,) __VA_ARGS__); \
     return ::nova::NovaFormatOutput;                                                             \

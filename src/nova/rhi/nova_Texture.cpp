@@ -159,10 +159,17 @@ namespace nova
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
 
-        vkCmdCopyBufferToImage(impl->buffer, src->buffer, dst->image, impl->state->Get(dst).layout, 1, Temp(VkBufferImageCopy {
-            .bufferOffset = srcOffset,
-            .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .imageExtent = { dst->extent.x, dst->extent.y,  1 },
+        vkCmdCopyBufferToImage2(impl->buffer, Temp(VkCopyBufferToImageInfo2 {
+            .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
+            .srcBuffer = src->buffer,
+            .dstImage = dst->image,
+            .dstImageLayout = impl->state->Get(dst).layout,
+            .regionCount = 1,
+            .pRegions = Temp(VkBufferImageCopy2 {
+                .bufferOffset = srcOffset,
+                .imageSubresource = { dst->aspect, 0, 0, dst->layers },
+                .imageExtent = { dst->extent.x, dst->extent.y,  1 },
+            }),
         }));
     }
 

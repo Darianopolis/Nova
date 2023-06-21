@@ -46,26 +46,26 @@ int main()
     auto pipelineLayout = +nova::PipelineLayout(context, {{nova::ShaderStage::Vertex, sizeof(u64)}}, {}, nova::BindPoint::Graphics);
 
     auto vertexShader = +nova::Shader(context, nova::ShaderStage::Vertex, {
-        nova::shader_element::Structure("Vertex", {
+        nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
         }),
-        nova::shader_element::BufferReference("Vertex"),
-        nova::shader_element::PushConstants("pc", {
+        nova::shader::BufferReference("Vertex"),
+        nova::shader::PushConstants("pc", {
             {"vertexVA", nova::ShaderVarType::U64},
         }),
-        nova::shader_element::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader_element::Kernel(R"(
+        nova::shader::Output("color", nova::ShaderVarType::Vec3),
+        nova::shader::Kernel(R"(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position, 1);
-        )")
+        )"),
     });
 
     auto fragmentShader = +nova::Shader(context, nova::ShaderStage::Fragment, {
-        nova::shader_element::Input("inColor", nova::ShaderVarType::Vec3),
-        nova::shader_element::Output("fragColor", nova::ShaderVarType::Vec4),
-        nova::shader_element::Kernel("fragColor = vec4(inColor, 1);"),
+        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
+        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
+        nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
     });
 
     // Draw

@@ -115,10 +115,13 @@ namespace nova
         Undefined = VK_FORMAT_UNDEFINED,
 
         RGBA8U = VK_FORMAT_R8G8B8A8_UNORM,
+        RGBA8_SRGB = VK_FORMAT_R8G8B8A8_SRGB,
+
         RGBA16F = VK_FORMAT_R16G16B16A16_SFLOAT,
         RGBA32F = VK_FORMAT_R32G32B32A32_SFLOAT,
 
         BGRA8U = VK_FORMAT_B8G8R8A8_UNORM,
+        BGRA8_SRGB = VK_FORMAT_B8G8R8A8_SRGB,
 
         RGB32F = VK_FORMAT_R32G32B32_SFLOAT,
 
@@ -505,12 +508,12 @@ namespace nova
         constexpr u32 ArrayCountUnsized = UINT32_MAX;
     }
 
-    namespace shader_element
+    namespace shader
     {
         struct Member
         {
-            std::string   name;
-            ShaderVarType type;
+            std::string_view    name;
+            ShaderVarType       type;
             std::optional<u32> count = std::nullopt;
         };
 
@@ -570,15 +573,15 @@ namespace nova
     }
 
     using ShaderElement = std::variant<
-        shader_element::Structure,
-        shader_element::PushConstants,
-        shader_element::DescriptorSet,
-        shader_element::BufferReference,
-        shader_element::Input,
-        shader_element::Output,
-        shader_element::Fragment,
-        shader_element::ComputeKernel,
-        shader_element::Kernel>;
+        shader::Structure,
+        shader::PushConstants,
+        shader::DescriptorSet,
+        shader::BufferReference,
+        shader::Input,
+        shader::Output,
+        shader::Fragment,
+        shader::ComputeKernel,
+        shader::Kernel>;
 
     struct Shader : ImplHandle<ShaderImpl>
     {

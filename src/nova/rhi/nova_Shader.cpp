@@ -373,7 +373,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                          Structure declaration
 // -----------------------------------------------------------------------------
-                [&](const shader_element::Structure& structure) {
+                [&](const shader::Structure& structure) {
                     write("struct {} {{\n", structure.name);
                     for (auto& member : structure.members)
                     {
@@ -385,7 +385,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                             Push Constants
 // -----------------------------------------------------------------------------
-                [&](const shader_element::PushConstants& pushConstants) {
+                [&](const shader::PushConstants& pushConstants) {
                     write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
                     for (auto& member : pushConstants.constants)
                     {
@@ -397,7 +397,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                             Descriptor Set
 // -----------------------------------------------------------------------------
-                [&](const shader_element::DescriptorSet& descriptorSet) {
+                [&](const shader::DescriptorSet& descriptorSet) {
                     auto setIdx = descriptorSet.index;
                     auto set = descriptorSet.set;
                     for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
@@ -418,6 +418,8 @@ namespace nova
                                 {
                                 break;case Format::RGBA8U:
                                         case Format::BGRA8U:
+                                        case Format::RGBA8_SRGB:
+                                        case Format::BGRA8_SRGB:
                                     formatString = "rgba8";
                                     imageType = "image2D";
                                 break;case Format::R32UInt:
@@ -440,7 +442,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
-                [&](const shader_element::BufferReference& bufferReference) {
+                [&](const shader::BufferReference& bufferReference) {
                     write("layout(buffer_reference, scalar) buffer {0}_br {{ {1} data[]; }};\n"
                         "#define {0}_BR(va) {0}_br(va).data\n",
                         bufferReference.name,
@@ -451,7 +453,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                          Shader Input Variable
 // -----------------------------------------------------------------------------
-                [&](const shader_element::Input& input) {
+                [&](const shader::Input& input) {
                     write("layout(location = {}) in", inputLocation);
                     if (input.flags >= ShaderInputFlags::Flat)
                         write(" flat");
@@ -467,7 +469,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                          Shader Output Variable
 // -----------------------------------------------------------------------------
-                [&](const shader_element::Output& output) {
+                [&](const shader::Output& output) {
                     write("layout(location = {}) out {} {};\n",
                         outputLocation, typeToString(output.type), output.name);
 
@@ -476,13 +478,13 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                              GLSL Fragment
 // -----------------------------------------------------------------------------
-                [&](const shader_element::Fragment& fragment) {
+                [&](const shader::Fragment& fragment) {
                     write("{}", fragment.glsl);
                 },
 // -----------------------------------------------------------------------------
 //                             Compute Kernel
 // -----------------------------------------------------------------------------
-                [&](const shader_element::ComputeKernel& computeKernel) {
+                [&](const shader::ComputeKernel& computeKernel) {
                     write("layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\nvoid main() {{\n{}\n}}\n",
                         computeKernel.workGroups.x, computeKernel.workGroups.y, computeKernel.workGroups.z,
                         computeKernel.glsl);
@@ -490,8 +492,8 @@ namespace nova
 // -----------------------------------------------------------------------------
 //                                 Kernel
 // -----------------------------------------------------------------------------
-                [&](const shader_element::Kernel& computeKernel) {
-                    write("void main() {{\n{}\n}}\n", computeKernel.glsl);
+                [&](const shader::Kernel& kernel) {
+                    write("void main() {{\n{}\n}}\n", kernel.glsl);
                 },
             }, element);
         }
