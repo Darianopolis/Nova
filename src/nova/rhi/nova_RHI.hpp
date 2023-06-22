@@ -62,8 +62,7 @@ namespace nova
         None,
         Addressable  = 1 << 0,
         DeviceLocal  = 1 << 1 | Addressable,
-        Mappable     = 1 << 2,
-        CreateMapped = 1 << 3 | Mappable,
+        Mapped       = 1 << 2,
     };
     NOVA_DECORATE_FLAG_ENUM(BufferFlags)
 
@@ -424,6 +423,7 @@ namespace nova
         void Wait(u64 waitValue = 0ull) const;
         u64 Advance() const noexcept;
         void Signal(u64 signalValue = 0ull) const;
+        u64 GetPendingValue() const noexcept;
     };
 
 // -----------------------------------------------------------------------------

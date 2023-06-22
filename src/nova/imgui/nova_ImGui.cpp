@@ -141,11 +141,39 @@ namespace nova
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
             ImGui::End();
         }
+        impl->ended = false;
     }
 
-    void ImGuiWrapper::EndFrame(CommandList cmd, Texture texture) const
+    void ImGuiWrapper::EndFrame() const
     {
-        ImGui::Render();
+        if (!impl->ended)
+        {
+            ImGui::Render();
+            impl->ended = true;
+
+            if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+            {
+                auto contextBackup = glfwGetCurrentContext();
+                ImGui::UpdatePlatformWindows();
+                ImGui::RenderPlatformWindowsDefault();
+                glfwMakeContextCurrent(contextBackup);
+            }
+
+            ImGui::SetCurrentContext(impl->lastImguiCtx);
+        }
+    }
+
+    bool ImGuiWrapper::HasDrawData() const
+    {
+        return impl->ended;
+    }
+
+    void ImGuiWrapper::DrawFrame(CommandList cmd, Texture texture) const
+    {
+        EndFrame();
+
+        impl->lastImguiCtx = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(impl->imguiCtx);
 
         auto context = impl->context;
 
@@ -198,14 +226,6 @@ namespace nova
         }), VK_SUBPASS_CONTENTS_INLINE);
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
         vkCmdEndRenderPass(cmd->buffer);
-
-        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            auto contextBackup = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(contextBackup);
-        }
 
         ImGui::SetCurrentContext(impl->lastImguiCtx);
     }

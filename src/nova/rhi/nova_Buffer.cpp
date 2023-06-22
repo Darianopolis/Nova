@@ -1,5 +1,7 @@
 #include "nova_RHI_Impl.hpp"
 
+#include <vk_mem_alloc.h>
+
 namespace nova
 {
     NOVA_DEFINE_HANDLE_OPERATIONS(Buffer)
@@ -25,9 +27,6 @@ namespace nova
         if (!buffer->buffer)
             return;
 
-        if (buffer->mapped && buffer->flags >= BufferFlags::Mappable)
-            vmaUnmapMemory(buffer->context->vma, buffer->allocation);
-
         vmaDestroyBuffer(buffer->context->vma, buffer->buffer, buffer->allocation);
     }
 
@@ -40,7 +39,7 @@ namespace nova
 
     void* Buffer::Get_(u64 index, u64 offset, usz stride) const noexcept
     {
-        return impl->mapped + offset + (index * stride);
+        return GetMapped() + offset + (index * stride);
     }
 
     void Buffer::Set_(const void* data, usz count, u64 index, u64 offset, usz stride) const noexcept
@@ -57,7 +56,7 @@ namespace nova
 
     b8* Buffer::GetMapped() const noexcept
     {
-        return impl->mapped;
+        return impl->mapped;//static_cast<b8*>(impl->allocation->GetMappedData());
     }
 
     u64 Buffer::GetAddress() const noexcept
@@ -74,6 +73,18 @@ namespace nova
 
         ResetBuffer(*this);
 
+        VmaAllocationCreateFlags vmaFlags = {};
+        if (impl->flags >= BufferFlags::Mapped)
+        {
+            vmaFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+            if (impl->flags >= BufferFlags::DeviceLocal)
+                vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+            else
+                vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        }
+
+        VmaAllocationInfo info;
+
         VkCall(vmaCreateBuffer(
             impl->context->vma,
             Temp(VkBufferCreateInfo {
@@ -83,11 +94,7 @@ namespace nova
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             }),
             Temp(VmaAllocationCreateInfo {
-                .flags = (impl->flags >= BufferFlags::Mappable)
-                    ? ((impl->flags >= BufferFlags::DeviceLocal)
-                        ? VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
-                        : VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)
-                    : VmaAllocationCreateFlags(0),
+                .flags = vmaFlags,
                 .usage = VMA_MEMORY_USAGE_AUTO,
                 .requiredFlags = (impl->flags >= BufferFlags::DeviceLocal)
                     ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
@@ -95,10 +102,10 @@ namespace nova
             }),
             &impl->buffer,
             &impl->allocation,
-            nullptr));
+            &info));
 
-        if (impl->flags >= BufferFlags::CreateMapped)
-            VkCall(vmaMapMemory(impl->context->vma, impl->allocation, (void**)&impl->mapped));
+        if (impl->flags >= BufferFlags::Mapped)
+            impl->mapped = static_cast<b8*>(info.pMappedData);
 
         if (impl->flags >= BufferFlags::Addressable)
         {

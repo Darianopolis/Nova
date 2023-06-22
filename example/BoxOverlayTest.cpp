@@ -25,11 +25,19 @@ void TryMain()
         glfwTerminate();
     };
 
+    HWND hwnd = glfwGetWin32Window(window);
+    SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+    // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
+    //   Or, do full screeen pass to filter out unintentional chroma key matches and
+    //   apply chroma key based on alpha.
+    SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+
     auto context = +nova::Context({
         .debug = false,
     });
 
-    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+    auto surface = +nova::Surface(context, hwnd);
     auto swapchain = +nova::Swapchain(context, surface,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
@@ -59,7 +67,7 @@ void TryMain()
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        auto staging = +nova::Buffer(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::CreateMapped);
+        auto staging = +nova::Buffer(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
         std::memcpy(staging.GetMapped(), data, size);
 
         auto cmd = commandPool.Begin(state);

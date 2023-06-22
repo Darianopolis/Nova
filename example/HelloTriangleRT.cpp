@@ -112,14 +112,14 @@ int main()
 
     auto vertices = +nova::Buffer(context, 3 * sizeof(Vec3),
         nova::BufferUsage::AccelBuild,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
     // Index data
 
     auto indices = +nova::Buffer(context, 3 * sizeof(u32),
         nova::BufferUsage::AccelBuild,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     indices.Set<u32>({ 0u, 1u, 2u });
 
     // Configure BLAS build
@@ -169,7 +169,7 @@ int main()
 
     auto instances = +nova::Buffer(context, builder.GetInstanceSize(),
         nova::BufferUsage::AccelBuild,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
     // Configure TLAS build
 

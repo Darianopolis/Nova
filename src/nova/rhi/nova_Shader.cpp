@@ -380,6 +380,9 @@ namespace nova
                             typeToString(member.type), member.name, getArrayPart(member.count));
                     }
                     write("}};\n");
+                    write("layout(buffer_reference, scalar) buffer {0}_br {{ {0} data[]; }};\n"
+                        "#define {0}_BR(va) {0}_br(va).data\n",
+                        structure.name);
                 },
 // -----------------------------------------------------------------------------
 //                             Pipeline Layout

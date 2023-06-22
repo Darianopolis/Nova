@@ -166,6 +166,7 @@ namespace nova
             .dstImageLayout = impl->state->Get(dst).layout,
             .regionCount = 1,
             .pRegions = Temp(VkBufferImageCopy2 {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
                 .bufferOffset = srcOffset,
                 .imageSubresource = { dst->aspect, 0, 0, dst->layers },
                 .imageExtent = { dst->extent.x, dst->extent.y,  1 },

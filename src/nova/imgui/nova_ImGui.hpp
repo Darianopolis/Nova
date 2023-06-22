@@ -20,6 +20,8 @@ namespace nova
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
+        bool ended = false;
+
     public:
         ~ImGuiWrapperImpl();
     };
@@ -44,6 +46,9 @@ namespace nova
             const ImGuiConfig& config);
 
         void BeginFrame() const;
-        void EndFrame(CommandList cmd, Texture texture) const;
+        void EndFrame() const;
+
+        bool HasDrawData() const;
+        void DrawFrame(CommandList cmd, Texture texture) const;
     };
 }

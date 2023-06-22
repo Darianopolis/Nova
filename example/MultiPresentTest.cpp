@@ -39,13 +39,14 @@ int main()
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
     auto state = +nova::CommandState(context);
-    nova::Fence::Arc fences[] { +nova::Fence{context}, +nova::Fence{context} };
+    u64 waitValues[] { 0ull, 0ull };
+    auto fence = +nova::Fence(context);
     nova::CommandPool::Arc commandPools[] { +nova::CommandPool{context, queue}, +nova::CommandPool{context, queue} };
 
     auto cmd = commandPools[0].Begin(state);
     auto imgui = +nova::ImGuiWrapper(context, cmd, swapchain1.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
-    queue.Submit({cmd}, {}, {fences[0]});
-    fences[0].Wait();
+    queue.Submit({cmd}, {}, {fence});
+    fence.Wait();
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
@@ -74,12 +75,11 @@ int main()
 
         // Pick fence and commandPool for frame in flight
         auto fif = frame % 2;
-        auto fence = -fences[fif];
         auto commandPool = -commandPools[fif];
         frame++;
 
         // Wait for previous commands in frame to complete
-        fence.Wait();
+        fence.Wait(waitValues[fif]);
 
         // Acquire new images from swapchains
         queue.Acquire({swapchain1, swapchain2}, {fence});
@@ -97,7 +97,7 @@ int main()
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.EndFrame(cmd, swapchain1.GetCurrent());
+        imgui.DrawFrame(cmd, swapchain1.GetCurrent());
 
         // Present #1
         cmd.Present(swapchain1.GetCurrent());
@@ -106,11 +106,16 @@ int main()
         cmd.Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd.Present(swapchain2.GetCurrent());
 
+        int* v = new int();
+        delete v;
+
         // Submit work
         queue.Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
         queue.Present({swapchain1, swapchain2}, {fence}, false);
+
+        waitValues[fif] = fence.GetPendingValue();
     };
 
     glfwSetWindowUserPointer(window1, &update);
@@ -124,8 +129,9 @@ int main()
     });
 
     NOVA_ON_SCOPE_EXIT(&) {
-        fences[0].Wait();
-        fences[1].Wait();
+        // fences[0].Wait();
+        // fences[1].Wait();
+        fence.Wait();
     };
     while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
     {

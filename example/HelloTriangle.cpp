@@ -40,7 +40,7 @@ int main()
 
     auto vertices = +nova::Buffer(context, 3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     vertices.Set<Vertex>({ {{-0.6f, 0.6f, 0.f}, {1.f,0.f,0.f}}, {{0.6f, 0.6f, 0.f},{0.f,1.f,0.f}}, {{0.f, -0.6f, 0.f},{0.f,0.f,1.f}} });
 
     // Pipeline
@@ -55,8 +55,8 @@ int main()
 
     auto ubo = +nova::Buffer(context, sizeof(Vec3),
         nova::BufferUsage::Uniform,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::CreateMapped);
-    ubo.Set<Vec3>({{0.5f, 0.f, 0.f}});
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    ubo.Set<Vec3>({{0.f, 0.25f, 0.f}});
 
     auto set = +nova::DescriptorSet(descLayout);
     set.WriteUniformBuffer(0, ubo);
@@ -68,7 +68,6 @@ int main()
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
         }),
-        nova::shader::BufferReference("Vertex"),
         nova::shader::Layout(pipelineLayout),
 
         nova::shader::Output("color", nova::ShaderVarType::Vec3),

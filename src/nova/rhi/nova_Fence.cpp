@@ -36,6 +36,10 @@ namespace nova
         }), UINT64_MAX));
     }
 
+    u64 Fence::GetPendingValue() const noexcept
+    {
+        return impl->value;
+    }
 
     u64 Fence::Advance() const noexcept
     {

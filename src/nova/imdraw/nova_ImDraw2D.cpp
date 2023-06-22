@@ -31,13 +31,12 @@ namespace nova
 
         impl->rectBuffer = +Buffer(context, sizeof(ImRoundRect) * ImDraw2DImpl::MaxPrimitives,
             BufferUsage::Storage,
-            BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+            BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
 // -----------------------------------------------------------------------------
 
         impl->rectVertShader = +Shader(context, ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::BufferReference("ImRoundRect"),
             nova::shader::Layout(impl->pipelineLayout),
 
             nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
@@ -61,7 +60,6 @@ namespace nova
 
         impl->rectFragShader = +Shader(context, ShaderStage::Fragment, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::BufferReference("ImRoundRect"),
             nova::shader::Layout(impl->pipelineLayout),
 
             nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
@@ -171,7 +169,7 @@ namespace nova
         font->imDraw = *this;
 
         auto staging = +nova::Buffer(impl->context, u64(size) * u64(size) * 4,
-            BufferUsage::TransferSrc, BufferFlags::CreateMapped);
+            BufferUsage::TransferSrc, BufferFlags::Mapped);
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)

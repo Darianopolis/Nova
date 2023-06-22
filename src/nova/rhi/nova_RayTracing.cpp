@@ -397,7 +397,7 @@ namespace nova
             impl->sbtBuffer = +Buffer(context,
                 std::max(256ull, tableSize),
                 BufferUsage::ShaderBindingTable,
-                BufferFlags::DeviceLocal | BufferFlags::CreateMapped);
+                BufferFlags::DeviceLocal | BufferFlags::Mapped);
         }
 
         auto getMapped = [&](u64 offset, u32 i) { return impl->sbtBuffer->mapped + offset + (i * handleStride); };
