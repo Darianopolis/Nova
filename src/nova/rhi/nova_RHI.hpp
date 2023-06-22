@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_ImplHandle.hpp>
 
 #include <nova/core/nova_Math.hpp>
 
@@ -33,27 +32,25 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    NOVA_DECLARE_HANDLE_OBJECT(Buffer)
-    NOVA_DECLARE_HANDLE_OBJECT(CommandList)
-    NOVA_DECLARE_HANDLE_OBJECT(CommandPool)
-    NOVA_DECLARE_HANDLE_OBJECT(Context)
-    NOVA_DECLARE_HANDLE_OBJECT(DescriptorSet)
-    NOVA_DECLARE_HANDLE_OBJECT(DescriptorSetLayout)
-    NOVA_DECLARE_HANDLE_OBJECT(Fence)
-    NOVA_DECLARE_HANDLE_OBJECT(PipelineLayout)
-    NOVA_DECLARE_HANDLE_OBJECT(Queue)
-    NOVA_DECLARE_HANDLE_OBJECT(CommandState)
-    NOVA_DECLARE_HANDLE_OBJECT(Sampler)
-    NOVA_DECLARE_HANDLE_OBJECT(Shader)
-    NOVA_DECLARE_HANDLE_OBJECT(Surface)
-    NOVA_DECLARE_HANDLE_OBJECT(Swapchain)
-    NOVA_DECLARE_HANDLE_OBJECT(Texture)
-    NOVA_DECLARE_HANDLE_OBJECT(AccelerationStructure)
-    NOVA_DECLARE_HANDLE_OBJECT(AccelerationStructureBuilder)
-    NOVA_DECLARE_HANDLE_OBJECT(RayTracingPipeline)
-
-    NOVA_DECLARE_HANDLE_OBJECT(GraphicsPipeline)
-    NOVA_DECLARE_HANDLE_OBJECT(PipelineCache)
+    enum class Buffer : u32 {};
+    enum class CommandList : u32 {};
+    enum class CommandPool : u32 {};
+    enum class DescriptorSet : u32 {};
+    enum class DescriptorSetLayout : u32 {};
+    enum class Fence : u32 {};
+    enum class PipelineLayout : u32 {};
+    enum class Queue : u32 {};
+    enum class CommandState : u32 {};
+    enum class Sampler : u32 {};
+    enum class Shader : u32 {};
+    enum class Surface : u32 {};
+    enum class Swapchain : u32 {};
+    enum class Texture : u32 {};
+    enum class AccelerationStructure : u32 {};
+    enum class AccelerationStructureBuilder : u32 {};
+    enum class RayTracingPipeline : u32 {};
+    enum class GraphicsPipeline : u32 {};
+    enum class PipelineCache : u32 {};
 
 // -----------------------------------------------------------------------------
 
@@ -309,529 +306,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Buffer : ImplHandle<BufferImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Buffer)
-
-    public:
-        Buffer(Context context, u64 size, BufferUsage usage, BufferFlags flags = {});
-
-    private:
-        void* Get_(u64 index, u64 offset, usz stride) const noexcept;
-        void Set_(const void* data, usz count, u64 index, u64 offset, usz stride) const noexcept;
-    public:
-        void Resize(u64 size) const;
-
-        u64 GetSize() const noexcept;
-        b8* GetMapped() const noexcept;
-        u64 GetAddress() const noexcept;
-
-        template<class T>
-        T& Get(u64 index, u64 offset = 0) const noexcept
-        {
-            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
-            return *reinterpret_cast<T*>(Get_(index, offset, Stride));
-        }
-
-        template<class T>
-        void Set(Span<T> elements, u64 index = 0, u64 offset = 0) const noexcept
-        {
-            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
-            Set_(elements.data(), elements.size(), index, offset, Stride);
-        }
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Sampler : ImplHandle<SamplerImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Sampler)
-
-    public:
-        Sampler(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anistropy = 0.f);
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Texture : ImplHandle<TextureImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Texture)
-
-    public:
-        Texture(Context context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
-
-    public:
-        Vec3U GetExtent() const noexcept;
-        Format GetFormat() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Surface : ImplHandle<SurfaceImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Surface)
-
-    public:
-        Surface(Context context, void* handle);
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Swapchain : ImplHandle<SwapchainImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Swapchain)
-
-    public:
-        Swapchain(Context context, Surface surface, TextureUsage usage, PresentMode presentMode);
-
-    public:
-        Texture GetCurrent() const noexcept;
-        Vec2U GetExtent() const noexcept;
-        Format GetFormat() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Queue : ImplHandle<QueueImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Queue)
-
-    public:
-        Queue(Context context, VkQueue queue, u32 family);
-
-    public:
-        void Submit(Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) const;
-        bool Acquire(Span<Swapchain> swapchains, Span<Fence> signals) const;
-
-        // Present a set of swapchains, waiting on a number of fences.
-        // If any wait dependency includes a wait-before-signal operation
-        // (including indirectly) then hostWait must be set to true, as WSI
-        // operations are incompatible with wait-before-signal.
-        void Present(Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) const;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct Fence : ImplHandle<FenceImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Fence)
-
-    public:
-        Fence(Context context);
-
-    public:
-        void Wait(u64 waitValue = 0ull) const;
-        u64 Advance() const noexcept;
-        void Signal(u64 signalValue = 0ull) const;
-        u64 GetPendingValue() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    enum class ShaderVarType
-    {
-        Mat2, Mat3, Mat4,
-        Vec2, Vec3, Vec4,
-        U32, U64,
-        I32, I64,
-        F32, F64,
-    };
-
-    inline constexpr
-    u32 GetShaderVarTypeSize(ShaderVarType type)
-    {
-        switch (type)
-        {
-        break;case ShaderVarType::Mat2: return  4 * 4;
-        break;case ShaderVarType::Mat3: return  9 * 4;
-        break;case ShaderVarType::Mat4: return 16 * 4;
-
-        break;case ShaderVarType::Vec2: return  2 * 4;
-        break;case ShaderVarType::Vec3: return  3 * 4;
-        break;case ShaderVarType::Vec4: return  4 * 4;
-
-        break;case ShaderVarType::U32:
-                case ShaderVarType::I32:
-                case ShaderVarType::F32:
-            return 4;
-
-        break;case ShaderVarType::U64:
-                case ShaderVarType::I64:
-                case ShaderVarType::F64:
-            return 8;
-        }
-        return 0;
-    }
-
-    struct Member
-    {
-        std::string_view    name;
-        ShaderVarType       type;
-        std::optional<u32> count = std::nullopt;
-    };
-
-    namespace binding
-    {
-        struct SampledTexture
-        {
-            std::string         name;
-            std::optional<u32> count;
-        };
-
-        struct StorageTexture
-        {
-            std::string         name;
-            Format            format;
-            std::optional<u32> count;
-        };
-
-        struct UniformBuffer
-        {
-            std::string            name;
-            std::vector<Member> members;
-            bool                dynamic = false;
-            std::optional<u32>    count;
-        };
-
-        struct AccelerationStructure
-        {
-            std::string         name;
-            std::optional<u32> count;
-        };
-    }
-
-    using DescriptorBinding = std::variant<
-        binding::SampledTexture,
-        binding::StorageTexture,
-        binding::AccelerationStructure,
-        binding::UniformBuffer>;
-
-    struct DescriptorSetBindingOffset
-    {
-        u32 buffer;
-        u64 offset = {};
-    };
-
-    struct DescriptorSetLayout : ImplHandle<DescriptorSetLayoutImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSetLayout)
-
-    public:
-        DescriptorSetLayout(Context context, Span<DescriptorBinding> bindings, bool pushDescriptor = false);
-
-    public:
-        u64 GetSize() const noexcept;
-        void WriteSampledTexture(void* dst, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
-    };
-
-    struct DescriptorSet : ImplHandle<DescriptorSetImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(DescriptorSet)
-
-    public:
-        DescriptorSet(DescriptorSetLayout layout, u64 customSize = 0);
-
-    public:
-        void WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) const noexcept;
-        void WriteUniformBuffer(u32 binding, Buffer buffer, u32 arrayIndex = 0) const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct PushConstantRange
-    {
-        std::string              name;
-        std::vector<Member> constants;
-        // ShaderStage stages;
-        // u32           size;
-        u32         offset = 0;
-    };
-
-    struct PipelineLayout : ImplHandle<PipelineLayoutImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(PipelineLayout)
-
-    public:
-        PipelineLayout(Context context,
-            Span<PushConstantRange> pushConstantRanges,
-            Span<DescriptorSetLayout> descriptorLayouts,
-            BindPoint bindPoint);
-    };
-
-// -----------------------------------------------------------------------------
-
-    enum class ShaderInputFlags
-    {
-        None,
-        Flat,
-        PerVertex,
-    };
-    NOVA_DECORATE_FLAG_ENUM(ShaderInputFlags)
-
-    namespace shader
-    {
-        constexpr u32 ArrayCountUnsized = UINT32_MAX;
-    }
-
-    namespace shader
-    {
-        struct Structure
-        {
-            std::string     name;
-            Span<Member> members;
-        };
-
-        struct Layout
-        {
-            PipelineLayout layout;
-        };
-
-        struct BufferReference
-        {
-            std::string name;
-            std::optional<ShaderVarType> scalarType = std::nullopt;
-        };
-
-        struct Input
-        {
-            std::string       name;
-            ShaderVarType     type;
-            ShaderInputFlags flags = {};
-        };
-
-        struct Output
-        {
-            std::string   name;
-            ShaderVarType type;
-        };
-
-        struct Fragment
-        {
-            std::string glsl;
-        };
-
-        struct ComputeKernel
-        {
-            Vec3U workGroups;
-            std::string glsl;
-        };
-
-        struct Kernel
-        {
-            std::string glsl;
-        };
-    }
-
-    using ShaderElement = std::variant<
-        shader::Structure,
-        shader::Layout,
-        shader::BufferReference,
-        shader::Input,
-        shader::Output,
-        shader::Fragment,
-        shader::ComputeKernel,
-        shader::Kernel>;
-
-    struct Shader : ImplHandle<ShaderImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Shader)
-
-    public:
-        Shader(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode = {});
-        Shader(Context context, ShaderStage stage, Span<ShaderElement> elements);
-
-        struct ShaderStageInfo
-        {
-            ShaderStage stage;
-            std::string_view filename;
-            std::string_view sourceCode;
-        };
-        Shader(Context context, PipelineLayout layout, Span<ShaderStageInfo> stage);
-
-    public:
-        VkPipelineShaderStageCreateInfo GetStageInfo() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct CommandState : ImplHandle<CommandStateImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(CommandState)
-
-    public:
-        CommandState(Context context);
-
-    public:
-        void Clear(u32 maxAge) const noexcept;
-
-        void Reset(Texture texture) const noexcept;
-        void Persist(Texture texture) const noexcept;
-        void Set(Texture texture, VkImageLayout layout, VkPipelineStageFlags2 stage, VkAccessFlags2 access) const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct AccelerationStructureBuilder : ImplHandle<AccelerationStructureBuilderImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(AccelerationStructureBuilder)
-
-    public:
-        AccelerationStructureBuilder(Context context);
-
-    public:
-        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const;
-        void SetTriangles(u32 geometryIndex,
-            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, IndexType indexFormat, u32 triangleCount) const;
-
-        void Prepare(nova::AccelerationStructureType type, nova::AccelerationStructureFlags flags,
-            u32 geometryCount, u32 firstGeometry = 0u) const;
-
-        u64 GetInstanceSize() const;
-        void WriteInstance(
-            void* bufferAddress, u32 index,
-            AccelerationStructure& structure,
-            const Mat4& matrix,
-            u32 customIndex, u8 mask,
-            u32 sbtOffset, GeometryInstanceFlags flags) const;
-
-        u64 GetBuildSize() const;
-        u64 GetBuildScratchSize() const;
-        u64 GetUpdateScratchSize() const;
-        u64 GetCompactSize() const;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct AccelerationStructure : ImplHandle<AccelerationStructureImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(AccelerationStructure)
-
-    public:
-        AccelerationStructure(Context context, usz size, AccelerationStructureType type);
-
-    public:
-        u64 GetAddress() const noexcept;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct HitShaderGroup
-    {
-        Shader closestHitShader = {};
-        Shader anyHitShader = {};
-        Shader intersectionShader = {};
-    };
-
-    struct RayTracingPipeline : ImplHandle<RayTracingPipelineImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(RayTracingPipeline)
-
-    public:
-        RayTracingPipeline(Context context);
-
-    public:
-        void Update(
-            PipelineLayout layout,
-            Span<Shader> rayGenShaders,
-            Span<Shader> rayMissShaders,
-            Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader> callableShaders) const;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct RenderingDescription
-    {
-        Span<Format> colorFormats;
-        Format        depthFormat = {};
-        Format      stencilFormat = {};
-        u32               subpass = 0;
-    };
-
-    struct PipelineState
-    {
-        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT (partial - dynamic within class)
-        CullMode      cullMode = CullMode::Back;              // VK_DYNAMIC_STATE_CULL_MODE_EXT
-        FrontFace    frontFace = FrontFace::CounterClockwise; // VK_DYNAMIC_STATE_FRONT_FACE_EXT
-        PolygonMode   polyMode = PolygonMode::Fill;           // N/A
-        f32          lineWidth = 1.f;                         // VK_DYNAMIC_STATE_LINE_WIDTH
-        CompareOp depthCompare = CompareOp::Greater;          // VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
-        u32    blendEnable : 1 = false;                       // N/A
-        u32    depthEnable : 1 = false;                       // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
-        u32     depthWrite : 1 = true;                        // VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
-        u32   flipVertical : 1 = false;
-    };
-
-// -----------------------------------------------------------------------------
-
-    struct CommandPool : ImplHandle<CommandPoolImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(CommandPool)
-
-    public:
-        CommandPool(Context context, Queue queue);
-
-    public:
-        CommandList Begin(CommandState state) const;
-        CommandList BeginSecondary(CommandState state, OptRef<const RenderingDescription> renderingDescription = {}) const;
-
-        void Reset() const;
-    };
-
-    struct CommandList : ImplHandle<CommandListImpl>
-    {
-        NOVA_DECLARE_HANDLE_OPERATIONS(CommandList)
-
-    public:
-        void End() const;
-
-        void UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset = 0) const;
-        void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
-        void CopyToTexture(Texture dst, Buffer src, u64 srcOffset = 0) const;
-        void GenerateMips(Texture texture) const;
-        void BlitImage(Texture dst, Texture src, Filter filter) const;
-
-        void Clear(Texture texture, Vec4 color) const;
-        void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const;
-        void Transition(Texture texture, ResourceState state, PipelineStage stages) const;
-        void Present(Texture texture) const;
-
-        void SetViewport(Vec2U size, bool flipVertical) const;
-
-        void SetGraphicsState(PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) const;
-        void SetComputeState(PipelineLayout layout, Shader shader) const;
-
-        void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}, bool allowSecondary = false) const;
-        void EndRendering() const;
-        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) const;
-        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
-        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
-
-        void BindDescriptorSets(PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) const;
-        void BindDescriptorBuffers(Span<Buffer> buffers) const;
-        void SetDescriptorSetOffsets(PipelineLayout layout, u32 firstSet, Span<DescriptorSetBindingOffset> offsets) const;
-
-        void BindIndexBuffer(Buffer buffer, IndexType indexType, u64 offset = 0) const;
-        void PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const;
-
-        void PushStorageTexture(PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) const;
-        void PushAccelerationStructure(PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) const;
-
-        void Dispatch(Vec3U groups) const;
-
-        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
-        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
-        void ExecuteCommands(Span<CommandList> commands) const;
-
-        void BuildAccelerationStructure(AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) const;
-        void CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const;
-        void BindPipeline(RayTracingPipeline pipeline) const;
-        void TraceRays(RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const;
-    };
-
-// -----------------------------------------------------------------------------
-
     struct ContextConfig
     {
         bool debug = false;
@@ -840,18 +314,67 @@ namespace nova
         bool descriptorBuffers = false;
     };
 
-    struct Context : ImplHandle<ContextImpl>
+    struct Context
     {
-        NOVA_DECLARE_HANDLE_OPERATIONS(Context)
+        virtual ~Context() {}
 
-    public:
-        Context(const ContextConfig& config);
+// -----------------------------------------------------------------------------
+//                                 Queue
+// -----------------------------------------------------------------------------
 
-    public:
-        void WaitForIdle() const;
+        virtual void Queue_Submit(Span<CommandList> commandLists, Span<Fence> signals) = 0;
+        virtual void Queue_Acquire(Span<Swapchain> swapchains, Span<Fence> signals) = 0;
+        virtual void Queue_Present(Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) = 0;
 
-        Queue GetQueue(QueueFlags flags) const noexcept;
+// -----------------------------------------------------------------------------
+//                                 Fence
+// -----------------------------------------------------------------------------
 
-        void CleanPipelines() const;
+        // virtual Fence Fence_Create();
+        // virtual void  Destroy(Fence);
+        // virtual void  Fence_Wait(Fence, u64 waitValue = 0ull);
+        // virtual u64   Fence_Advance(Fence);
+        // virtual void  Fence_Signal(Fence, u64 signalValue = 0ull);
+        // virtual u64   Fence_GetPendingValue(Fence);
+
+// -----------------------------------------------------------------------------
+//                                 Swapchain
+// -----------------------------------------------------------------------------
+
+        virtual Swapchain Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode) = 0;
+        virtual void      Destroy(Swapchain) = 0;
+        virtual Texture   Swapchain_GetCurrent(Swapchain) = 0;
+        virtual Vec2U     Swapchain_GetExtent(Swapchain) = 0;
+        virtual Format    Swapchain_GetFormat(Swapchain) = 0;
+
+// -----------------------------------------------------------------------------
+//                                 Command
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+//                                 Buffer
+// -----------------------------------------------------------------------------
+
+        virtual Buffer Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags = {}) = 0;
+        virtual void   Destroy(Buffer) = 0;
+        virtual void   Buffer_Resize(Buffer, u64 size) = 0;
+        virtual u64    Buffer_GetSize(Buffer) = 0;
+        virtual b8*    Buffer_GetMapped(Buffer) = 0;
+        virtual u64    Buffer_GetAddress(Buffer) = 0;
+        virtual void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) = 0;
+        virtual void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) = 0;
+
+        template<class T>
+        T& Buffer_Get(u64 index, u64 offset = 0) const noexcept
+        {
+            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
+            return *reinterpret_cast<T*>(BufferImpl_Get(index, offset, Stride));
+        }
+        template<class T>
+        void Buffer_Set(Span<T> elements, u64 index = 0, u64 offset = 0) const noexcept
+        {
+            constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
+            BufferImpl_Set(elements.data(), elements.size(), index, offset, Stride);
+        }
     };
 }

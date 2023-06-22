@@ -1,126 +1,126 @@
-#include <nova/rhi/nova_RHI_Impl.hpp>
+// #include <nova/rhi/nova_RHI_Impl.hpp>
 
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+// #include <GLFW/glfw3.h>
+// #include <GLFW/glfw3native.h>
 
-using namespace nova::types;
+// using namespace nova::types;
 
-int main()
-{
-// -----------------------------------------------------------------------------
-//                             GLFW Initialization
-// -----------------------------------------------------------------------------
+// int main()
+// {
+// // -----------------------------------------------------------------------------
+// //                             GLFW Initialization
+// // -----------------------------------------------------------------------------
 
-    // Initial window setup
+//     // Initial window setup
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200,
-        "Hello Nova RT Triangle", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
+//     glfwInit();
+//     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+//     auto window = glfwCreateWindow(1920, 1200,
+//         "Hello Nova RT Triangle", nullptr, nullptr);
+//     NOVA_ON_SCOPE_EXIT(&) {
+//         glfwDestroyWindow(window);
+//         glfwTerminate();
+//     };
 
-    i32 width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+//     i32 width, height;
+//     glfwGetFramebufferSize(window, &width, &height);
 
-// -----------------------------------------------------------------------------
-//                             Nova Initialization
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                             Nova Initialization
+// // -----------------------------------------------------------------------------
 
-    // Create Nova context with ray tracing enabled
+//     // Create Nova context with ray tracing enabled
 
-    NOVA_TIMEIT_RESET();
+//     NOVA_TIMEIT_RESET();
 
-    auto context = +nova::Context({
-        .debug = true,
-        .shaderObjects = false,
-    });
+//     auto context = +nova::Context({
+//         .debug = true,
+//         .shaderObjects = false,
+//     });
 
-    // Create surface and swapchain for GLFW window
+//     // Create surface and swapchain for GLFW window
 
-    auto surface = +nova::Surface(context, glfwGetWin32Window(window));
-    auto swapchain = +nova::Swapchain(context, surface,
-        nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
-        nova::PresentMode::Fifo);
+//     auto surface = +nova::Surface(context, glfwGetWin32Window(window));
+//     auto swapchain = +nova::Swapchain(context, surface,
+//         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
+//         nova::PresentMode::Fifo);
 
-    // Create required Nova objects
+//     // Create required Nova objects
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics);
-    auto cmdPool = +nova::CommandPool(context, queue);
-    auto fence = +nova::Fence(context);
-    auto state = +nova::CommandState(context);
+//     auto queue = context.GetQueue(nova::QueueFlags::Graphics);
+//     auto cmdPool = +nova::CommandPool(context, queue);
+//     auto fence = +nova::Fence(context);
+//     auto state = +nova::CommandState(context);
 
-    NOVA_TIMEIT("base-vulkan-objects");
+//     NOVA_TIMEIT("base-vulkan-objects");
 
-// -----------------------------------------------------------------------------
-//                        Descriptors & Pipeline
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                        Descriptors & Pipeline
+// // -----------------------------------------------------------------------------
 
-    // Create descriptor layout to hold one storage image and acceleration structure
+//     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = +nova::DescriptorSetLayout(context, {
-        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
-    }, true);
+//     auto descLayout = +nova::DescriptorSetLayout(context, {
+//         nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
+//     }, true);
 
-    // Create a pipeline layout for the above set layout
+//     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = +nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
+//     auto pipelineLayout = +nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
 
-    // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
+//     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto computeShader = +nova::Shader(context, nova::ShaderStage::Compute, {
-        nova::shader::Layout(pipelineLayout),
-        nova::shader::ComputeKernel(Vec3U(1u), R"(
-            ivec2 pos = ivec2(gl_WorkGroupID.xy);
-            vec2 uv = vec2(pos) / vec2(gl_NumWorkGroups.xy);
-            imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
-        )")
-    });
+//     auto computeShader = +nova::Shader(context, nova::ShaderStage::Compute, {
+//         nova::shader::Layout(pipelineLayout),
+//         nova::shader::ComputeKernel(Vec3U(1u), R"(##
+//             ivec2 pos = ivec2(gl_WorkGroupID.xy);
+//             vec2 uv = vec2(pos) / vec2(gl_NumWorkGroups.xy);
+//             imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
+//         )")
+//     });
 
-// -----------------------------------------------------------------------------
-//                               Main Loop
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                               Main Loop
+// // -----------------------------------------------------------------------------
 
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window))
-    {
-        // Wait for previous frame and acquire new swapchain image
+//     NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+//     while (!glfwWindowShouldClose(window))
+//     {
+//         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+//         fence.Wait();
+//         queue.Acquire({swapchain}, {fence});
 
-        // Start new command buffer
+//         // Start new command buffer
 
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+//         cmdPool.Reset();
+//         auto cmd = cmdPool.Begin(state);
 
-        // Build scene TLAS
+//         // Build scene TLAS
 
-        // Transition ready for writing ray trace output
+//         // Transition ready for writing ray trace output
 
-        cmd.Transition(swapchain.GetCurrent(),
-            nova::ResourceState::GeneralImage,
-            nova::PipelineStage::Compute);
+//         cmd.Transition(swapchain.GetCurrent(),
+//             nova::ResourceState::GeneralImage,
+//             nova::PipelineStage::Compute);
 
-        // Push swapchain image and TLAS descriptors
+//         // Push swapchain image and TLAS descriptors
 
-        cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
+//         cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
 
-        // Trace rays
+//         // Trace rays
 
-        cmd.SetComputeState(pipelineLayout, {computeShader});
-        cmd.Dispatch(Vec3U(swapchain.GetExtent(), 1));
+//         cmd.SetComputeState(pipelineLayout, {computeShader});
+//         cmd.Dispatch(Vec3U(swapchain.GetExtent(), 1));
 
-        // Submit and present work
+//         // Submit and present work
 
-        cmd.Present(swapchain.GetCurrent());
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+//         cmd.Present(swapchain.GetCurrent());
+//         queue.Submit({cmd}, {fence}, {fence});
+//         queue.Present({swapchain}, {fence});
 
-        // Wait for window events
+//         // Wait for window events
 
-        glfwWaitEvents();
-    }
-}
+//         glfwWaitEvents();
+//     }
+// }

@@ -1,9 +1,36 @@
-#include "nova_RHI_Impl.hpp"
+#include "nova_VulkanContext.hpp"
 
 namespace nova
 {
-    std::atomic_int64_t ContextImpl::AllocationCount = 0;
-    std::atomic_int64_t ContextImpl::NewAllocationCount = 0;
+    std::atomic_int64_t VulkanContext::AllocationCount = 0;
+    std::atomic_int64_t VulkanContext::NewAllocationCount = 0;
+
+    static
+    VkBool32 VKAPI_CALL DebugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+        VkDebugUtilsMessageTypeFlagsEXT type,
+        const VkDebugUtilsMessengerCallbackDataEXT* data,
+        [[maybe_unused]] void* userData)
+    {
+        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+            return VK_FALSE;
+
+        NOVA_LOG(R"(
+--------------------------------------------------------------------------------)");
+        std::cout << std::stacktrace::current();
+        NOVA_LOG(R"(
+--------------------------------------------------------------------------------
+Validation: {} ({})
+--------------------------------------------------------------------------------
+{}
+--------------------------------------------------------------------------------
+)",
+            data->pMessageIdName,
+            data->messageIdNumber,
+            data->pMessage);
+
+        return VK_FALSE;
+    }
 
     struct VulkanFeatureChain
     {
@@ -45,14 +72,9 @@ namespace nova
         }
     };
 
-    NOVA_DEFINE_HANDLE_OPERATIONS(Context)
-
-    NOVA_NO_INLINE
-    Context::Context(const ContextConfig& config)
-        : ImplHandle(new ContextImpl)
+    VulkanContext::VulkanContext(const ContextConfig& _context)
+        : config(_context)
     {
-        impl->config = config;
-
         std::vector<const char*> instanceLayers;
         if (config.debug)
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
@@ -77,8 +99,8 @@ namespace nova
             .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-            .pfnUserCallback = ContextImpl::DebugCallback,
-            .pUserData = impl,
+            .pfnUserCallback = DebugCallback,
+            .pUserData = this,
         };
 
         std::vector<VkValidationFeatureEnableEXT> validationFeaturesEnabled {
@@ -105,30 +127,31 @@ namespace nova
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), impl->pAlloc, &impl->instance));
+        }), pAlloc, &instance));
 
-        volkLoadInstanceOnly(impl->instance);
+        volkLoadInstanceOnly(instance);
 
         if (config.debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
+            VkCall(vkCreateDebugUtilsMessengerEXT(instance, &debugMessengerCreateInfo, pAlloc, &debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
+        VkQuery(gpus, vkEnumeratePhysicalDevices, instance);
         for (auto& _gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
-                impl->gpu = _gpu;
+                gpu = _gpu;
                 break;
             }
         }
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(impl->gpu, Temp(0u), nullptr);
-        impl->graphics = +Queue(*this, nullptr, 0);
+        vkGetPhysicalDeviceQueueFamilyProperties2(gpu, Temp(0u), nullptr);
+        graphics = queues.Acquire().first;
+        Get(graphics).family = 0;
 
         VulkanFeatureChain chain;
 
@@ -241,45 +264,45 @@ namespace nova
                 deviceExtensions[i++] = ext.c_str();
         }
 
-        VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
             .queueCreateInfoCount = 1,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->graphics->family,
+                    .queueFamilyIndex = Get(graphics).family,
                     .queueCount = 1,
                     .pQueuePriorities = Temp(1.f),
                 },
             }.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
             .ppEnabledExtensionNames = deviceExtensions,
-        }), impl->pAlloc, &impl->device));
+        }), pAlloc, &device));
 
-        volkLoadDevice(impl->device);
+        volkLoadDevice(device);
 
-        vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &impl->descriptorSizes,
+            .pNext = &descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(impl->device, impl->graphics->family, 0, &impl->graphics->handle);
+        // vkGetDeviceQueue(device, graphics->family, 0, &graphics->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = impl->gpu,
-            .device = impl->device,
-            .pAllocationCallbacks = impl->pAlloc,
+            .physicalDevice = gpu,
+            .device = device,
+            .pAllocationCallbacks = pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = impl->instance,
+            .instance = instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &impl->vma));
+        }), &vma));
 
         {
             // Already rely on a bottomless descriptor pool, so not going to pretend to pass some bogus sizes here.
@@ -301,43 +324,25 @@ namespace nova
                 VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       MaxDescriptorPerType },
             };
 
-            VkCall(vkCreateDescriptorPool(impl->device, Temp(VkDescriptorPoolCreateInfo {
+            VkCall(vkCreateDescriptorPool(device, Temp(VkDescriptorPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
                 .maxSets = u32(MaxDescriptorPerType * sizes.size()),
                 .poolSizeCount = u32(sizes.size()),
                 .pPoolSizes = sizes.data(),
-            }), impl->pAlloc, &impl->descriptorPool));
+            }), pAlloc, &descriptorPool));
         }
 
-        VkCall(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
-            .initialDataSize = 0,
-        }), impl->pAlloc, &impl->pipelineCache));
+        // VkCall(vkCreatePipelineCache(device, Temp(VkPipelineCacheCreateInfo {
+        //     .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+        //     .initialDataSize = 0,
+        // }), pAlloc, &pipelineCache));
     }
 
-    ContextImpl::~ContextImpl()
+    VulkanContext::~VulkanContext()
     {
-        // Destroy combined graphics piplines
-        for (auto&[key, pipeline] : pipelines)
-            vkDestroyPipeline(device, pipeline, pAlloc);
-
-        // Destroy shader objects
-        for (auto&[key, shader] : shaderObjects)
-            vkDestroyShaderEXT(device, shader, pAlloc);
-
-        // Combine graphics shader library stages
-        for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
-
-        // Destroy compute pipelines
-        for (auto&[key, pipeline] : computePipelines)
-            vkDestroyPipeline(device, pipeline, pAlloc);
-
-        vkDestroyPipelineCache(device, pipelineCache, pAlloc);
+        swapchains.ForEach([&](auto id, auto&) { Destroy(id); });
+        buffers.ForEach([&](auto id, auto&) { Destroy(id); });
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
         vmaDestroyAllocator(vma);
@@ -346,65 +351,6 @@ namespace nova
             vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAlloc);
         vkDestroyInstance(instance, pAlloc);
 
-        NOVA_LOG("~Context(Allocations = {}, Operations = {})", AllocationCount.load(), NumHandleOperations.load());
-    }
-
-    VkBool32 VKAPI_CALL ContextImpl::DebugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-        VkDebugUtilsMessageTypeFlagsEXT type,
-        const VkDebugUtilsMessengerCallbackDataEXT* data,
-        [[maybe_unused]] void* userData)
-    {
-        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
-            return VK_FALSE;
-
-        NOVA_LOG(R"(
---------------------------------------------------------------------------------)");
-        std::cout << std::stacktrace::current();
-        NOVA_LOG(R"(
---------------------------------------------------------------------------------
-Validation: {} ({})
---------------------------------------------------------------------------------
-{}
---------------------------------------------------------------------------------
-)",
-            data->pMessageIdName,
-            data->messageIdNumber,
-            data->pMessage);
-
-        return VK_FALSE;
-    }
-
-    void Context::WaitForIdle() const
-    {
-        vkDeviceWaitIdle(impl->device);
-    }
-
-    Queue Context::GetQueue(QueueFlags flags) const noexcept
-    {
-        (void)flags;
-
-        return impl->graphics;
-    }
-
-    void ContextImpl::PushDeletedObject(UID id)
-    {
-        if (id != UID::Invalid)
-        {
-            std::scoped_lock lock { pipelineMutex };
-            deletedObjects.emplace(id);
-        }
-    }
-
-// -----------------------------------------------------------------------------
-
-    NOVA_DEFINE_HANDLE_OPERATIONS(Queue)
-
-    Queue::Queue(Context context, VkQueue queue, u32 family)
-        : ImplHandle(new QueueImpl)
-    {
-        impl->context = context;
-        impl->handle = queue;
-        impl->family = family;
+        NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
     }
 }

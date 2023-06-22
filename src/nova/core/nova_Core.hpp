@@ -115,40 +115,6 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         template<class T>
-        class OptRef
-        {
-            T* ptr = {};
-
-        public:
-            OptRef() = default;
-            OptRef(T& value)     : ptr(&value) {}
-
-            static OptRef FromNullable(T* value)
-            {
-                OptRef ref;
-                ref.value = value;
-                return ref;
-            }
-
-        public:
-                  T* GetAddress()       noexcept { return ptr; }
-            const T* GetAddress() const noexcept { return ptr; }
-
-            operator bool() const { return ptr; }
-            bool HasValue() const { return ptr; }
-
-                  T& operator*()       noexcept { return *ptr; }
-            const T& operator*() const noexcept { return *ptr; }
-
-            T* operator->() const noexcept { return ptr; }
-
-        public:
-            bool operator==(const OptRef& other) const noexcept { return ptr != other.ptr; }
-        };
-
-// -----------------------------------------------------------------------------
-
-        template<class T>
         struct Span
         {
             std::span<const T> span;
@@ -331,9 +297,9 @@ namespace nova
 
 #define NOVA_CONCAT_INTERNAL(a, b) a##b
 #define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
-#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(nova_OnScopeExit, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(nova_OnScopeSuccess_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(nova_OnScopeFailure_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
+#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 
