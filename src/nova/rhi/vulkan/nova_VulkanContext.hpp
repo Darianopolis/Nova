@@ -10,6 +10,12 @@ namespace nova
         u32     family = UINT32_MAX;
     };
 
+    struct VulkanFence
+    {
+        VkSemaphore semaphore = {};
+        u64             value = 0;
+    };
+
     struct VulkanSwapchain
     {
         VkSurfaceKHR          surface = {};
@@ -35,6 +41,20 @@ namespace nova
         b8*               mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
         VkBufferUsageFlags usage = {};
+    };
+
+    struct VulkanTexture
+    {
+        VkImage             image = {};
+        VmaAllocation  allocation = {};
+        VkImageView          view = {};
+        VkImageUsageFlags   usage = {};
+        VkFormat           format = VK_FORMAT_UNDEFINED;
+        VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
+
+        Vec3U extent = {};
+        u32     mips = 0;
+        u32   layers = 0;
     };
 
     struct VulkanContext : Context
@@ -117,6 +137,8 @@ namespace nova
         VulkanContext(const ContextConfig& config);
         ~VulkanContext();
 
+        void WaitIdle() override;
+
 #define NOVA_ADD_VULKAN_REGISTRY(type, name) \
     Registry<Vulkan##type, type> name;       \
     Vulkan##type& Get(type id) { return name.Get(id); }
@@ -127,9 +149,23 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Queue, queues)
 
-        void Queue_Submit(Span<CommandList> commandLists, Span<Fence> signals) override;
-        void Queue_Acquire(Span<Swapchain> swapchains, Span<Fence> signals) override;
-        void Queue_Present(Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) override;
+        Queue Queue_Get(QueueFlags flags) override;
+        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> signals) override;
+        bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) override;
+        void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) override;
+
+// -----------------------------------------------------------------------------
+//                                 Fence
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(Fence, fences)
+
+        Fence Fence_Create() override;
+        void  Destroy(Fence) override;
+        void  Fence_Wait(Fence, u64 waitValue) override;
+        u64   Fence_Advance(Fence) override;
+        void  Fence_Signal(Fence, u64 signalValue) override;
+        u64   Fence_GetPendingValue(Fence) override;
 
 // -----------------------------------------------------------------------------
 //                               Swapchain
@@ -157,5 +193,16 @@ namespace nova
         u64    Buffer_GetAddress(Buffer) override;
         void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) override;
         void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) override;
+
+// -----------------------------------------------------------------------------
+//                                 Texture
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(Texture, textures)
+
+        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags) override;
+        void    Destroy(Texture) override;
+        Vec3U   Texture_GetExtent(Texture) override;
+        Format  Texture_GetFormat(Texture) override;
     };
 }

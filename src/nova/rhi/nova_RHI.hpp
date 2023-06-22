@@ -318,24 +318,27 @@ namespace nova
     {
         virtual ~Context() {}
 
+        virtual void WaitIdle() = 0;
+
 // -----------------------------------------------------------------------------
 //                                 Queue
 // -----------------------------------------------------------------------------
 
-        virtual void Queue_Submit(Span<CommandList> commandLists, Span<Fence> signals) = 0;
-        virtual void Queue_Acquire(Span<Swapchain> swapchains, Span<Fence> signals) = 0;
-        virtual void Queue_Present(Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) = 0;
+        virtual Queue Queue_Get(QueueFlags flags) = 0;
+        virtual void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> signals) = 0;
+        virtual bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) = 0;
+        virtual void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Fence
 // -----------------------------------------------------------------------------
 
-        // virtual Fence Fence_Create();
-        // virtual void  Destroy(Fence);
-        // virtual void  Fence_Wait(Fence, u64 waitValue = 0ull);
-        // virtual u64   Fence_Advance(Fence);
-        // virtual void  Fence_Signal(Fence, u64 signalValue = 0ull);
-        // virtual u64   Fence_GetPendingValue(Fence);
+        virtual Fence Fence_Create() = 0;
+        virtual void  Destroy(Fence) = 0;
+        virtual void  Fence_Wait(Fence, u64 waitValue = 0ull) = 0;
+        virtual u64   Fence_Advance(Fence) = 0;
+        virtual void  Fence_Signal(Fence, u64 signalValue = 0ull) = 0;
+        virtual u64   Fence_GetPendingValue(Fence) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Swapchain
@@ -346,10 +349,6 @@ namespace nova
         virtual Texture   Swapchain_GetCurrent(Swapchain) = 0;
         virtual Vec2U     Swapchain_GetExtent(Swapchain) = 0;
         virtual Format    Swapchain_GetFormat(Swapchain) = 0;
-
-// -----------------------------------------------------------------------------
-//                                 Command
-// -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -376,5 +375,14 @@ namespace nova
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
             BufferImpl_Set(elements.data(), elements.size(), index, offset, Stride);
         }
+
+// -----------------------------------------------------------------------------
+//                                 Texture
+// -----------------------------------------------------------------------------
+
+        virtual Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) = 0;
+        virtual void    Destroy(Texture) = 0;
+        virtual Vec3U   Texture_GetExtent(Texture) = 0;
+        virtual Format  Texture_GetFormat(Texture) = 0;
     };
 }

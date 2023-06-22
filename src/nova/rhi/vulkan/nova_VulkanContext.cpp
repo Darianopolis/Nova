@@ -289,7 +289,7 @@ Validation: {} ({})
 
         // ---- Shared resources ----
 
-        // vkGetDeviceQueue(device, graphics->family, 0, &graphics->handle);
+        vkGetDeviceQueue(device, Get(graphics).family, 0, &Get(graphics).handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -341,8 +341,12 @@ Validation: {} ({})
 
     VulkanContext::~VulkanContext()
     {
+        WaitIdle();
+
         swapchains.ForEach([&](auto id, auto&) { Destroy(id); });
         buffers.ForEach([&](auto id, auto&) { Destroy(id); });
+        fences.ForEach([&](auto id, auto&) { Destroy(id); });
+        textures.ForEach([&](auto id, auto&) { Destroy(id); });
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
         vmaDestroyAllocator(vma);
@@ -352,5 +356,10 @@ Validation: {} ({})
         vkDestroyInstance(instance, pAlloc);
 
         NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
+    }
+
+    void VulkanContext::WaitIdle()
+    {
+        vkDeviceWaitIdle(device);
     }
 }

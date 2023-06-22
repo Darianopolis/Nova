@@ -7,7 +7,7 @@
 
 void TryMain()
 {
-    auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
+    std::unique_ptr<nova::Context> ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
         .debug = true,
     });
 
@@ -21,12 +21,21 @@ void TryMain()
     auto swapchain = ctx->Swapchain_Create(glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage,
         nova::PresentMode::Mailbox);
-    NOVA_ON_SCOPE_EXIT(&) { ctx->Destroy(swapchain); };
+    NOVA_ON_SCOPE_EXIT(&) {
+        ctx->WaitIdle();
+        ctx->Destroy(swapchain);
+    };
 
-    (void)swapchain;
+    [[maybe_unused]] auto fence = ctx->Fence_Create();
+
+    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics);
 
     while (!glfwWindowShouldClose(window))
     {
+        ctx->Fence_Wait(fence);
+        ctx->Queue_Acquire(queue, {swapchain}, {fence});
+        ctx->Queue_Present(queue, {swapchain}, {fence});
+
         glfwWaitEvents();
     }
 }

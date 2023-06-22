@@ -2,22 +2,17 @@
 
 namespace nova
 {
-    void VulkanContext::Queue_Submit(Span<CommandList> commandLists, Span<Fence> signals)
+    Queue VulkanContext::Queue_Get(QueueFlags flags)
+    {
+        // TODO: Filter based on flags
+        (void)flags;
+
+        return graphics;
+    }
+
+    void VulkanContext::Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> signals)
     {
         (void)commandLists;
         (void)signals;
-    }
-
-    void VulkanContext::Queue_Acquire(Span<Swapchain> _swapchains, Span<Fence> signals)
-    {
-        (void)_swapchains;
-        (void)signals;
-    }
-
-    void VulkanContext::Queue_Present(Span<Swapchain> _swapchains, Span<Fence> waits, bool hostWait)
-    {
-        (void)_swapchains;
-        (void)waits;
-        (void)hostWait;
     }
 }
