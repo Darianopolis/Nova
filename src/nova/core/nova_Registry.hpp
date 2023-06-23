@@ -16,6 +16,12 @@ namespace nova
         std::vector<Element>  elements;
         std::vector<Key>      freelist;
 
+        Registry()
+        {
+            flags.push_back(ElementFlag::Empty);
+            elements.emplace_back();
+        }
+
         std::pair<Key, Element&> Acquire()
         {
             if (freelist.empty())
@@ -35,6 +41,11 @@ namespace nova
         {
             flags[static_cast<std::underlying_type_t<Key>>(key)] = ElementFlag::Empty;
             freelist.push_back(key);
+        }
+
+        bool IsValid(Key key)
+        {
+            return flags[static_cast<std::underlying_type_t<Key>>(key)] != ElementFlag::Empty;
         }
 
         Element& Get(Key key)

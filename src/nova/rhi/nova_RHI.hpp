@@ -325,7 +325,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         virtual Queue Queue_Get(QueueFlags flags) = 0;
-        virtual void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> signals) = 0;
+        virtual void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) = 0;
         virtual bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) = 0;
         virtual void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) = 0;
 
@@ -339,6 +339,23 @@ namespace nova
         virtual u64   Fence_Advance(Fence) = 0;
         virtual void  Fence_Signal(Fence, u64 signalValue = 0ull) = 0;
         virtual u64   Fence_GetPendingValue(Fence) = 0;
+
+// -----------------------------------------------------------------------------
+//                                Commands
+// -----------------------------------------------------------------------------
+
+        virtual CommandPool Commands_CreatePool(Queue queue) = 0;
+        virtual void        Destroy(CommandPool) = 0;
+        virtual CommandList Commands_Begin(CommandPool pool, CommandState state) = 0;
+        virtual void        Commands_Reset(CommandPool pool) = 0;
+
+        virtual CommandState Commands_CreateState() = 0;
+        virtual void         Commands_SetState(CommandState state, Texture texture,
+            VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) = 0;
+
+        virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
+        virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
+        virtual void Cmd_Present(CommandList, Swapchain swapchain) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Swapchain

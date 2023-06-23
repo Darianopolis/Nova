@@ -93,7 +93,6 @@ namespace nova
                 {
                     anyResized |= recreate;
 
-                    NOVA_LOGEXPR(queue.handle);
                     VkCall(vkQueueWaitIdle(queue.handle));
 
                     auto oldSwapchain = swapchain.swapchain;
@@ -328,5 +327,13 @@ namespace nova
                 VkCall(results[i]);
             }
         }
+    }
+
+    void VulkanContext::Cmd_Present(CommandList cmd, Swapchain swapchain)
+    {
+        Cmd_Transition(cmd, Swapchain_GetCurrent(swapchain),
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_PIPELINE_STAGE_2_NONE,
+            0);
     }
 }

@@ -16,6 +16,41 @@ namespace nova
         u64             value = 0;
     };
 
+    struct VulkanCommandPool
+    {
+        Queue     queue = {};
+
+        VkCommandPool               pool = {};
+        std::vector<CommandList> lists = {};
+        u32                        index = 0;
+    };
+
+    struct VulkanCommandState
+    {
+        struct ImageState
+        {
+            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
+            VkAccessFlags2       access = 0;
+
+            u64 version = 0;
+        };
+
+        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+
+        std::vector<Format> colorAttachmentsFormats;
+        Format                depthAttachmentFormat = nova::Format::Undefined;
+        Format              stencilAttachmentFormat = nova::Format::Undefined;
+        Vec2U                       renderingExtent;
+    };
+
+    struct VulkanCommandList
+    {
+        CommandPool       pool = {};
+        CommandState     state = {};
+        VkCommandBuffer buffer = {};
+    };
+
     struct VulkanSwapchain
     {
         VkSurfaceKHR          surface = {};
@@ -150,7 +185,7 @@ namespace nova
         NOVA_ADD_VULKAN_REGISTRY(Queue, queues)
 
         Queue Queue_Get(QueueFlags flags) override;
-        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> signals) override;
+        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) override;
         bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) override;
         void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) override;
 
@@ -168,7 +203,28 @@ namespace nova
         u64   Fence_GetPendingValue(Fence) override;
 
 // -----------------------------------------------------------------------------
-//                               Swapchain
+//                                Commands
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(CommandPool, commandPools)
+        NOVA_ADD_VULKAN_REGISTRY(CommandState, commandStates)
+        NOVA_ADD_VULKAN_REGISTRY(CommandList, commandLists)
+
+        CommandPool Commands_CreatePool(Queue queue) override;
+        void        Destroy(CommandPool) override;
+        CommandList Commands_Begin(CommandPool pool, CommandState state) override;
+        void        Commands_Reset(CommandPool pool) override;
+
+        CommandState Commands_CreateState() override;
+        void         Commands_SetState(CommandState state, Texture texture,
+            VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) override;
+
+        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) override;
+        void Cmd_Clear(CommandList, Texture texture, Vec4 color) override;
+        void Cmd_Present(CommandList, Swapchain swapchain) override;
+
+// -----------------------------------------------------------------------------
+//                                Swapchain
 // -----------------------------------------------------------------------------
 
         NOVA_ADD_VULKAN_REGISTRY(Swapchain, swapchains)

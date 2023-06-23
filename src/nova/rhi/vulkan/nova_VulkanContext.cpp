@@ -346,6 +346,7 @@ Validation: {} ({})
         swapchains.ForEach([&](auto id, auto&) { Destroy(id); });
         buffers.ForEach([&](auto id, auto&) { Destroy(id); });
         fences.ForEach([&](auto id, auto&) { Destroy(id); });
+        commandPools.ForEach([&](auto id, auto&) { Destroy(id); });
         textures.ForEach([&](auto id, auto&) { Destroy(id); });
 
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
