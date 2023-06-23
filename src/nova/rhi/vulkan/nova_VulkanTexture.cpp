@@ -1,7 +1,40 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
+    Sampler VulkanContext::Sampler_Create(Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
+    {
+        auto[id, sampler] = samplers.Acquire();
+
+        VkCall(vkCreateSampler(device, Temp(VkSamplerCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = VkFilter(filter),
+            .minFilter = VkFilter(filter),
+            // TODO: Separate option
+            .mipmapMode = filter == Filter::Linear
+                ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                : VK_SAMPLER_MIPMAP_MODE_NEAREST,
+            .addressModeU = VkSamplerAddressMode(addressMode),
+            .addressModeV = VkSamplerAddressMode(addressMode),
+            .addressModeW = VkSamplerAddressMode(addressMode),
+            .anisotropyEnable = anisotropy > 0.f,
+            .maxAnisotropy = anisotropy,
+            .minLod = -1000.f,
+            .maxLod = 1000.f,
+            .borderColor = VkBorderColor(color),
+        }), pAlloc, &sampler.sampler));
+
+        return id;
+    }
+
+    void VulkanContext::Sampler_Destroy(Sampler sampler)
+    {
+        vkDestroySampler(device, Get(sampler).sampler, pAlloc);
+        samplers.Return(sampler);
+    }
+
+// -----------------------------------------------------------------------------
+
     Texture VulkanContext::Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags)
     {
         auto[id, texture] = textures.Acquire();
@@ -130,7 +163,7 @@ namespace nova
         return id;
     }
 
-    void VulkanContext::Destroy(Texture id)
+    void VulkanContext::Texture_Destroy(Texture id)
     {
         auto& texture = Get(id);
         if (texture.view)

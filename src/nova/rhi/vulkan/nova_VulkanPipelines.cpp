@@ -1,21 +1,50 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
-    PipelineLayout VulkanContext::Pipelines_CreateLayout()
+    PipelineLayout VulkanContext::Pipelines_CreateLayout(Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> _descriptorSetLayouts, BindPoint bindPoint)
     {
         auto[id, layout] = pipelineLayouts.Acquire();
+        layout.id = GetUID();
+
+        layout.bindPoint = bindPoint;
+
+        for (auto& range : pushConstantRanges)
+        {
+            layout.pcRanges.push_back(range);
+            u32 size = 0;
+            for (auto& member : range.constants)
+                size += GetShaderVarTypeSize(member.type);
+            layout.ranges.emplace_back(VK_SHADER_STAGE_ALL, range.offset, size);
+        }
+
+        for (auto& setLayout : _descriptorSetLayouts)
+        {
+            layout.setLayouts.push_back(setLayout);
+            layout.sets.emplace_back(Get(setLayout).layout);
+        }
 
         VkCall(vkCreatePipelineLayout(device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = u32(layout.sets.size()),
+            .pSetLayouts = layout.sets.data(),
+            .pushConstantRangeCount = u32(layout.ranges.size()),
+            .pPushConstantRanges = layout.ranges.data(),
         }), pAlloc, &layout.layout));
 
         return id;
     }
 
-    void VulkanContext::Destroy(PipelineLayout id)
+    void VulkanContext::Pipelines_DestroyLayout(PipelineLayout id)
     {
         vkDestroyPipelineLayout(device, Get(id).layout, pAlloc);
+    }
+
+// -----------------------------------------------------------------------------
+
+    void VulkanContext::Cmd_PushConstants(CommandList cmd, PipelineLayout layout, u64 offset, u64 size, const void* data)
+    {
+        vkCmdPushConstants(Get(cmd).buffer, Get(layout).layout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
 
 // -----------------------------------------------------------------------------

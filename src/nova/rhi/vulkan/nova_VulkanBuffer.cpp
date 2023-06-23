@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
@@ -29,7 +29,7 @@ namespace nova
         vmaDestroyBuffer(ctx.vma, buffer.buffer, buffer.allocation);
     }
 
-    void VulkanContext::Destroy(Buffer id)
+    void VulkanContext::Buffer_Destroy(Buffer id)
     {
         ResetBuffer(*this, Get(id));
 

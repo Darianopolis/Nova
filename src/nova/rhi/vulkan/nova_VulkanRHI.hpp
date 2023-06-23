@@ -24,9 +24,9 @@ namespace nova
     {
         Queue     queue = {};
 
-        VkCommandPool               pool = {};
+        VkCommandPool             pool = {};
         std::vector<CommandList> lists = {};
-        u32                        index = 0;
+        u32                      index = 0;
     };
 
     struct VulkanCommandState
@@ -77,8 +77,29 @@ namespace nova
 
         VkPipelineLayout layout;
 
+        // TODO: Pipeline layout used in multiple bind points?
+        BindPoint bindPoint = {};
+
+        std::vector<PushConstantRange>     pcRanges;
         std::vector<DescriptorSetLayout> setLayouts;
+
         std::vector<VkPushConstantRange> ranges;
+        std::vector<VkDescriptorSetLayout> sets;
+    };
+
+    struct VulkanDescriptorSetLayout
+    {
+        std::vector<DescriptorBinding> bindings = {};
+
+        VkDescriptorSetLayout layout = {};
+        u64                     size = 0;
+        std::vector<u64>     offsets = {};
+    };
+
+    struct VulkanDescriptorSet
+    {
+        DescriptorSetLayout layout;
+        VkDescriptorSet        set;
     };
 
     struct VulkanShader
@@ -100,6 +121,11 @@ namespace nova
         b8*               mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
         VkBufferUsageFlags usage = {};
+    };
+
+    struct VulkanSampler
+    {
+        VkSampler sampler;
     };
 
     struct VulkanTexture
@@ -278,7 +304,7 @@ namespace nova
         VulkanContext(const ContextConfig& config);
         ~VulkanContext();
 
-        void WaitIdle() override;
+        void WaitIdle() final;
 
 #define NOVA_ADD_VULKAN_REGISTRY(type, name) \
     Registry<Vulkan##type, type> name;       \
@@ -290,10 +316,10 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Queue, queues)
 
-        Queue Queue_Get(QueueFlags flags) override;
-        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) override;
-        bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) override;
-        void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) override;
+        Queue Queue_Get(QueueFlags flags) final;
+        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) final;
+        bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) final;
+        void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) final;
 
 // -----------------------------------------------------------------------------
 //                                 Fence
@@ -301,12 +327,12 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Fence, fences)
 
-        Fence Fence_Create() override;
-        void  Destroy(Fence) override;
-        void  Fence_Wait(Fence, u64 waitValue = 0ull) override;
-        u64   Fence_Advance(Fence) override;
-        void  Fence_Signal(Fence, u64 signalValue = 0ull) override;
-        u64   Fence_GetPendingValue(Fence) override;
+        Fence Fence_Create() final;
+        void  Fence_Destroy(Fence) final;
+        void  Fence_Wait(Fence, u64 waitValue = 0ull) final;
+        u64   Fence_Advance(Fence) final;
+        void  Fence_Signal(Fence, u64 signalValue = 0ull) final;
+        u64   Fence_GetPendingValue(Fence) final;
 
 // -----------------------------------------------------------------------------
 //                                Commands
@@ -316,14 +342,14 @@ namespace nova
         NOVA_ADD_VULKAN_REGISTRY(CommandState, commandStates)
         NOVA_ADD_VULKAN_REGISTRY(CommandList, commandLists)
 
-        CommandPool Commands_CreatePool(Queue queue) override;
-        void        Destroy(CommandPool) override;
-        CommandList Commands_Begin(CommandPool pool, CommandState state) override;
-        void        Commands_Reset(CommandPool pool) override;
+        CommandPool Commands_CreatePool(Queue queue) final;
+        void        Commands_DestroyPool(CommandPool) final;
+        CommandList Commands_Begin(CommandPool pool, CommandState state) final;
+        void        Commands_Reset(CommandPool pool) final;
 
-        CommandState Commands_CreateState() override;
+        CommandState Commands_CreateState() final;
         void         Commands_SetState(CommandState state, Texture texture,
-            VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) override;
+            VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) final;
 
 // -----------------------------------------------------------------------------
 //                                Swapchain
@@ -331,13 +357,13 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Swapchain, swapchains)
 
-        Swapchain Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode) override;
-        void      Destroy(Swapchain) override;
-        Texture   Swapchain_GetCurrent(Swapchain) override;
-        Vec2U     Swapchain_GetExtent(Swapchain) override;
-        Format    Swapchain_GetFormat(Swapchain) override;
+        Swapchain Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode) final;
+        void      Swapchain_Destroy(Swapchain) final;
+        Texture   Swapchain_GetCurrent(Swapchain) final;
+        Vec2U     Swapchain_GetExtent(Swapchain) final;
+        Format    Swapchain_GetFormat(Swapchain) final;
 
-        void Cmd_Present(CommandList, Swapchain swapchain) override;
+        void Cmd_Present(CommandList, Swapchain swapchain) final;
 
 // -----------------------------------------------------------------------------
 //                                  Shader
@@ -345,8 +371,9 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Shader, shaders)
 
-        Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode = {}) override;
-        void   Destroy(Shader) override;
+        Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode = {}) final;
+        Shader Shader_Create(ShaderStage stage, Span<ShaderElement> elements) final;
+        void   Shader_Destroy(Shader) final;
 
 // -----------------------------------------------------------------------------
 //                             Pipeline Layout
@@ -354,18 +381,36 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(PipelineLayout, pipelineLayouts)
 
-        PipelineLayout Pipelines_CreateLayout() override;
-        void           Destroy(PipelineLayout) override;
+        PipelineLayout Pipelines_CreateLayout(Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint) final;
+        void           Pipelines_DestroyLayout(PipelineLayout) final;
 
-        void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) override;
+        void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) final;
+        void Cmd_PushConstants(CommandList, PipelineLayout layout, u64 offset, u64 size, const void* data) final;
 
 // -----------------------------------------------------------------------------
 //                                Drawing
 // -----------------------------------------------------------------------------
 
-        void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) override;
-        void Cmd_EndRendering(CommandList) override;
-        void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) override;
+        void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) final;
+        void Cmd_EndRendering(CommandList) final;
+        void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) final;
+
+// -----------------------------------------------------------------------------
+//                               Descriptors
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(DescriptorSetLayout, descriptorSetLayouts)
+        NOVA_ADD_VULKAN_REGISTRY(DescriptorSet, descriptorSets)
+
+        DescriptorSetLayout Descriptors_CreateSetLayout(Span<DescriptorBinding> bindings, bool pushDescriptors = false) final;
+        void                Descriptors_DestroySetLayout(DescriptorSetLayout) final;
+
+        DescriptorSet       Descriptors_AllocateSet(DescriptorSetLayout layout, u64 customSize = 0) final;
+        void                Descriptors_FreeSet(DescriptorSet) final;
+        void                Descriptors_WriteSampledTexture(DescriptorSet set, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) final;
+        void                Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex = 0) final;
+
+        void Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) final;
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -373,33 +418,37 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Buffer, buffers)
 
-        Buffer Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags = {}) override;
-        void   Destroy(Buffer) override;
-        void   Buffer_Resize(Buffer, u64 size) override;
-        u64    Buffer_GetSize(Buffer) override;
-        b8*    Buffer_GetMapped(Buffer) override;
-        u64    Buffer_GetAddress(Buffer) override;
-        void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) override;
-        void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) override;
+        Buffer Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags = {}) final;
+        void   Buffer_Destroy(Buffer) final;
+        void   Buffer_Resize(Buffer, u64 size) final;
+        u64    Buffer_GetSize(Buffer) final;
+        b8*    Buffer_GetMapped(Buffer) final;
+        u64    Buffer_GetAddress(Buffer) final;
+        void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) final;
+        void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) final;
 
-        void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) override;
-        void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) override;
+        void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) final;
+        void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) final;
 
 // -----------------------------------------------------------------------------
 //                                 Texture
 // -----------------------------------------------------------------------------
 
+        NOVA_ADD_VULKAN_REGISTRY(Sampler, samplers)
         NOVA_ADD_VULKAN_REGISTRY(Texture, textures)
 
-        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) override;
-        void    Destroy(Texture) override;
-        Vec3U   Texture_GetExtent(Texture) override;
-        Format  Texture_GetFormat(Texture) override;
+        Sampler Sampler_Create(Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f) final;
+        void    Sampler_Destroy(Sampler) final;
 
-        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) override;
-        void Cmd_Clear(CommandList, Texture texture, Vec4 color) override;
-        void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) override;
-        void Cmd_GenerateMips(CommandList, Texture texture) override;
-        void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) override;
+        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) final;
+        void    Texture_Destroy(Texture) final;
+        Vec3U   Texture_GetExtent(Texture) final;
+        Format  Texture_GetFormat(Texture) final;
+
+        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) final;
+        void Cmd_Clear(CommandList, Texture texture, Vec4 color) final;
+        void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) final;
+        void Cmd_GenerateMips(CommandList, Texture texture) final;
+        void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) final;
     };
 }

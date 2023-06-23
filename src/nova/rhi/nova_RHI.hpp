@@ -330,6 +330,175 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    enum class ShaderVarType
+    {
+        Mat2, Mat3, Mat4,
+        Vec2, Vec3, Vec4,
+        U32, U64,
+        I32, I64,
+        F32, F64,
+    };
+
+    inline constexpr
+    u32 GetShaderVarTypeSize(ShaderVarType type)
+    {
+        switch (type)
+        {
+        break;case ShaderVarType::Mat2: return  4 * 4;
+        break;case ShaderVarType::Mat3: return  9 * 4;
+        break;case ShaderVarType::Mat4: return 16 * 4;
+
+        break;case ShaderVarType::Vec2: return  2 * 4;
+        break;case ShaderVarType::Vec3: return  3 * 4;
+        break;case ShaderVarType::Vec4: return  4 * 4;
+
+        break;case ShaderVarType::U32:
+                case ShaderVarType::I32:
+                case ShaderVarType::F32:
+            return 4;
+
+        break;case ShaderVarType::U64:
+                case ShaderVarType::I64:
+                case ShaderVarType::F64:
+            return 8;
+        }
+        return 0;
+    }
+
+    struct Member
+    {
+        std::string_view    name;
+        ShaderVarType       type;
+        std::optional<u32> count = std::nullopt;
+    };
+
+    namespace binding
+    {
+        struct SampledTexture
+        {
+            std::string         name;
+            std::optional<u32> count;
+        };
+
+        struct StorageTexture
+        {
+            std::string         name;
+            Format            format;
+            std::optional<u32> count;
+        };
+
+        struct UniformBuffer
+        {
+            std::string            name;
+            std::vector<Member> members;
+            bool                dynamic = false;
+            std::optional<u32>    count;
+        };
+
+        struct AccelerationStructure
+        {
+            std::string         name;
+            std::optional<u32> count;
+        };
+    }
+
+    using DescriptorBinding = std::variant<
+        binding::SampledTexture,
+        binding::StorageTexture,
+        binding::AccelerationStructure,
+        binding::UniformBuffer>;
+
+    struct DescriptorSetBindingOffset
+    {
+        u32 buffer;
+        u64 offset = {};
+    };
+
+    struct PushConstantRange
+    {
+        std::string              name;
+        std::vector<Member> constants;
+        // ShaderStage stages;
+        // u32           size;
+        u32         offset = 0;
+    };
+
+// -----------------------------------------------------------------------------
+
+    enum class ShaderInputFlags
+    {
+        None,
+        Flat,
+        PerVertex,
+    };
+    NOVA_DECORATE_FLAG_ENUM(ShaderInputFlags)
+
+    namespace shader
+    {
+        constexpr u32 ArrayCountUnsized = UINT32_MAX;
+    }
+
+    namespace shader
+    {
+        struct Structure
+        {
+            std::string     name;
+            Span<Member> members;
+        };
+
+        struct Layout
+        {
+            PipelineLayout layout;
+        };
+
+        struct BufferReference
+        {
+            std::string name;
+            std::optional<ShaderVarType> scalarType = std::nullopt;
+        };
+
+        struct Input
+        {
+            std::string       name;
+            ShaderVarType     type;
+            ShaderInputFlags flags = {};
+        };
+
+        struct Output
+        {
+            std::string   name;
+            ShaderVarType type;
+        };
+
+        struct Fragment
+        {
+            std::string glsl;
+        };
+
+        struct ComputeKernel
+        {
+            Vec3U workGroups;
+            std::string glsl;
+        };
+
+        struct Kernel
+        {
+            std::string glsl;
+        };
+    }
+
+    using ShaderElement = std::variant<
+        shader::Structure,
+        shader::Layout,
+        shader::BufferReference,
+        shader::Input,
+        shader::Output,
+        shader::Fragment,
+        shader::ComputeKernel,
+        shader::Kernel>;
+
+// -----------------------------------------------------------------------------
+
     struct ContextConfig
     {
         bool debug = false;
@@ -357,7 +526,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         virtual Fence Fence_Create() = 0;
-        virtual void  Destroy(Fence) = 0;
+        virtual void  Fence_Destroy(Fence) = 0;
         virtual void  Fence_Wait(Fence, u64 waitValue = 0ull) = 0;
         virtual u64   Fence_Advance(Fence) = 0;
         virtual void  Fence_Signal(Fence, u64 signalValue = 0ull) = 0;
@@ -368,7 +537,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         virtual CommandPool Commands_CreatePool(Queue queue) = 0;
-        virtual void        Destroy(CommandPool) = 0;
+        virtual void        Commands_DestroyPool(CommandPool) = 0;
         virtual CommandList Commands_Begin(CommandPool pool, CommandState state) = 0;
         virtual void        Commands_Reset(CommandPool pool) = 0;
 
@@ -381,7 +550,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         virtual Swapchain Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode) = 0;
-        virtual void      Destroy(Swapchain) = 0;
+        virtual void      Swapchain_Destroy(Swapchain) = 0;
         virtual Texture   Swapchain_GetCurrent(Swapchain) = 0;
         virtual Vec2U     Swapchain_GetExtent(Swapchain) = 0;
         virtual Format    Swapchain_GetFormat(Swapchain) = 0;
@@ -393,16 +562,18 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         virtual Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode) = 0;
-        virtual void   Destroy(Shader) = 0;
+        virtual Shader Shader_Create(ShaderStage stage, Span<ShaderElement> elements) = 0;
+        virtual void   Shader_Destroy(Shader) = 0;
 
 // -----------------------------------------------------------------------------
 //                             Pipeline Layout
 // -----------------------------------------------------------------------------
 
-        virtual PipelineLayout Pipelines_CreateLayout() = 0;
-        virtual void           Destroy(PipelineLayout) = 0;
+        virtual PipelineLayout Pipelines_CreateLayout(Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint) = 0;
+        virtual void           Pipelines_DestroyLayout(PipelineLayout) = 0;
 
         virtual void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) = 0;
+        virtual void Cmd_PushConstants(CommandList, PipelineLayout layout, u64 offset, u64 size, const void* data) = 0;
 
 // -----------------------------------------------------------------------------
 //                                Drawing
@@ -413,11 +584,25 @@ namespace nova
         virtual void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) = 0;
 
 // -----------------------------------------------------------------------------
+//                               Descriptors
+// -----------------------------------------------------------------------------
+
+        virtual DescriptorSetLayout Descriptors_CreateSetLayout(Span<DescriptorBinding> bindings, bool pushDescriptors = false) = 0;
+        virtual void                Descriptors_DestroySetLayout(DescriptorSetLayout) = 0;
+
+        virtual DescriptorSet       Descriptors_AllocateSet(DescriptorSetLayout layout, u64 customSize = 0) = 0;
+        virtual void                Descriptors_FreeSet(DescriptorSet) = 0;
+        virtual void                Descriptors_WriteSampledTexture(DescriptorSet set, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) = 0;
+        virtual void                Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex = 0) = 0;
+
+        virtual void Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) = 0;
+
+// -----------------------------------------------------------------------------
 //                                 Buffer
 // -----------------------------------------------------------------------------
 
         virtual Buffer Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags = {}) = 0;
-        virtual void   Destroy(Buffer) = 0;
+        virtual void   Buffer_Destroy(Buffer) = 0;
         virtual void   Buffer_Resize(Buffer, u64 size) = 0;
         virtual u64    Buffer_GetSize(Buffer) = 0;
         virtual b8*    Buffer_GetMapped(Buffer) = 0;
@@ -426,16 +611,16 @@ namespace nova
         virtual void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) = 0;
 
         template<class T>
-        T& Buffer_Get(u64 index, u64 offset = 0) const noexcept
+        T& Buffer_Get(Buffer buffer, u64 index, u64 offset = 0)
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
-            return *reinterpret_cast<T*>(BufferImpl_Get(index, offset, Stride));
+            return *reinterpret_cast<T*>(BufferImpl_Get(buffer ,index, offset, Stride));
         }
         template<class T>
-        void Buffer_Set(Span<T> elements, u64 index = 0, u64 offset = 0) const noexcept
+        void Buffer_Set(Buffer buffer, Span<T> elements, u64 index = 0, u64 offset = 0)
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
-            BufferImpl_Set(elements.data(), elements.size(), index, offset, Stride);
+            BufferImpl_Set(buffer, elements.data(), elements.size(), index, offset, Stride);
         }
 
         virtual void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) = 0;
@@ -445,8 +630,11 @@ namespace nova
 //                                 Texture
 // -----------------------------------------------------------------------------
 
+        virtual Sampler Sampler_Create(Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f) = 0;
+        virtual void    Sampler_Destroy(Sampler) = 0;
+
         virtual Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) = 0;
-        virtual void    Destroy(Texture) = 0;
+        virtual void    Texture_Destroy(Texture) = 0;
         virtual Vec3U   Texture_GetExtent(Texture) = 0;
         virtual Format  Texture_GetFormat(Texture) = 0;
 

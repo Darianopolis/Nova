@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 #include <nova/core/nova_Files.hpp>
 
@@ -212,7 +212,249 @@ namespace nova
         return id;
     }
 
-    void VulkanContext::Destroy(Shader id)
+    Shader VulkanContext::Shader_Create(ShaderStage stage, Span<ShaderElement> elements)
+    {
+        std::string shader = R"(#version 460
+#extension GL_GOOGLE_include_directive                   : enable
+#extension GL_EXT_scalar_block_layout                    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+#extension GL_EXT_buffer_reference2                      : enable
+#extension GL_EXT_nonuniform_qualifier                   : enable
+#extension GL_EXT_ray_tracing                            : enable
+#extension GL_EXT_ray_tracing_position_fetch             : enable
+#extension GL_NV_shader_invocation_reorder               : enable
+#extension GL_EXT_fragment_shader_barycentric            : enable
+)";
+
+#define write(...) std::format_to(std::back_insert_iterator(shader), __VA_ARGS__)
+
+        auto typeToString = [](ShaderVarType type)
+        {
+            switch (type)
+            {
+            break;case ShaderVarType::Mat2:
+                return "mat2";
+            break;case ShaderVarType::Mat3:
+                return "mat3";
+            break;case ShaderVarType::Mat4:
+                return "mat4";
+
+            break;case ShaderVarType::Vec2:
+                return "vec2";
+            break;case ShaderVarType::Vec3:
+                return "vec3";
+            break;case ShaderVarType::Vec4:
+                return "vec4";
+
+            break;case ShaderVarType::U32:
+                return "uint";
+            break;case ShaderVarType::U64:
+                return "uint64_t";
+
+            break;case ShaderVarType::I32:
+                return "int";
+            break;case ShaderVarType::I64:
+                return "int64_t";
+
+            break;case ShaderVarType::F32:
+                return "float";
+            break;case ShaderVarType::F64:
+                return "double";
+            }
+
+            std::unreachable();
+        };
+
+        auto getArrayPart = [&](std::optional<u32> count) {
+            return count
+                ? count.value() == shader::ArrayCountUnsized
+                    ? "[]"
+                    : NOVA_FORMAT_TEMP("[{}]", count.value()).c_str()
+                : "";
+        };
+
+        u32 structureId = 0;
+        auto getAnonStructureName = [&] {
+            return std::format("GeneratedStructure{}_t", ++structureId);
+        };
+
+        u32 inputLocation = 0;
+        u32 outputLocation = 0;
+        auto getTypeLocationWidth = [](ShaderVarType type) {
+
+            switch (type)
+            {
+            break;case ShaderVarType::Mat2:
+                return 2;
+            break;case ShaderVarType::Mat3:
+                return 3;
+            break;case ShaderVarType::Mat4:
+                return 4;
+
+            break;default:
+                return 1;
+            }
+        };
+
+        for (auto& element : elements)
+        {
+            std::visit(Overloads {
+// -----------------------------------------------------------------------------
+//                          Structure declaration
+// -----------------------------------------------------------------------------
+                [&](const shader::Structure& structure) {
+                    write("struct {} {{\n", structure.name);
+                    for (auto& member : structure.members)
+                    {
+                        write("    {} {}{};\n",
+                            typeToString(member.type), member.name, getArrayPart(member.count));
+                    }
+                    write("}};\n");
+                    write("layout(buffer_reference, scalar) buffer {0}_br {{ {0} data[]; }};\n"
+                        "#define {0}_BR(va) {0}_br(va).data\n",
+                        structure.name);
+                },
+// -----------------------------------------------------------------------------
+//                             Pipeline Layout
+// -----------------------------------------------------------------------------
+                [&](const shader::Layout& layout) {
+                    auto pipelineLayout = layout.layout;
+
+                    // Push Constants
+
+                    for (auto& pushConstants : Get(pipelineLayout).pcRanges)
+                    {
+                        write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
+                        for (auto& member : pushConstants.constants)
+                        {
+                            write("    {} {}{};\n",
+                                typeToString(member.type), member.name, getArrayPart(member.count));
+                        }
+                        write("}} {};\n", pushConstants.name);
+                    }
+
+                    // Descriptor Sets
+
+                    for (u32 setIdx = 0; setIdx < Get(pipelineLayout).sets.size(); ++setIdx)
+                    {
+                        auto set = Get(pipelineLayout).setLayouts[setIdx];
+                        for (u32 bindingIdx = 0; bindingIdx < Get(set).bindings.size(); ++bindingIdx)
+                        {
+                            auto& binding = Get(set).bindings[bindingIdx];
+
+                            std::visit(Overloads {
+                                [&](const binding::SampledTexture& binding) {
+                                    // TODO: Support 1D/3D
+                                    write("layout(set = {}, binding = {}) uniform sampler2D {}{};\n",
+                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::StorageTexture& binding) {
+                                    // TODO: Support 1D/3D
+                                    const char* formatString;
+                                    const char* imageType;
+                                    switch (binding.format)
+                                    {
+                                    break;case Format::RGBA8U:
+                                            case Format::BGRA8U:
+                                            case Format::RGBA8_SRGB:
+                                            case Format::BGRA8_SRGB:
+                                        formatString = "rgba8";
+                                        imageType = "image2D";
+                                    break;case Format::R32UInt:
+                                        formatString = "r32ui";
+                                        imageType = "uimage2D";
+                                    break;default:
+                                        NOVA_THROW("Unknown format: {}", u32(binding.format));
+                                    }
+
+                                    write("layout(set = {}, binding = {}, {}) uniform {} {}{};\n",
+                                        setIdx, bindingIdx, formatString, imageType, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::AccelerationStructure& binding) {
+                                    write("layout(set = {}, binding = {}) uniform accelerationStructureEXT {}{};\n",
+                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
+                                },
+                                [&](const binding::UniformBuffer& binding) {
+                                    write("layout(set = {}, binding = {}) uniform {} {{\n",
+                                        setIdx, bindingIdx, getAnonStructureName());
+                                    for (auto& member : binding.members)
+                                    {
+                                        write("    {} {}{};\n",
+                                            typeToString(member.type), member.name, getArrayPart(member.count));
+                                    }
+                                    write("}} {}{};\n", binding.name, getArrayPart(binding.count));
+                                }
+                            }, binding);
+                        }
+                    }
+                },
+// -----------------------------------------------------------------------------
+//                            Buffer Reference
+// -----------------------------------------------------------------------------
+                [&](const shader::BufferReference& bufferReference) {
+                    write("layout(buffer_reference, scalar) buffer {0}_br {{ {1} data[]; }};\n"
+                        "#define {0}_BR(va) {0}_br(va).data\n",
+                        bufferReference.name,
+                        bufferReference.scalarType
+                            ? typeToString(bufferReference.scalarType.value())
+                            : bufferReference.name);
+                },
+// -----------------------------------------------------------------------------
+//                          Shader Input Variable
+// -----------------------------------------------------------------------------
+                [&](const shader::Input& input) {
+                    write("layout(location = {}) in", inputLocation);
+                    if (input.flags >= ShaderInputFlags::Flat)
+                        write(" flat");
+                    if (input.flags >= ShaderInputFlags::PerVertex)
+                        write(" pervertexEXT");
+                    write(" {} {}", typeToString(input.type), input.name);
+                    if (input.flags >= ShaderInputFlags::PerVertex)
+                        write("[3]"); // TODO: Primitive vertex count?
+                    write(";\n");
+
+                    inputLocation += getTypeLocationWidth(input.type);
+                },
+// -----------------------------------------------------------------------------
+//                          Shader Output Variable
+// -----------------------------------------------------------------------------
+                [&](const shader::Output& output) {
+                    write("layout(location = {}) out {} {};\n",
+                        outputLocation, typeToString(output.type), output.name);
+
+                    outputLocation += getTypeLocationWidth(output.type);
+                },
+// -----------------------------------------------------------------------------
+//                              GLSL Fragment
+// -----------------------------------------------------------------------------
+                [&](const shader::Fragment& fragment) {
+                    write("{}", fragment.glsl);
+                },
+// -----------------------------------------------------------------------------
+//                             Compute Kernel
+// -----------------------------------------------------------------------------
+                [&](const shader::ComputeKernel& computeKernel) {
+                    write("layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\nvoid main() {{\n{}\n}}\n",
+                        computeKernel.workGroups.x, computeKernel.workGroups.y, computeKernel.workGroups.z,
+                        computeKernel.glsl);
+                },
+// -----------------------------------------------------------------------------
+//                                 Kernel
+// -----------------------------------------------------------------------------
+                [&](const shader::Kernel& kernel) {
+                    write("void main() {{\n{}\n}}\n", kernel.glsl);
+                },
+            }, element);
+        }
+
+#undef write
+
+        // NOVA_LOG("Generated shader:\n{}", shader);
+
+        return Shader_Create(stage, "generated", shader);
+    }
+
+    void VulkanContext::Shader_Destroy(Shader id)
     {
         if (Get(id).handle)
             vkDestroyShaderModule(device, Get(id).handle, pAlloc);

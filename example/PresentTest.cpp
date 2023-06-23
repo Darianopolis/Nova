@@ -1,6 +1,6 @@
 #include <nova/rhi/nova_RHI.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanContext.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -21,13 +21,15 @@ void TryMain()
 
     auto window = glfwCreateWindow(1920, 1200, "Present Test", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window); };
+    HWND hwnd = glfwGetWin32Window(window);
 
-    auto swapchain = ctx->Swapchain_Create(glfwGetWin32Window(window),
+    NOVA_LOGEXPR(ctx);
+    auto swapchain = ctx->Swapchain_Create(hwnd,
         nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage,
         nova::PresentMode::Mailbox);
     NOVA_ON_SCOPE_EXIT(&) {
         ctx->WaitIdle();
-        ctx->Destroy(swapchain);
+        ctx->Swapchain_Destroy(swapchain);
     };
 
     auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics);
@@ -35,38 +37,57 @@ void TryMain()
     auto cmdState = ctx->Commands_CreateState();
     auto cmdPool = ctx->Commands_CreatePool(queue);
 
-    auto vertexShader = ctx->Shader_Create(nova::ShaderStage::Vertex,
-        "vertex",
-        R"(
-#version 460
+    struct Vertex
+    {
+        Vec3 position;
+        Vec3 color;
+    };
 
-const vec2 Positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
-const vec3 Colors[3]    = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
+    auto vertices = ctx->Buffer_Create(3 * sizeof(Vertex),
+        nova::BufferUsage::Storage,
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    ctx->Buffer_Set<Vertex>(vertices, {
+        {{-0.6f, 0.6f, 0.f}, {1.f, 0.f, 0.f}},
+        {{ 0.6f, 0.6f, 0.f}, {0.f, 1.f, 0.f}},
+        {{ 0.f, -0.6f, 0.f}, {0.f, 0.f, 1.f}}
+    });
 
-layout(location = 0) out vec3 outColor;
+    auto descLayout = ctx->Descriptors_CreateSetLayout({
+        nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
+    });
 
-void main()
-{
-    outColor = Colors[gl_VertexIndex];
-    gl_Position = vec4(Positions[gl_VertexIndex], 0, 1);
-}
-        )");
+    auto pipelineLayout = ctx->Pipelines_CreateLayout(
+        {{"pc", {{"vertexVA", nova::ShaderVarType::U64}}}},
+        {descLayout}, nova::BindPoint::Graphics);
 
-    auto fragmentShader = ctx->Shader_Create(nova::ShaderStage::Fragment,
-        "fragment",
-        R"(
-#version 460
+    auto ubo = ctx->Buffer_Create(sizeof(Vec3),
+        nova::BufferUsage::Uniform,
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    ctx->Buffer_Set<Vec3>(ubo, {{0.f, 0.25f, 0.f}});
 
-layout(location = 0) in vec3 inColor;
-layout(location = 0) out vec4 outColor;
+    auto set = ctx->Descriptors_AllocateSet(descLayout);
+    ctx->Descriptors_WriteUniformBuffer(set, 0, ubo);
 
-void main()
-{
-    outColor = vec4(inColor, 1);
-}
-        )");
+    auto vertexShader = ctx->Shader_Create(nova::ShaderStage::Vertex, {
+        nova::shader::Structure("Vertex", {
+            {"position", nova::ShaderVarType::Vec3},
+            {"color", nova::ShaderVarType::Vec3},
+        }),
+        nova::shader::Layout(pipelineLayout),
 
-    auto pipelineLayout = ctx->Pipelines_CreateLayout();
+        nova::shader::Output("color", nova::ShaderVarType::Vec3),
+        nova::shader::Kernel(R"(
+            Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
+            color = v.color;
+            gl_Position = vec4(v.position + ubo.pos, 1);
+        )"),
+    });
+
+    auto fragmentShader = ctx->Shader_Create(nova::ShaderStage::Fragment, {
+        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
+        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
+        nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
+    });
 
     nova::Texture texture;
     {
@@ -80,7 +101,7 @@ void main()
 
         usz size = w * h * 4;
         auto staging = ctx->Buffer_Create(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
-        NOVA_ON_SCOPE_EXIT(&) { ctx->Destroy(staging); };
+        NOVA_ON_SCOPE_EXIT(&) { ctx->Buffer_Destroy(staging); };
         std::memcpy(ctx->Buffer_GetMapped(staging), data, size);
 
         auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
@@ -106,6 +127,8 @@ void main()
 
         ctx->Cmd_BeginRendering(cmd, {target});
         ctx->Cmd_SetGraphicsState(cmd, pipelineLayout, {vertexShader, fragmentShader}, {});
+        ctx->Cmd_PushConstants(cmd, pipelineLayout, 0, sizeof(u64), nova::Temp(ctx->Buffer_GetAddress(vertices)));
+        ctx->Cmd_BindDescriptorSets(cmd, pipelineLayout, 0, {set});
         ctx->Cmd_Draw(cmd, 3, 1, 0, 0);
         ctx->Cmd_EndRendering(cmd);
 

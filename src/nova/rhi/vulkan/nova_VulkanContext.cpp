@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
@@ -335,14 +335,16 @@ Validation: {} ({})
     {
         WaitIdle();
 
-        // Destroy API objects
-        swapchains.ForEach(     [&](auto id, auto&) { Destroy(id); });
-        buffers.ForEach(        [&](auto id, auto&) { Destroy(id); });
-        fences.ForEach(         [&](auto id, auto&) { Destroy(id); });
-        commandPools.ForEach(   [&](auto id, auto&) { Destroy(id); });
-        textures.ForEach(       [&](auto id, auto&) { Destroy(id); });
-        pipelineLayouts.ForEach([&](auto id, auto&) { Destroy(id); });
-        shaders.ForEach(        [&](auto id, auto&) { Destroy(id); });
+        // Clean out API object registries
+        swapchains.ForEach(          [&](auto handle, auto&) { Swapchain_Destroy(handle);            });
+        buffers.ForEach(             [&](auto handle, auto&) { Buffer_Destroy(handle);               });
+        fences.ForEach(              [&](auto handle, auto&) { Fence_Destroy(handle);                });
+        commandPools.ForEach(        [&](auto handle, auto&) { Commands_DestroyPool(handle);         });
+        samplers.ForEach(            [&](auto handle, auto&) { Sampler_Destroy(handle);              });
+        textures.ForEach(            [&](auto handle, auto&) { Texture_Destroy(handle);              });
+        pipelineLayouts.ForEach(     [&](auto handle, auto&) { Pipelines_DestroyLayout(handle);      });
+        shaders.ForEach(             [&](auto handle, auto&) { Shader_Destroy(handle);               });
+        descriptorSetLayouts.ForEach([&](auto handle, auto&) { Descriptors_DestroySetLayout(handle); });
 
         // Deleted graphics pipeline library stages
         for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);

@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
@@ -32,7 +32,7 @@ namespace nova
         return id;
     }
 
-    void VulkanContext::Destroy(Swapchain id)
+    void VulkanContext::Swapchain_Destroy(Swapchain id)
     {
         auto& swapchain = Get(id);
 
@@ -40,7 +40,7 @@ namespace nova
             vkDestroySemaphore(device, semaphore, pAlloc);
 
         for (auto texture : swapchain.textures)
-            Destroy(texture);
+            Texture_Destroy(texture);
 
         if (swapchain.swapchain)
             vkDestroySwapchainKHR(device, swapchain.swapchain, pAlloc);
@@ -133,7 +133,7 @@ namespace nova
                     }
 
                     for (auto texture : swapchain.textures)
-                        Destroy(texture);
+                        Texture_Destroy(texture);
 
                     swapchain.textures.resize(vkImages.size());
                     for (uint32_t i = 0; i < vkImages.size(); ++i)

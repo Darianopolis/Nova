@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
@@ -18,7 +18,7 @@ namespace nova
         return id;
     }
 
-    void VulkanContext::Destroy(Fence id)
+    void VulkanContext::Fence_Destroy(Fence id)
     {
         vkDestroySemaphore(device, Get(id).semaphore, pAlloc);
     }

@@ -1,4 +1,4 @@
-#include "nova_VulkanContext.hpp"
+#include "nova_VulkanRHI.hpp"
 
 namespace nova
 {
@@ -16,7 +16,7 @@ namespace nova
         return id;
     }
 
-    void VulkanContext::Destroy(CommandPool id)
+    void VulkanContext::Commands_DestroyPool(CommandPool id)
     {
         auto& pool = Get(id);
         if (pool.pool)
