@@ -4,6 +4,10 @@
 
 namespace nova
 {
+    enum class UID : u64 {
+        Invalid = 0,
+    };
+
     struct VulkanQueue
     {
         VkQueue handle = {};
@@ -67,6 +71,26 @@ namespace nova
         u32                  semaphoreIndex = 0;
     };
 
+    struct VulkanPipelineLayout
+    {
+        UID id = UID::Invalid;
+
+        VkPipelineLayout layout;
+
+        std::vector<DescriptorSetLayout> setLayouts;
+        std::vector<VkPushConstantRange> ranges;
+    };
+
+    struct VulkanShader
+    {
+        UID id = UID::Invalid;
+
+        VkShaderModule       handle = {};
+        VkShaderStageFlagBits stage = {};
+
+        constexpr static const char* EntryPoint = "main";
+    };
+
     struct VulkanBuffer
     {
         VkBuffer          buffer = {};
@@ -91,6 +115,76 @@ namespace nova
         u32     mips = 0;
         u32   layers = 0;
     };
+
+// -----------------------------------------------------------------------------
+
+#define NOVA_DEFINE_WYHASH_EQUALITY(type)                    \
+    bool operator==(const type& other) const                 \
+    {                                                        \
+        return std::memcmp(this, &other, sizeof(type)) == 0; \
+    }
+
+#define NOVA_DEFINE_WYHASH_FOR(type)                          \
+    template<> struct ankerl::unordered_dense::hash<type> {   \
+        using is_avalanching = void;                          \
+        uint64_t operator()(const type& key) const noexcept { \
+            return detail::wyhash::hash(&key, sizeof(key));   \
+        }                                                     \
+    }
+
+    struct GraphicsPipelineVertexInputStageKey
+    {
+        VkPrimitiveTopology topology;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineVertexInputStageKey)
+    };
+
+    struct GraphicsPipelinePreRasterizationStageKey
+    {
+        std::array<UID, 4> shaders;
+        UID                 layout;
+        VkPolygonMode     polyMode;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
+    };
+
+    struct GraphicsPipelineFragmentShaderStageKey
+    {
+        UID shader;
+        UID layout;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentShaderStageKey)
+    };
+
+    struct GraphicsPipelineFragmentOutputStageKey
+    {
+        std::array<VkFormat, 8> colorAttachments;
+        VkFormat                 depthAttachment;
+        VkFormat               stencilAttachment;
+
+        VkBool32 blendEnable;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentOutputStageKey)
+    };
+
+    struct GraphicsPipelineLibrarySetKey
+    {
+        std::array<VkPipeline, 4> stages;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineLibrarySetKey)
+    };
+}
+
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineVertexInputStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
+NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
+
+namespace nova
+{
+
+// -----------------------------------------------------------------------------
 
     struct VulkanContext : Context
     {
@@ -122,6 +216,18 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
             .pNext = &accelStructureProperties,
         };
+
+    public:
+        std::atomic_uint64_t nextUID = 1;
+        UID GetUID() noexcept { return UID(nextUID++); };
+
+        ankerl::unordered_dense::map<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
+        ankerl::unordered_dense::map<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
+        ankerl::unordered_dense::map<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
+        ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
+        ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
+
+        VkPipelineCache pipelineCache = {};
 
     public:
         static std::atomic_int64_t    AllocationCount;
@@ -197,9 +303,9 @@ namespace nova
 
         Fence Fence_Create() override;
         void  Destroy(Fence) override;
-        void  Fence_Wait(Fence, u64 waitValue) override;
+        void  Fence_Wait(Fence, u64 waitValue = 0ull) override;
         u64   Fence_Advance(Fence) override;
-        void  Fence_Signal(Fence, u64 signalValue) override;
+        void  Fence_Signal(Fence, u64 signalValue = 0ull) override;
         u64   Fence_GetPendingValue(Fence) override;
 
 // -----------------------------------------------------------------------------
@@ -219,10 +325,6 @@ namespace nova
         void         Commands_SetState(CommandState state, Texture texture,
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) override;
 
-        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) override;
-        void Cmd_Clear(CommandList, Texture texture, Vec4 color) override;
-        void Cmd_Present(CommandList, Swapchain swapchain) override;
-
 // -----------------------------------------------------------------------------
 //                                Swapchain
 // -----------------------------------------------------------------------------
@@ -234,6 +336,36 @@ namespace nova
         Texture   Swapchain_GetCurrent(Swapchain) override;
         Vec2U     Swapchain_GetExtent(Swapchain) override;
         Format    Swapchain_GetFormat(Swapchain) override;
+
+        void Cmd_Present(CommandList, Swapchain swapchain) override;
+
+// -----------------------------------------------------------------------------
+//                                  Shader
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(Shader, shaders)
+
+        Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode = {}) override;
+        void   Destroy(Shader) override;
+
+// -----------------------------------------------------------------------------
+//                             Pipeline Layout
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(PipelineLayout, pipelineLayouts)
+
+        PipelineLayout Pipelines_CreateLayout() override;
+        void           Destroy(PipelineLayout) override;
+
+        void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) override;
+
+// -----------------------------------------------------------------------------
+//                                Drawing
+// -----------------------------------------------------------------------------
+
+        void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) override;
+        void Cmd_EndRendering(CommandList) override;
+        void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) override;
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -256,9 +388,12 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Texture, textures)
 
-        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags) override;
+        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) override;
         void    Destroy(Texture) override;
         Vec3U   Texture_GetExtent(Texture) override;
         Format  Texture_GetFormat(Texture) override;
+
+        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) override;
+        void Cmd_Clear(CommandList, Texture texture, Vec4 color) override;
     };
 }

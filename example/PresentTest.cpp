@@ -9,7 +9,7 @@ using namespace nova::types;
 
 void TryMain()
 {
-    std::unique_ptr<nova::Context> ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
+    auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
         .debug = true,
     });
 
@@ -33,16 +33,54 @@ void TryMain()
     auto cmdState = ctx->Commands_CreateState();
     auto cmdPool = ctx->Commands_CreatePool(queue);
 
+    auto vertexShader = ctx->Shader_Create(nova::ShaderStage::Vertex,
+        "vertex",
+        R"(
+#version 460
+
+const vec2 Positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
+const vec3 Colors[3]    = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
+
+layout(location = 0) out vec3 outColor;
+
+void main()
+{
+    outColor = Colors[gl_VertexIndex];
+    gl_Position = vec4(Positions[gl_VertexIndex], 0, 1);
+}
+        )");
+
+    auto fragmentShader = ctx->Shader_Create(nova::ShaderStage::Fragment,
+        "fragment",
+        R"(
+#version 460
+
+layout(location = 0) in vec3 inColor;
+layout(location = 0) out vec4 outColor;
+
+void main()
+{
+    outColor = vec4(inColor, 1);
+}
+        )");
+
+    auto pipelineLayout = ctx->Pipelines_CreateLayout();
+
     while (!glfwWindowShouldClose(window))
     {
         ctx->Fence_Wait(fence);
         ctx->Queue_Acquire(queue, {swapchain}, {fence});
+        auto target = ctx->Swapchain_GetCurrent(swapchain);
 
         ctx->Commands_Reset(cmdPool);
         auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
 
-        ctx->Cmd_Clear(cmd, ctx->Swapchain_GetCurrent(swapchain),
-            Vec4(33 / 255.f, 81 / 255.f, 68 / 255.f, 1.f));
+        ctx->Cmd_Clear(cmd, target, Vec4(33 / 255.f, 81 / 255.f, 68 / 255.f, 1.f));
+
+        ctx->Cmd_BeginRendering(cmd, {target});
+        ctx->Cmd_SetGraphicsState(cmd, pipelineLayout, {vertexShader, fragmentShader}, {});
+        ctx->Cmd_Draw(cmd, 3, 1, 0, 0);
+        ctx->Cmd_EndRendering(cmd);
 
         ctx->Cmd_Present(cmd, swapchain);
         ctx->Queue_Submit(queue, {cmd}, {fence}, {fence});

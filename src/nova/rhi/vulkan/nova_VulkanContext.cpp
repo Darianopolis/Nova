@@ -212,14 +212,6 @@ Validation: {} ({})
                 .graphicsPipelineLibrary = VK_TRUE;
         }
 
-        if (config.shaderObjects)
-        {
-            chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
-                .shaderObject = VK_TRUE;
-        }
-
         if (config.descriptorBuffers)
         {
             chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
@@ -333,22 +325,34 @@ Validation: {} ({})
             }), pAlloc, &descriptorPool));
         }
 
-        // VkCall(vkCreatePipelineCache(device, Temp(VkPipelineCacheCreateInfo {
-        //     .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
-        //     .initialDataSize = 0,
-        // }), pAlloc, &pipelineCache));
+        VkCall(vkCreatePipelineCache(device, Temp(VkPipelineCacheCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+            .initialDataSize = 0,
+        }), pAlloc, &pipelineCache));
     }
 
     VulkanContext::~VulkanContext()
     {
         WaitIdle();
 
-        swapchains.ForEach([&](auto id, auto&) { Destroy(id); });
-        buffers.ForEach([&](auto id, auto&) { Destroy(id); });
-        fences.ForEach([&](auto id, auto&) { Destroy(id); });
-        commandPools.ForEach([&](auto id, auto&) { Destroy(id); });
-        textures.ForEach([&](auto id, auto&) { Destroy(id); });
+        // Destroy API objects
+        swapchains.ForEach(     [&](auto id, auto&) { Destroy(id); });
+        buffers.ForEach(        [&](auto id, auto&) { Destroy(id); });
+        fences.ForEach(         [&](auto id, auto&) { Destroy(id); });
+        commandPools.ForEach(   [&](auto id, auto&) { Destroy(id); });
+        textures.ForEach(       [&](auto id, auto&) { Destroy(id); });
+        pipelineLayouts.ForEach([&](auto id, auto&) { Destroy(id); });
+        shaders.ForEach(        [&](auto id, auto&) { Destroy(id); });
 
+        // Deleted graphics pipeline library stages
+        for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
+
+        // Destroy context vk objects
+        vkDestroyPipelineCache(device, pipelineCache, pAlloc);
         vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
         vmaDestroyAllocator(vma);
         vkDestroyDevice(device, pAlloc);

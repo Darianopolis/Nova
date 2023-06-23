@@ -306,11 +306,34 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct RenderingDescription
+    {
+        Span<Format> colorFormats;
+        Format        depthFormat = {};
+        Format      stencilFormat = {};
+        u32               subpass = 0;
+    };
+
+    struct PipelineState
+    {
+        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT (partial - dynamic within class)
+        CullMode      cullMode = CullMode::Back;              // VK_DYNAMIC_STATE_CULL_MODE_EXT
+        FrontFace    frontFace = FrontFace::CounterClockwise; // VK_DYNAMIC_STATE_FRONT_FACE_EXT
+        PolygonMode   polyMode = PolygonMode::Fill;           // N/A
+        f32          lineWidth = 1.f;                         // VK_DYNAMIC_STATE_LINE_WIDTH
+        CompareOp depthCompare = CompareOp::Greater;          // VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
+        u32    blendEnable : 1 = false;                       // N/A
+        u32    depthEnable : 1 = false;                       // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
+        u32     depthWrite : 1 = true;                        // VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
+        u32   flipVertical : 1 = false;
+    };
+
+// -----------------------------------------------------------------------------
+
     struct ContextConfig
     {
         bool debug = false;
         bool rayTracing = false;
-        bool shaderObjects = false;
         bool descriptorBuffers = false;
     };
 
@@ -353,10 +376,6 @@ namespace nova
         virtual void         Commands_SetState(CommandState state, Texture texture,
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) = 0;
 
-        virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
-        virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
-        virtual void Cmd_Present(CommandList, Swapchain swapchain) = 0;
-
 // -----------------------------------------------------------------------------
 //                                 Swapchain
 // -----------------------------------------------------------------------------
@@ -366,6 +385,32 @@ namespace nova
         virtual Texture   Swapchain_GetCurrent(Swapchain) = 0;
         virtual Vec2U     Swapchain_GetExtent(Swapchain) = 0;
         virtual Format    Swapchain_GetFormat(Swapchain) = 0;
+
+        virtual void Cmd_Present(CommandList, Swapchain swapchain) = 0;
+
+// -----------------------------------------------------------------------------
+//                                  Shader
+// -----------------------------------------------------------------------------
+
+        virtual Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode) = 0;
+        virtual void   Destroy(Shader) = 0;
+
+// -----------------------------------------------------------------------------
+//                             Pipeline Layout
+// -----------------------------------------------------------------------------
+
+        virtual PipelineLayout Pipelines_CreateLayout() = 0;
+        virtual void           Destroy(PipelineLayout) = 0;
+
+        virtual void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) = 0;
+
+// -----------------------------------------------------------------------------
+//                                Drawing
+// -----------------------------------------------------------------------------
+
+        virtual void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) = 0;
+        virtual void Cmd_EndRendering(CommandList) = 0;
+        virtual void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -401,5 +446,8 @@ namespace nova
         virtual void    Destroy(Texture) = 0;
         virtual Vec3U   Texture_GetExtent(Texture) = 0;
         virtual Format  Texture_GetFormat(Texture) = 0;
+
+        virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
+        virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
     };
 }
