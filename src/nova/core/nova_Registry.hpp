@@ -48,7 +48,8 @@ namespace nova
             return flags[static_cast<std::underlying_type_t<Key>>(key)] != ElementFlag::Empty;
         }
 
-        Element& Get(Key key)
+        NOVA_FORCE_INLINE
+        Element& Get(Key key) noexcept
         {
             return elements[static_cast<std::underlying_type_t<Key>>(key)];
         }

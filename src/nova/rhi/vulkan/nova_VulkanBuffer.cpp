@@ -6,6 +6,9 @@ namespace nova
     {
         auto[id, buffer] = buffers.Acquire();
 
+        buffer.buffer = nullptr;
+        buffer.allocation = nullptr;
+
         buffer.flags = flags;
         buffer.usage = VkBufferUsageFlags(usage)
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -27,6 +30,7 @@ namespace nova
             return;
 
         vmaDestroyBuffer(ctx.vma, buffer.buffer, buffer.allocation);
+
     }
 
     void VulkanContext::Buffer_Destroy(Buffer id)
@@ -57,8 +61,6 @@ namespace nova
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         }
 
-        VmaAllocationInfo info;
-
         VkCall(vmaCreateBuffer(
             vma,
             Temp(VkBufferCreateInfo {
@@ -76,10 +78,7 @@ namespace nova
             }),
             &buffer.buffer,
             &buffer.allocation,
-            &info));
-
-        if (buffer.flags >= BufferFlags::Mapped)
-            buffer.mapped = static_cast<b8*>(info.pMappedData);
+            nullptr));
 
         if (buffer.flags >= BufferFlags::Addressable)
         {
@@ -95,9 +94,11 @@ namespace nova
         return Get(id).size;
     }
 
-    b8* VulkanContext::Buffer_GetMapped(Buffer id)
+    b8* VulkanContext::Buffer_GetMapped(Buffer buffer)
     {
-        return Get(id).mapped;
+        VmaAllocationInfo info;
+        vmaGetAllocationInfo(vma, Get(buffer).allocation, &info);
+        return reinterpret_cast<b8*>(info.pMappedData);
     }
 
     u64 VulkanContext::Buffer_GetAddress(Buffer id)

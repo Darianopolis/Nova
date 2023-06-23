@@ -107,4 +107,57 @@ namespace nova
     {
         vkCmdDraw(Get(cmd).buffer, vertices, instances, firstVertex, firstInstance);
     }
+
+    void VulkanContext::Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance)
+    {
+        vkCmdDrawIndexed(Get(cmd).buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
+    }
+
+    void VulkanContext::Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset)
+    {
+        vkCmdBindIndexBuffer(Get(cmd).buffer, Get(buffer).buffer, offset, VkIndexType(indexType));
+    }
+
+    void VulkanContext::Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset)
+    {
+        vkCmdClearAttachments(
+            Get(cmd).buffer, 1, nova::Temp(VkClearAttachment {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .colorAttachment = attachment,
+                .clearValue = {{{ color.r, color.g, color.b, color.a }}},
+            }),
+            1, nova::Temp(VkClearRect {
+                .rect = { { offset.x, offset.y }, { size.x, size.y } },
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            }));
+    }
+
+    void VulkanContext::Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset)
+    {
+        vkCmdClearAttachments(
+            Get(cmd).buffer, 1, nova::Temp(VkClearAttachment {
+                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .clearValue = { .depthStencil = { .depth = depth } },
+            }),
+            1, nova::Temp(VkClearRect {
+                .rect = { { offset.x, offset.y }, { size.x, size.y } },
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            }));
+    }
+
+    void VulkanContext::Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset)
+    {
+        vkCmdClearAttachments(
+            Get(cmd).buffer, 1, nova::Temp(VkClearAttachment {
+                .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
+                .clearValue = { .depthStencil = { .stencil = value } },
+            }),
+            1, nova::Temp(VkClearRect {
+                .rect = { { offset.x, offset.y }, { size.x, size.y } },
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            }));
+    }
 }

@@ -499,6 +499,15 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct HitShaderGroup
+    {
+        Shader   closestHitShader = {};
+        Shader       anyHitShader = {};
+        Shader intersectionShader = {};
+    };
+
+// -----------------------------------------------------------------------------
+
     struct ContextConfig
     {
         bool debug = false;
@@ -511,6 +520,7 @@ namespace nova
         virtual ~Context() {}
 
         virtual void WaitIdle() = 0;
+        virtual const ContextConfig& GetConfig() = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Queue
@@ -579,9 +589,14 @@ namespace nova
 //                                Drawing
 // -----------------------------------------------------------------------------
 
-        virtual void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) = 0;
-        virtual void Cmd_EndRendering(CommandList) = 0;
-        virtual void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) = 0;
+        virtual void Cmd_BeginRendering(CommandList cmd, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) = 0;
+        virtual void Cmd_EndRendering(CommandList cmd) = 0;
+        virtual void Cmd_Draw(CommandList cmd, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) = 0;
+        virtual void Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) = 0;
+        virtual void Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset = 0) = 0;
+        virtual void Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) = 0;
+        virtual void Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset = {}) = 0;
+        virtual void Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset = {}) = 0;
 
 // -----------------------------------------------------------------------------
 //                               Descriptors
@@ -596,6 +611,9 @@ namespace nova
         virtual void                Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex = 0) = 0;
 
         virtual void Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) = 0;
+
+        virtual void Cmd_PushStorageTexture(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) = 0;
+        virtual void Cmd_PushAccelerationStructure(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -643,5 +661,55 @@ namespace nova
         virtual void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) = 0;
         virtual void Cmd_GenerateMips(CommandList, Texture texture) = 0;
         virtual void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) = 0;
+
+// -----------------------------------------------------------------------------
+//                          Acceleration Structures
+// -----------------------------------------------------------------------------
+
+        virtual AccelerationStructureBuilder AccelerationStructures_CreateBuilder() = 0;
+        virtual void                         AccelerationStructures_DestroyBuilder(AccelerationStructureBuilder) = 0;
+
+        virtual void AccelerationStructures_SetInstances(AccelerationStructureBuilder, u32 geometryIndex, u64 deviceAddress, u32 count) = 0;
+        virtual void AccelerationStructures_SetTriangles(AccelerationStructureBuilder, u32 geometryIndex,
+            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount) = 0;
+
+        virtual void AccelerationStructures_Prepare(AccelerationStructureBuilder builder, AccelerationStructureType type, AccelerationStructureFlags flags,
+            u32 geometryCount, u32 firstGeometry = 0u) = 0;
+
+        virtual u32  AccelerationStructures_GetInstanceSize() = 0;
+        virtual void AccelerationStructures_WriteInstance(
+            void* bufferAddress, u32 index,
+            AccelerationStructure structure,
+            const Mat4& matrix,
+            u32 customIndex, u8 mask,
+            u32 sbtOffset, GeometryInstanceFlags flags) = 0;
+
+        virtual u64 AccelerationStructures_GetBuildSize(AccelerationStructureBuilder) = 0;
+        virtual u64 AccelerationStructures_GetBuildScratchSize(AccelerationStructureBuilder) = 0;
+        virtual u64 AccelerationStructures_GetUpdateScratchSize(AccelerationStructureBuilder) = 0;
+        virtual u64 AccelerationStructures_GetCompactSize(AccelerationStructureBuilder) = 0;
+
+        virtual AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type) = 0;
+        virtual void                  AccelerationStructures_Destroy(AccelerationStructure) = 0;
+        virtual u64                   AccelerationStructures_GetAddress(AccelerationStructure) = 0;
+
+        virtual void Cmd_BuildAccelerationStructure(CommandList, AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) = 0;
+        virtual void Cmd_CompactAccelerationStructure(CommandList, AccelerationStructure dst, AccelerationStructure src) = 0;
+
+// -----------------------------------------------------------------------------
+//                          Acceleration Structures
+// -----------------------------------------------------------------------------
+
+        virtual RayTracingPipeline RayTracing_CreatePipeline() = 0;
+        virtual void               RayTracing_DestroyPipeline(RayTracingPipeline) = 0;
+        virtual void               RayTracing_UpdatePipeline(RayTracingPipeline,
+            PipelineLayout layout,
+            Span<Shader> rayGenShaders,
+            Span<Shader> rayMissShaders,
+            Span<HitShaderGroup> rayHitShaderGroup,
+            Span<Shader> callableShaders) = 0;
+
+        virtual void Cmd_TraceRays(CommandList, RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) = 0;
     };
 }

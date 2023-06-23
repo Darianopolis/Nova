@@ -337,7 +337,6 @@ Validation: {} ({})
 
         // Clean out API object registries
         swapchains.ForEach(          [&](auto handle, auto&) { Swapchain_Destroy(handle);            });
-        buffers.ForEach(             [&](auto handle, auto&) { Buffer_Destroy(handle);               });
         fences.ForEach(              [&](auto handle, auto&) { Fence_Destroy(handle);                });
         commandPools.ForEach(        [&](auto handle, auto&) { Commands_DestroyPool(handle);         });
         samplers.ForEach(            [&](auto handle, auto&) { Sampler_Destroy(handle);              });
@@ -345,6 +344,12 @@ Validation: {} ({})
         pipelineLayouts.ForEach(     [&](auto handle, auto&) { Pipelines_DestroyLayout(handle);      });
         shaders.ForEach(             [&](auto handle, auto&) { Shader_Destroy(handle);               });
         descriptorSetLayouts.ForEach([&](auto handle, auto&) { Descriptors_DestroySetLayout(handle); });
+
+        accelerationStructureBuilders.ForEach([&](auto handle, auto&) { AccelerationStructures_DestroyBuilder(handle); });
+        accelerationStructures.ForEach(       [&](auto handle, auto&) { AccelerationStructures_Destroy(handle); });
+        rayTracingPipelines.ForEach(          [&](auto handle, auto&) { RayTracing_DestroyPipeline(handle); });
+
+        buffers.ForEach([&](auto handle, auto&) { Buffer_Destroy(handle); });
 
         // Deleted graphics pipeline library stages
         for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
@@ -368,5 +373,10 @@ Validation: {} ({})
     void VulkanContext::WaitIdle()
     {
         vkDeviceWaitIdle(device);
+    }
+
+    const ContextConfig& VulkanContext::GetConfig()
+    {
+        return config;
     }
 }

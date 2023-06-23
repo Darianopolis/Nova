@@ -118,7 +118,6 @@ namespace nova
         VmaAllocation allocation = {};
         VkDeviceSize        size = 0ull;
         VkDeviceAddress  address = 0ull;
-        b8*               mapped = nullptr;
         BufferFlags        flags = BufferFlags::None;
         VkBufferUsageFlags usage = {};
     };
@@ -140,6 +139,46 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
+    };
+
+    struct VulkanAccelerationStructureBuilder
+    {
+        VkAccelerationStructureTypeKHR        type = {};
+        VkBuildAccelerationStructureFlagsKHR flags = {};
+
+        u64         buildSize = 0;
+        u64  buildScratchSize = 0;
+        u64 updateScratchSize = 0;
+
+        std::vector<VkAccelerationStructureGeometryKHR>   geometries;
+        std::vector<u32>                             primitiveCounts;
+        std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
+
+        u32 geometryCount = 0;
+        u32 firstGeometry = 0;
+        bool    sizeDirty = false;
+
+        VkQueryPool queryPool = {};
+    };
+
+    struct VulkanAccelerationStructure
+    {
+        VkAccelerationStructureKHR structure = {};
+        u64                          address = {};
+        VkAccelerationStructureTypeKHR  type = {};
+
+        Buffer buffer = {};
+    };
+
+    struct VulkanRayTracingPipeline
+    {
+        VkPipeline pipeline = {};
+        Buffer    sbtBuffer = {};
+
+        VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
+        VkStridedDeviceAddressRegionKHR rayMissRegion = {};
+        VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
+        VkStridedDeviceAddressRegionKHR rayCallRegion = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -214,7 +253,7 @@ namespace nova
 
     struct VulkanContext : Context
     {
-        ContextConfig config;
+        ContextConfig config = {};
 
         VkInstance  instance = {};
         VkPhysicalDevice gpu = {};
@@ -305,10 +344,11 @@ namespace nova
         ~VulkanContext();
 
         void WaitIdle() final;
+        const ContextConfig& GetConfig() final;
 
 #define NOVA_ADD_VULKAN_REGISTRY(type, name) \
     Registry<Vulkan##type, type> name;       \
-    Vulkan##type& Get(type id) { return name.Get(id); }
+    NOVA_FORCE_INLINE Vulkan##type& Get(type id) noexcept { return name.Get(id); }
 
 // -----------------------------------------------------------------------------
 //                                 Queue
@@ -394,6 +434,11 @@ namespace nova
         void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) final;
         void Cmd_EndRendering(CommandList) final;
         void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) final;
+        void Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) final;
+        void Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) final;
+        void Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset = 0) final;
+        void Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset = {}) final;
+        void Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset = {}) final;
 
 // -----------------------------------------------------------------------------
 //                               Descriptors
@@ -411,6 +456,9 @@ namespace nova
         void                Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex = 0) final;
 
         void Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) final;
+
+        void Cmd_PushStorageTexture(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) final;
+        void Cmd_PushAccelerationStructure(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) final;
 
 // -----------------------------------------------------------------------------
 //                                 Buffer
@@ -450,5 +498,60 @@ namespace nova
         void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) final;
         void Cmd_GenerateMips(CommandList, Texture texture) final;
         void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) final;
+
+// -----------------------------------------------------------------------------
+//                           Acceleration Structure
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(AccelerationStructureBuilder, accelerationStructureBuilders)
+        NOVA_ADD_VULKAN_REGISTRY(AccelerationStructure, accelerationStructures)
+
+        AccelerationStructureBuilder AccelerationStructures_CreateBuilder() final;
+        void                         AccelerationStructures_DestroyBuilder(AccelerationStructureBuilder) final;
+
+        void AccelerationStructures_SetInstances(AccelerationStructureBuilder, u32 geometryIndex, u64 deviceAddress, u32 count) final;
+        void AccelerationStructures_SetTriangles(AccelerationStructureBuilder, u32 geometryIndex,
+            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount) final;
+
+        void AccelerationStructures_Prepare(AccelerationStructureBuilder builder, AccelerationStructureType type, AccelerationStructureFlags flags,
+            u32 geometryCount, u32 firstGeometry = 0u) final;
+
+        u32  AccelerationStructures_GetInstanceSize() final;
+        void AccelerationStructures_WriteInstance(
+            void* bufferAddress, u32 index,
+            AccelerationStructure structure,
+            const Mat4& matrix,
+            u32 customIndex, u8 mask,
+            u32 sbtOffset, GeometryInstanceFlags flags) final;
+
+        u64 AccelerationStructures_GetBuildSize(AccelerationStructureBuilder) final;
+        u64 AccelerationStructures_GetBuildScratchSize(AccelerationStructureBuilder) final;
+        u64 AccelerationStructures_GetUpdateScratchSize(AccelerationStructureBuilder) final;
+        u64 AccelerationStructures_GetCompactSize(AccelerationStructureBuilder) final;
+
+        AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type) final;
+        void                  AccelerationStructures_Destroy(AccelerationStructure) final;
+        u64                   AccelerationStructures_GetAddress(AccelerationStructure) final;
+
+        void Cmd_BuildAccelerationStructure(CommandList, AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch)  final;
+        void Cmd_CompactAccelerationStructure(CommandList, AccelerationStructure dst, AccelerationStructure src) final;
+
+// -----------------------------------------------------------------------------
+//                                Ray Tracing
+// -----------------------------------------------------------------------------
+
+        NOVA_ADD_VULKAN_REGISTRY(RayTracingPipeline, rayTracingPipelines)
+
+        RayTracingPipeline RayTracing_CreatePipeline() final;
+        void               RayTracing_DestroyPipeline(RayTracingPipeline) final;
+        void               RayTracing_UpdatePipeline(RayTracingPipeline,
+            PipelineLayout layout,
+            Span<Shader> rayGenShaders,
+            Span<Shader> rayMissShaders,
+            Span<HitShaderGroup> rayHitShaderGroup,
+            Span<Shader> callableShaders) final;
+
+        void Cmd_TraceRays(CommandList, RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) final;
     };
 }

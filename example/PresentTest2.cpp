@@ -25,18 +25,18 @@ void TryMain()
     HWND hwnd = glfwGetWin32Window(window);
 
     NOVA_LOGEXPR(ctx);
-    auto swapchain = ctx->Swapchain_Create(hwnd,
+    auto swapchain = nova::HSwapchain(ctx.get(), hwnd,
         nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage,
         nova::PresentMode::Mailbox);
     NOVA_ON_SCOPE_EXIT(&) {
         ctx->WaitIdle();
-        ctx->Swapchain_Destroy(swapchain);
+        swapchain.Destroy();
     };
 
-    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics);
-    auto fence = ctx->Fence_Create();
-    auto cmdState = ctx->Commands_CreateState();
-    auto cmdPool = ctx->Commands_CreatePool(queue);
+    auto queue = nova::HQueue(ctx.get(), nova::QueueFlags::Graphics);
+    auto fence = nova::HFence(ctx.get());
+    auto cmdState = nova::HCommandState(ctx.get());
+    auto cmdPool = nova::HCommandPool(ctx.get(), queue);
 
     struct Vertex
     {
@@ -44,32 +44,32 @@ void TryMain()
         Vec3 color;
     };
 
-    auto vertices = ctx->Buffer_Create(3 * sizeof(Vertex),
+    auto vertices = nova::HBuffer(ctx.get(), 3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    ctx->Buffer_Set<Vertex>(vertices, {
+    vertices.Set<Vertex>({
         {{-0.6f, 0.6f, 0.f}, {1.f, 0.f, 0.f}},
         {{ 0.6f, 0.6f, 0.f}, {0.f, 1.f, 0.f}},
         {{ 0.f, -0.6f, 0.f}, {0.f, 0.f, 1.f}}
     });
 
-    auto descLayout = ctx->Descriptors_CreateSetLayout({
+    auto descLayout = nova::HDescriptorSetLayout(ctx.get(), {
         nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
     });
 
-    auto pipelineLayout = ctx->Pipelines_CreateLayout(
+    auto pipelineLayout = nova::HPipelineLayout(ctx.get(),
         {{"pc", {{"vertexVA", nova::ShaderVarType::U64}}}},
         {descLayout}, nova::BindPoint::Graphics);
 
-    auto ubo = ctx->Buffer_Create(sizeof(Vec3),
+    auto ubo = nova::HBuffer(ctx.get(), sizeof(Vec3),
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    ctx->Buffer_Set<Vec3>(ubo, {{0.f, 0.25f, 0.f}});
+    ubo.Set<Vec3>({{0.f, 0.25f, 0.f}});
 
-    auto set = ctx->Descriptors_AllocateSet(descLayout);
-    ctx->Descriptors_WriteUniformBuffer(set, 0, ubo);
+    auto set = descLayout.Allocate();
+    set.WriteUniformBuffer(0, ubo);
 
-    auto vertexShader = ctx->Shader_Create(nova::ShaderStage::Vertex, {
+    auto vertexShader = nova::HShader(ctx.get(), nova::ShaderStage::Vertex, {
         nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
@@ -84,58 +84,58 @@ void TryMain()
         )"),
     });
 
-    auto fragmentShader = ctx->Shader_Create(nova::ShaderStage::Fragment, {
+    auto fragmentShader = nova::HShader(ctx.get(), nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
     });
 
-    nova::Texture texture;
+    nova::HTexture texture;
     {
         i32 w, h;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, nullptr, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = ctx->Texture_Create({ u32(w), u32(h), 0 },
+        texture = nova::HTexture(ctx.get(), { u32(w), u32(h), 0 },
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        auto staging = ctx->Buffer_Create(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
-        NOVA_ON_SCOPE_EXIT(&) { ctx->Buffer_Destroy(staging); };
-        std::memcpy(ctx->Buffer_GetMapped(staging), data, size);
+        auto staging = nova::HBuffer(ctx.get(), size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+        NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
+        std::memcpy(staging.GetMapped(), data, size);
 
-        auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
-        ctx->Cmd_CopyToTexture(cmd, texture, staging);
-        ctx->Cmd_GenerateMips(cmd, texture);
+        auto cmd = cmdPool.Begin(cmdState);
+        cmd.CopyToTexture(texture, staging);
+        cmd.GenerateMips(texture);
 
-        ctx->Queue_Submit(queue, {cmd}, {}, {fence});
-        ctx->Fence_Wait(fence);
+        queue.Submit({cmd}, {}, {fence});
+        fence.Wait();
     }
 
     while (!glfwWindowShouldClose(window))
     {
-        ctx->Fence_Wait(fence);
-        ctx->Queue_Acquire(queue, {swapchain}, {fence});
-        auto target = ctx->Swapchain_GetCurrent(swapchain);
+        fence.Wait();
+        queue.Acquire({swapchain}, {fence});
+        auto target = swapchain.GetCurrent();
 
-        ctx->Commands_Reset(cmdPool);
-        auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
+        cmdPool.Reset();
+        auto cmd = cmdPool.Begin(cmdState);
 
-        ctx->Cmd_Clear(cmd, target, Vec4(33 / 255.f, 81 / 255.f, 68 / 255.f, 1.f));
+        cmd.Clear(target, Vec4(33 / 255.f, 81 / 255.f, 68 / 255.f, 1.f));
 
-        ctx->Cmd_BlitImage(cmd, target, texture, nova::Filter::Linear);
+        cmd.BlitImage(target, texture, nova::Filter::Linear);
 
-        ctx->Cmd_BeginRendering(cmd, {target});
-        ctx->Cmd_SetGraphicsState(cmd, pipelineLayout, {vertexShader, fragmentShader}, {});
-        ctx->Cmd_PushConstants(cmd, pipelineLayout, 0, sizeof(u64), nova::Temp(ctx->Buffer_GetAddress(vertices)));
-        ctx->Cmd_BindDescriptorSets(cmd, pipelineLayout, 0, {set});
-        ctx->Cmd_Draw(cmd, 3, 1, 0, 0);
-        ctx->Cmd_EndRendering(cmd);
+        cmd.BeginRendering({target});
+        cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
+        cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
+        cmd.BindDescriptorSets(pipelineLayout, 0, {set});
+        cmd.Draw(3, 1, 0, 0);
+        cmd.EndRendering();
 
-        ctx->Cmd_Present(cmd, swapchain);
-        ctx->Queue_Submit(queue, {cmd}, {fence}, {fence});
-        ctx->Queue_Present(queue, {swapchain}, {fence});
+        cmd.Present(swapchain);
+        queue.Submit({cmd}, {fence}, {fence});
+        queue.Present({swapchain}, {fence});
 
         glfwWaitEvents();
     }
