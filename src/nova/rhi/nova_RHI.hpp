@@ -438,6 +438,9 @@ namespace nova
             BufferImpl_Set(elements.data(), elements.size(), index, offset, Stride);
         }
 
+        virtual void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) = 0;
+        virtual void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) = 0;
+
 // -----------------------------------------------------------------------------
 //                                 Texture
 // -----------------------------------------------------------------------------
@@ -449,5 +452,8 @@ namespace nova
 
         virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
         virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
+        virtual void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) = 0;
+        virtual void Cmd_GenerateMips(CommandList, Texture texture) = 0;
+        virtual void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) = 0;
     };
 }

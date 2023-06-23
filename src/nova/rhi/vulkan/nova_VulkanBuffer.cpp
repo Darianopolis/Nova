@@ -23,7 +23,7 @@ namespace nova
     static
     void ResetBuffer(VulkanContext& ctx, VulkanBuffer& buffer)
     {
-        if (buffer.buffer)
+        if (!buffer.buffer)
             return;
 
         vmaDestroyBuffer(ctx.vma, buffer.buffer, buffer.allocation);
@@ -32,6 +32,8 @@ namespace nova
     void VulkanContext::Destroy(Buffer id)
     {
         ResetBuffer(*this, Get(id));
+
+        buffers.Return(id);
     }
 
     void VulkanContext::Buffer_Resize(Buffer id, u64 size)
@@ -111,5 +113,28 @@ namespace nova
     void VulkanContext::BufferImpl_Set(Buffer id, const void* data, usz count, u64 index, u64 offset, usz stride)
     {
         std::memcpy(BufferImpl_Get(id, index, offset, stride), data, count * stride);
+    }
+
+// -----------------------------------------------------------------------------
+
+    void VulkanContext::Cmd_UpdateBuffer(CommandList cmd, Buffer dst, const void* pData, usz size, u64 dstOffset)
+    {
+        vkCmdUpdateBuffer(Get(cmd).buffer, Get(dst).buffer, dstOffset, size, pData);
+    }
+
+    void VulkanContext::Cmd_CopyToBuffer(CommandList cmd, Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset)
+    {
+        vkCmdCopyBuffer2(Get(cmd).buffer, Temp(VkCopyBufferInfo2 {
+            .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+            .srcBuffer = Get(src).buffer,
+            .dstBuffer = Get(dst).buffer,
+            .regionCount = 1,
+            .pRegions = Temp(VkBufferCopy2 {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+                .srcOffset = srcOffset,
+                .dstOffset = dstOffset,
+                .size = size,
+            }),
+        }));
     }
 }

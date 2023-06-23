@@ -142,6 +142,7 @@ namespace nova
                         hTexture = textures.Acquire().first;
                         auto& texture = Get(hTexture);
 
+                        texture.allocation = nullptr;
                         texture.image = vkImages[i];
                         texture.usage = swapchain.usage;
 

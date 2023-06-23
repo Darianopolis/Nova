@@ -5,6 +5,8 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+#include <stb_image.h>
+
 using namespace nova::types;
 
 void TryMain()
@@ -66,6 +68,29 @@ void main()
 
     auto pipelineLayout = ctx->Pipelines_CreateLayout();
 
+    nova::Texture texture;
+    {
+        i32 w, h;
+        auto data = stbi_load("assets/textures/statue.jpg", &w, &h, nullptr, STBI_rgb_alpha);
+        NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
+
+        texture = ctx->Texture_Create({ u32(w), u32(h), 0 },
+            nova::TextureUsage::Sampled,
+            nova::Format::RGBA8U);
+
+        usz size = w * h * 4;
+        auto staging = ctx->Buffer_Create(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+        NOVA_ON_SCOPE_EXIT(&) { ctx->Destroy(staging); };
+        std::memcpy(ctx->Buffer_GetMapped(staging), data, size);
+
+        auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
+        ctx->Cmd_CopyToTexture(cmd, texture, staging);
+        ctx->Cmd_GenerateMips(cmd, texture);
+
+        ctx->Queue_Submit(queue, {cmd}, {}, {fence});
+        ctx->Fence_Wait(fence);
+    }
+
     while (!glfwWindowShouldClose(window))
     {
         ctx->Fence_Wait(fence);
@@ -76,6 +101,8 @@ void main()
         auto cmd = ctx->Commands_Begin(cmdPool, cmdState);
 
         ctx->Cmd_Clear(cmd, target, Vec4(33 / 255.f, 81 / 255.f, 68 / 255.f, 1.f));
+
+        ctx->Cmd_BlitImage(cmd, target, texture, nova::Filter::Linear);
 
         ctx->Cmd_BeginRendering(cmd, {target});
         ctx->Cmd_SetGraphicsState(cmd, pipelineLayout, {vertexShader, fragmentShader}, {});

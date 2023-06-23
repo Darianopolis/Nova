@@ -382,6 +382,9 @@ namespace nova
         void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) override;
         void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) override;
 
+        void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) override;
+        void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) override;
+
 // -----------------------------------------------------------------------------
 //                                 Texture
 // -----------------------------------------------------------------------------
@@ -395,5 +398,8 @@ namespace nova
 
         void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) override;
         void Cmd_Clear(CommandList, Texture texture, Vec4 color) override;
+        void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) override;
+        void Cmd_GenerateMips(CommandList, Texture texture) override;
+        void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) override;
     };
 }
