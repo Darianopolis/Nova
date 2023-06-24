@@ -43,14 +43,11 @@ namespace nova
     enum class CommandState : u32 {};
     enum class Sampler : u32 {};
     enum class Shader : u32 {};
-    enum class Surface : u32 {};
     enum class Swapchain : u32 {};
     enum class Texture : u32 {};
     enum class AccelerationStructure : u32 {};
     enum class AccelerationStructureBuilder : u32 {};
     enum class RayTracingPipeline : u32 {};
-    enum class GraphicsPipeline : u32 {};
-    enum class PipelineCache : u32 {};
 
 // -----------------------------------------------------------------------------
 
@@ -523,6 +520,25 @@ namespace nova
         virtual const ContextConfig& GetConfig() = 0;
 
 // -----------------------------------------------------------------------------
+
+        virtual bool IsValid(Buffer) = 0;
+        virtual bool IsValid(CommandList) = 0;
+        virtual bool IsValid(CommandPool) = 0;
+        virtual bool IsValid(DescriptorSet) = 0;
+        virtual bool IsValid(DescriptorSetLayout) = 0;
+        virtual bool IsValid(Fence) = 0;
+        virtual bool IsValid(PipelineLayout) = 0;
+        virtual bool IsValid(Queue) = 0;
+        virtual bool IsValid(CommandState) = 0;
+        virtual bool IsValid(Sampler) = 0;
+        virtual bool IsValid(Shader) = 0;
+        virtual bool IsValid(Swapchain) = 0;
+        virtual bool IsValid(Texture) = 0;
+        virtual bool IsValid(AccelerationStructure) = 0;
+        virtual bool IsValid(AccelerationStructureBuilder) = 0;
+        virtual bool IsValid(RayTracingPipeline) = 0;
+
+// -----------------------------------------------------------------------------
 //                                 Queue
 // -----------------------------------------------------------------------------
 
@@ -597,6 +613,13 @@ namespace nova
         virtual void Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) = 0;
         virtual void Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset = {}) = 0;
         virtual void Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset = {}) = 0;
+
+// -----------------------------------------------------------------------------
+//                                 Compute
+// -----------------------------------------------------------------------------
+
+        virtual void Cmd_SetComputeState(CommandList, PipelineLayout layout, Shader shader) = 0;
+        virtual void Cmd_Dispatch(CommandList, Vec3U groups) = 0;
 
 // -----------------------------------------------------------------------------
 //                               Descriptors

@@ -30,7 +30,7 @@ if Project "nova" then
 end
 
 if Project "nova-present-test" then
-    Compile "example/PresentTest2.cpp"
+    Compile "example/MultiPresentTest.cpp"
     Import "nova"
     Artifact { "out/present-test", type = "Console" }
 end

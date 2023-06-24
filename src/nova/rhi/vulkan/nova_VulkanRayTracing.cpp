@@ -31,15 +31,6 @@ namespace nova
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        constexpr auto getStageInfo = [](VulkanShader& shader) {
-            return VkPipelineShaderStageCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = shader.stage,
-                .module = shader.handle,
-                .pName = VulkanShader::EntryPoint,
-            };
-        };
-
         auto getShaderIndex = [&](Shader shader) {
             if (!shaders.IsValid(shader))
                 return VK_SHADER_UNUSED_KHR;
@@ -47,7 +38,7 @@ namespace nova
             if (!stageIndices.contains(Get(shader).handle))
             {
                 stageIndices.insert({ Get(shader).handle, u32(stages.size()) });
-                stages.push_back(getStageInfo(Get(shader)));
+                stages.push_back(Get(shader).GetStageInfo());
             }
 
             return stageIndices.at(Get(shader).handle);

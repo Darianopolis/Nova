@@ -1,168 +1,160 @@
-// #pragma once
+#pragma once
 
-// #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/nova_RHI_Handle.hpp>
 
-// namespace nova
-// {
-//     enum class ImTextureID : u32 {};
+namespace nova
+{
+    enum class ImTextureID : u32 {};
 
-//     struct ImBounds2D
-//     {
-//         Vec2 min {  INFINITY,  INFINITY };
-//         Vec2 max { -INFINITY, -INFINITY };
+    struct ImBounds2D
+    {
+        Vec2 min {  INFINITY,  INFINITY };
+        Vec2 max { -INFINITY, -INFINITY };
 
-//         void Expand(const ImBounds2D& other) noexcept
-//         {
-//             min.x = std::min(min.x, other.min.x);
-//             min.y = std::min(min.y, other.min.y);
-//             max.x = std::max(max.x, other.max.x);
-//             max.y = std::max(max.y, other.max.y);
-//         }
+        void Expand(const ImBounds2D& other) noexcept
+        {
+            min.x = std::min(min.x, other.min.x);
+            min.y = std::min(min.y, other.min.y);
+            max.x = std::max(max.x, other.max.x);
+            max.y = std::max(max.y, other.max.y);
+        }
 
-//         Vec2 Size() const noexcept { return max - min; }
-//         Vec2 Center() const noexcept { return 0.5f * (max + min); }
+        Vec2 Size() const noexcept { return max - min; }
+        Vec2 Center() const noexcept { return 0.5f * (max + min); }
 
-//         float Width()  const noexcept { return max.x - min.x; }
-//         float Height() const noexcept { return max.y - min.y; }
+        float Width()  const noexcept { return max.x - min.x; }
+        float Height() const noexcept { return max.y - min.y; }
 
-//         bool Empty() const noexcept { return min.y == INFINITY; }
-//     };
+        bool Empty() const noexcept { return min.y == INFINITY; }
+    };
 
-//     struct ImRoundRect
-//     {
-//         Vec4 centerColor;
-//         Vec4 borderColor;
 
-//         Vec2 centerPos;
-//         Vec2 halfExtent;
+    struct ImRoundRect
+    {
+        Vec4 centerColor;
+        Vec4 borderColor;
 
-//         f32 cornerRadius;
-//         f32 borderWidth;
+        Vec2 centerPos;
+        Vec2 halfExtent;
 
-//         Vec4 texTint;
-//         ImTextureID texIndex;
-//         Vec2 texCenterPos;
-//         Vec2 texHalfExtent;
+        f32 cornerRadius;
+        f32 borderWidth;
 
-//         static constexpr auto Layout = std::array {
-//             Member("centerColor", nova::ShaderVarType::Vec4),
-//             Member("borderColor", nova::ShaderVarType::Vec4),
+        Vec4 texTint;
+        ImTextureID texIndex;
+        Vec2 texCenterPos;
+        Vec2 texHalfExtent;
 
-//             Member("centerPos",  nova::ShaderVarType::Vec2),
-//             Member("halfExtent", nova::ShaderVarType::Vec2),
+        static constexpr auto Layout = std::array {
+            Member("centerColor", nova::ShaderVarType::Vec4),
+            Member("borderColor", nova::ShaderVarType::Vec4),
 
-//             Member("cornerRadius", nova::ShaderVarType::F32),
-//             Member("borderWidth",  nova::ShaderVarType::F32),
+            Member("centerPos",  nova::ShaderVarType::Vec2),
+            Member("halfExtent", nova::ShaderVarType::Vec2),
 
-//             Member("texTint",       nova::ShaderVarType::Vec4),
-//             Member("texIndex",      nova::ShaderVarType::U32),
-//             Member("texCenterPos",  nova::ShaderVarType::Vec2),
-//             Member("texHalfExtent", nova::ShaderVarType::Vec2),
-//         };
-//     };
+            Member("cornerRadius", nova::ShaderVarType::F32),
+            Member("borderWidth",  nova::ShaderVarType::F32),
 
-//     enum class ImDrawType
-//     {
-//         RoundRect,
-//     };
+            Member("texTint",       nova::ShaderVarType::Vec4),
+            Member("texIndex",      nova::ShaderVarType::U32),
+            Member("texCenterPos",  nova::ShaderVarType::Vec2),
+            Member("texHalfExtent", nova::ShaderVarType::Vec2),
+        };
+    };
 
-//     struct ImDrawCommand
-//     {
-//         ImDrawType type;
-//         u32 first;
-//         u32 count;
-//     };
+    enum class ImDrawType
+    {
+        RoundRect,
+    };
 
-// // -----------------------------------------------------------------------------
+    struct ImDrawCommand
+    {
+        ImDrawType type;
+        u32 first;
+        u32 count;
+    };
 
-//     struct ImGlyph
-//     {
-//         Texture::Arc texture;
-//         ImTextureID index;
-//         f32 width;
-//         f32 height;
-//         f32 advance;
-//         Vec2 offset;
-//     };
+// -----------------------------------------------------------------------------
 
-// // -----------------------------------------------------------------------------
+    struct ImGlyph
+    {
+        HTexture texture;
+        ImTextureID index;
+        f32 width;
+        f32 height;
+        f32 advance;
+        Vec2 offset;
+    };
 
-//     struct ImFont : ImplHandle<struct ImFontImpl>
-//     {
-//         NOVA_DECLARE_HANDLE_OPERATIONS(ImFont)
-//     };
+// -----------------------------------------------------------------------------
 
-//     struct ImDraw2D : ImplHandle<struct ImDraw2DImpl>
-//     {
-//         NOVA_DECLARE_HANDLE_OPERATIONS(ImDraw2D)
+    struct ImDraw2D;
 
-//     public:
-//         ImDraw2D(Context context);
+    struct ImFont
+    {
+        ImDraw2D* imDraw;
+        std::vector<ImGlyph> glyphs;
 
-//         Sampler GetDefaultSampler() const noexcept;
-//         const ImBounds2D& GetBounds() const noexcept;
+    public:
+        ~ImFont();
+    };
 
-//         ImTextureID RegisterTexture(Texture texture, Sampler sampler) const;
-//         void UnregisterTexture(ImTextureID textureSlot) const;
+    struct ImDraw2D
+    {
+        struct PushConstants
+        {
+            Vec2 invHalfExtent;
+            Vec2 centerPos;
+            u64 rectInstancesVA;
 
-//         ImFont LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue) const;
+            static constexpr auto Layout = std::array {
+                Member("invHalfExtent",   nova::ShaderVarType::Vec2),
+                Member("centerPos",       nova::ShaderVarType::Vec2),
+                Member("rectInstancesVA", nova::ShaderVarType::U64),
+            };
+        };
 
-//         void Reset() const;
-//         void DrawRect(const ImRoundRect& rect) const;
-//         void DrawString(std::string_view str, Vec2 pos, ImFont font) const;
+        static constexpr u32 MaxPrimitives = 65'536;
 
-//         ImBounds2D MeasureString(std::string_view str, ImFont font) const;
+    public:
+        Context* context = {};
 
-//         void Record(CommandList commandList) const;
-//     };
+        HSampler defaultSampler = {};
 
-// // -----------------------------------------------------------------------------
+        HPipelineLayout pipelineLayout = {};
 
-//     struct ImFontImpl : ImplBase
-//     {
-//         ImDraw2D imDraw;
-//         std::vector<ImGlyph> glyphs;
+        HDescriptorSetLayout descriptorSetLayout = {};
+        HDescriptorSet             descriptorSet = {};
+        u32                      nextTextureSlot = 0;
+        std::vector<u32>     textureSlotFreelist = {};
 
-//     public:
-//         ~ImFontImpl();
-//     };
+        HShader rectVertShader = {};
+        HShader rectFragShader = {};
+        HBuffer     rectBuffer = {};
+        u32          rectIndex = 0;
 
-//     struct ImDraw2DImpl : ImplBase
-//     {
-//         struct PushConstants
-//         {
-//             Vec2 invHalfExtent;
-//             Vec2 centerPos;
-//             u64 rectInstancesVA;
+        ImBounds2D bounds;
 
-//             static constexpr auto Layout = std::array {
-//                 Member("invHalfExtent",   nova::ShaderVarType::Vec2),
-//                 Member("centerPos",       nova::ShaderVarType::Vec2),
-//                 Member("rectInstancesVA", nova::ShaderVarType::U64),
-//             };
-//         };
+        std::vector<ImDrawCommand> drawCommands;
 
-//         static constexpr u32 MaxPrimitives = 65'536;
+    public:
+        ImDraw2D(Context* context);
+        ~ImDraw2D();
 
-//     public:
-//         Context context = {};
+        HSampler GetDefaultSampler() const noexcept;
+        const ImBounds2D& GetBounds() const noexcept;
 
-//         Sampler::Arc defaultSampler = {};
+        ImTextureID RegisterTexture(Texture texture, Sampler sampler);
+        void UnregisterTexture(ImTextureID textureSlot);
 
-//         PipelineLayout::Arc pipelineLayout = {};
+        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue);
 
-//         DescriptorSetLayout::Arc descriptorSetLayout = {};
-//         DescriptorSet::Arc             descriptorSet = {};
-//         u32                          nextTextureSlot = 0;
-//         std::vector<u32>         textureSlotFreelist = {};
+        void Reset();
+        void DrawRect(const ImRoundRect& rect);
+        void DrawString(std::string_view str, Vec2 pos, ImFont& font);
 
-//         Shader::Arc rectVertShader = {};
-//         Shader::Arc rectFragShader = {};
-//         Buffer::Arc     rectBuffer = {};
-//         u32             rectIndex = 0;
+        ImBounds2D MeasureString(std::string_view str, ImFont& font);
 
-//         ImBounds2D bounds;
-
-//         std::vector<ImDrawCommand> drawCommands;
-//     };
-// }
+        void Record(CommandList commandList);
+    };
+}

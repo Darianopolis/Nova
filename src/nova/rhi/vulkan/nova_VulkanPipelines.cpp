@@ -38,6 +38,7 @@ namespace nova
     void VulkanContext::Pipelines_DestroyLayout(PipelineLayout id)
     {
         vkDestroyPipelineLayout(device, Get(id).layout, pAlloc);
+        pipelineLayouts.Return(id);
     }
 
 // -----------------------------------------------------------------------------
@@ -135,17 +136,6 @@ namespace nova
     }
 
     static
-    VkPipelineShaderStageCreateInfo GetStageInfo(VulkanShader& shader)
-    {
-        return {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = shader.stage,
-            .module = shader.handle,
-            .pName = VulkanShader::EntryPoint,
-        };
-    }
-
-    static
     VkPipeline GetGraphicsPreRasterizationStage(
         VulkanContext&     context,
         Span<Shader>       shaders,
@@ -168,7 +158,7 @@ namespace nova
         {
             auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
             for (u32 i = 0; i < shaders.size(); ++i)
-                stages[i] = GetStageInfo(context.Get(shaders[i]));
+                stages[i] = context.Get(shaders[i]).GetStageInfo();
 
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context.device, context.pipelineCache,
@@ -243,7 +233,7 @@ namespace nova
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
                     .stageCount = 1,
-                    .pStages = Temp(GetStageInfo(context.Get(shader))),
+                    .pStages = Temp(context.Get(shader).GetStageInfo()),
                     .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,

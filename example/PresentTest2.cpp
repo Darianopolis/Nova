@@ -113,6 +113,7 @@ void TryMain()
         fence.Wait();
     }
 
+    NOVA_ON_SCOPE_EXIT(&) { ctx->WaitIdle(); };
     while (!glfwWindowShouldClose(window))
     {
         fence.Wait();

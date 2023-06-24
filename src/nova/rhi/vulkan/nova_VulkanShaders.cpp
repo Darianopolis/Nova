@@ -458,5 +458,7 @@ namespace nova
     {
         if (Get(id).handle)
             vkDestroyShaderModule(device, Get(id).handle, pAlloc);
+
+        shaders.Return(id);
     }
 }

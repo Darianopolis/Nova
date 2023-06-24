@@ -1,3 +1,5 @@
+#pragma once
+
 #include <nova/rhi/nova_RHI.hpp>
 
 #include <nova/core/nova_Registry.hpp>
@@ -109,7 +111,15 @@ namespace nova
         VkShaderModule       handle = {};
         VkShaderStageFlagBits stage = {};
 
-        constexpr static const char* EntryPoint = "main";
+        VkPipelineShaderStageCreateInfo GetStageInfo()
+        {
+            return {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = stage,
+                .module = handle,
+                .pName = "main",
+            };
+        }
     };
 
     struct VulkanBuffer
@@ -238,6 +248,14 @@ namespace nova
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineLibrarySetKey)
     };
+
+    struct ComputePipelineKey
+    {
+        UID shader;
+        UID layout;
+
+        NOVA_DEFINE_WYHASH_EQUALITY(ComputePipelineKey)
+    };
 }
 
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineVertexInputStageKey);
@@ -245,6 +263,7 @@ NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
+NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
 
 namespace nova
 {
@@ -291,6 +310,8 @@ namespace nova
         ankerl::unordered_dense::map<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
         ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
         ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
+
+        ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline> computePipelines;
 
         VkPipelineCache pipelineCache = {};
 
@@ -349,6 +370,25 @@ namespace nova
 #define NOVA_ADD_VULKAN_REGISTRY(type, name) \
     Registry<Vulkan##type, type> name;       \
     NOVA_FORCE_INLINE Vulkan##type& Get(type id) noexcept { return name.Get(id); }
+
+// -----------------------------------------------------------------------------
+
+        bool IsValid(Buffer handle) final                       { return buffers.IsValid(handle); }
+        bool IsValid(CommandList handle) final                  { return commandLists.IsValid(handle); }
+        bool IsValid(CommandPool handle) final                  { return commandPools.IsValid(handle); }
+        bool IsValid(DescriptorSet handle) final                { return descriptorSets.IsValid(handle); }
+        bool IsValid(DescriptorSetLayout handle) final          { return descriptorSetLayouts.IsValid(handle); }
+        bool IsValid(Fence handle) final                        { return fences.IsValid(handle); }
+        bool IsValid(PipelineLayout handle) final               { return pipelineLayouts.IsValid(handle); }
+        bool IsValid(Queue handle) final                        { return queues.IsValid(handle); }
+        bool IsValid(CommandState handle) final                 { return commandStates.IsValid(handle); }
+        bool IsValid(Sampler handle) final                      { return samplers.IsValid(handle); }
+        bool IsValid(Shader handle) final                       { return shaders.IsValid(handle); }
+        bool IsValid(Swapchain handle) final                    { return swapchains.IsValid(handle); }
+        bool IsValid(Texture handle) final                      { return textures.IsValid(handle); }
+        bool IsValid(AccelerationStructure handle) final        { return accelerationStructures.IsValid(handle); }
+        bool IsValid(AccelerationStructureBuilder handle) final { return accelerationStructureBuilders.IsValid(handle); }
+        bool IsValid(RayTracingPipeline handle) final           { return rayTracingPipelines.IsValid(handle); }
 
 // -----------------------------------------------------------------------------
 //                                 Queue
@@ -439,6 +479,13 @@ namespace nova
         void Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset = 0) final;
         void Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset = {}) final;
         void Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset = {}) final;
+
+// -----------------------------------------------------------------------------
+//                                 Compute
+// -----------------------------------------------------------------------------
+
+        void Cmd_SetComputeState(CommandList, PipelineLayout layout, Shader shader) final;
+        void Cmd_Dispatch(CommandList, Vec3U groups) final;
 
 // -----------------------------------------------------------------------------
 //                               Descriptors
