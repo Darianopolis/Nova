@@ -44,7 +44,23 @@ int main()
     auto vertices = nova::HBuffer(context, 3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    vertices.Set<Vertex>({ {{-0.6f, 0.6f, 0.f}, {1.f,0.f,0.f}}, {{0.6f, 0.6f, 0.f},{0.f,1.f,0.f}}, {{0.f, -0.6f, 0.f},{0.f,0.f,1.f}} });
+    // vertices.Set<Vertex>({ {{-0.6f, 0.6f, 0.f}, {1.f,0.f,0.f}}, {{0.6f, 0.6f, 0.f},{0.f,1.f,0.f}}, {{0.f, -0.6f, 0.f},{0.f,0.f,1.f}} });
+    /*
+    {1.0f,1.0f,0.0f,    1.0f,1.0f,    0.0f,0.0f,0.0f,0.0f},
+        {1.0f,-1.0f,0.0f,    1.0f,0.0f,    0.0f,0.0f,0.0f,0.0f},
+        {-1.0f,-1.0f,0.0f,    0.0f,0.0f,    0.0f,0.0f,0.0f,0.0f},
+        {-1.0f,1.0f,0.0f,    0.0f,1.0f,    0.0f,0.0f,0.0f,0.0f}*/
+    vertices.Set<Vertex>({
+        {{1.0f,1.0f,0.0f}, {1.0f,1.0f,0.5f}},
+        {{1.0f,-1.0f,0.0f}, {1.0f,0.0f,0.5f}},
+        {{-1.0f,-1.0f,0.0f}, {.0f,0.0f,0.5f}},
+        {{-1.0f,1.0f,0.0f}, {0.0f,1.0f,0.5f}},
+    });
+
+    auto indices = nova::HBuffer(context, 6 * 4,
+        nova::BufferUsage::Index,
+        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    indices.Set<u32>({0,1,3,1,2,3});
 
     // Pipeline
 
@@ -59,7 +75,7 @@ int main()
     auto ubo = nova::HBuffer(context, sizeof(Vec3),
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    ubo.Set<Vec3>({{0.f, 0.25f, 0.f}});
+    ubo.Set<Vec3>({{0.f, 0.f, 0.f}});
 
     auto set = descLayout.Allocate();
     set.WriteUniformBuffer(0, ubo);
@@ -103,7 +119,9 @@ int main()
         cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
         cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
         cmd.BindDescriptorSets(pipelineLayout, 0, {set});
-        cmd.Draw(3, 1, 0, 0);
+        cmd.BindIndexBuffer(indices, nova::IndexType::U32);
+        // cmd.Draw(3, 1, 0, 0)
+        cmd.DrawIndexed(6, 1, 0, 0, 0);
         cmd.EndRendering();
 
         cmd.Present(swapchain);

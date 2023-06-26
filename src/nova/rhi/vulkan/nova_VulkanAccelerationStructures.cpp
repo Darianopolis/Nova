@@ -179,15 +179,24 @@ namespace nova
         return size;
     }
 
-    AccelerationStructure VulkanContext::AccelerationStructures_Create(u64 size, AccelerationStructureType type)
+    AccelerationStructure VulkanContext::AccelerationStructures_Create(u64 size, AccelerationStructureType type, Buffer buffer, u64 offset)
     {
         auto[id, set] = accelerationStructures.Acquire();
 
-        set.buffer = Buffer_Create(size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
+        set.ownBuffer = !IsValid(buffer);
+        if (set.ownBuffer)
+        {
+            set.buffer = Buffer_Create(size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
+        }
+        else
+        {
+            set.buffer = buffer;
+        }
 
         VkCall(vkCreateAccelerationStructureKHR(device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = Get(set.buffer).buffer,
+            .offset = offset,
             .size = Get(set.buffer).size,
             .type = VkAccelerationStructureTypeKHR(type),
         }), pAlloc, &set.structure));
@@ -205,7 +214,8 @@ namespace nova
     void VulkanContext::AccelerationStructures_Destroy(AccelerationStructure set)
     {
         vkDestroyAccelerationStructureKHR(device, Get(set).structure, pAlloc);
-        Buffer_Destroy(Get(set).buffer);
+        if (Get(set).ownBuffer)
+            Buffer_Destroy(Get(set).buffer);
         accelerationStructures.Return(set);
     }
 

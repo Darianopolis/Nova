@@ -203,13 +203,15 @@ namespace nova
 
 #define NOVA_TIMEIT_RESET() ::nova::NovaTimeitLast = std::chrono::steady_clock::now()
 
-#define NOVA_TIMEIT(...) do {                                                  \
-    using namespace std::chrono;                                               \
-    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
-        duration_cast<milliseconds>(steady_clock::now()                        \
-            - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
-    ::nova::NovaTimeitLast = steady_clock::now();                              \
-} while (0)
+// #define NOVA_TIMEIT(...) do {                                                  \
+//     using namespace std::chrono;                                               \
+//     NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+//         duration_cast<milliseconds>(steady_clock::now()                        \
+//             - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+//     ::nova::NovaTimeitLast = steady_clock::now();                              \
+// } while (0)
+
+#define NOVA_TIMEIT(...)
 
 // -----------------------------------------------------------------------------
 

@@ -177,7 +177,8 @@ namespace nova
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer buffer = {};
+        Buffer  buffer = {};
+        bool ownBuffer;
     };
 
     struct VulkanRayTracingPipeline
@@ -580,7 +581,7 @@ namespace nova
         u64 AccelerationStructures_GetUpdateScratchSize(AccelerationStructureBuilder) final;
         u64 AccelerationStructures_GetCompactSize(AccelerationStructureBuilder) final;
 
-        AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type) final;
+        AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type, Buffer buffer = {}, u64 offset = {}) final;
         void                  AccelerationStructures_Destroy(AccelerationStructure) final;
         u64                   AccelerationStructures_GetAddress(AccelerationStructure) final;
 

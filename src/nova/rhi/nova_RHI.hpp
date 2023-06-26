@@ -714,7 +714,7 @@ namespace nova
         virtual u64 AccelerationStructures_GetUpdateScratchSize(AccelerationStructureBuilder) = 0;
         virtual u64 AccelerationStructures_GetCompactSize(AccelerationStructureBuilder) = 0;
 
-        virtual AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type) = 0;
+        virtual AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type, Buffer buffer = {}, u64 offset = {}) = 0;
         virtual void                  AccelerationStructures_Destroy(AccelerationStructure) = 0;
         virtual u64                   AccelerationStructures_GetAddress(AccelerationStructure) = 0;
 

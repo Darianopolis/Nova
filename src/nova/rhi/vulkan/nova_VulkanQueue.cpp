@@ -5,7 +5,11 @@ namespace nova
     Queue VulkanContext::Queue_Get(QueueFlags flags, u32 index)
     {
         if (flags >= QueueFlags::Graphics)
+        {
+            if (index >= graphicQueues.size())
+                NOVA_THROW("Tried to access graphics queue out of bounds - {}", index);
             return graphicQueues[index];
+        }
 
         if (flags >= QueueFlags::Transfer)
             return transferQueues[index];

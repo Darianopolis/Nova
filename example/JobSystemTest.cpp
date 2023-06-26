@@ -1,6 +1,7 @@
 #include <nova/core/nova_Jobs.hpp>
 
 #include <nova/core/nova_Timer.hpp>
+#include <nova/core/nova_Registry.hpp>
 
 #include <cmath>
 
@@ -8,7 +9,68 @@ using namespace nova;
 
 thread_local Timer timer;
 
-int main()
+void TestColony()
+{
+    ConcurrentDynamicArray<u32> colony;
+
+    std::atomic<bool> running = true;
+    std::atomic<usz> size = 0;
+
+    using namespace std::chrono;
+    auto start = steady_clock::now();
+    usz totalReads = 0;
+
+    {
+        std::jthread t{[&] {
+            while (running)
+            {
+                usz start = size.load();
+                totalReads += start;
+                std::this_thread::sleep_for(1ms);
+                // NOVA_LOG("Running test, size = {}", size.load());
+                for (i64 i = start - 1; i >= 0; --i)
+                {
+                    if (colony[i] != i)
+                    {
+                        NOVA_LOG("Invalid value at {} = {}", i, colony[i]);
+                        // return;
+                    }
+                }
+            }
+        }};
+
+        for (u32 i = 0; i < 100'000'000; ++i)
+        {
+            colony.EmplaceBack().second = i;
+            size++;
+        }
+
+        NOVA_LOG("Waiting");
+
+        std::this_thread::sleep_for(1s);
+        // NOVA_LOG("Running test, size = {}", colony.GetSize());
+        // for (i64 i = colony.GetSize(); i >= 0; --i)
+        // {
+        //     if (colony[i] != i)
+        //     {
+        //         NOVA_LOG("Invalid value at {} = {}", i, colony[i]);
+        //         // return;
+        //     }
+        // }
+
+        NOVA_LOG("Shutting down");
+        running = false;
+    }
+
+    auto delta = steady_clock::now() - start;
+    auto nanos = duration_cast<nanoseconds>(delta).count();
+    NOVA_LOG("Total reads = {}", totalReads);
+    NOVA_LOG("Total time = {} ({:.2f} s)", nanos, duration_cast<duration<double>>(delta).count());
+    NOVA_LOG("Reads per nanosecond = {}", totalReads / nanos);
+    NOVA_LOG("Closed");
+}
+
+void TestJobSystem()
 {
     std::mt19937 rng{std::random_device{}()};
 
@@ -224,4 +286,16 @@ int main()
     std::cout << "Tasks completed in " << duration_cast<milliseconds>(dur) << '\n';
 
     std::cout << "All jobs completed\n";
+}
+
+int main()
+{
+    try
+    {
+        TestColony();
+    }
+    catch(...)
+    {
+
+    }
 }
