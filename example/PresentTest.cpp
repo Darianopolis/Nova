@@ -33,7 +33,7 @@ void TryMain()
         ctx->Swapchain_Destroy(swapchain);
     };
 
-    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics);
+    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics, 0);
     auto fence = ctx->Fence_Create();
     auto cmdState = ctx->Commands_CreateState();
     auto cmdPool = ctx->Commands_CreatePool(queue);

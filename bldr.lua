@@ -58,3 +58,9 @@ if Project "nova-compute-test" then
     Import "nova"
     Artifact { "out/compute-test", type = "Console" }
 end
+
+if Project "nova-job-test" then
+    Compile "example/JobSystemTest.cpp"
+    Import "nova"
+    Artifact { "out/job-test", type = "Console" }
+end

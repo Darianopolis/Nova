@@ -20,7 +20,9 @@ namespace nova
 
     void VulkanContext::Fence_Destroy(Fence id)
     {
-        vkDestroySemaphore(device, Get(id).semaphore, pAlloc);
+        auto& fence = Get(id);
+        vkDestroySemaphore(device, fence.semaphore, pAlloc);
+        fences.Return(id);
     }
 
     void VulkanContext::Fence_Wait(Fence id, u64 waitValue)

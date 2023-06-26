@@ -47,7 +47,7 @@ int main()
 
     // Create required Nova objects
 
-    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics);
+    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics, 0);
     auto cmdPool = ctx->Commands_CreatePool(queue);
     auto fence = ctx->Fence_Create();
     auto state = ctx->Commands_CreateState();

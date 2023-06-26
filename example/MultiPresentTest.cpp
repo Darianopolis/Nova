@@ -38,7 +38,7 @@ int main()
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
     auto swapchain2 = nova::HSwapchain(context, glfwGetWin32Window(window2), swapchainUsage, presentMode);
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics);
+    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
     auto state = nova::HCommandState(context);
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::HFence(context);

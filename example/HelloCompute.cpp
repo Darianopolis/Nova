@@ -47,7 +47,7 @@ int main()
 
     // Create required Nova objects
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics);
+    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::HCommandPool(context, queue);
     auto fence = nova::HFence(context);
     auto state = nova::HCommandState(context);

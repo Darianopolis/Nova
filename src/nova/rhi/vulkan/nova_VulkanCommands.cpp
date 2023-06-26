@@ -78,6 +78,11 @@ namespace nova
         return id;
     }
 
+    void VulkanContext::Commands_DestroyState(CommandState id)
+    {
+        commandStates.Return(id);
+    }
+
     void VulkanContext::Commands_SetState(CommandState state, Texture texture,
         VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access)
     {

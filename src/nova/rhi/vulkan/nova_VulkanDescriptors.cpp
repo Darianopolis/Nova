@@ -21,6 +21,9 @@ namespace nova
             // TODO: Partially bound optional?
             flags[i] = VkDescriptorBindingFlags(0);
 
+            flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+            flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+
             std::visit(Overloads {
                 [&](const binding::SampledTexture& binding) {
                     vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -58,7 +61,8 @@ namespace nova
                 .bindingCount = u32(bindings.size()),
                 .pBindingFlags = flags,
             }),
-            .flags = (pushDescriptors
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT
+                | (pushDescriptors
                     ? VkDescriptorBindingFlags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR)
                     : VkDescriptorBindingFlags(0)),
             .bindingCount = u32(bindings.size()),

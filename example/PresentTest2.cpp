@@ -33,7 +33,7 @@ void TryMain()
         swapchain.Destroy();
     };
 
-    auto queue = nova::HQueue(ctx.get(), nova::QueueFlags::Graphics);
+    auto queue = nova::HQueue(ctx.get(), nova::QueueFlags::Graphics, 0);
     auto fence = nova::HFence(ctx.get());
     auto cmdState = nova::HCommandState(ctx.get());
     auto cmdPool = nova::HCommandPool(ctx.get(), queue);

@@ -2,12 +2,18 @@
 
 namespace nova
 {
-    Queue VulkanContext::Queue_Get(QueueFlags flags)
+    Queue VulkanContext::Queue_Get(QueueFlags flags, u32 index)
     {
-        // TODO: Filter based on flags
-        (void)flags;
+        if (flags >= QueueFlags::Graphics)
+            return graphicQueues[index];
 
-        return graphics;
+        if (flags >= QueueFlags::Transfer)
+            return transferQueues[index];
+
+        if (flags >= QueueFlags::Compute)
+            return computeQueues[index];
+
+        NOVA_THROW("Illegal queue flags: {}", u32(flags));
     }
 
     void VulkanContext::Queue_Submit(Queue hQueue, Span<CommandList> _commandLists, Span<Fence> waits, Span<Fence> signals)

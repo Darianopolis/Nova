@@ -183,9 +183,7 @@ namespace nova
     {
         auto[id, set] = accelerationStructures.Acquire();
 
-        NOVA_LOGEXPR(size);
         set.buffer = Buffer_Create(size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
-        NOVA_LOGEXPR(Get(set.buffer).buffer);
 
         VkCall(vkCreateAccelerationStructureKHR(device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,

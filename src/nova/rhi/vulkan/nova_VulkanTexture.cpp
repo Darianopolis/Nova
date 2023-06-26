@@ -114,10 +114,11 @@ namespace nova
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
                 .usage = texture.usage,
-                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                .queueFamilyIndexCount = 1,
+                // .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .sharingMode = VK_SHARING_MODE_CONCURRENT,
+                .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
-                    Get(graphics).family,
+                    0u, 1u, 2u, // TODO
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),

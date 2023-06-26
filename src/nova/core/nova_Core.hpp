@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <future>
 #include <numeric>
 #include <optional>
 #include <queue>
@@ -171,10 +172,10 @@ namespace nova
 }())
 
 #define NOVA_DEBUG() \
-    std::format_to(std::ostream_iterator<char>(std::cout), "    Debug :: {} - {}\n", __LINE__, __FILE__)
+    std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
 
 #define NOVA_LOG(fmt, ...) \
-    std::format_to(std::ostream_iterator<char>(std::cout), fmt"\n" __VA_OPT__(,) __VA_ARGS__)
+    std::cout << std::format(fmt"\n" __VA_OPT__(,) __VA_ARGS__)
 
 #define NOVA_LOGEXPR(expr) do {           \
     std::osyncstream sso(std::cout);      \

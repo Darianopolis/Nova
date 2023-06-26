@@ -14,10 +14,10 @@ namespace nova
     public:
         HQueue() = default;
 
-        HQueue(Context* ctx, QueueFlags flags)
+        HQueue(Context* ctx, QueueFlags flags, u32 index)
             : ctx(ctx)
         {
-            queue = ctx->Queue_Get(flags);
+            queue = ctx->Queue_Get(flags, index);
         }
 
         bool IsValid() const { return ctx && ctx->IsValid(queue); }
@@ -108,6 +108,11 @@ namespace nova
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) const
         {
             ctx->Commands_SetState(state, texture, layout, stages, access);
+        }
+
+        void Destroy() const
+        {
+            ctx->Commands_DestroyState(state);
         }
     };
 

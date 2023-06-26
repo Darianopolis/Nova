@@ -149,9 +149,26 @@ Validation: {} ({})
 
         // ---- Logical Device ----
 
-        vkGetPhysicalDeviceQueueFamilyProperties2(gpu, Temp(0u), nullptr);
-        graphics = queues.Acquire().first;
-        Get(graphics).family = 0;
+        std::array<VkQueueFamilyProperties, 3> properties;
+        vkGetPhysicalDeviceQueueFamilyProperties(gpu, Temp(3u), properties.data());
+        for (u32 i = 0; i < 16; ++i)
+        {
+            auto[id, queue] = queues.Acquire();
+            graphicQueues.emplace_back(id);
+            queue.family = 0;
+        }
+        for (u32 i = 0; i < 2; ++i)
+        {
+            auto[id, queue] = queues.Acquire();
+            transferQueues.emplace_back(id);
+            queue.family = 1;
+        }
+        for (u32 i = 0; i < 8; ++i)
+        {
+            auto[id, queue] = queues.Acquire();
+            computeQueues.emplace_back(id);
+            queue.family = 2;
+        }
 
         VulkanFeatureChain chain;
 
@@ -182,6 +199,7 @@ Validation: {} ({})
             f12.descriptorBindingPartiallyBound = VK_TRUE;
             f12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
             f12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+            f12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
             f12.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
             f12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
             f12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
@@ -256,16 +274,36 @@ Validation: {} ({})
                 deviceExtensions[i++] = ext.c_str();
         }
 
+        auto priorities = NOVA_ALLOC_STACK(float, graphicQueues.size());
+        for (u32 i = 0; i < graphicQueues.size(); ++i)
+            priorities[i] = 1.f;
+
+        auto lowPriorities = NOVA_ALLOC_STACK(float, 8);
+        for (u32 i = 0; i < 8; ++i)
+            priorities[i] = 0.1f;
+
         VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
-            .queueCreateInfoCount = 1,
+            .queueCreateInfoCount = 3,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = Get(graphics).family,
-                    .queueCount = 1,
-                    .pQueuePriorities = Temp(1.f),
+                    .queueFamilyIndex = Get(graphicQueues.front()).family,
+                    .queueCount = u32(graphicQueues.size()),
+                    .pQueuePriorities = priorities,
+                },
+                VkDeviceQueueCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                    .queueFamilyIndex = Get(transferQueues.front()).family,
+                    .queueCount = u32(transferQueues.size()),
+                    .pQueuePriorities = lowPriorities,
+                },
+                VkDeviceQueueCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                    .queueFamilyIndex = Get(computeQueues.front()).family,
+                    .queueCount = u32(computeQueues.size()),
+                    .pQueuePriorities = lowPriorities,
                 },
             }.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
@@ -281,7 +319,14 @@ Validation: {} ({})
 
         // ---- Shared resources ----
 
-        vkGetDeviceQueue(device, Get(graphics).family, 0, &Get(graphics).handle);
+        for (u32 i = 0; i < graphicQueues.size(); ++i)
+            vkGetDeviceQueue(device, Get(graphicQueues[i]).family, i, &Get(graphicQueues[i]).handle);
+
+        for (u32 i = 0; i < transferQueues.size(); ++i)
+            vkGetDeviceQueue(device, Get(transferQueues[i]).family, i, &Get(transferQueues[i]).handle);
+
+        for (u32 i = 0; i < computeQueues.size(); ++i)
+            vkGetDeviceQueue(device, Get(computeQueues[i]).family, i, &Get(computeQueues[i]).handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -318,7 +363,8 @@ Validation: {} ({})
 
             VkCall(vkCreateDescriptorPool(device, Temp(VkDescriptorPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+                    | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
                 .maxSets = u32(MaxDescriptorPerType * sizes.size()),
                 .poolSizeCount = u32(sizes.size()),
                 .pPoolSizes = sizes.data(),
@@ -336,20 +382,24 @@ Validation: {} ({})
         WaitIdle();
 
         // Clean out API object registries
-        swapchains.ForEach(          [&](auto handle, auto&) { Swapchain_Destroy(handle);            });
-        fences.ForEach(              [&](auto handle, auto&) { Fence_Destroy(handle);                });
-        commandPools.ForEach(        [&](auto handle, auto&) { Commands_DestroyPool(handle);         });
-        samplers.ForEach(            [&](auto handle, auto&) { Sampler_Destroy(handle);              });
-        textures.ForEach(            [&](auto handle, auto&) { Texture_Destroy(handle);              });
-        pipelineLayouts.ForEach(     [&](auto handle, auto&) { Pipelines_DestroyLayout(handle);      });
-        shaders.ForEach(             [&](auto handle, auto&) { Shader_Destroy(handle);               });
-        descriptorSetLayouts.ForEach([&](auto handle, auto&) { Descriptors_DestroySetLayout(handle); });
+        u32 cleanedUp = 0;
+        swapchains.ForEach(          [&](auto handle, auto&) { cleanedUp++; Swapchain_Destroy(handle);            });
+        fences.ForEach(              [&](auto handle, auto&) { cleanedUp++; Fence_Destroy(handle);                });
+        commandPools.ForEach(        [&](auto handle, auto&) { cleanedUp++; Commands_DestroyPool(handle);         });
+        samplers.ForEach(            [&](auto handle, auto&) { cleanedUp++; Sampler_Destroy(handle);              });
+        textures.ForEach(            [&](auto handle, auto&) { cleanedUp++; Texture_Destroy(handle);              });
+        pipelineLayouts.ForEach(     [&](auto handle, auto&) { cleanedUp++; Pipelines_DestroyLayout(handle);      });
+        shaders.ForEach(             [&](auto handle, auto&) { cleanedUp++; Shader_Destroy(handle);               });
+        descriptorSetLayouts.ForEach([&](auto handle, auto&) { cleanedUp++; Descriptors_DestroySetLayout(handle); });
 
-        accelerationStructureBuilders.ForEach([&](auto handle, auto&) { AccelerationStructures_DestroyBuilder(handle); });
-        accelerationStructures.ForEach(       [&](auto handle, auto&) { AccelerationStructures_Destroy(handle); });
-        rayTracingPipelines.ForEach(          [&](auto handle, auto&) { RayTracing_DestroyPipeline(handle); });
+        accelerationStructureBuilders.ForEach([&](auto handle, auto&) { cleanedUp++; AccelerationStructures_DestroyBuilder(handle); });
+        accelerationStructures.ForEach(       [&](auto handle, auto&) { cleanedUp++; AccelerationStructures_Destroy(handle); });
+        rayTracingPipelines.ForEach(          [&](auto handle, auto&) { cleanedUp++; RayTracing_DestroyPipeline(handle); });
 
-        buffers.ForEach([&](auto handle, auto&) { Buffer_Destroy(handle); });
+        buffers.ForEach([&](auto handle, auto&) { cleanedUp++; Buffer_Destroy(handle); });
+
+        if (cleanedUp)
+            NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
 
         // Deleted graphics pipeline library stages
         for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);

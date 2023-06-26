@@ -284,7 +284,9 @@ namespace nova
     public:
         VkDescriptorPool descriptorPool = {};
 
-        Queue graphics = {};
+        std::vector<Queue> graphicQueues = {};
+        std::vector<Queue> transferQueues = {};
+        std::vector<Queue> computeQueues = {};
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
@@ -396,7 +398,7 @@ namespace nova
 
         NOVA_ADD_VULKAN_REGISTRY(Queue, queues)
 
-        Queue Queue_Get(QueueFlags flags) final;
+        Queue Queue_Get(QueueFlags flags, u32 index) final;
         void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) final;
         bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) final;
         void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) final;
@@ -428,6 +430,7 @@ namespace nova
         void        Commands_Reset(CommandPool pool) final;
 
         CommandState Commands_CreateState() final;
+        void         Commands_DestroyState(CommandState) final;
         void         Commands_SetState(CommandState state, Texture texture,
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) final;
 

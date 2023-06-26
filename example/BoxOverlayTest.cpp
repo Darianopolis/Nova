@@ -45,7 +45,7 @@ void TryMain()
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics);
+    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
     auto commandPool = nova::HCommandPool(context, queue);
     auto fence = nova::HFence(context);
     auto state = nova::HCommandState(context);

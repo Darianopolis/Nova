@@ -542,7 +542,7 @@ namespace nova
 //                                 Queue
 // -----------------------------------------------------------------------------
 
-        virtual Queue Queue_Get(QueueFlags flags) = 0;
+        virtual Queue Queue_Get(QueueFlags flags, u32 index) = 0;
         virtual void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) = 0;
         virtual bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) = 0;
         virtual void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) = 0;
@@ -568,6 +568,7 @@ namespace nova
         virtual void        Commands_Reset(CommandPool pool) = 0;
 
         virtual CommandState Commands_CreateState() = 0;
+        virtual void         Commands_DestroyState(CommandState) = 0;
         virtual void         Commands_SetState(CommandState state, Texture texture,
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) = 0;
 
