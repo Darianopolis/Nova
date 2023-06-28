@@ -20,7 +20,7 @@ int main()
     auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
         .debug = false
     });
-    auto context = ctx.get();
+    auto context = nova::HContext(ctx.get());
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach
@@ -32,17 +32,17 @@ int main()
 
     auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window1); };
-    auto swapchain1 = nova::HSwapchain(context, glfwGetWin32Window(window1), swapchainUsage, presentMode);
+    auto swapchain1 = context.CreateSwapchain(glfwGetWin32Window(window1), swapchainUsage, presentMode);
 
     auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
-    auto swapchain2 = nova::HSwapchain(context, glfwGetWin32Window(window2), swapchainUsage, presentMode);
+    auto swapchain2 = context.CreateSwapchain(glfwGetWin32Window(window2), swapchainUsage, presentMode);
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
-    auto state = nova::HCommandState(context);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto state = context.CreateCommandState();
     u64 waitValues[] { 0ull, 0ull };
-    auto fence = nova::HFence(context);
-    nova::HCommandPool commandPools[] { nova::HCommandPool{context, queue}, nova::HCommandPool{context, queue} };
+    auto fence = context.CreateFence();
+    nova::HCommandPool commandPools[] { context.CreateCommandPool(queue), context.CreateCommandPool(queue) };
 
     auto cmd = commandPools[0].Begin(state);
     auto imgui = nova::VulkanImGuiWrapper(context, cmd, swapchain1.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });

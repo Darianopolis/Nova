@@ -16,6 +16,8 @@ void TryMain()
         .debug = true,
     });
 
+    auto context = nova::HContext(ctx.get());
+
     glfwInit();
     NOVA_ON_SCOPE_EXIT(&) { glfwTerminate(); };
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -25,7 +27,7 @@ void TryMain()
     HWND hwnd = glfwGetWin32Window(window);
 
     NOVA_LOGEXPR(ctx);
-    auto swapchain = nova::HSwapchain(ctx.get(), hwnd,
+    auto swapchain = context.CreateSwapchain(hwnd,
         nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage,
         nova::PresentMode::Mailbox);
     NOVA_ON_SCOPE_EXIT(&) {
@@ -33,10 +35,10 @@ void TryMain()
         swapchain.Destroy();
     };
 
-    auto queue = nova::HQueue(ctx.get(), nova::QueueFlags::Graphics, 0);
-    auto fence = nova::HFence(ctx.get());
-    auto cmdState = nova::HCommandState(ctx.get());
-    auto cmdPool = nova::HCommandPool(ctx.get(), queue);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto fence = context.CreateFence();
+    auto cmdState = context.CreateCommandState();
+    auto cmdPool = context.CreateCommandPool(queue);
 
     struct Vertex
     {
@@ -44,7 +46,7 @@ void TryMain()
         Vec3 color;
     };
 
-    auto vertices = nova::HBuffer(ctx.get(), 3 * sizeof(Vertex),
+    auto vertices = context.CreateBuffer(3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     vertices.Set<Vertex>({
@@ -53,15 +55,15 @@ void TryMain()
         {{ 0.f, -0.6f, 0.f}, {0.f, 0.f, 1.f}}
     });
 
-    auto descLayout = nova::HDescriptorSetLayout(ctx.get(), {
+    auto descLayout = context.CreateDescriptorSetLayout({
         nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
     });
 
-    auto pipelineLayout = nova::HPipelineLayout(ctx.get(),
+    auto pipelineLayout = context.CreatePipelineLayout(
         {{"pc", {{"vertexVA", nova::ShaderVarType::U64}}}},
         {descLayout}, nova::BindPoint::Graphics);
 
-    auto ubo = nova::HBuffer(ctx.get(), sizeof(Vec3),
+    auto ubo = context.CreateBuffer(sizeof(Vec3),
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     ubo.Set<Vec3>({{0.f, 0.25f, 0.f}});
@@ -69,7 +71,7 @@ void TryMain()
     auto set = descLayout.Allocate();
     set.WriteUniformBuffer(0, ubo);
 
-    auto vertexShader = nova::HShader(ctx.get(), nova::ShaderStage::Vertex, {
+    auto vertexShader = context.CreateShader(nova::ShaderStage::Vertex, {
         nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
@@ -84,7 +86,7 @@ void TryMain()
         )"),
     });
 
-    auto fragmentShader = nova::HShader(ctx.get(), nova::ShaderStage::Fragment, {
+    auto fragmentShader = context.CreateShader(nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
@@ -96,12 +98,12 @@ void TryMain()
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, nullptr, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = nova::HTexture(ctx.get(), { u32(w), u32(h), 0 },
+        texture = context.CreateTexture({ u32(w), u32(h), 0 },
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        auto staging = nova::HBuffer(ctx.get(), size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+        auto staging = context.CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
         NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
         std::memcpy(staging.GetMapped(), data, size);
 

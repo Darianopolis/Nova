@@ -117,7 +117,7 @@ namespace nova
         static constexpr u32 MaxPrimitives = 65'536;
 
     public:
-        Context* context = {};
+        HContext context = {};
 
         HSampler defaultSampler = {};
 

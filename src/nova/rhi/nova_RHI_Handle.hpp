@@ -9,17 +9,9 @@ namespace nova
         Context* ctx = {};
         Queue  queue = {};
 
-        operator Queue() { return queue; }
+        operator Queue() const { return queue; }
 
     public:
-        HQueue() = default;
-
-        HQueue(Context* ctx, QueueFlags flags, u32 index)
-            : ctx(ctx)
-        {
-            queue = ctx->Queue_Get(flags, index);
-        }
-
         bool IsValid() const { return ctx && ctx->IsValid(queue); }
 
         void Submit(Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) const
@@ -47,16 +39,9 @@ namespace nova
         Context* ctx = {};
         Fence  fence = {};
 
-        operator Fence() { return fence; };
+        operator Fence() const { return fence; };
 
     public:
-        HFence() = default;
-
-        HFence(Context* ctx)
-            : ctx(ctx)
-            , fence(ctx->Fence_Create())
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(fence); }
 
         void Destroy() const
@@ -94,16 +79,9 @@ namespace nova
         Context*       ctx = {};
         CommandState state = {};
 
-        operator CommandState() { return state; }
+        operator CommandState() const { return state; }
 
     public:
-        HCommandState() = default;
-
-        HCommandState(Context* ctx)
-            : ctx(ctx)
-            , state(ctx->Commands_CreateState())
-        {}
-
         void SetState(Texture texture,
             VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) const
         {
@@ -121,16 +99,9 @@ namespace nova
         Context*    ctx = {};
         CommandList cmd = {};
 
-        operator CommandList() { return cmd; }
+        operator CommandList() const { return cmd; }
 
     public:
-        HCommandList() = default;
-
-        HCommandList(Context* ctx, CommandList cmd)
-            : ctx(ctx)
-            , cmd(cmd)
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(cmd); }
 
         // Textures
@@ -287,16 +258,9 @@ namespace nova
         Context*     ctx = {};
         CommandPool pool = {};
 
-        operator CommandPool() { return pool; }
+        operator CommandPool() const { return pool; }
 
     public:
-        HCommandPool() = default;
-
-        HCommandPool(Context* ctx, Queue queue)
-            : ctx(ctx)
-            , pool(ctx->Commands_CreatePool(queue))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(pool); }
 
         void Destroy() const
@@ -324,16 +288,9 @@ namespace nova
         Context*    ctx = {};
         Sampler sampler = {};
 
-        operator Sampler() { return sampler; }
+        operator Sampler() const { return sampler; }
 
     public:
-        HSampler() = default;
-
-        HSampler(Context* ctx, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f)
-            : ctx(ctx)
-            , sampler(ctx->Sampler_Create(filter, addressMode, color, anisotropy))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(sampler); }
 
         void Destroy() const
@@ -347,7 +304,7 @@ namespace nova
         Context*    ctx = {};
         Texture texture = {};
 
-        operator Texture() { return texture; }
+        operator Texture() const { return texture; }
 
     public:
         HTexture() = default;
@@ -380,7 +337,6 @@ namespace nova
         }
     };
 
-
 // -----------------------------------------------------------------------------
 //                                 Swapchain
 // -----------------------------------------------------------------------------
@@ -390,16 +346,9 @@ namespace nova
         Context*        ctx = {};
         Swapchain swapchain = {};
 
-        operator Swapchain() { return swapchain; }
+        operator Swapchain() const { return swapchain; }
 
     public:
-        HSwapchain() = default;
-
-        HSwapchain(Context* ctx, void* window, TextureUsage usage, PresentMode presentMode)
-            : ctx(ctx)
-            , swapchain(ctx->Swapchain_Create(window, usage, presentMode))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(swapchain); }
 
         void Destroy() const
@@ -432,21 +381,9 @@ namespace nova
         Context*  ctx = {};
         Shader shader = {};
 
-        operator Shader() { return shader; }
+        operator Shader() const { return shader; }
 
     public:
-        HShader() = default;
-
-        HShader(Context* ctx, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
-            : ctx(ctx)
-            , shader(ctx->Shader_Create(stage, filename, sourceCode))
-        {}
-
-        HShader(Context* ctx, ShaderStage stage, Span<ShaderElement> elements)
-            : ctx(ctx)
-            , shader(ctx->Shader_Create(stage, elements))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(shader); }
 
         void Destroy() const
@@ -464,16 +401,9 @@ namespace nova
         Context*                  ctx = {};
         PipelineLayout pipelineLayout = {};
 
-        operator PipelineLayout() { return pipelineLayout; }
+        operator PipelineLayout() const { return pipelineLayout; }
 
     public:
-        HPipelineLayout() = default;
-
-        HPipelineLayout(Context* ctx, Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
-            : ctx(ctx)
-            , pipelineLayout(ctx->Pipelines_CreateLayout(pushConstantRanges, descriptorSetLayouts, bindPoint))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(pipelineLayout); }
 
         void Destroy() const
@@ -491,16 +421,9 @@ namespace nova
         Context*               ctx = {};
         DescriptorSet descriptorSet = {};
 
-        operator DescriptorSet() { return descriptorSet; }
+        operator DescriptorSet() const { return descriptorSet; }
 
     public:
-        HDescriptorSet() = default;
-
-        HDescriptorSet(Context* ctx, DescriptorSet set)
-            : ctx(ctx)
-            , descriptorSet(set)
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(descriptorSet); }
 
         void Free() const
@@ -524,16 +447,9 @@ namespace nova
         Context*                            ctx = {};
         DescriptorSetLayout descriptorSetLayout = {};
 
-        operator DescriptorSetLayout() { return descriptorSetLayout; }
+        operator DescriptorSetLayout() const { return descriptorSetLayout; }
 
     public:
-        HDescriptorSetLayout() = default;
-
-        HDescriptorSetLayout(Context* ctx, Span<DescriptorBinding> bindings, bool pushDescriptors = false)
-            : ctx(ctx)
-            , descriptorSetLayout(ctx->Descriptors_CreateSetLayout(bindings, pushDescriptors))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(descriptorSetLayout); }
 
         void Destroy() const
@@ -556,16 +472,9 @@ namespace nova
         Context*  ctx = {};
         Buffer buffer = {};
 
-        operator Buffer() { return buffer; }
+        operator Buffer() const { return buffer; }
 
     public:
-        HBuffer() = default;
-
-        HBuffer(Context* ctx, u64 size, BufferUsage usage, BufferFlags flags = {})
-            : ctx(ctx)
-            , buffer(ctx->Buffer_Create(size, usage, flags))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(buffer); }
 
         void Destroy() const
@@ -614,16 +523,9 @@ namespace nova
         Context*                         ctx = {};
         AccelerationStructureBuilder builder = {};
 
-        operator AccelerationStructureBuilder() { return builder; }
+        operator AccelerationStructureBuilder() const { return builder; }
 
     public:
-        HAccelerationStructureBuilder() = default;
-
-        HAccelerationStructureBuilder(Context* ctx)
-            : ctx(ctx)
-            , builder(ctx->AccelerationStructures_CreateBuilder())
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(builder); }
 
         void Destroy() const
@@ -693,16 +595,9 @@ namespace nova
         Context*                    ctx = {};
         AccelerationStructure structure = {};
 
-        operator AccelerationStructure() { return structure; }
+        operator AccelerationStructure() const { return structure; }
 
     public:
-        HAccelerationStructure() = default;
-
-        HAccelerationStructure(Context* ctx, u64 size, AccelerationStructureType type)
-            : ctx(ctx)
-            , structure(ctx->AccelerationStructures_Create(size, type))
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(structure); }
 
         void Destroy() const
@@ -725,16 +620,9 @@ namespace nova
         Context*                ctx = {};
         RayTracingPipeline pipeline = {};
 
-        operator RayTracingPipeline() { return pipeline; }
+        operator RayTracingPipeline() const { return pipeline; }
 
     public:
-        HRayTracingPipeline() = default;
-
-        HRayTracingPipeline(Context* ctx)
-            : ctx(ctx)
-            , pipeline(ctx->RayTracing_CreatePipeline())
-        {}
-
         bool IsValid() const { return ctx && ctx->IsValid(pipeline); }
 
         void Destroy() const
@@ -749,6 +637,100 @@ namespace nova
             Span<Shader> callableShaders) const
         {
             ctx->RayTracing_UpdatePipeline(pipeline, layout, rayGenShaders, rayMissShaders, rayHitShaderGroup, callableShaders);
+        }
+    };
+
+    struct HContext
+    {
+        Context* ctx;
+
+        operator Context*() const { return ctx; }
+
+    public:
+        const ContextConfig GetConfig() const
+        {
+            return ctx->GetConfig();
+        }
+
+        void WaitIdle() const
+        {
+            return ctx->WaitIdle();
+        }
+
+    public:
+        HQueue GetQueue(QueueFlags flags, u32 index) const
+        {
+            return { ctx, ctx->Queue_Get(flags, index) };
+        }
+
+        HFence CreateFence() const
+        {
+            return { ctx, ctx->Fence_Create() };
+        }
+
+        HCommandState CreateCommandState() const
+        {
+            return { ctx, ctx->Commands_CreateState() };
+        }
+
+        HCommandPool CreateCommandPool(Queue queue) const
+        {
+            return { ctx, ctx->Commands_CreatePool(queue) };
+        }
+
+        HSampler CreateSampler(Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f) const
+        {
+            return { ctx, ctx->Sampler_Create(filter, addressMode, color, anisotropy) };
+        };
+
+        HTexture CreateTexture(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) const
+        {
+            return { ctx, ctx->Texture_Create(size, usage, format, flags) };
+        }
+
+        HSwapchain CreateSwapchain(void* window, TextureUsage usage, PresentMode presentMode) const
+        {
+            return { ctx, ctx->Swapchain_Create(window, usage, presentMode) };
+        }
+
+        HShader CreateShader(ShaderStage stage, const std::string& filename, const std::string& sourceCode) const
+        {
+            return { ctx, ctx->Shader_Create(stage, filename, sourceCode) };
+        }
+
+        HShader CreateShader(ShaderStage stage, Span<ShaderElement> elements) const
+        {
+            return { ctx, ctx->Shader_Create(stage, elements) };
+        }
+
+        HPipelineLayout CreatePipelineLayout(Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint) const
+        {
+            return { ctx, ctx->Pipelines_CreateLayout(pushConstantRanges, descriptorSetLayouts, bindPoint) };
+        }
+
+        HDescriptorSetLayout CreateDescriptorSetLayout(Span<DescriptorBinding> bindings, bool pushDescriptors = false) const
+        {
+            return { ctx, ctx->Descriptors_CreateSetLayout(bindings, pushDescriptors) };
+        }
+
+        HBuffer CreateBuffer(u64 size, BufferUsage usage, BufferFlags flags = {}) const
+        {
+            return { ctx, ctx->Buffer_Create(size, usage, flags) };
+        }
+
+        HAccelerationStructureBuilder CreateAccelerationStructureBuilder() const
+        {
+            return { ctx, ctx->AccelerationStructures_CreateBuilder() };
+        }
+
+        HAccelerationStructure CreateAccelerationStructure(u64 size, AccelerationStructureType type, Buffer buffer = {}, u64 offset = {}) const
+        {
+            return { ctx, ctx->AccelerationStructures_Create(size, type, buffer, offset) };
+        }
+
+        HRayTracingPipeline CreateRayTracingPipeline() const
+        {
+            return { ctx, ctx->RayTracing_CreatePipeline() };
         }
     };
 }

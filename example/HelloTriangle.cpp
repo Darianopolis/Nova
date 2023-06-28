@@ -18,20 +18,22 @@ int main()
         glfwTerminate();
     };
 
+    NOVA_LOG("Size = {}", sizeof(std::mutex));
+
     auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
         .debug = true,
     });
-    auto context = ctx.get();
+    auto context = nova::HContext(ctx.get());
 
-    auto swapchain = nova::HSwapchain(context, glfwGetWin32Window(window),
+    auto swapchain = context.CreateSwapchain(glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::HCommandPool(context, queue);
-    auto fence = nova::HFence(context);
-    auto state = nova::HCommandState(context);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto cmdPool = context.CreateCommandPool(queue);
+    auto fence = context.CreateFence();
+    auto state = context.CreateCommandState();
 
     // Vertex data
 
@@ -41,7 +43,7 @@ int main()
         Vec3 color;
     };
 
-    auto vertices = nova::HBuffer(context, 3 * sizeof(Vertex),
+    auto vertices = context.CreateBuffer(3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     // vertices.Set<Vertex>({ {{-0.6f, 0.6f, 0.f}, {1.f,0.f,0.f}}, {{0.6f, 0.6f, 0.f},{0.f,1.f,0.f}}, {{0.f, -0.6f, 0.f},{0.f,0.f,1.f}} });
@@ -57,22 +59,22 @@ int main()
         {{-1.0f,1.0f,0.0f}, {0.0f,1.0f,0.5f}},
     });
 
-    auto indices = nova::HBuffer(context, 6 * 4,
+    auto indices = context.CreateBuffer(6 * 4,
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     indices.Set<u32>({0,1,3,1,2,3});
 
     // Pipeline
 
-    auto descLayout = nova::HDescriptorSetLayout(context, {
+    auto descLayout = context.CreateDescriptorSetLayout({
         nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
     });
     auto pcRange = nova::PushConstantRange("pc", {{"vertexVA", nova::ShaderVarType::U64},});
-    auto pipelineLayout = nova::HPipelineLayout(context, {pcRange}, {descLayout}, nova::BindPoint::Graphics);
+    auto pipelineLayout = context.CreatePipelineLayout({pcRange}, {descLayout}, nova::BindPoint::Graphics);
 
     // UBO descriptor set
 
-    auto ubo = nova::HBuffer(context, sizeof(Vec3),
+    auto ubo = context.CreateBuffer(sizeof(Vec3),
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     ubo.Set<Vec3>({{0.f, 0.f, 0.f}});
@@ -82,7 +84,7 @@ int main()
 
     // Create vertex shader
 
-    auto vertexShader = nova::HShader(context, nova::ShaderStage::Vertex, {
+    auto vertexShader = context.CreateShader(nova::ShaderStage::Vertex, {
         nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
@@ -97,7 +99,7 @@ int main()
         )"),
     });
 
-    auto fragmentShader = nova::HShader(context, nova::ShaderStage::Fragment, {
+    auto fragmentShader = context.CreateShader(nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel("fragColor = vec4(inColor, 1);"),

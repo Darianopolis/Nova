@@ -37,20 +37,20 @@ int main()
     nova::VulkanContext ctx {{
         .debug = false
     }};
-    auto context = &ctx;
+    auto context = nova::HContext(&ctx);
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::HSwapchain(context, glfwGetWin32Window(window),
+    auto swapchain = context.CreateSwapchain(glfwGetWin32Window(window),
         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     // Create required Nova objects
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::HCommandPool(context, queue);
-    auto fence = nova::HFence(context);
-    auto state = nova::HCommandState(context);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto cmdPool = context.CreateCommandPool(queue);
+    auto fence = context.CreateFence();
+    auto state = context.CreateCommandState();
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -60,17 +60,17 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::HDescriptorSetLayout(context, {
+    auto descLayout = context.CreateDescriptorSetLayout({
         nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
     }, true);
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = nova::HPipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
+    auto pipelineLayout = context.CreatePipelineLayout({}, {descLayout}, nova::BindPoint::Compute);
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto computeShader = nova::HShader(context, nova::ShaderStage::Compute, {
+    auto computeShader = context.CreateShader(nova::ShaderStage::Compute, {
         nova::shader::Layout(pipelineLayout),
         nova::shader::ComputeKernel(Vec3U(1u), R"(
             ivec2 pos = ivec2(gl_WorkGroupID.xy);

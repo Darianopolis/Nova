@@ -38,17 +38,17 @@ void TryMain()
     nova::VulkanContext ctx{{
         .debug = false,
     }};
-    auto context = &ctx;
+    auto context = nova::HContext(&ctx);
 
-    auto swapchain = nova::HSwapchain(context, hwnd,
+    auto swapchain = context.CreateSwapchain(hwnd,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
 
-    auto queue = nova::HQueue(context, nova::QueueFlags::Graphics, 0);
-    auto commandPool = nova::HCommandPool(context, queue);
-    auto fence = nova::HFence(context);
-    auto state = nova::HCommandState(context);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto commandPool = context.CreateCommandPool(queue);
+    auto fence = context.CreateFence();
+    auto state = context.CreateCommandState();
 
 // -----------------------------------------------------------------------------
 
@@ -63,13 +63,13 @@ void TryMain()
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = nova::HTexture(context,
+        texture = context.CreateTexture(
             Vec3(f32(w), f32(h), 0.f),
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8U);
 
         usz size = w * h * 4;
-        auto staging = nova::HBuffer(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+        auto staging = context.CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
         NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
         std::memcpy(staging.GetMapped(), data, size);
 

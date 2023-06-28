@@ -8,10 +8,10 @@
 
 namespace nova
 {
-    VulkanImGuiWrapper::VulkanImGuiWrapper(VulkanContext* context,
+    VulkanImGuiWrapper::VulkanImGuiWrapper(Context* _context,
             CommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config)
-        : context(context)
+        : context(&dynamic_cast<VulkanContext&>(*_context))
     {
         u32 framesInFlight = std::max(config.imageCount, 2u);
 

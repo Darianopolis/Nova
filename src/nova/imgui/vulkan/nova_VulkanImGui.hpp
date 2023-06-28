@@ -21,7 +21,7 @@ namespace nova
         bool ended = false;
 
     public:
-        VulkanImGuiWrapper(VulkanContext* context,
+        VulkanImGuiWrapper(Context* context,
             CommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config);
 

@@ -15,17 +15,28 @@ namespace nova
         std::shared_mutex mutex;
         std::list<std::unique_ptr<Page*[]>> pageTables;
 
-        std::atomic<Page**> page;
+        std::atomic<Page**> pageTable;
         std::atomic<usz> size = 0;
         std::atomic<usz> capacity = 0;
         size_t pages = 0;
 
     public:
+        ConcurrentDynamicArray()
+        {
+
+        }
+
+        ~ConcurrentDynamicArray()
+        {
+            for (u32 i = 0; i < pages; ++i)
+                delete pageTable[i];
+        }
+
         Element& operator[](size_t index)
         {
             // std::scoped_lock lock{mutex};
             size_t pageIndex = index / PageSize;
-            return page[pageIndex]->page[index - (pageIndex * PageSize)];
+            return pageTable[pageIndex]->page[index - (pageIndex * PageSize)];
         }
 
         size_t GetSize()
@@ -48,18 +59,18 @@ namespace nova
                     pages = std::max(16ull, pages * 2);
                     NOVA_LOG("Page index table expanded from {} to {}", oldPages, pages);
                     auto newPageTable = std::make_unique<Page*[]>(pages);
-                    std::memcpy(newPageTable.get(), page.load(), oldPages * sizeof(void*));
-                    page.exchange(newPageTable.get());
+                    std::memcpy(newPageTable.get(), pageTable.load(), oldPages * sizeof(void*));
+                    pageTable.exchange(newPageTable.get());
                     pageTables.push_back(std::move(newPageTable));
                 }
 
-                page[pageIndex] = newPage;
+                pageTable[pageIndex] = newPage;
 
                 capacity += PageSize;
             }
 
             usz index = (++size - 1);
-            return { index, page[pageIndex]->page[index - (pageIndex * PageSize)] };
+            return { index, pageTable[pageIndex]->page[index - (pageIndex * PageSize)] };
         }
 
         std::pair<usz, Element&> EmplaceBack()
@@ -80,12 +91,12 @@ namespace nova
                         pages = std::max(16ull, pages * 2);
                         NOVA_LOG("Page index table expanded from {} to {}", oldPages, pages);
                         auto newPageTable = std::make_unique<Page*[]>(pages);
-                        std::memcpy(newPageTable.get(), page.load(), oldPages * sizeof(void*));
-                        page.exchange(newPageTable.get());
+                        std::memcpy(newPageTable.get(), pageTable.load(), oldPages * sizeof(void*));
+                        pageTable.exchange(newPageTable.get());
                         pageTables.push_back(std::move(newPageTable));
                     }
 
-                    page[pageIndex] = newPage;
+                    pageTable[pageIndex] = newPage;
 
                     capacity += PageSize;
                     // NOVA_LOG("  Capacity {} -> {}", capacity - PageSize, capacity.load());
@@ -93,7 +104,7 @@ namespace nova
             }
 
             usz index = (++size - 1);
-            return { index, page[pageIndex]->page[index - (pageIndex * PageSize)] };
+            return { index, pageTable[pageIndex]->page[index - (pageIndex * PageSize)] };
         }
 
         template<class Fn>

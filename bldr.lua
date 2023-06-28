@@ -2,6 +2,10 @@ if Project "nova" then
     Compile "src/**"
     Include "src"
     Define "NOVA_PLATFORM_WINDOWS"
+    Define {
+        "WINVER=0x011A00",
+        "_WIN32_WINNT=0x011A00",
+    }
     Import {
         -- Core
         "vulkan",

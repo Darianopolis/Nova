@@ -285,7 +285,7 @@ NOVA_DEBUG();
 
         auto lowPriorities = NOVA_ALLOC_STACK(float, 8);
         for (u32 i = 0; i < 8; ++i)
-            priorities[i] = 0.1f;
+            lowPriorities[i] = 0.1f;
 
 NOVA_DEBUG();
         VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {

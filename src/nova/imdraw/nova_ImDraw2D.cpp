@@ -9,29 +9,29 @@
 namespace nova
 {
     ImDraw2D::ImDraw2D(Context* _context)
-        : context(_context)
+        : context{_context}
     {
 
 // -----------------------------------------------------------------------------
 
-        descriptorSetLayout = HDescriptorSetLayout(context, {
+        descriptorSetLayout = context.CreateDescriptorSetLayout({
             nova::binding::SampledTexture("textures", 65'536),
         });
         descriptorSet = descriptorSetLayout.Allocate();
 
-        pipelineLayout = HPipelineLayout(context,
+        pipelineLayout = context.CreatePipelineLayout(
             {{"pc", {PushConstants::Layout.begin(), PushConstants::Layout.end()}}},
             {descriptorSetLayout}, nova::BindPoint::Graphics);
 
 // -----------------------------------------------------------------------------
 
-        rectBuffer = HBuffer(context, sizeof(ImRoundRect) * MaxPrimitives,
+        rectBuffer = context.CreateBuffer(sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
 // -----------------------------------------------------------------------------
 
-        rectVertShader = HShader(context, ShaderStage::Vertex, {
+        rectVertShader = context.CreateShader(ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -54,7 +54,7 @@ namespace nova
             )")
         });
 
-        rectFragShader = HShader(context, ShaderStage::Fragment, {
+        rectFragShader = context.CreateShader(ShaderStage::Fragment, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -97,7 +97,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        defaultSampler = HSampler(context,
+        defaultSampler = context.CreateSampler(
             Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
@@ -173,7 +173,7 @@ namespace nova
         auto font = std::make_unique<ImFont>();
         font->imDraw = this;
 
-        auto staging = HBuffer(context, u64(size) * u64(size) * 4,
+        auto staging = context.CreateBuffer(u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc, BufferFlags::Mapped);
         NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
 
@@ -200,7 +200,7 @@ namespace nova
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = HTexture(context,
+            glyph.texture = context.CreateTexture(
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8U);
@@ -208,11 +208,11 @@ namespace nova
             usz dataSize = w * h * 4;
             std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
 
-            auto cmd = HCommandList(context, context->Commands_Begin(cmdPool, state));
+            auto cmd = HCommandPool(context, cmdPool).Begin(state);
             cmd.CopyToTexture(glyph.texture, staging);
             cmd.GenerateMips(glyph.texture);
-            context->Queue_Submit(queue, {cmd}, {}, {fence});
-            context->Fence_Wait(fence);
+            HQueue(context, queue).Submit({cmd}, {}, {fence});
+            HFence(context, fence).Wait();
 
             glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
