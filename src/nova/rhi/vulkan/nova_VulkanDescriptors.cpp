@@ -21,8 +21,11 @@ namespace nova
             // TODO: Partially bound optional?
             flags[i] = VkDescriptorBindingFlags(0);
 
-            flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
-            flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+            if (!pushDescriptors)
+            {
+                flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+                flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+            }
 
             std::visit(Overloads {
                 [&](const binding::SampledTexture& binding) {

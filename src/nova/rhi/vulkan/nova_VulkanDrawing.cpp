@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    void VulkanContext::Cmd_BeginRendering(CommandList cmd, Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment)
+    void VulkanContext::Cmd_BeginRendering(CommandList cmd, Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment)
     {
         auto& state = Get(Get(cmd).state);
 
@@ -26,12 +26,11 @@ namespace nova
             state.colorAttachmentsFormats[i] = Texture_GetFormat(colorAttachments[i]);
         }
 
-        auto& attach0 = Get(colorAttachments[0]);
-        state.renderingExtent = Vec2U(attach0.extent);
+        state.renderingExtent = region.extent;
 
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = { {}, { attach0.extent.x, attach0.extent.y } },
+            .renderArea = { { region.offset.x, region.offset.y }, { region.extent.x, region.extent.y } },
             .layerCount = 1,
             .colorAttachmentCount = u32(colorAttachments.size()),
             .pColorAttachments = colorAttachmentInfos,

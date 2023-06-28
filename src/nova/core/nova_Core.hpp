@@ -107,6 +107,12 @@ namespace nova
             Vec3       scale = Vec3(1.f);
         };
 
+        struct Rect2D
+        {
+            Vec2I offset = {};
+            Vec2U extent = {};
+        };
+
 // -----------------------------------------------------------------------------
 
         template<class... Ts>

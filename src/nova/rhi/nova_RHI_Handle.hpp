@@ -152,9 +152,9 @@ namespace nova
 
         // Drawing
 
-        void BeginRendering(Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) const
+        void BeginRendering(Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) const
         {
-            ctx->Cmd_BeginRendering(cmd, colorAttachments, depthAttachment, stencilAttachment);
+            ctx->Cmd_BeginRendering(cmd, region, colorAttachments, depthAttachment, stencilAttachment);
         }
 
         void EndRendering() const

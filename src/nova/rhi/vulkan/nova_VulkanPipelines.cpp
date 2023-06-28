@@ -13,9 +13,16 @@ namespace nova
         {
             layout.pcRanges.push_back(range);
             u32 size = 0;
+            u32 largestAlign = 0;
             for (auto& member : range.constants)
+            {
+                largestAlign = std::max(largestAlign, GetShaderVarTypeAlign(member.type));
+                size = AlignUpPower2(size, GetShaderVarTypeAlign(member.type));
                 size += GetShaderVarTypeSize(member.type);
+            }
+            size = AlignUpPower2(size, largestAlign);
             layout.ranges.emplace_back(VK_SHADER_STAGE_ALL, range.offset, size);
+            layout.ranges.back().stageFlags = VK_SHADER_STAGE_ALL;
         }
 
         for (auto& setLayout : _descriptorSetLayouts)

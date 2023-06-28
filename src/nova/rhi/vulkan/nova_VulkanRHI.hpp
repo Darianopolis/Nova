@@ -475,7 +475,7 @@ namespace nova
 //                                Drawing
 // -----------------------------------------------------------------------------
 
-        void Cmd_BeginRendering(CommandList, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) final;
+        void Cmd_BeginRendering(CommandList, Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) final;
         void Cmd_EndRendering(CommandList) final;
         void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) final;
         void Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) final;

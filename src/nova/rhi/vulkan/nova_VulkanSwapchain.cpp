@@ -156,6 +156,7 @@ namespace nova
 
                         texture.extent.x = swapchain.extent.width;
                         texture.extent.y = swapchain.extent.height;
+                        texture.extent.z = 1;
                         texture.format = swapchain.format.format;
                         texture.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                         texture.mips = 1;

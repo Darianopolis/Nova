@@ -362,6 +362,17 @@ namespace nova
         return 0;
     }
 
+    inline constexpr
+    u32 GetShaderVarTypeAlign(ShaderVarType type)
+    {
+        switch (type)
+        {
+        break;case ShaderVarType::U64:
+            return 8;
+        }
+        return 4;
+    }
+
     struct Member
     {
         std::string_view    name;
@@ -606,7 +617,7 @@ namespace nova
 //                                Drawing
 // -----------------------------------------------------------------------------
 
-        virtual void Cmd_BeginRendering(CommandList cmd, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) = 0;
+        virtual void Cmd_BeginRendering(CommandList cmd, Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) = 0;
         virtual void Cmd_EndRendering(CommandList cmd) = 0;
         virtual void Cmd_Draw(CommandList cmd, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) = 0;
         virtual void Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) = 0;
