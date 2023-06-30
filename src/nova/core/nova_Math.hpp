@@ -41,9 +41,9 @@ namespace nova
     }
 
     inline
-    TRS DecomposeAffineTransform(Mat4 _matrix)
+    Trs DecomposeAffineTransform(Mat4 _matrix)
     {
-        TRS trs = {};
+        Trs trs = {};
         auto* matrix = glm::value_ptr(_matrix);
 
         // Extract the translation.

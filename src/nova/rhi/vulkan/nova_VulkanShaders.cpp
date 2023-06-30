@@ -239,6 +239,11 @@ namespace nova
             break;case ShaderVarType::Mat4:
                 return "mat4";
 
+            break;case ShaderVarType::Mat4x3:
+                return "mat4x3";
+            break;case ShaderVarType::Mat3x4:
+                return "mat3x4";
+
             break;case ShaderVarType::Vec2:
                 return "vec2";
             break;case ShaderVarType::Vec3:

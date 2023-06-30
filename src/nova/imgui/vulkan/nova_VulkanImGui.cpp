@@ -96,7 +96,8 @@ namespace nova
         ImGui::DestroyContext(imguiCtx);
     }
 
-    void VulkanImGuiWrapper::BeginFrame()
+    void VulkanImGuiWrapper::BeginFrame_(DockspaceWindowFn fn, void* payload)
+    // void VulkanImGuiWrapper::BeginFrame()
     {
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
@@ -125,7 +126,9 @@ namespace nova
                 | ImGuiWindowFlags_NoResize
                 | ImGuiWindowFlags_NoMove
                 | ImGuiWindowFlags_NoBringToFrontOnFocus
-                | ImGuiWindowFlags_NoNavFocus;
+                | ImGuiWindowFlags_NoNavFocus
+
+                | ImGuiWindowFlags_MenuBar;
 
             // Pass through background
             windowFlags |= ImGuiWindowFlags_NoBackground;
@@ -135,6 +138,9 @@ namespace nova
             ImGui::Begin("Dockspace", Temp(true), windowFlags);
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
+
+            fn(payload, *this);
+
             ImGui::End();
         }
         ended = false;

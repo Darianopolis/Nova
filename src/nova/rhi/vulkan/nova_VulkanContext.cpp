@@ -423,6 +423,7 @@ NOVA_DEBUG();
         for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
         for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
+        for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
 
         // Destroy context vk objects
         vkDestroyPipelineCache(device, pipelineCache, pAlloc);

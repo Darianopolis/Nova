@@ -100,11 +100,102 @@ namespace nova
         using Mat3 = glm::mat3;
         using Mat4 = glm::mat4;
 
-        struct TRS
+        struct Trs
         {
             Vec3 translation = Vec3(0.f);
             Quat    rotation = Vec3(0.f);
             Vec3       scale = Vec3(1.f);
+
+            Trs Copy() const noexcept
+            {
+                return *this;
+            }
+
+            Trs& TranslateWorld(Vec3 delta) noexcept
+            {
+                translation += delta;
+                return *this;
+            }
+
+            Trs& TranslateLocal(Vec3 delta) noexcept
+            {
+                translation += rotation * (delta * scale);
+                return *this;
+            }
+
+            Trs& RotateWorld(Quat delta) noexcept
+            {
+                rotation = glm::normalize(delta * rotation);
+                translation = delta * translation;
+                return *this;
+            }
+
+            Trs& RotateLocal(Quat delta)
+            {
+                rotation = glm::normalize(rotation * delta);
+                return *this;
+            }
+
+            Trs& ScaleWorld(glm::vec3 delta) noexcept
+            {
+                scale *= delta;
+                translation *= delta;
+                return *this;
+            }
+
+            Trs& ScaleLocal(glm::vec3 delta) noexcept
+            {
+                scale *= delta;
+                // translation *= delta; // TODO: Should we apply to translate here?
+                return *this;
+            }
+
+            Mat4 GetMatrix() const noexcept
+            {
+                f32 rx = rotation.x, ry = rotation.y, rz = rotation.z, rw = rotation.w;
+                f32 qxx = rx * rx, qyy = ry * ry, qzz = rz * rz;
+                f32 qxz = rx * rz, qxy = rx * ry, qyz = ry * rz;
+                f32 qwx = rw * rx, qwy = rw * ry, qwz = rw * rz;
+
+                return {
+                    (1.f - 2.f * (qyy + qzz)) * scale.x,        2.f * (qxy + qwz)  * scale.x,        2.f * (qxz - qwy)  * scale.x, 0.f,
+                           2.f * (qxy - qwz)  * scale.y, (1.f - 2.f * (qxx + qzz)) * scale.y,        2.f * (qyz + qwx)  * scale.y, 0.f,
+                           2.f * (qxz + qwy)  * scale.z,        2.f * (qyz - qwx)  * scale.z, (1.f - 2.f * (qxx + qyy)) * scale.z, 0.f,
+                    translation.x, translation.y, translation.z, 1.f
+                };
+            }
+
+            Mat4 GetInverseMatrix() const noexcept
+            {
+                // Unrolled and simplified version of
+                //
+                // auto t = glm::translate(Mat4(1.f), translation);
+                // auto r = glm::mat4_cast(rotation);
+                // auto s = glm::scale(Mat4(1.f), scale);
+                // return glm::affineInverse(t * r * s);
+
+                f32 rx = rotation.x, ry = rotation.y, rz = rotation.z, rw = rotation.w;
+                f32 qxx = rx * rx, qyy = ry * ry, qzz = rz * rz;
+                f32 qxz = rx * rz, qxy = rx * ry, qyz = ry * rz;
+                f32 qwx = rw * rx, qwy = rw * ry, qwz = rw * rz;
+
+                Vec3 r0 { (1.0f - 2.0f * (qyy + qzz)), (2.0f * (qxy - qwz)), (2.0f * (qxz + qwy)) };
+                Vec3 r1 { (2.0f * (qxy + qwz)), (1.0f - 2.0f * (qxx + qzz)), (2.0f * (qyz - qwx)) };
+                Vec3 r2 { (2.0f * (qxz - qwy)), (2.0f * (qyz + qwx)), (1.0f - 2.0f * (qxx + qyy)) };
+
+                f32 sx = 1.f / scale.x, sy = 1.f / scale.y, sz = 1.f / scale.z;
+
+                f32 dx = sx * (r0.x * translation.x + r1.x * translation.y + r2.x * translation.z);
+                f32 dy = sy * (r0.y * translation.x + r1.y * translation.y + r2.y * translation.z);
+                f32 dz = sz * (r0.z * translation.x + r1.z * translation.y + r2.z * translation.z);
+
+                return {
+                    { r0.x * sx, r0.y * sy, r0.z * sz, 0.f },
+                    { r1.x * sx, r1.y * sy, r1.z * sz, 0.f },
+                    { r2.x * sx, r2.y * sy, r2.z * sz, 0.f },
+                    { -dx, -dy, -dz, 1.f }
+                };
+            }
         };
 
         struct Rect2D

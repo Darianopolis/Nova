@@ -27,7 +27,8 @@ namespace nova
 
         ~VulkanImGuiWrapper() final;
 
-        void BeginFrame() final;
+        void BeginFrame_(DockspaceWindowFn fn, void* payload) final;
+        // void BeginFrame() final;
         void EndFrame() final;
 
         bool HasDrawData() final;

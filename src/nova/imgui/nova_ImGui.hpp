@@ -22,8 +22,21 @@ namespace nova
     {
         virtual ~ImGuiWrapper() = default;
 
+    protected:
+        using DockspaceWindowFn = void(*)(void*, ImGuiWrapper&);
+        virtual void BeginFrame_(DockspaceWindowFn fn, void* payload) = 0;
+
     public:
-        virtual void BeginFrame() = 0;
+        template<class Fn>
+        void BeginFrame(Fn&& fn)
+        {
+            BeginFrame_(
+                [](void* payload, ImGuiWrapper& self) { (*static_cast<Fn*>(payload))(self); },
+                const_cast<Fn*>(&fn));
+        }
+
+        // virtual void BeginFrame() = 0;
+
         virtual void EndFrame() = 0;
 
         virtual bool HasDrawData() = 0;

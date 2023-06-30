@@ -330,6 +330,7 @@ namespace nova
     enum class ShaderVarType
     {
         Mat2, Mat3, Mat4,
+        Mat4x3, Mat3x4,
         Vec2, Vec3, Vec4,
         U32, U64,
         I32, I64,
@@ -344,6 +345,9 @@ namespace nova
         break;case ShaderVarType::Mat2: return  4 * 4;
         break;case ShaderVarType::Mat3: return  9 * 4;
         break;case ShaderVarType::Mat4: return 16 * 4;
+
+        break;case ShaderVarType::Mat4x3: return 12 * 4;
+        break;case ShaderVarType::Mat3x4: return 12 * 4;
 
         break;case ShaderVarType::Vec2: return  2 * 4;
         break;case ShaderVarType::Vec3: return  3 * 4;
