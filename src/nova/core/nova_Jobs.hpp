@@ -6,7 +6,7 @@ namespace nova
 {
     struct Job;
 
-    struct Barrier
+    struct Barrier : std::enable_shared_from_this<Barrier>
     {
         std::atomic<u32> counter = 0;
         std::vector<std::shared_ptr<Job>> pending;
@@ -34,21 +34,43 @@ namespace nova
                 NOVA_LOG("   new value = {}", v);
             }
         }
+
+        std::shared_ptr<Barrier> Add(std::shared_ptr<Job> job)
+        {
+            pending.push_back(std::move(job));
+            return shared_from_this();
+        }
+
+        static std::shared_ptr<Barrier> Create()
+        {
+            return std::make_shared<Barrier>();
+        }
     };
 
     struct JobSystem;
 
-    struct Job
+    struct Job : std::enable_shared_from_this<Job>
     {
         JobSystem* system = {};
         std::function<void()> task;
         std::vector<std::shared_ptr<Barrier>> signals;
 
-        void AddSignal(std::shared_ptr<Barrier> signal)
+        static std::shared_ptr<Job> Create(JobSystem* system, std::function<void()> task)
+        {
+            auto job = std::make_shared<Job>();
+            job->system = system;
+            job->task = std::move(task);
+            return job;
+        }
+
+        std::shared_ptr<Job> Signal(std::shared_ptr<Barrier> signal)
         {
             signal->counter++;
             signals.emplace_back(std::move(signal));
+            return shared_from_this();
         }
+
+        void Submit();
 
         // Job** pDependents;
         // Semaphore* pSignal = {};
@@ -165,4 +187,10 @@ namespace nova
             cv.notify_one();
         }
     };
+
+    inline
+    void Job::Submit()
+    {
+        system->Submit(shared_from_this());
+    }
 }

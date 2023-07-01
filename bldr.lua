@@ -22,6 +22,7 @@ if Project "nova" then
         "imgui",
         "imgui-glfw",
         "imgui-vulkan",
+        "imguizmo",
 
         -- Test
         "stb",

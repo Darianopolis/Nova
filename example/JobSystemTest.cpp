@@ -127,26 +127,22 @@ void TestJobSystem()
     {
         auto& texture = textures.emplace_back(std::make_shared<Texture>());
 
-        texture->fileLoadJob = std::make_shared<Job>();
-        texture->fileLoadJob->system = &jobSystem;
-        texture->fileLoadJob->task = [=] {
+        texture->fileLoadJob = Job::Create(&jobSystem, [=] {
             auto target = std::chrono::steady_clock::now() + 25ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
             NOVA_LOG("Loaded texture: {}", (void*)texture.get());
-        };
+        });
 
-        texture->gpuLoadJob = std::make_shared<Job>();
-        texture->gpuLoadJob->system = &uploadQueue;
-        texture->gpuLoadJob->task = [=] {
+        texture->gpuLoadJob = Job::Create(&uploadQueue, [=] {
             auto target = std::chrono::steady_clock::now() + 1ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
             NOVA_LOG("transfer texture to gpu: {}", (void*)texture.get());
-        };
+        });
 
         texture->wait = std::make_shared<Barrier>();
         texture->wait->pending.push_back(texture->gpuLoadJob);
 
-        texture->fileLoadJob->AddSignal(texture->wait);
+        texture->fileLoadJob->Signal(texture->wait);
     }
 
     ankerl::unordered_dense::set<u64> used;
@@ -182,7 +178,7 @@ void TestJobSystem()
         // }
         for (auto& texture : textures)
         {
-            texture->gpuLoadJob->AddSignal(material->wait);
+            texture->gpuLoadJob->Signal(material->wait);
             material->textures.push_back(texture);
         }
     }
@@ -211,7 +207,7 @@ void TestJobSystem()
         mesh->wait = std::make_shared<Barrier>();
         mesh->wait->pending.push_back(mesh->gpuLoadJob);
 
-        mesh->fileLoadJob->AddSignal(mesh->wait);
+        mesh->fileLoadJob->Signal(mesh->wait);
     }
 
     auto completed = std::make_shared<Barrier>();
@@ -230,13 +226,13 @@ void TestJobSystem()
         instance->wait = std::make_shared<Barrier>();
         instance->wait->pending.push_back(instance->job);
 
-        instance->job->AddSignal(completed);
+        instance->job->Signal(completed);
 
         instance->mesh = pickRandom(meshes);
-        instance->mesh->gpuLoadJob->AddSignal(instance->wait);
+        instance->mesh->gpuLoadJob->Signal(instance->wait);
 
         instance->material = pickRandom(materials);
-        instance->material->job->AddSignal(instance->wait);
+        instance->material->job->Signal(instance->wait);
     }
 
 // -----------------------------------------------------------------------------

@@ -6,6 +6,8 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include <ImGuizmo.h>
+
 namespace nova
 {
     VulkanImGuiWrapper::VulkanImGuiWrapper(Context* _context,
@@ -105,6 +107,8 @@ namespace nova
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        ImGuizmo::BeginFrame();
 
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
         {
