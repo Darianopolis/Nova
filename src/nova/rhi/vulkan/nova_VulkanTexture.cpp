@@ -19,8 +19,7 @@ namespace nova
             .addressModeW = VkSamplerAddressMode(addressMode),
             .anisotropyEnable = anisotropy > 0.f,
             .maxAnisotropy = anisotropy,
-            .minLod = -1000.f,
-            .maxLod = 1000.f,
+            .maxLod = VK_LOD_CLAMP_NONE,
             .borderColor = VkBorderColor(color),
         }), pAlloc, &sampler.sampler));
 

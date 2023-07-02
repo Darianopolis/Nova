@@ -9,6 +9,7 @@ namespace nova
     struct Barrier : std::enable_shared_from_this<Barrier>
     {
         std::atomic<u32> counter = 0;
+        u32 acquired = 0;
         std::vector<std::shared_ptr<Job>> pending;
 
         // void Signal()
@@ -33,6 +34,13 @@ namespace nova
                 v = counter.load();
                 NOVA_LOG("   new value = {}", v);
             }
+        }
+
+        std::shared_ptr<Barrier> Acquire(u32 count = 1)
+        {
+            counter += count;
+            acquired += count;
+            return shared_from_this();
         }
 
         std::shared_ptr<Barrier> Add(std::shared_ptr<Job> job)
@@ -65,7 +73,14 @@ namespace nova
 
         std::shared_ptr<Job> Signal(std::shared_ptr<Barrier> signal)
         {
-            signal->counter++;
+            if (signal->acquired > 0)
+            {
+                signal->acquired--;
+            }
+            else
+            {
+                signal->counter++;
+            }
             signals.emplace_back(std::move(signal));
             return shared_from_this();
         }
