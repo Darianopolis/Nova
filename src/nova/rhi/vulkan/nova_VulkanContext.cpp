@@ -149,7 +149,6 @@ Validation: {} ({})
 
         // ---- Logical Device ----
 
-NOVA_DEBUG();
         std::array<VkQueueFamilyProperties, 3> properties;
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, Temp(3u), properties.data());
         for (u32 i = 0; i < 16; ++i)
@@ -172,7 +171,6 @@ NOVA_DEBUG();
         }
         NOVA_LOGEXPR(graphicQueues.size());
         NOVA_LOGEXPR((u32)graphicQueues.front());
-NOVA_DEBUG();
 
         VulkanFeatureChain chain;
 
@@ -189,6 +187,7 @@ NOVA_DEBUG();
             f2.features.fillModeNonSolid = VK_TRUE;
             f2.features.samplerAnisotropy = VK_TRUE;
             f2.features.multiDrawIndirect = VK_TRUE;
+            f2.features.independentBlend = VK_TRUE;
 
             auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
@@ -287,7 +286,6 @@ NOVA_DEBUG();
         for (u32 i = 0; i < 8; ++i)
             lowPriorities[i] = 0.1f;
 
-NOVA_DEBUG();
         VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
@@ -315,7 +313,6 @@ NOVA_DEBUG();
             .enabledExtensionCount = u32(chain.extensions.size()),
             .ppEnabledExtensionNames = deviceExtensions,
         }), pAlloc, &device));
-NOVA_DEBUG();
 
         volkLoadDevice(device);
 
@@ -326,19 +323,15 @@ NOVA_DEBUG();
 
         // ---- Shared resources ----
 
-NOVA_DEBUG();
         for (u32 i = 0; i < graphicQueues.size(); ++i)
             vkGetDeviceQueue(device, Get(graphicQueues[i]).family, i, &Get(graphicQueues[i]).handle);
 
-NOVA_DEBUG();
         for (u32 i = 0; i < transferQueues.size(); ++i)
             vkGetDeviceQueue(device, Get(transferQueues[i]).family, i, &Get(transferQueues[i]).handle);
 
-NOVA_DEBUG();
         for (u32 i = 0; i < computeQueues.size(); ++i)
             vkGetDeviceQueue(device, Get(computeQueues[i]).family, i, &Get(computeQueues[i]).handle);
 
-NOVA_DEBUG();
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = gpu,
@@ -351,7 +344,6 @@ NOVA_DEBUG();
             .instance = instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &vma));
-NOVA_DEBUG();
 
         {
             // Already rely on a bottomless descriptor pool, so not going to pretend to pass some bogus sizes here.
@@ -383,12 +375,10 @@ NOVA_DEBUG();
             }), pAlloc, &descriptorPool));
         }
 
-NOVA_DEBUG();
         VkCall(vkCreatePipelineCache(device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
         }), pAlloc, &pipelineCache));
-NOVA_DEBUG();
 
         NOVA_LOG("Created!");
     }

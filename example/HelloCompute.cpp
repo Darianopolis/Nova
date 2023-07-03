@@ -72,11 +72,11 @@ int main()
 
     auto computeShader = context.CreateShader(nova::ShaderStage::Compute, {
         nova::shader::Layout(pipelineLayout),
-        nova::shader::ComputeKernel(Vec3U(1u), R"(
+        nova::shader::ComputeKernel(Vec3U(1u), R"glsl(
             ivec2 pos = ivec2(gl_WorkGroupID.xy);
             vec2 uv = vec2(pos) / vec2(gl_NumWorkGroups.xy);
             imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
-        )")
+        )glsl")
     });
 
 // -----------------------------------------------------------------------------
@@ -101,9 +101,8 @@ int main()
         // Transition ready for writing ray trace output
 
         cmd.Transition(swapchain.GetCurrent(),
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-            VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
+            nova::TextureLayout::GeneralImage,
+            nova::PipelineStage::Compute);
 
         // Push swapchain image and TLAS descriptors
 

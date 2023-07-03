@@ -79,11 +79,11 @@ void TryMain()
         nova::shader::Layout(pipelineLayout),
 
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Kernel(R"(
+        nova::shader::Kernel(R"glsl(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + ubo.pos, 1);
-        )"),
+        )glsl"),
     });
 
     auto fragmentShader = context.CreateShader(nova::ShaderStage::Fragment, {
@@ -129,7 +129,7 @@ void TryMain()
 
         cmd.BlitImage(target, texture, nova::Filter::Linear);
 
-        cmd.BeginRendering({target});
+        cmd.BeginRendering({{}, swapchain.GetExtent()}, {target});
         cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
         cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
         cmd.BindDescriptorSets(pipelineLayout, 0, {set});

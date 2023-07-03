@@ -92,11 +92,11 @@ int main()
         nova::shader::Layout(pipelineLayout),
 
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Kernel(R"(
+        nova::shader::Kernel(R"glsl(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + ubo.pos, 1);
-        )"),
+        )glsl"),
     });
 
     auto fragmentShader = context.CreateShader(nova::ShaderStage::Fragment, {
@@ -116,7 +116,7 @@ int main()
         cmdPool.Reset();
         auto cmd = cmdPool.Begin(state);
 
-        cmd.BeginRendering({swapchain.GetCurrent()});
+        cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
         cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));

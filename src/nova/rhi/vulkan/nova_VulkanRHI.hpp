@@ -24,7 +24,7 @@ namespace nova
 
     struct VulkanCommandPool
     {
-        Queue     queue = {};
+        Queue queue = {};
 
         VkCommandPool             pool = {};
         std::vector<CommandList> lists = {};
@@ -472,6 +472,12 @@ namespace nova
         void Cmd_PushConstants(CommandList, PipelineLayout layout, u64 offset, u64 size, const void* data) final;
 
 // -----------------------------------------------------------------------------
+//                                Commands
+// -----------------------------------------------------------------------------
+
+        void Cmd_Barrier(CommandList, PipelineStage src, PipelineStage dst) final;
+
+// -----------------------------------------------------------------------------
 //                                Drawing
 // -----------------------------------------------------------------------------
 
@@ -528,6 +534,7 @@ namespace nova
 
         void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) final;
         void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) final;
+        void Cmd_Barrier(CommandList, Buffer buffer, PipelineStage src, PipelineStage dst) final;
 
 // -----------------------------------------------------------------------------
 //                                 Texture
@@ -544,7 +551,8 @@ namespace nova
         Vec3U   Texture_GetExtent(Texture) final;
         Format  Texture_GetFormat(Texture) final;
 
-        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) final;
+        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Cmd_Transition(CommandList, Texture texture, TextureLayout layout, PipelineStage stage) final;
         void Cmd_Clear(CommandList, Texture texture, Vec4 color) final;
         void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) final;
         void Cmd_GenerateMips(CommandList, Texture texture) final;

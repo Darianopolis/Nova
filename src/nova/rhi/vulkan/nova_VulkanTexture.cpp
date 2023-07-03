@@ -191,11 +191,10 @@ namespace nova
         VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess)
     {
         auto& texture = Get(hTexture);
-
         auto& state = Get(Get(cmd).state).imageStates[texture.image];
 
-        if (state.layout == newLayout)
-            return;
+        // if (state.layout == newLayout)
+        //     return;
 
         vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -203,11 +202,11 @@ namespace nova
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
-                // .srcStageMask = state.stage,
-                .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .srcStageMask = state.stage,
+                // .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .srcAccessMask = state.access,
-                // .dstStageMask = newStages,
-                .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                .dstStageMask = newStages,
+                // .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .dstAccessMask = newAccess,
 
                 .oldLayout = state.layout,
@@ -220,6 +219,39 @@ namespace nova
         state.layout = newLayout;
         state.stage = newStages;
         state.access = newAccess;
+    }
+
+    void VulkanContext::Cmd_Transition(CommandList cmd, Texture hTexture, TextureLayout layout, PipelineStage stage)
+    {
+        Cmd_Transition(cmd, hTexture,
+            VkImageLayout(layout),
+            VkPipelineStageFlags2(stage),
+            VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
+
+        auto& texture = Get(hTexture);
+        auto& state = Get(Get(cmd).state).imageStates[texture.image];
+
+        vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+
+                .srcStageMask = state.stage,
+                .srcAccessMask = state.access,
+                .dstStageMask = VkPipelineStageFlags2(stage),
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+
+                .oldLayout = state.layout,
+                .newLayout = VkImageLayout(layout),
+                .image = texture.image,
+                .subresourceRange = { texture.aspect, 0, texture.mips, 0, texture.layers },
+            })
+        }));
+
+        state.layout = VkImageLayout(layout);
+        state.stage = VkPipelineStageFlags2(stage);
+        state.access = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
     }
 
     void VulkanContext::Cmd_Clear(CommandList cmd, Texture hTexture, Vec4 color)

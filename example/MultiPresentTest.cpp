@@ -94,7 +94,7 @@ int main()
         cmd.Clear(swapchain1.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
-        imgui.BeginFrame();
+        imgui.BeginFrame([]{});
         ImGui::ShowDemoWindow();
         imgui.DrawFrame(cmd, swapchain1.GetCurrent());
 

@@ -106,9 +106,9 @@ namespace nova
 
         // Textures
 
-        void Transition(Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const
+        void Transition(Texture texture, TextureLayout layout, PipelineStage stage) const
         {
-            ctx->Cmd_Transition(cmd, texture, newLayout, newStages, newAccess);
+            ctx->Cmd_Transition(cmd, texture, layout, stage);
         }
 
         void Clear(Texture texture, Vec4 color) const
@@ -148,6 +148,13 @@ namespace nova
         void PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const
         {
             ctx->Cmd_PushConstants(cmd, layout, offset, size, data);
+        }
+
+        // Commands
+
+        void Barrier(PipelineStage src, PipelineStage dst) const
+        {
+            ctx->Cmd_Barrier(cmd, src, dst);
         }
 
         // Drawing
@@ -219,6 +226,11 @@ namespace nova
         void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const
         {
             ctx->Cmd_CopyToBuffer(cmd, dst, src, size, dstOffset, srcOffset);
+        }
+
+        void Barrier(Buffer buffer, PipelineStage src, PipelineStage dst) const
+        {
+            ctx->Cmd_Barrier(cmd, buffer, src, dst);
         }
 
         // Acceleration Structures

@@ -205,7 +205,7 @@ void TryMain()
 
         queue.Acquire({swapchain}, {fence});
 
-        cmd.BeginRendering({swapchain.GetCurrent()});
+        cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(0.f), imDraw.GetBounds().Size());
         imDraw.Record(cmd);
         cmd.EndRendering();

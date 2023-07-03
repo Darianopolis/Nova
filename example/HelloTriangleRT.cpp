@@ -75,11 +75,11 @@ int main()
 
     auto rayGenShader = ctx->Shader_Create(nova::ShaderStage::RayGen, {
         nova::shader::Layout(pipelineLayout),
-        nova::shader::Fragment(R"(
+        nova::shader::Fragment(R"glsl(
             layout(location = 0) rayPayloadEXT uint     payload;
             layout(location = 0) hitObjectAttributeNV vec3 bary;
-        )"),
-        nova::shader::Kernel(R"(
+        )glsl"),
+        nova::shader::Kernel(R"glsl(
             vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
             vec3 dir = vec3(0, 0, -1);
             hitObjectNV hit;
@@ -94,7 +94,7 @@ int main()
             {
                 imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
             }
-        )")
+        )glsl")
     });
 
     // Create a ray tracing pipeline with one ray gen shader
@@ -216,10 +216,10 @@ int main()
 
         // Transition ready for writing ray trace output
 
+        ctx->Cmd_Barrier(cmd, nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
         ctx->Cmd_Transition(cmd, ctx->Swapchain_GetCurrent(swapchain),
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-            VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT);
+            nova::TextureLayout::GeneralImage,
+            nova::PipelineStage::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 

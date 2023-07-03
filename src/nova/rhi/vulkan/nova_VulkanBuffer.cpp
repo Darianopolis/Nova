@@ -143,4 +143,21 @@ namespace nova
             }),
         }));
     }
+
+    void VulkanContext::Cmd_Barrier(CommandList cmd, Buffer buffer, PipelineStage src, PipelineStage dst)
+    {
+        vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+                .srcStageMask = VkPipelineStageFlags2(src),
+                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .dstStageMask = VkPipelineStageFlags2(dst),
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .buffer = Get(buffer).buffer,
+                .size = VK_WHOLE_SIZE,
+            }),
+        }));
+    }
 }

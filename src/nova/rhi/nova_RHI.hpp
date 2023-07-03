@@ -196,13 +196,6 @@ namespace nova
         Present,
     };
 
-    enum class PipelineStage
-    {
-        Compute = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        Graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-        RayTracing = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-    };
-
     enum class BindPoint : u32
     {
         // TODO: Support transfer
@@ -300,6 +293,27 @@ namespace nova
         Transfer = VK_QUEUE_TRANSFER_BIT
     };
     NOVA_DECORATE_FLAG_ENUM(QueueFlags)
+
+    enum class PipelineStage : u64
+    {
+        None = VK_PIPELINE_STAGE_2_NONE,
+        Transfer = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+        Graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+        RayTracing = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+        Compute = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        AccelBuild = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+        All = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+    };
+    NOVA_DECORATE_FLAG_ENUM(PipelineStage)
+
+    enum class TextureLayout : u32
+    {
+        GeneralImage = VK_IMAGE_LAYOUT_GENERAL,
+        ColorAttachment = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        DepthStencilAttachment = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        Sampled = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        Present = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
 
 // -----------------------------------------------------------------------------
 
@@ -618,6 +632,12 @@ namespace nova
         virtual void Cmd_PushConstants(CommandList, PipelineLayout layout, u64 offset, u64 size, const void* data) = 0;
 
 // -----------------------------------------------------------------------------
+//                                Commands
+// -----------------------------------------------------------------------------
+
+        virtual void Cmd_Barrier(CommandList, PipelineStage src, PipelineStage dst) = 0;
+
+// -----------------------------------------------------------------------------
 //                                Drawing
 // -----------------------------------------------------------------------------
 
@@ -682,6 +702,7 @@ namespace nova
 
         virtual void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) = 0;
         virtual void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) = 0;
+        virtual void Cmd_Barrier(CommandList, Buffer buffer, PipelineStage src, PipelineStage dst) = 0;
 
 // -----------------------------------------------------------------------------
 //                                 Texture
@@ -695,7 +716,8 @@ namespace nova
         virtual Vec3U   Texture_GetExtent(Texture) = 0;
         virtual Format  Texture_GetFormat(Texture) = 0;
 
-        virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
+        // virtual void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) = 0;
+        virtual void Cmd_Transition(CommandList, Texture texture, TextureLayout layout, PipelineStage stage) = 0;
         virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
         virtual void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) = 0;
         virtual void Cmd_GenerateMips(CommandList, Texture texture) = 0;

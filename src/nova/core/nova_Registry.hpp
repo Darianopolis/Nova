@@ -12,13 +12,13 @@ namespace nova
             std::array<Element, PageSize> page;
         };
 
-        std::shared_mutex mutex;
+        std::shared_mutex                        mutex;
         std::list<std::unique_ptr<Page*[]>> pageTables;
 
         std::atomic<Page**> pageTable;
-        std::atomic<usz> size = 0;
-        std::atomic<usz> capacity = 0;
-        size_t pages = 0;
+        std::atomic<usz>         size = 0;
+        std::atomic<usz>     capacity = 0;
+        size_t                  pages = 0;
 
     public:
         ConcurrentDynamicArray()
@@ -34,20 +34,17 @@ namespace nova
 
         Element& operator[](size_t index)
         {
-            // std::scoped_lock lock{mutex};
             size_t pageIndex = index / PageSize;
             return pageTable[pageIndex]->page[index - (pageIndex * PageSize)];
         }
 
         size_t GetSize()
         {
-            // std::scoped_lock lock{mutex};
             return size;
         }
 
         std::pair<usz, Element&> EmplaceBackNoLock()
         {
-            // std::scoped_lock lock{mutex};
             size_t pageIndex = size / PageSize;
 
             if (size >= capacity)
@@ -75,7 +72,6 @@ namespace nova
 
         std::pair<usz, Element&> EmplaceBack()
         {
-            // std::scoped_lock lock{mutex};
             size_t pageIndex = size / PageSize;
 
             if (size >= capacity)
@@ -89,7 +85,6 @@ namespace nova
                     {
                         auto oldPages = pages;
                         pages = std::max(16ull, pages * 2);
-                        NOVA_LOG("Page index table expanded from {} to {}", oldPages, pages);
                         auto newPageTable = std::make_unique<Page*[]>(pages);
                         std::memcpy(newPageTable.get(), pageTable.load(), oldPages * sizeof(void*));
                         pageTable.exchange(newPageTable.get());
@@ -99,7 +94,6 @@ namespace nova
                     pageTable[pageIndex] = newPage;
 
                     capacity += PageSize;
-                    // NOVA_LOG("  Capacity {} -> {}", capacity - PageSize, capacity.load());
                 }
             }
 
@@ -123,9 +117,7 @@ namespace nova
             Empty = 0,
             Exists = 1,
         };
-        // std::vector<ElementFlag> flags;
-        // TODO: Pointer stable colony/hive
-        // std::vector<std::unique_ptr<Element>>  elements;
+
         ConcurrentDynamicArray<std::pair<std::atomic<ElementFlag>, Element>> elements;
         std::vector<Key>      freelist;
 
@@ -133,8 +125,6 @@ namespace nova
 
         Registry()
         {
-            // flags.push_back(ElementFlag::Empty);
-            // elements.emplace_back();
             elements.EmplaceBack();
         }
 
@@ -144,21 +134,10 @@ namespace nova
 
             if (freelist.empty())
             {
-                // auto& element = elements.emplace_back(std::make_unique<Element>());
-                // flags.push_back(defer ? ElementFlag::Empty : ElementFlag::Exists);
-                // return { Key(elements.size() - 1), *element };
-
                 auto[index, entry] = elements.EmplaceBackNoLock();
                 entry.first = defer ? ElementFlag::Empty : ElementFlag::Exists;
                 return { Key(index), entry.second };
             }
-
-            // Key key = freelist.back();
-            // freelist.pop_back();
-            // flags[static_cast<std::underlying_type_t<Key>>(key)] = defer
-            //     ? ElementFlag::Empty
-            //     : ElementFlag::Exists;
-            // return { key, *elements[static_cast<std::underlying_type_t<Key>>(key)] };
 
             Key key = freelist.back();
             freelist.pop_back();
@@ -171,47 +150,32 @@ namespace nova
         {
             std::scoped_lock lock{mutex};
 
-            // flags[static_cast<std::underlying_type_t<Key>>(key)] = ElementFlag::Empty;
             elements[usz(key)].first = ElementFlag::Empty;
             freelist.push_back(key);
         }
 
         bool IsValid(Key key)
         {
-            // std::scoped_lock lock{mutex};
-
-            // return flags[static_cast<std::underlying_type_t<Key>>(key)] != ElementFlag::Empty;
             return elements[usz(key)].first != ElementFlag::Empty;
         }
 
         void MarkExists(Key key)
         {
-            // std::scoped_lock lock{mutex};
-
-            // flags[static_cast<std::underlying_type_t<Key>>(key)] = ElementFlag::Exists;
             elements[usz(key)].first = ElementFlag::Exists;
         }
 
         NOVA_FORCE_INLINE
         Element& Get(Key key) noexcept
         {
-            // std::scoped_lock lock{mutex};
-
-            // return *elements[static_cast<std::underlying_type_t<Key>>(key)];
             return elements[usz(key)].second;
         }
 
         template<class Fn>
         void ForEach(Fn&& visit)
         {
-            // std::scoped_lock lock{mutex};
-
             u64 size = elements.GetSize();
-            // for (uint32_t i = 0; i < elements.size(); ++i)
             for (u32 i = 1; i < size; ++i)
             {
-                // if (flags[i] == ElementFlag::Exists)
-
                 // TODO: This is a race condition
                 //   Return after visit yield dangling reference
                 if (IsValid(Key(i)))
@@ -225,7 +189,6 @@ namespace nova
         {
             std::scoped_lock lock{mutex};
 
-            // return uint32_t(elements.size() - freelist.size());
             return u32(elements.GetSize() - freelist.size());
         }
     };

@@ -24,15 +24,13 @@ namespace nova
         //     }
         // }
 
-        void Wait(u32 target = 0)
+        void Wait()
         {
             u32 v = counter.load();
-            while (v != target)
+            while (v != 0)
             {
-                NOVA_LOG("not at target, waiting, current value = {}", v);
                 counter.wait(v);
                 v = counter.load();
-                NOVA_LOG("   new value = {}", v);
             }
         }
 

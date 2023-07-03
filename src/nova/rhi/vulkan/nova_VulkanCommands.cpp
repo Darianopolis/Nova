@@ -92,4 +92,19 @@ namespace nova
         (void)stages;
         (void)access;
     }
+
+    void VulkanContext::Cmd_Barrier(CommandList cmd, PipelineStage src, PipelineStage dst)
+    {
+        vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = Temp(VkMemoryBarrier2 {
+                .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+                .srcStageMask = VkPipelineStageFlags2(src),
+                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+                .dstStageMask = VkPipelineStageFlags2(dst),
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
+            }),
+        }));
+    }
 }

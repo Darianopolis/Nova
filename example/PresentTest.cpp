@@ -77,11 +77,11 @@ void TryMain()
         nova::shader::Layout(pipelineLayout),
 
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Kernel(R"(
+        nova::shader::Kernel(R"glsl(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + ubo.pos, 1);
-        )"),
+        )glsl"),
     });
 
     auto fragmentShader = ctx->Shader_Create(nova::ShaderStage::Fragment, {
@@ -126,7 +126,7 @@ void TryMain()
 
         ctx->Cmd_BlitImage(cmd, target, texture, nova::Filter::Linear);
 
-        ctx->Cmd_BeginRendering(cmd, {target});
+        ctx->Cmd_BeginRendering(cmd, {{}, ctx->Swapchain_GetExtent(swapchain)}, {target});
         ctx->Cmd_SetGraphicsState(cmd, pipelineLayout, {vertexShader, fragmentShader}, {});
         ctx->Cmd_PushConstants(cmd, pipelineLayout, 0, sizeof(u64), nova::Temp(ctx->Buffer_GetAddress(vertices)));
         ctx->Cmd_BindDescriptorSets(cmd, pipelineLayout, 0, {set});
