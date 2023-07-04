@@ -222,8 +222,9 @@ namespace nova
 
     void VulkanContext::Cmd_Transition(CommandList cmd, Texture hTexture, TextureLayout layout, PipelineStage stage)
     {
+        auto& queue = Get(Get(Get(cmd).pool).queue);
         auto vkLayout = GetVulkanImageLayout(layout);
-        auto vkStage = GetVulkanPipelineStage(stage);
+        auto vkStage = GetVulkanPipelineStage(stage) & queue.stages;
 
         Cmd_Transition(cmd, hTexture,
             vkLayout,

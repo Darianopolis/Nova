@@ -12,8 +12,9 @@ namespace nova
 
     struct VulkanQueue
     {
-        VkQueue handle = {};
-        u32     family = UINT32_MAX;
+        VkQueue               handle = {};
+        u32                   family = UINT32_MAX;
+        VkPipelineStageFlags2 stages = {};
     };
 
     struct VulkanFence

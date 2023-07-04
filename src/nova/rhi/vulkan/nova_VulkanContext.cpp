@@ -154,18 +154,21 @@ Validation: {} ({})
         for (u32 i = 0; i < 16; ++i)
         {
             auto[id, queue] = queues.Acquire();
+            queue.stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             graphicQueues.emplace_back(id);
             queue.family = 0;
         }
         for (u32 i = 0; i < 2; ++i)
         {
             auto[id, queue] = queues.Acquire();
+            queue.stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             transferQueues.emplace_back(id);
             queue.family = 1;
         }
         for (u32 i = 0; i < 8; ++i)
         {
             auto[id, queue] = queues.Acquire();
+            queue.stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             computeQueues.emplace_back(id);
             queue.family = 2;
         }

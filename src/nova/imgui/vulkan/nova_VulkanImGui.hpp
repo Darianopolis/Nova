@@ -9,11 +9,11 @@ namespace nova
     struct VulkanImGuiWrapper : ImGuiWrapper
     {
         VulkanContext*          context = {};
-        VkRenderPass   renderPass = {};
-        VkFramebuffer framebuffer = {};
+        // VkRenderPass   renderPass = {};
+        // VkFramebuffer framebuffer = {};
 
-        Vec2U         lastSize = {};
-        TextureUsage lastUsage = {};
+        // Vec2U         lastSize = {};
+        // TextureUsage lastUsage = {};
 
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
