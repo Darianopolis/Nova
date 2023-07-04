@@ -1,4 +1,4 @@
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include <nova/rhi/nova_RHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -33,7 +33,8 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    std::unique_ptr<nova::Context> ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
         .debug = true,
         .rayTracing = true,
     });
@@ -125,7 +126,7 @@ int main()
     // Configure BLAS build
 
     ctx->AccelerationStructures_SetTriangles(builder, 0,
-        ctx->Buffer_GetAddress(vertices), nova::Format::RGB32F, u32(sizeof(Vec3)), 2,
+        ctx->Buffer_GetAddress(vertices), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
         ctx->Buffer_GetAddress(indices), nova::IndexType::U32, 1);
     ctx->AccelerationStructures_Prepare(builder,
         nova::AccelerationStructureType::BottomLevel,

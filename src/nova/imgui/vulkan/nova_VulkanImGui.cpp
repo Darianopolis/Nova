@@ -99,7 +99,6 @@ namespace nova
     }
 
     void VulkanImGuiWrapper::BeginFrame_(DockspaceWindowFn fn, void* payload)
-    // void VulkanImGuiWrapper::BeginFrame()
     {
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);

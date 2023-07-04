@@ -4,22 +4,22 @@ namespace nova
 {
     VkBufferUsageFlags GetVulkanBufferUsage(BufferUsage usage)
     {
-        VkBufferUsageFlags flags = 0;
+        VkBufferUsageFlags out = 0;
 
-        if (usage >= BufferUsage::TransferSrc) flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        if (usage >= BufferUsage::TransferDst) flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (usage >= BufferUsage::Uniform) flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        if (usage >= BufferUsage::Storage) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        if (usage >= BufferUsage::Index) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-        if (usage >= BufferUsage::Vertex) flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        if (usage >= BufferUsage::Indirect) flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-        if (usage >= BufferUsage::ShaderBindingTable) flags |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-        if (usage >= BufferUsage::AccelBuild) flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-        if (usage >= BufferUsage::AccelStorage) flags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
-        if (usage >= BufferUsage::DescriptorSamplers) flags |= VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
-        if (usage >= BufferUsage::DescriptorResources) flags |= VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+        if (usage >= BufferUsage::TransferSrc) out |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        if (usage >= BufferUsage::TransferDst) out |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (usage >= BufferUsage::Uniform) out |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        if (usage >= BufferUsage::Storage) out |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        if (usage >= BufferUsage::Index) out |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        if (usage >= BufferUsage::Vertex) out |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        if (usage >= BufferUsage::Indirect) out |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+        if (usage >= BufferUsage::ShaderBindingTable) out |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+        if (usage >= BufferUsage::AccelBuild) out |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        if (usage >= BufferUsage::AccelStorage) out |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+        if (usage >= BufferUsage::DescriptorSamplers) out |= VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
+        if (usage >= BufferUsage::DescriptorResources) out |= VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-        return flags;
+        return out;
     }
 
     VkImageUsageFlags GetVulkanImageUsage(TextureUsage usage)
@@ -41,21 +41,21 @@ namespace nova
         switch (format)
         {
         break;case Format::Undefined: return VK_FORMAT_UNDEFINED;
-        break;case Format::RGBA8U: return VK_FORMAT_R8G8B8A8_UNORM;
+        break;case Format::RGBA8_UNorm: return VK_FORMAT_R8G8B8A8_UNORM;
         break;case Format::RGBA8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
-        break;case Format::RGBA16F: return VK_FORMAT_R16G16B16A16_SFLOAT;
-        break;case Format::RGBA32F: return VK_FORMAT_R32G32B32A32_SFLOAT;
-        break;case Format::BGRA8U: return VK_FORMAT_B8G8R8A8_UNORM;
+        break;case Format::RGBA16_SFloat: return VK_FORMAT_R16G16B16A16_SFLOAT;
+        break;case Format::RGBA32_SFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        break;case Format::BGRA8_UNorm: return VK_FORMAT_B8G8R8A8_UNORM;
         break;case Format::BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
-        break;case Format::RGB32F: return VK_FORMAT_R32G32B32_SFLOAT;
-        break;case Format::R8U: return VK_FORMAT_R8_UNORM;
-        break;case Format::R32F: return VK_FORMAT_R32_SFLOAT;
-        break;case Format::R8UInt: return VK_FORMAT_R8_UINT;
-        break;case Format::R16UInt: return VK_FORMAT_R16_UINT;
-        break;case Format::R32UInt: return VK_FORMAT_R32_UINT;
-        break;case Format::D24U_X8: return VK_FORMAT_X8_D24_UNORM_PACK32;
-        break;case Format::D24U_S8: return VK_FORMAT_D24_UNORM_S8_UINT;
-        break;case Format::D32: return VK_FORMAT_D32_SFLOAT;
+        break;case Format::RGB32_SFloat: return VK_FORMAT_R32G32B32_SFLOAT;
+        break;case Format::R8_UNorm: return VK_FORMAT_R8_UNORM;
+        break;case Format::R32_SFloat: return VK_FORMAT_R32_SFLOAT;
+        break;case Format::R8_UInt: return VK_FORMAT_R8_UINT;
+        break;case Format::R16_UInt: return VK_FORMAT_R16_UINT;
+        break;case Format::R32_UInt: return VK_FORMAT_R32_UINT;
+        break;case Format::D24_UNorm: return VK_FORMAT_X8_D24_UNORM_PACK32;
+        break;case Format::S8_D24_UNorm: return VK_FORMAT_D24_UNORM_S8_UINT;
+        break;case Format::D32_SFloat: return VK_FORMAT_D32_SFLOAT;
         }
 
         NOVA_THROW("Unknown Format: {}", u32(format));
@@ -66,21 +66,21 @@ namespace nova
         switch (format)
         {
         break;case VK_FORMAT_UNDEFINED: return Format::Undefined;
-        break;case VK_FORMAT_R8G8B8A8_UNORM: return Format::RGBA8U;
+        break;case VK_FORMAT_R8G8B8A8_UNORM: return Format::RGBA8_UNorm;
         break;case VK_FORMAT_R8G8B8A8_SRGB: return Format::RGBA8_SRGB;
-        break;case VK_FORMAT_R16G16B16A16_SFLOAT: return Format::RGBA16F;
-        break;case VK_FORMAT_R32G32B32A32_SFLOAT: return Format::RGBA32F;
-        break;case VK_FORMAT_B8G8R8A8_UNORM: return Format::BGRA8U;
+        break;case VK_FORMAT_R16G16B16A16_SFLOAT: return Format::RGBA16_SFloat;
+        break;case VK_FORMAT_R32G32B32A32_SFLOAT: return Format::RGBA32_SFloat;
+        break;case VK_FORMAT_B8G8R8A8_UNORM: return Format::BGRA8_UNorm;
         break;case VK_FORMAT_B8G8R8A8_SRGB: return Format::BGRA8_SRGB;
-        break;case VK_FORMAT_R32G32B32_SFLOAT: return Format::RGB32F;
-        break;case VK_FORMAT_R8_UNORM: return Format::R8U;
-        break;case VK_FORMAT_R32_SFLOAT: return Format::R32F;
-        break;case VK_FORMAT_R8_UINT: return Format::R8UInt;
-        break;case VK_FORMAT_R16_UINT: return Format::R16UInt;
-        break;case VK_FORMAT_R32_UINT: return Format::R32UInt;
-        break;case VK_FORMAT_X8_D24_UNORM_PACK32: return Format::D24U_X8;
-        break;case VK_FORMAT_D24_UNORM_S8_UINT: return Format::D24U_S8;
-        break;case VK_FORMAT_D32_SFLOAT: return Format::D32;
+        break;case VK_FORMAT_R32G32B32_SFLOAT: return Format::RGB32_SFloat;
+        break;case VK_FORMAT_R8_UNORM: return Format::R8_UNorm;
+        break;case VK_FORMAT_R32_SFLOAT: return Format::R32_SFloat;
+        break;case VK_FORMAT_R8_UINT: return Format::R8_UInt;
+        break;case VK_FORMAT_R16_UINT: return Format::R16_UInt;
+        break;case VK_FORMAT_R32_UINT: return Format::R32_UInt;
+        break;case VK_FORMAT_X8_D24_UNORM_PACK32: return Format::D24_UNorm;
+        break;case VK_FORMAT_D24_UNORM_S8_UINT: return Format::S8_D24_UNorm;
+        break;case VK_FORMAT_D32_SFLOAT: return Format::D32_SFloat;
         }
 
         NOVA_THROW("Unknown VkFormat: {}", u32(format));

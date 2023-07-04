@@ -1,8 +1,6 @@
 #include <nova/rhi/nova_RHI_Handle.hpp>
 #include <nova/core/nova_Timer.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
 #include <nova/imdraw/nova_ImDraw2D.hpp>
 
 #include <GLFW/glfw3.h>
@@ -35,10 +33,11 @@ void TryMain()
     //   apply chroma key based on alpha.
     SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
 
-    nova::VulkanContext ctx{{
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
         .debug = false,
-    }};
-    auto context = nova::HContext(&ctx);
+    });
+    auto context = nova::HContext(ctx);
 
     auto swapchain = context.CreateSwapchain(hwnd,
         nova::TextureUsage::TransferDst
@@ -66,7 +65,7 @@ void TryMain()
         texture = context.CreateTexture(
             Vec3(f32(w), f32(h), 0.f),
             nova::TextureUsage::Sampled,
-            nova::Format::RGBA8U);
+            nova::Format::RGBA8_UNorm);
 
         usz size = w * h * 4;
         auto staging = context.CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);

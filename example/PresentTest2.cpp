@@ -1,8 +1,6 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/nova_RHI_Handle.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -12,11 +10,12 @@ using namespace nova::types;
 
 void TryMain()
 {
-    auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
         .debug = true,
     });
 
-    auto context = nova::HContext(ctx.get());
+    auto context = nova::HContext(ctx);
 
     glfwInit();
     NOVA_ON_SCOPE_EXIT(&) { glfwTerminate(); };
@@ -100,7 +99,7 @@ void TryMain()
 
         texture = context.CreateTexture({ u32(w), u32(h), 0 },
             nova::TextureUsage::Sampled,
-            nova::Format::RGBA8U);
+            nova::Format::RGBA8_UNorm);
 
         usz size = w * h * 4;
         auto staging = context.CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);

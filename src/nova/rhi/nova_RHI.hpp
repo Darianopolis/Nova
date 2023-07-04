@@ -1,7 +1,7 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-
+#include <nova/core/nova_Ref.hpp>
 #include <nova/core/nova_Math.hpp>
 
 // #define NOVA_NOISY_VULKAN_ALLOCATIONS
@@ -102,34 +102,31 @@ namespace nova
     {
         Undefined,
 
-        RGBA8U,
         RGBA8_SRGB,
-
-        RGBA16F,
-        RGBA32F,
-
-        BGRA8U,
         BGRA8_SRGB,
 
-        RGB32F,
+        R8_UNorm,
+        RGBA8_UNorm,
+        BGRA8_UNorm,
 
-        R8U,
-        R32F,
+        R32_SFloat,
+        RGB32_SFloat,
+        RGBA16_SFloat,
+        RGBA32_SFloat,
 
-        R8UInt,
-        R16UInt,
-        R32UInt,
+        R8_UInt,
+        R16_UInt,
+        R32_UInt,
 
-        D24U_X8,
-        D24U_S8,
-
-        D32,
+        D24_UNorm,
+        D32_SFloat,
+        S8_D24_UNorm,
     };
 
     enum class IndexType : u32
     {
-        U16,
         U32,
+        U16,
         U8,
     };
 
@@ -237,6 +234,7 @@ namespace nova
         None,
         Front = 1 << 0,
         Back  = 1 << 1,
+        FrontAndBack = Front | Back,
     };
     NOVA_DECORATE_FLAG_ENUM(CullMode);
 
@@ -279,7 +277,7 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(QueueFlags)
 
-    enum class PipelineStage : u64
+    enum class PipelineStage : u32
     {
         None,
         Transfer   = 1 << 0,
@@ -287,7 +285,7 @@ namespace nova
         RayTracing = 1 << 2,
         Compute    = 1 << 3,
         AccelBuild = 1 << 4,
-        All        = 1 << 5,
+        All        = Transfer | Graphics | RayTracing | Compute | AccelBuild,
     };
     NOVA_DECORATE_FLAG_ENUM(PipelineStage)
 
@@ -519,15 +517,25 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    enum class Backend
+    {
+        None,
+        Vulkan,
+    };
+
     struct ContextConfig
     {
-        bool debug = false;
-        bool rayTracing = false;
+        Backend        backend = {};
+        bool             debug = false;
+        bool        rayTracing = false;
         bool descriptorBuffers = false;
     };
 
-    struct Context
+    struct Context : RefCounted
     {
+        static Ref<Context> Create(const ContextConfig& config);
+
+    public:
         virtual ~Context() {}
 
         virtual void WaitIdle() = 0;

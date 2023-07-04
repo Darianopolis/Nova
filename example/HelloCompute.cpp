@@ -1,5 +1,4 @@
 #include <nova/rhi/nova_RHI_Handle.hpp>
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -34,10 +33,11 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    nova::VulkanContext ctx {{
-        .debug = false
-    }};
-    auto context = nova::HContext(&ctx);
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
+        .debug = true,
+    });
+    auto context = nova::HContext(ctx);
 
     // Create surface and swapchain for GLFW window
 

@@ -1,8 +1,6 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/nova_RHI_Handle.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -12,7 +10,8 @@ using namespace nova::types;
 
 void TryMain()
 {
-    auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
         .debug = true,
     });
 
@@ -24,7 +23,7 @@ void TryMain()
     NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window); };
     HWND hwnd = glfwGetWin32Window(window);
 
-    NOVA_LOGEXPR(ctx);
+    NOVA_LOGEXPR(ctx.Raw());
     auto swapchain = ctx->Swapchain_Create(hwnd,
         nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage,
         nova::PresentMode::Mailbox);
@@ -98,7 +97,7 @@ void TryMain()
 
         texture = ctx->Texture_Create({ u32(w), u32(h), 0 },
             nova::TextureUsage::Sampled,
-            nova::Format::RGBA8U);
+            nova::Format::RGBA8_UNorm);
 
         usz size = w * h * 4;
         auto staging = ctx->Buffer_Create(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);

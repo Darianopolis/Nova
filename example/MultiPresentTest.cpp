@@ -3,7 +3,6 @@
 #include <nova/core/nova_Timer.hpp>
 #include <nova/imgui/nova_ImGui.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 #include <nova/imgui/vulkan/nova_VulkanImGui.hpp>
 
 #include <GLFW/glfw3.h>
@@ -17,10 +16,11 @@ using namespace nova::types;
 
 int main()
 {
-    auto ctx = std::make_unique<nova::VulkanContext>(nova::ContextConfig {
-        .debug = false
+    auto ctx = nova::Context::Create({
+        .backend = nova::Backend::Vulkan,
+        .debug = true,
     });
-    auto context = nova::HContext(ctx.get());
+    auto context = nova::HContext(ctx);
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach

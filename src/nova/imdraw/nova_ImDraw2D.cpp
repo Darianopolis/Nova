@@ -203,7 +203,7 @@ namespace nova
             glyph.texture = context.CreateTexture(
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
-                Format::RGBA8U);
+                Format::RGBA8_UNorm);
 
             usz dataSize = w * h * 4;
             std::memcpy(staging.GetMapped(), pixels.data(), dataSize);

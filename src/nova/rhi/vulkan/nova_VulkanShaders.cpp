@@ -359,13 +359,13 @@ namespace nova
                                     const char* imageType;
                                     switch (binding.format)
                                     {
-                                    break;case Format::RGBA8U:
-                                            case Format::BGRA8U:
+                                    break;case Format::RGBA8_UNorm:
+                                            case Format::BGRA8_UNorm:
                                             case Format::RGBA8_SRGB:
                                             case Format::BGRA8_SRGB:
                                         formatString = "rgba8";
                                         imageType = "image2D";
-                                    break;case Format::R32UInt:
+                                    break;case Format::R32_UInt:
                                         formatString = "r32ui";
                                         imageType = "uimage2D";
                                     break;default:
