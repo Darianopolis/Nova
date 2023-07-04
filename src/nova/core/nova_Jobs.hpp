@@ -1,16 +1,17 @@
 #pragma once
 
 #include "nova_Core.hpp"
+#include "nova_Ref.hpp"
 
 namespace nova
 {
     struct Job;
 
-    struct Barrier : std::enable_shared_from_this<Barrier>
+    struct Barrier : RefCounted
     {
         std::atomic<u32> counter = 0;
         u32 acquired = 0;
-        std::vector<std::shared_ptr<Job>> pending;
+        std::vector<Ref<Job>> pending;
 
         // void Signal()
         // {
@@ -34,42 +35,42 @@ namespace nova
             }
         }
 
-        std::shared_ptr<Barrier> Acquire(u32 count = 1)
+        Ref<Barrier> Acquire(u32 count = 1)
         {
             counter += count;
             acquired += count;
-            return shared_from_this();
+            return this;
         }
 
-        std::shared_ptr<Barrier> Add(std::shared_ptr<Job> job)
+        Ref<Barrier> Add(Ref<Job> job)
         {
             pending.push_back(std::move(job));
-            return shared_from_this();
+            return this;
         }
 
-        static std::shared_ptr<Barrier> Create()
+        static Ref<Barrier> Create()
         {
-            return std::make_shared<Barrier>();
+            return new Barrier();
         }
     };
 
     struct JobSystem;
 
-    struct Job : std::enable_shared_from_this<Job>
+    struct Job : RefCounted
     {
         JobSystem* system = {};
         std::function<void()> task;
-        std::vector<std::shared_ptr<Barrier>> signals;
+        std::vector<Ref<Barrier>> signals;
 
-        static std::shared_ptr<Job> Create(JobSystem* system, std::function<void()> task)
+        static Ref<Job> Create(JobSystem* system, std::function<void()> task)
         {
-            auto job = std::make_shared<Job>();
+            Ref job = new Job();
             job->system = system;
             job->task = std::move(task);
             return job;
         }
 
-        std::shared_ptr<Job> Signal(std::shared_ptr<Barrier> signal)
+        Ref<Job> Signal(Ref<Barrier> signal)
         {
             if (signal->acquired > 0)
             {
@@ -80,7 +81,7 @@ namespace nova
                 signal->counter++;
             }
             signals.emplace_back(std::move(signal));
-            return shared_from_this();
+            return this;
         }
 
         void Submit();
@@ -111,7 +112,7 @@ namespace nova
     struct JobSystem
     {
         std::vector<std::jthread> workers;
-        std::deque<std::shared_ptr<Job>> queue;
+        std::deque<Ref<Job>> queue;
         std::shared_mutex mutex;
         std::condition_variable_any cv;
 
@@ -190,13 +191,13 @@ namespace nova
             }
         }
 
-        void Submit(std::shared_ptr<Job> job, bool front = false)
+        void Submit(Ref<Job> job, bool front = false)
         {
             std::scoped_lock lock { mutex };
             if (front)
-                queue.push_front(job);
+                queue.push_front(std::move(job));
             else
-                queue.push_back(job);
+                queue.push_back(std::move(job));
             cv.notify_one();
         }
     };
@@ -204,6 +205,6 @@ namespace nova
     inline
     void Job::Submit()
     {
-        system->Submit(shared_from_this());
+        system->Submit(this);
     }
 }

@@ -78,45 +78,45 @@ void TestJobSystem()
 
     JobSystem uploadQueue{1};
 
-    struct Texture
+    struct Texture : RefCounted
     {
-        std::shared_ptr<Job> fileLoadJob;
+        Ref<Job> fileLoadJob;
 
-        std::shared_ptr<Barrier> wait;
-        std::shared_ptr<Job> gpuLoadJob;
+        Ref<Barrier> wait;
+        Ref<Job> gpuLoadJob;
     };
 
-    struct Material
+    struct Material : RefCounted
     {
-        std::vector<std::shared_ptr<Texture>> textures;
+        std::vector<Ref<Texture>> textures;
 
     public:
-        std::shared_ptr<Barrier> wait;
-        std::shared_ptr<Job> job;
+        Ref<Barrier> wait;
+        Ref<Job> job;
     };
 
-    struct Mesh
+    struct Mesh : RefCounted
     {
-        std::shared_ptr<Job> fileLoadJob;
+        Ref<Job> fileLoadJob;
 
-        std::shared_ptr<Barrier> wait;
-        std::shared_ptr<Job> gpuLoadJob;
+        Ref<Barrier> wait;
+        Ref<Job> gpuLoadJob;
     };
 
-    struct MeshInstance
+    struct MeshInstance : RefCounted
     {
-        std::shared_ptr<Mesh> mesh;
-        std::shared_ptr<Material> material;
+        Ref<Mesh> mesh;
+        Ref<Material> material;
 
     public:
-        std::shared_ptr<Barrier> wait;
-        std::shared_ptr<Job> job;
+        Ref<Barrier> wait;
+        Ref<Job> job;
     };
 
-    std::vector<std::shared_ptr<Texture>> textures;
-    std::vector<std::shared_ptr<Material>> materials;
-    std::vector<std::shared_ptr<Mesh>> meshes;
-    std::vector<std::shared_ptr<MeshInstance>> meshInstances;
+    std::vector<Ref<Texture>> textures;
+    std::vector<Ref<Material>> materials;
+    std::vector<Ref<Mesh>> meshes;
+    std::vector<Ref<MeshInstance>> meshInstances;
 
     auto pickRandom = [&](auto& vec) -> decltype(auto) {
         return vec[std::uniform_int_distribution<size_t>(0, vec.size() - 1)(rng)];
@@ -130,16 +130,16 @@ void TestJobSystem()
         texture->fileLoadJob = Job::Create(&jobSystem, [=] {
             auto target = std::chrono::steady_clock::now() + 25ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
-            NOVA_LOG("Loaded texture: {}", (void*)texture.get());
+            NOVA_LOG("Loaded texture: {}", (void*)texture.Raw());
         });
 
         texture->gpuLoadJob = Job::Create(&uploadQueue, [=] {
             auto target = std::chrono::steady_clock::now() + 1ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
-            NOVA_LOG("transfer texture to gpu: {}", (void*)texture.get());
+            NOVA_LOG("transfer texture to gpu: {}", (void*)texture.Raw());
         });
 
-        texture->wait = std::make_shared<Barrier>();
+        texture->wait = Barrier::Create();
         texture->wait->pending.push_back(texture->gpuLoadJob);
 
         texture->fileLoadJob->Signal(texture->wait);
@@ -153,15 +153,13 @@ void TestJobSystem()
     {
         auto& material = materials.emplace_back(std::make_shared<Material>());
 
-        material->job = std::make_shared<Job>();
-        material->job->system = &uploadQueue;
-        material->job->task = [=] {
+        material->job = Job::Create(&uploadQueue, [=] {
             auto target = std::chrono::steady_clock::now() + 1ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
-            NOVA_LOG("Loaded material: {}", (void*)material.get());
-        };
+            NOVA_LOG("Loaded material: {}", (void*)material.Raw());
+        });
 
-        material->wait = std::make_shared<Barrier>();
+        material->wait = Barrier::Create();
         material->wait->pending.push_back(material->job);
 
         // used.clear();
@@ -188,42 +186,36 @@ void TestJobSystem()
     {
         auto& mesh = meshes.emplace_back(std::make_shared<Mesh>());
 
-        mesh->fileLoadJob = std::make_shared<Job>();
-        mesh->fileLoadJob->system = &jobSystem;
-        mesh->fileLoadJob->task = [=] {
+        mesh->fileLoadJob = Job::Create(&jobSystem, [=] {
             auto target = std::chrono::steady_clock::now() + 25ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
-            NOVA_LOG("Loaded mesh: {}", (void*)mesh.get());
-        };
+            NOVA_LOG("Loaded mesh: {}", (void*)mesh.Raw());
+        });
 
-        mesh->gpuLoadJob = std::make_shared<Job>();
-        mesh->gpuLoadJob->system = &uploadQueue;
-        mesh->gpuLoadJob->task = [=] {
+        mesh->gpuLoadJob = Job::Create(&uploadQueue, [=] {
             auto target = std::chrono::steady_clock::now() + 1ms;
             while (timer.Wait(target - std::chrono::steady_clock::now(), true));
-            NOVA_LOG("Uploaded mesh to gpu: {}", (void*)mesh.get());
-        };
+            NOVA_LOG("Uploaded mesh to gpu: {}", (void*)mesh.Raw());
+        });
 
-        mesh->wait = std::make_shared<Barrier>();
+        mesh->wait = Barrier::Create();
         mesh->wait->pending.push_back(mesh->gpuLoadJob);
 
         mesh->fileLoadJob->Signal(mesh->wait);
     }
 
-    auto completed = std::make_shared<Barrier>();
+    auto completed = Barrier::Create();
 
     for (u32 i = 0; i < 65035; ++i)
     // for (u32 i = 0; i < 1000; ++i)
     {
-        auto& instance = meshInstances.emplace_back(std::make_shared<MeshInstance>());
+        auto& instance = meshInstances.emplace_back(Ref<MeshInstance>::Create());
 
-        instance->job = std::make_shared<Job>();
-        instance->job->system = &jobSystem;
-        instance->job->task = [=] {
-            NOVA_LOG("Loaded instance: {}", (void*)instance.get());
-        };
+        instance->job = Job::Create(&jobSystem, [=] {
+            NOVA_LOG("Loaded instance: {}", (void*)instance.Raw());
+        });
 
-        instance->wait = std::make_shared<Barrier>();
+        instance->wait = Barrier::Create();
         instance->wait->pending.push_back(instance->job);
 
         instance->job->Signal(completed);
@@ -254,10 +246,10 @@ void TestJobSystem()
     for (u32 i = 0; i < std::max(textures.size(), meshes.size()); ++i)
     {
         if (i < textures.size())
-            jobSystem.Submit(textures[i]->fileLoadJob);
+            textures[i]->fileLoadJob->Submit();
 
         if (i < meshes.size())
-            jobSystem.Submit(meshes[i]->fileLoadJob);
+            meshes[i]->fileLoadJob->Submit();
     }
 
     // for (u32 i = 0; i < 65536; ++i)

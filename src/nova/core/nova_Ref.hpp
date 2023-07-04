@@ -2,10 +2,6 @@
 
 #include <nova/core/nova_Core.hpp>
 
-// #define NOVA_NOISY_REFS 1
-// #define NOVA_NOISY_REF_INC 1
-// #define NOVA_NOISY_REF_CONSTRUCT 1
-
 #define NOVA_SAFE_REFERENCES 1
 
 int32_t& RefTotal();
@@ -27,21 +23,25 @@ namespace nova::types
         u32 referenceCount = 0;
         static constexpr u32 InvalidRefCount = ~0u;
 
+    protected:
+        ~RefCounted() = default;
+
     public:
         RefCounted() = default;
-        virtual ~RefCounted() {}
 
-        void Acquire()
+        void RefCounted_Acquire()
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (std::atomic_ref<u32>(referenceCount) == InvalidRefCount) [[unlikely]] {
+            if (std::atomic_ref<u32>(referenceCount) == InvalidRefCount)
+                [[unlikely]]
+            {
                 NOVA_THROW("Attempted to Acquire on RefCounted object that is being destroyed!");
             }
 #endif
             ++std::atomic_ref<u32>(referenceCount);
         }
 
-        bool Release()
+        bool RefCounted_Release()
         {
             bool toDelete = !--std::atomic_ref<u32>(referenceCount);
 #ifdef NOVA_SAFE_REFERENCES
@@ -80,7 +80,7 @@ namespace nova::types
         ~Ref()
         {
             if (value)
-                value->Release();
+                value->RefCounted_Release();
         }
 
 // -----------------------------------------------------------------------------
@@ -97,12 +97,14 @@ namespace nova::types
             : value(value)
         {
             if (value)
-                value->Acquire();
+            {
+                value->RefCounted_Acquire();
+            }
         }
 
 // -----------------------------------------------------------------------------
 
-        inline Ref(Ref<T>&& moved)
+        Ref(Ref<T>&& moved)
             : value(moved.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
@@ -112,7 +114,7 @@ namespace nova::types
             moved.value = nullptr;
         }
 
-        inline Ref<T>& operator=(Ref<T>&& moved) noexcept
+        Ref<T>& operator=(Ref<T>&& moved) noexcept
         {
             if (value != moved.value)
             {
@@ -124,7 +126,7 @@ namespace nova::types
 
 // -----------------------------------------------------------------------------
 
-        inline Ref(const Ref<T>& copied)
+        Ref(const Ref<T>& copied)
             : value(copied.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
@@ -132,10 +134,10 @@ namespace nova::types
                 NOVA_THROW("Ref::Ref(const Ref<T>&) called on self");
 #endif
             if (value)
-                value->Acquire();
+                value->RefCounted_Acquire();
         }
 
-        inline Ref<T>& operator=(const Ref<T>& copied)
+        Ref<T>& operator=(const Ref<T>& copied)
         {
             if (value != copied.value)
             {
@@ -214,15 +216,7 @@ namespace nova::types
 //                                Accessors
 // -----------------------------------------------------------------------------
 
-        inline const T* operator->() const
-        {
-#ifdef NOVA_SAFE_REFERENCES
-            if (!value)
-                NOVA_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
-#endif
-            return value;
-        }
-        inline T* operator->()
+        T* operator->() const
         {
 #ifdef NOVA_SAFE_REFERENCES
             if (!value)
@@ -231,7 +225,7 @@ namespace nova::types
             return value;
         }
 
-        inline const T& operator*() const
+        T& operator*() const
         {
 #ifdef NOVA_SAFE_REFERENCES
             if (!value)
@@ -240,16 +234,9 @@ namespace nova::types
             return *value;
         }
 
-        inline T& operator*()
+        T* Raw() const
         {
-#ifdef NOVA_SAFE_REFERENCES
-            if (!value)
-                NOVA_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
-#endif
-            return *value;
+            return value;
         }
-
-        inline const T* Raw() const { return value; }
-        inline T* Raw() { return value; }
     };
 }
