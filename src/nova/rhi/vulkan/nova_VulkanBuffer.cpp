@@ -10,11 +10,7 @@ namespace nova
         buffer.allocation = nullptr;
 
         buffer.flags = flags;
-        buffer.usage = VkBufferUsageFlags(usage)
-            | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-        if (buffer.flags >= BufferFlags::Addressable)
-            buffer.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        buffer.usage = usage;
 
         buffer.size = 0;
 
@@ -30,7 +26,6 @@ namespace nova
             return;
 
         vmaDestroyBuffer(ctx.vma, buffer.buffer, buffer.allocation);
-
     }
 
     void VulkanContext::Buffer_Destroy(Buffer id)
@@ -61,13 +56,17 @@ namespace nova
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         }
 
+        auto usage = GetVulkanBufferUsage(buffer.usage);
+        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (buffer.flags >= BufferFlags::Addressable)
+            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
         VkCall(vmaCreateBuffer(
             vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = buffer.size,
-                .usage = buffer.usage,
-                // .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .usage = usage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
@@ -151,9 +150,9 @@ namespace nova
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-                .srcStageMask = VkPipelineStageFlags2(src),
+                .srcStageMask = GetVulkanPipelineStage(src),
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = VkPipelineStageFlags2(dst),
+                .dstStageMask = GetVulkanPipelineStage(dst),
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
                 .buffer = Get(buffer).buffer,
                 .size = VK_WHOLE_SIZE,

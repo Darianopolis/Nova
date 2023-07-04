@@ -114,7 +114,7 @@ namespace nova
 
     void VulkanContext::Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset)
     {
-        vkCmdBindIndexBuffer(Get(cmd).buffer, Get(buffer).buffer, offset, VkIndexType(indexType));
+        vkCmdBindIndexBuffer(Get(cmd).buffer, Get(buffer).buffer, offset, GetVulkanIndexType(indexType));
     }
 
     void VulkanContext::Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset)

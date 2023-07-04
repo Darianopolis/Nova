@@ -89,14 +89,14 @@ namespace nova
     {
         auto[id, shader] = shaders.Acquire();
 
-        shader.stage = VkShaderStageFlagBits(stage);
+        shader.stage = stage;
         shader.id = GetUID();
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
         EShLanguage glslangStage;
-        switch (shader.stage)
+        switch (GetVulkanShaderStage(shader.stage))
         {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
         break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
@@ -465,5 +465,15 @@ namespace nova
             vkDestroyShaderModule(device, Get(id).handle, pAlloc);
 
         shaders.Return(id);
+    }
+
+    VkPipelineShaderStageCreateInfo VulkanShader::GetStageInfo()
+    {
+        return {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VkShaderStageFlagBits(GetVulkanShaderStage(stage)),
+            .module = handle,
+            .pName = "main",
+        };
     }
 }

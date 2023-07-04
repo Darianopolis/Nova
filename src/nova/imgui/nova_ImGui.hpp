@@ -35,6 +35,11 @@ namespace nova
                 const_cast<Fn*>(&fn));
         }
 
+        void BeginFrame()
+        {
+            BeginFrame_([](void*, ImGuiWrapper&) {}, nullptr);
+        }
+
         // virtual void BeginFrame() = 0;
 
         virtual void EndFrame() = 0;

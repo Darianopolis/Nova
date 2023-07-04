@@ -153,7 +153,7 @@ namespace nova
         for (u32 i = 0; i < sets.size(); ++i)
             vkSets[i] = Get(sets[i]).set;
 
-        vkCmdBindDescriptorSets(Get(cmd).buffer, VkPipelineBindPoint(Get(pipelineLayout).bindPoint),
+        vkCmdBindDescriptorSets(Get(cmd).buffer, GetVulkanPipelineBindPoint(Get(pipelineLayout).bindPoint),
             Get(pipelineLayout).layout, firstSet,
             u32(sets.size()), vkSets,
             0, nullptr);
@@ -162,7 +162,7 @@ namespace nova
     void VulkanContext::Cmd_PushStorageTexture(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex)
     {
         vkCmdPushDescriptorSetKHR(Get(cmd).buffer,
-            VkPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
+            GetVulkanPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstBinding = binding,
@@ -179,7 +179,7 @@ namespace nova
     void VulkanContext::Cmd_PushAccelerationStructure(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex)
     {
         vkCmdPushDescriptorSetKHR(Get(cmd).buffer,
-            VkPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
+            GetVulkanPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {

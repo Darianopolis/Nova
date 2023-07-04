@@ -121,6 +121,11 @@ namespace nova
             ctx->Cmd_CopyToTexture(cmd, dst, src, srcOffset);
         }
 
+        void CopyFromTexture(Buffer dst, Texture src, Rect2D region) const
+        {
+            ctx->Cmd_CopyFromTexture(cmd, dst, src, region);
+        }
+
         void GenerateMips(Texture texture) const
         {
             ctx->Cmd_GenerateMips(cmd, texture);

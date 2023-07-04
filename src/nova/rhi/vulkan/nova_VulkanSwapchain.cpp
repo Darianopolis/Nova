@@ -11,10 +11,8 @@ namespace nova
             .hwnd = HWND(window),
         }), pAlloc, &swapchain.surface));
 
-        swapchain.usage = VkImageUsageFlags(usage)
-            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-            | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        swapchain.presentMode = VkPresentModeKHR(presentMode);
+        swapchain.usage = usage;
+        swapchain.presentMode = presentMode;
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
         VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, swapchain.surface);
@@ -64,7 +62,7 @@ namespace nova
 
     Format VulkanContext::Swapchain_GetFormat(Swapchain id)
     {
-        return Format(Get(id).format.format);
+        return FromVulkanFormat(Get(id).format.format);
     }
 
 // -----------------------------------------------------------------------------
@@ -97,6 +95,9 @@ namespace nova
 
                     auto oldSwapchain = swapchain.swapchain;
 
+                    auto vkUsage = GetVulkanImageUsage(swapchain.usage)
+                        | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
                     swapchain.extent = caps.currentExtent;
                     VkCall(vkCreateSwapchainKHR(device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -106,13 +107,13 @@ namespace nova
                         .imageColorSpace = swapchain.format.colorSpace,
                         .imageExtent = swapchain.extent,
                         .imageArrayLayers = 1,
-                        .imageUsage = swapchain.usage,
+                        .imageUsage = vkUsage,
                         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, // TODO: concurrent for async present
                         .queueFamilyIndexCount = 1,
                         .pQueueFamilyIndices = &queue.family,
                         .preTransform = caps.currentTransform,
                         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                        .presentMode = swapchain.presentMode,
+                        .presentMode = GetVulkanPresentMode(swapchain.presentMode),
                         .clipped = VK_TRUE,
                         .oldSwapchain = oldSwapchain,
                     }), pAlloc, &swapchain.swapchain));
@@ -157,7 +158,7 @@ namespace nova
                         texture.extent.x = swapchain.extent.width;
                         texture.extent.y = swapchain.extent.height;
                         texture.extent.z = 1;
-                        texture.format = swapchain.format.format;
+                        texture.format = FromVulkanFormat(swapchain.format.format);
                         texture.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                         texture.mips = 1;
                         texture.layers = 1;

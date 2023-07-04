@@ -100,9 +100,9 @@ namespace nova
             .memoryBarrierCount = 1,
             .pMemoryBarriers = Temp(VkMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-                .srcStageMask = VkPipelineStageFlags2(src),
+                .srcStageMask = GetVulkanPipelineStage(src),
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = VkPipelineStageFlags2(dst),
+                .dstStageMask = GetVulkanPipelineStage(dst),
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
             }),
         }));

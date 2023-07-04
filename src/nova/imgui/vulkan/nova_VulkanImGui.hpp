@@ -12,8 +12,8 @@ namespace nova
         VkRenderPass   renderPass = {};
         VkFramebuffer framebuffer = {};
 
-        Vec2U              lastSize = {};
-        VkImageUsageFlags lastUsage = {};
+        Vec2U         lastSize = {};
+        TextureUsage lastUsage = {};
 
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};

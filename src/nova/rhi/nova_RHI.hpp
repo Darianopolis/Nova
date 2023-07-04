@@ -62,29 +62,25 @@ namespace nova
 
     enum class BufferUsage : u32
     {
-        TransferSrc = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        TransferDst = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-
-        Uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        Storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-
-        Index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        Vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-
-        Indirect = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-
-        ShaderBindingTable = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-
-        AccelBuild = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        AccelStorage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
-
-        DescriptorSamplers = VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
-        DescriptorResources = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT,
+        None,
+        TransferSrc         = 1 << 0,
+        TransferDst         = 1 << 1,
+        Uniform             = 1 << 2,
+        Storage             = 1 << 3,
+        Index               = 1 << 4,
+        Vertex              = 1 << 5,
+        Indirect            = 1 << 6,
+        ShaderBindingTable  = 1 << 7,
+        AccelBuild          = 1 << 8,
+        AccelStorage        = 1 << 9,
+        DescriptorSamplers  = 1 << 10,
+        DescriptorResources = 1 << 11,
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
     enum class TextureFlags : u32
     {
+        None,
         Array = 1 << 0,
         Mips  = 1 << 1,
     };
@@ -92,135 +88,123 @@ namespace nova
 
     enum class TextureUsage : u32
     {
-        TransferSrc        = VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-        TransferDst        = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-
-        Sampled            = VK_IMAGE_USAGE_SAMPLED_BIT,
-        Storage            = VK_IMAGE_USAGE_STORAGE_BIT,
-
-        ColorAttach        = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        DepthStencilAttach = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        None,
+        TransferSrc        = 1 << 0,
+        TransferDst        = 1 << 1,
+        Sampled            = 1 << 2,
+        Storage            = 1 << 3,
+        ColorAttach        = 1 << 4,
+        DepthStencilAttach = 1 << 5,
     };
     NOVA_DECORATE_FLAG_ENUM(TextureUsage)
 
     enum class Format : u32
     {
-        Undefined = VK_FORMAT_UNDEFINED,
+        Undefined,
 
-        RGBA8U = VK_FORMAT_R8G8B8A8_UNORM,
-        RGBA8_SRGB = VK_FORMAT_R8G8B8A8_SRGB,
+        RGBA8U,
+        RGBA8_SRGB,
 
-        RGBA16F = VK_FORMAT_R16G16B16A16_SFLOAT,
-        RGBA32F = VK_FORMAT_R32G32B32A32_SFLOAT,
+        RGBA16F,
+        RGBA32F,
 
-        BGRA8U = VK_FORMAT_B8G8R8A8_UNORM,
-        BGRA8_SRGB = VK_FORMAT_B8G8R8A8_SRGB,
+        BGRA8U,
+        BGRA8_SRGB,
 
-        RGB32F = VK_FORMAT_R32G32B32_SFLOAT,
+        RGB32F,
 
-        R8U = VK_FORMAT_R8_UNORM,
-        R32F = VK_FORMAT_R32_SFLOAT,
+        R8U,
+        R32F,
 
-        R8UInt = VK_FORMAT_R8_UINT,
-        R16UInt = VK_FORMAT_R16_UINT,
-        R32UInt = VK_FORMAT_R32_UINT,
+        R8UInt,
+        R16UInt,
+        R32UInt,
 
-        D24U_X8 = VK_FORMAT_X8_D24_UNORM_PACK32,
-        D24U_S8 = VK_FORMAT_D24_UNORM_S8_UINT,
+        D24U_X8,
+        D24U_S8,
 
-        D32 = VK_FORMAT_D32_SFLOAT,
+        D32,
     };
 
     enum class IndexType : u32
     {
-        U16 = VK_INDEX_TYPE_UINT16,
-        U32 = VK_INDEX_TYPE_UINT32,
-        U8 = VK_INDEX_TYPE_UINT8_EXT,
+        U16,
+        U32,
+        U8,
     };
 
     enum class Filter : u32
     {
-        Linear = VK_FILTER_LINEAR,
-        Nearest = VK_FILTER_NEAREST,
+        Linear,
+        Nearest,
     };
 
     enum class AddressMode : u32
     {
-        Repeat = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        RepeatMirrored = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-        Edge = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        Border = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+        Repeat,
+        RepeatMirrored,
+        Edge,
+        Border,
     };
 
     enum class BorderColor : u32
     {
-        TransparentBlack = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
-        Black = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
-        White = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+        TransparentBlack,
+        Black,
+        White,
     };
 
     enum class ShaderStage : u32
     {
-        None = 0,
-
-        Vertex = VK_SHADER_STAGE_VERTEX_BIT,
-        TessControl = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
-        TessEval = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
-        Geometry = VK_SHADER_STAGE_GEOMETRY_BIT,
-        Fragment = VK_SHADER_STAGE_FRAGMENT_BIT,
-
-        Compute = VK_SHADER_STAGE_COMPUTE_BIT,
-
-        RayGen = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        AnyHit = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-        ClosestHit = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-        Miss = VK_SHADER_STAGE_MISS_BIT_KHR,
-        Intersection = VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
+        None,
+        Vertex       = 1 << 0,
+        TessControl  = 1 << 1,
+        TessEval     = 1 << 2,
+        Geometry     = 1 << 3,
+        Fragment     = 1 << 4,
+        Compute      = 1 << 5,
+        RayGen       = 1 << 6,
+        AnyHit       = 1 << 7,
+        ClosestHit   = 1 << 8,
+        Miss         = 1 << 9,
+        Intersection = 1 << 10,
     };
     NOVA_DECORATE_FLAG_ENUM(ShaderStage)
 
     enum class PresentMode : u32
     {
-        Immediate   = VK_PRESENT_MODE_IMMEDIATE_KHR,
-        Mailbox     = VK_PRESENT_MODE_MAILBOX_KHR,
-        Fifo        = VK_PRESENT_MODE_FIFO_KHR,
-        FifoRelaxed = VK_PRESENT_MODE_FIFO_RELAXED_KHR,
-    };
-
-    enum class ResourceState
-    {
-        Sampled,
-        GeneralImage,
-        ColorAttachment,
-        DepthStencilAttachment,
-        Present,
+        Immediate,
+        Mailbox,
+        Fifo,
+        FifoRelaxed,
     };
 
     enum class BindPoint : u32
     {
-        // TODO: Support transfer
-        Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        Compute = VK_PIPELINE_BIND_POINT_COMPUTE,
-        RayTracing = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+        Graphics,
+        Compute,
+        RayTracing,
     };
 
     enum class AccelerationStructureType : u32
     {
-        BottomLevel = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR,
-        TopLevel = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        BottomLevel,
+        TopLevel,
     };
 
     enum class AccelerationStructureFlags : u32
     {
-        PreferFastTrace = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
-        PreferFastBuild = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR,
-        AllowDataAccess = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_KHR,
-        AllowCompaction = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR,
+        None,
+        PreferFastTrace = 1 << 0,
+        PreferFastBuild = 1 << 1,
+        AllowDataAccess = 1 << 2,
+        AllowCompaction = 1 << 3,
     };
     NOVA_DECORATE_FLAG_ENUM(AccelerationStructureFlags)
 
     enum class GeometryInstanceFlags : u32
     {
+        None,
         TriangleCullClockwise        = 1 << 0,
         TriangleCullCounterClockwise = 1 << 1,
         InstanceForceOpaque          = 1 << 2,
@@ -229,55 +213,55 @@ namespace nova
 
     enum class DescriptorType : u32
     {
-        SampledTexture = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        StorageTexture = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        Uniform = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        Storage = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        AccelerationStructure = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+        SampledTexture,
+        StorageTexture,
+        Uniform,
+        Storage,
+        AccelerationStructure,
     };
 
     enum class CompareOp : u32
     {
-        Never          = VK_COMPARE_OP_NEVER,
-        Less           = VK_COMPARE_OP_LESS,
-        Equal          = VK_COMPARE_OP_EQUAL,
-        LessOrEqual    = VK_COMPARE_OP_LESS_OR_EQUAL,
-        Greater        = VK_COMPARE_OP_GREATER,
-        NotEqual       = VK_COMPARE_OP_NOT_EQUAL,
-        GreaterOrEqual = VK_COMPARE_OP_GREATER_OR_EQUAL,
-        Always         = VK_COMPARE_OP_ALWAYS,
+        Never,
+        Less,
+        Equal,
+        LessOrEqual,
+        Greater,
+        NotEqual,
+        GreaterOrEqual,
+        Always,
     };
 
     enum class CullMode : u32
     {
-        None  = VK_CULL_MODE_NONE,
-        Front = VK_CULL_MODE_FRONT_BIT,
-        Back  = VK_CULL_MODE_BACK_BIT,
+        None,
+        Front = 1 << 0,
+        Back  = 1 << 1,
     };
     NOVA_DECORATE_FLAG_ENUM(CullMode);
 
     enum class FrontFace : u32
     {
-        CounterClockwise = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        Clockwise = VK_FRONT_FACE_CLOCKWISE,
+        CounterClockwise,
+        Clockwise,
     };
 
     enum class PolygonMode : u32
     {
-        Fill = VK_POLYGON_MODE_FILL,
-        Line = VK_POLYGON_MODE_LINE,
-        Point = VK_POLYGON_MODE_POINT
+        Fill,
+        Line,
+        Point,
     };
 
     enum class Topology : u32
     {
-        Points = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-        Lines = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-        LineStrip = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-        Triangles = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        TriangleStrip = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-        TriangleFan = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
-        Patches = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
+        Points,
+        Lines,
+        LineStrip,
+        Triangles,
+        TriangleStrip,
+        TriangleFan,
+        Patches,
     };
 
     enum class CommandListType
@@ -288,31 +272,32 @@ namespace nova
 
     enum class QueueFlags : u32
     {
-        Graphics = VK_QUEUE_GRAPHICS_BIT,
-        Compute  = VK_QUEUE_COMPUTE_BIT,
-        Transfer = VK_QUEUE_TRANSFER_BIT
+        None,
+        Graphics = 1 << 0,
+        Compute  = 1 << 1,
+        Transfer = 1 << 2,
     };
     NOVA_DECORATE_FLAG_ENUM(QueueFlags)
 
     enum class PipelineStage : u64
     {
-        None = VK_PIPELINE_STAGE_2_NONE,
-        Transfer = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-        Graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-        RayTracing = VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
-        Compute = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        AccelBuild = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-        All = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        None,
+        Transfer   = 1 << 0,
+        Graphics   = 1 << 1,
+        RayTracing = 1 << 2,
+        Compute    = 1 << 3,
+        AccelBuild = 1 << 4,
+        All        = 1 << 5,
     };
     NOVA_DECORATE_FLAG_ENUM(PipelineStage)
 
     enum class TextureLayout : u32
     {
-        GeneralImage = VK_IMAGE_LAYOUT_GENERAL,
-        ColorAttachment = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        DepthStencilAttachment = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        Sampled = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        Present = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        GeneralImage,
+        ColorAttachment,
+        DepthStencilAttachment,
+        Sampled,
+        Present,
     };
 
 // -----------------------------------------------------------------------------
@@ -327,16 +312,16 @@ namespace nova
 
     struct PipelineState
     {
-        Topology      topology = Topology::Triangles;         // VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT (partial - dynamic within class)
-        CullMode      cullMode = CullMode::Back;              // VK_DYNAMIC_STATE_CULL_MODE_EXT
-        FrontFace    frontFace = FrontFace::CounterClockwise; // VK_DYNAMIC_STATE_FRONT_FACE_EXT
-        PolygonMode   polyMode = PolygonMode::Fill;           // N/A
-        f32          lineWidth = 1.f;                         // VK_DYNAMIC_STATE_LINE_WIDTH
-        CompareOp depthCompare = CompareOp::Greater;          // VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
-        u32    blendEnable : 1 = false;                       // N/A
-        u32    depthEnable : 1 = false;                       // VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
-        u32     depthWrite : 1 = true;                        // VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
-        u32   flipVertical : 1 = false;
+        Topology      topology    = Topology::Triangles;
+        CullMode      cullMode    = CullMode::Back;
+        FrontFace    frontFace    = FrontFace::CounterClockwise;
+        PolygonMode   polyMode    = PolygonMode::Fill;
+        f32          lineWidth    = 1.f;
+        CompareOp depthCompare    = CompareOp::Greater;
+        u32        blendEnable: 1 = false;
+        u32        depthEnable: 1 = false;
+        u32         depthWrite: 1 = true;
+        u32       flipVertical: 1 = false;
     };
 
 // -----------------------------------------------------------------------------
@@ -720,6 +705,7 @@ namespace nova
         virtual void Cmd_Transition(CommandList, Texture texture, TextureLayout layout, PipelineStage stage) = 0;
         virtual void Cmd_Clear(CommandList, Texture texture, Vec4 color) = 0;
         virtual void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) = 0;
+        virtual void Cmd_CopyFromTexture(CommandList, Buffer dst, Texture src, Rect2D region) = 0;
         virtual void Cmd_GenerateMips(CommandList, Texture texture) = 0;
         virtual void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) = 0;
 

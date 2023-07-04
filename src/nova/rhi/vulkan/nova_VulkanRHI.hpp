@@ -62,8 +62,8 @@ namespace nova
         VkSurfaceKHR          surface = {};
         VkSwapchainKHR      swapchain = {};
         VkSurfaceFormatKHR     format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        VkImageUsageFlags       usage = 0;
-        VkPresentModeKHR  presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        TextureUsage            usage = {};
+        PresentMode       presentMode = PresentMode::Fifo;
         std::vector<Texture> textures = {};
         uint32_t                index = UINT32_MAX;
         VkExtent2D             extent = { 0, 0 };
@@ -108,18 +108,10 @@ namespace nova
     {
         UID id = UID::Invalid;
 
-        VkShaderModule       handle = {};
-        VkShaderStageFlagBits stage = {};
+        VkShaderModule handle = {};
+        ShaderStage     stage = {};
 
-        VkPipelineShaderStageCreateInfo GetStageInfo()
-        {
-            return {
-                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                .stage = stage,
-                .module = handle,
-                .pName = "main",
-            };
-        }
+        VkPipelineShaderStageCreateInfo GetStageInfo();
     };
 
     struct VulkanBuffer
@@ -129,7 +121,7 @@ namespace nova
         VkDeviceSize        size = 0ull;
         VkDeviceAddress  address = 0ull;
         BufferFlags        flags = BufferFlags::None;
-        VkBufferUsageFlags usage = {};
+        BufferUsage        usage = {};
     };
 
     struct VulkanSampler
@@ -142,8 +134,8 @@ namespace nova
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
-        VkImageUsageFlags   usage = {};
-        VkFormat           format = VK_FORMAT_UNDEFINED;
+        TextureUsage        usage = {};
+        Format             format = Format::Undefined;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
         Vec3U extent = {};
@@ -210,7 +202,7 @@ namespace nova
 
     struct GraphicsPipelineVertexInputStageKey
     {
-        VkPrimitiveTopology topology;
+        Topology topology;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineVertexInputStageKey)
     };
@@ -219,7 +211,7 @@ namespace nova
     {
         std::array<UID, 4> shaders;
         UID                 layout;
-        VkPolygonMode     polyMode;
+        PolygonMode       polyMode;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
     };
@@ -234,9 +226,9 @@ namespace nova
 
     struct GraphicsPipelineFragmentOutputStageKey
     {
-        std::array<VkFormat, 8> colorAttachments;
-        VkFormat                 depthAttachment;
-        VkFormat               stencilAttachment;
+        std::array<Format, 8> colorAttachments;
+        Format                 depthAttachment;
+        Format               stencilAttachment;
 
         VkBool32 blendEnable;
 
@@ -268,6 +260,31 @@ NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
 
 namespace nova
 {
+
+// -----------------------------------------------------------------------------
+
+    VkBufferUsageFlags GetVulkanBufferUsage(BufferUsage usage);
+    VkImageUsageFlags GetVulkanImageUsage(TextureUsage usage);
+    VkFormat GetVulkanFormat(Format format);
+    Format FromVulkanFormat(VkFormat format);
+    VkIndexType GetVulkanIndexType(IndexType type);
+    VkFilter GetVulkanFilter(Filter filter);
+    VkSamplerAddressMode GetVulkanAddressMode(AddressMode mode);
+    VkBorderColor GetVulkanBorderColor(BorderColor color);
+    VkShaderStageFlags GetVulkanShaderStage(ShaderStage in);
+    VkPresentModeKHR GetVulkanPresentMode(PresentMode mode);
+    VkPipelineBindPoint GetVulkanPipelineBindPoint(BindPoint point);
+    VkAccelerationStructureTypeKHR GetVulkanAccelStructureType(AccelerationStructureType type);
+    VkBuildAccelerationStructureFlagsKHR GetVulkanAccelStructureBuildFlags(AccelerationStructureFlags in);
+    VkDescriptorType GetVulkanDescriptorType(DescriptorType type);
+    VkCompareOp GetVulkanCompareOp(CompareOp op);
+    VkCullModeFlags GetVulkanCullMode(CullMode in);
+    VkFrontFace GetVulkanFrontFace(FrontFace face);
+    VkPolygonMode GetVulkanPolygonMode(PolygonMode mode);
+    VkPrimitiveTopology GetVulkanTopology(Topology topology);
+    VkQueueFlags GetVulkanQueueFlags(QueueFlags in);
+    VkPipelineStageFlags2 GetVulkanPipelineStage(PipelineStage in);
+    VkImageLayout GetVulkanImageLayout(TextureLayout layout);
 
 // -----------------------------------------------------------------------------
 
@@ -555,6 +572,7 @@ namespace nova
         void Cmd_Transition(CommandList, Texture texture, TextureLayout layout, PipelineStage stage) final;
         void Cmd_Clear(CommandList, Texture texture, Vec4 color) final;
         void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) final;
+        void Cmd_CopyFromTexture(CommandList, Buffer dst, Texture src, Rect2D region) final;
         void Cmd_GenerateMips(CommandList, Texture texture) final;
         void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) final;
 

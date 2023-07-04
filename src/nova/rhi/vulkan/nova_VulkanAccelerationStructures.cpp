@@ -61,11 +61,11 @@ namespace nova
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-            .vertexFormat = VkFormat(vertexFormat),
+            .vertexFormat = GetVulkanFormat(vertexFormat),
             .vertexData = {{ vertexAddress }},
             .vertexStride = vertexStride,
             .maxVertex = maxVertex,
-            .indexType = VkIndexType(indexType),
+            .indexType = GetVulkanIndexType(indexType),
             .indexData = {{ indexAddress }},
         };
 
@@ -78,8 +78,8 @@ namespace nova
     void VulkanContext::AccelerationStructures_Prepare(AccelerationStructureBuilder builder, AccelerationStructureType type, AccelerationStructureFlags flags,
         u32 geometryCount, u32 firstGeometry)
     {
-        Get(builder).type = VkAccelerationStructureTypeKHR(type);
-        Get(builder).flags = VkBuildAccelerationStructureFlagsKHR(flags);
+        Get(builder).type = GetVulkanAccelStructureType(type);
+        Get(builder).flags = GetVulkanAccelStructureBuildFlags(flags);
         Get(builder).geometryCount = geometryCount;
         Get(builder).firstGeometry = firstGeometry;
         Get(builder).sizeDirty = true;
@@ -198,7 +198,7 @@ namespace nova
             .buffer = Get(set.buffer).buffer,
             .offset = offset,
             .size = Get(set.buffer).size,
-            .type = VkAccelerationStructureTypeKHR(type),
+            .type = GetVulkanAccelStructureType(type),
         }), pAlloc, &set.structure));
 
         set.address = vkGetAccelerationStructureDeviceAddressKHR(

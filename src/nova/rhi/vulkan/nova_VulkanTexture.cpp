@@ -8,19 +8,19 @@ namespace nova
 
         VkCall(vkCreateSampler(device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .magFilter = VkFilter(filter),
-            .minFilter = VkFilter(filter),
+            .magFilter = GetVulkanFilter(filter),
+            .minFilter = GetVulkanFilter(filter),
             // TODO: Separate option
             .mipmapMode = filter == Filter::Linear
                 ? VK_SAMPLER_MIPMAP_MODE_LINEAR
                 : VK_SAMPLER_MIPMAP_MODE_NEAREST,
-            .addressModeU = VkSamplerAddressMode(addressMode),
-            .addressModeV = VkSamplerAddressMode(addressMode),
-            .addressModeW = VkSamplerAddressMode(addressMode),
+            .addressModeU = GetVulkanAddressMode(addressMode),
+            .addressModeV = GetVulkanAddressMode(addressMode),
+            .addressModeW = GetVulkanAddressMode(addressMode),
             .anisotropyEnable = anisotropy > 0.f,
             .maxAnisotropy = anisotropy,
             .maxLod = VK_LOD_CLAMP_NONE,
-            .borderColor = VkBorderColor(color),
+            .borderColor = GetVulkanBorderColor(color),
         }), pAlloc, &sampler.sampler));
 
         return id;
@@ -38,10 +38,9 @@ namespace nova
     {
         auto[id, texture] = textures.Acquire();
 
-        texture.format = VkFormat(format);
-        texture.usage = VkImageUsageFlags(usage);
-        bool makeView = (texture.usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
-        texture.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        texture.format = format;
+        texture.usage = usage;
+        bool makeView = (GetVulkanImageUsage(texture.usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
 
         texture.mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
@@ -106,14 +105,14 @@ namespace nova
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = texture.format,
+                .format = GetVulkanFormat(texture.format),
                 .extent = { texture.extent.x, texture.extent.y, texture.extent.z },
                 .mipLevels = texture.mips,
                 .arrayLayers = texture.layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = texture.usage,
-                // .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .usage = GetVulkanImageUsage(texture.usage)
+                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
@@ -128,7 +127,7 @@ namespace nova
 
         // ---- Pick aspects -----
 
-        switch (texture.format)
+        switch (GetVulkanFormat(texture.format))
         {
         break;case VK_FORMAT_S8_UINT:
             texture.aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -155,7 +154,7 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = texture.image,
                 .viewType = viewType,
-                .format = texture.format,
+                .format = GetVulkanFormat(texture.format),
                 .subresourceRange = { texture.aspect, 0, texture.mips, 0, texture.layers },
             }), pAlloc, &texture.view));
         }
@@ -223,9 +222,12 @@ namespace nova
 
     void VulkanContext::Cmd_Transition(CommandList cmd, Texture hTexture, TextureLayout layout, PipelineStage stage)
     {
+        auto vkLayout = GetVulkanImageLayout(layout);
+        auto vkStage = GetVulkanPipelineStage(stage);
+
         Cmd_Transition(cmd, hTexture,
-            VkImageLayout(layout),
-            VkPipelineStageFlags2(stage),
+            vkLayout,
+            vkStage,
             VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
 
         auto& texture = Get(hTexture);
@@ -239,18 +241,18 @@ namespace nova
 
                 .srcStageMask = state.stage,
                 .srcAccessMask = state.access,
-                .dstStageMask = VkPipelineStageFlags2(stage),
+                .dstStageMask = vkStage,
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
                 .oldLayout = state.layout,
-                .newLayout = VkImageLayout(layout),
+                .newLayout = vkLayout,
                 .image = texture.image,
                 .subresourceRange = { texture.aspect, 0, texture.mips, 0, texture.layers },
             })
         }));
 
-        state.layout = VkImageLayout(layout);
-        state.stage = VkPipelineStageFlags2(stage);
+        state.layout = vkLayout;
+        state.stage = vkStage;
         state.access = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
     }
 
@@ -293,7 +295,28 @@ namespace nova
         }));
     }
 
-    void VulkanContext::Cmd_GenerateMips(CommandList cmd, Texture hTexture)
+    void VulkanContext::Cmd_CopyFromTexture(CommandList cmd, Buffer dst, Texture src, Rect2D region)
+    {
+        Cmd_Transition(cmd, src,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+            VK_ACCESS_2_TRANSFER_READ_BIT);
+        vkCmdCopyImageToBuffer2(Get(cmd).buffer, nova::Temp(VkCopyImageToBufferInfo2 {
+            .sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
+            .srcImage = Get(src).image,
+            .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .dstBuffer = Get(dst).buffer,
+            .regionCount = 1,
+            .pRegions = nova::Temp(VkBufferImageCopy2 {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+                .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .imageOffset = { region.offset.x, region.offset.y, 0 },
+                .imageExtent = { region.extent.x, region.extent.y, 1 },
+            }),
+        }));
+    }
+
+    void VulkanContext::VulkanContext::Cmd_GenerateMips(CommandList cmd, Texture hTexture)
     {
         auto& cmdState = Get(Get(cmd).state);
         auto& texture = Get(hTexture);
@@ -380,6 +403,6 @@ namespace nova
                 .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
                 .dstOffsets = { VkOffset3D{}, VkOffset3D{i32(Texture_GetExtent(dst).x), i32(Texture_GetExtent(dst).y), 1} },
             }),
-            VkFilter(filter));
+            GetVulkanFilter(filter));
     }
 }

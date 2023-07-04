@@ -21,7 +21,7 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
             .attachmentCount = 1,
             .pAttachments = Temp(VkAttachmentDescription {
-                .format = VkFormat(format),
+                .format = GetVulkanFormat(format),
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                 .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -196,12 +196,12 @@ namespace nova
                     .attachmentImageInfoCount = 1,
                     .pAttachmentImageInfos = Temp(VkFramebufferAttachmentImageInfo {
                         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-                        .usage = context->Get(texture).usage,
+                        .usage = GetVulkanImageUsage(context->Get(texture).usage),
                         .width = lastSize.x,
                         .height = lastSize.y,
                         .layerCount = 1,
                         .viewFormatCount = 1,
-                        .pViewFormats = &context->Get(texture).format,
+                        .pViewFormats = nova::Temp(GetVulkanFormat(context->Get(texture).format)),
                     }),
                 }),
                 .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,

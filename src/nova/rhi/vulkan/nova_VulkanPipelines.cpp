@@ -78,26 +78,19 @@ namespace nova
         auto key = GraphicsPipelineVertexInputStageKey {};
 
         // Set topology class
-        switch (VkPrimitiveTopology(state.topology))
+        switch (state.topology)
         {
-        break;case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
-            key.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-
-        break;case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
-                case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
-                case VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
-                case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY:
-            key.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-
-        break;case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:
-                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:
-                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:
-                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY:
-                case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY:
-            key.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-        break;case VK_PRIMITIVE_TOPOLOGY_PATCH_LIST:
-            key.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+        break;case Topology::Points:
+            key.topology = Topology::Points;
+        break;case Topology::Lines:
+                case Topology::LineStrip:
+            key.topology = Topology::Lines;
+        break;case Topology::Triangles:
+                case Topology::TriangleStrip:
+                case Topology::TriangleFan:
+            key.topology = Topology::Triangles;
+        break;case Topology::Patches:
+            key.topology = Topology::Patches;
         };
 
         auto pipeline = context.vertexInputStages[key];
@@ -123,7 +116,7 @@ namespace nova
                     }),
                     .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-                        .topology = VkPrimitiveTopology(state.topology),
+                        .topology = GetVulkanTopology(state.topology),
                     }),
                     .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -152,7 +145,7 @@ namespace nova
         auto key = GraphicsPipelinePreRasterizationStageKey {};
 
         // Set required fixed state
-        key.polyMode = VkPolygonMode(state.polyMode);
+        key.polyMode = state.polyMode;
 
         // Set shaders and layout
         for (u32 i = 0; i < shaders.size(); ++i)
@@ -188,7 +181,7 @@ namespace nova
                     }),
                     .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-                        .polygonMode = VkPolygonMode(state.polyMode),
+                        .polygonMode = GetVulkanPolygonMode(state.polyMode),
                     }),
                     .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -281,8 +274,8 @@ namespace nova
         std::memcpy(key.colorAttachments.data(),
             renderingDesc.colorFormats.data(),
             renderingDesc.colorFormats.size() * sizeof(VkFormat));
-        key.depthAttachment = VkFormat(renderingDesc.depthFormat);
-        key.stencilAttachment = VkFormat(renderingDesc.stencilFormat);
+        key.depthAttachment = renderingDesc.depthFormat;
+        key.stencilAttachment = renderingDesc.stencilFormat;
 
         key.blendEnable = state.blendEnable;
 
@@ -316,6 +309,10 @@ namespace nova
 
             // Create
 
+            auto vkFormats = NOVA_ALLOC_STACK(VkFormat, renderingDesc.colorFormats.size());
+            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
+                vkFormats[i] = GetVulkanFormat(renderingDesc.colorFormats[i]);
+
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context.device, context.pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
@@ -327,9 +324,9 @@ namespace nova
                             .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT,
                         }),
                         .colorAttachmentCount = u32(renderingDesc.colorFormats.size()),
-                        .pColorAttachmentFormats = reinterpret_cast<const VkFormat*>(renderingDesc.colorFormats.data()),
-                        .depthAttachmentFormat = VkFormat(renderingDesc.depthFormat),
-                        .stencilAttachmentFormat = VkFormat(renderingDesc.stencilFormat),
+                        .pColorAttachmentFormats = vkFormats,
+                        .depthAttachmentFormat = GetVulkanFormat(renderingDesc.depthFormat),
+                        .stencilAttachmentFormat = GetVulkanFormat(renderingDesc.stencilFormat),
                     }),
                     .flags = context.config.descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
@@ -431,19 +428,19 @@ namespace nova
 
         // Input Assembly
 
-        vkCmdSetPrimitiveTopology(buffer, VkPrimitiveTopology(state.topology));
+        vkCmdSetPrimitiveTopology(buffer, GetVulkanTopology(state.topology));
 
         // Pre-rasterization (dynamic 2)
 
-        vkCmdSetCullMode(buffer, VkCullModeFlags(state.cullMode));
-        vkCmdSetFrontFace(buffer, VkFrontFace(state.frontFace));
+        vkCmdSetCullMode(buffer, GetVulkanCullMode(state.cullMode));
+        vkCmdSetFrontFace(buffer, GetVulkanFrontFace(state.frontFace));
         vkCmdSetLineWidth(buffer, state.lineWidth);
 
         // Depth + Stencil
 
         vkCmdSetDepthTestEnable(buffer, state.depthEnable);
         vkCmdSetDepthWriteEnable(buffer, state.depthWrite);
-        vkCmdSetDepthCompareOp(buffer, VkCompareOp(state.depthCompare));
+        vkCmdSetDepthCompareOp(buffer, GetVulkanCompareOp(state.depthCompare));
 
         {
             // Separate shaders
@@ -453,7 +450,7 @@ namespace nova
             u32 preRasterStageShaderIndex = 0;
             for (auto& shader : _shaders)
             {
-                if (Get(shader).stage == VK_SHADER_STAGE_FRAGMENT_BIT)
+                if (Get(shader).stage == ShaderStage::Fragment)
                     fragmentShader = shader;
                 else
                     preRasterStageShaders[preRasterStageShaderIndex++] = shader;
