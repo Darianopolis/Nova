@@ -28,7 +28,7 @@
 //         u16 remainingDependencies = 0;
 //         u16 dependentsCount = 0;
 
-//         template<class Fn>
+//         template<typename Fn>
 //         void Bind(Fn& fn, u32 dependencies, Job** dependents, u16 _dependentsCount)
 //         {
 //             pfn = +[](void* d) { (*static_cast<Fn*>(d))(); };
@@ -114,7 +114,7 @@
 //             cv.notify_one();
 //         }
 
-//         template<class Fn>
+//         template<typename Fn>
 //         void SubmitFn(Fn&& fn, Semaphore* pSignal = nullptr)
 //         {
 //             struct HeapJob { Fn fn; Job job = {};};

@@ -27,7 +27,7 @@ namespace nova
         virtual void BeginFrame_(DockspaceWindowFn fn, void* payload) = 0;
 
     public:
-        template<class Fn>
+        template<typename Fn>
         void BeginFrame(Fn&& fn)
         {
             BeginFrame_(

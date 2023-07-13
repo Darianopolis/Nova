@@ -4,7 +4,7 @@
 
 namespace nova
 {
-    template<class Element, size_t PageSize = std::max(64ull, 4096ull / sizeof(Element))>
+    template<typename Element, size_t PageSize = std::max(64ull, 4096ull / sizeof(Element))>
     class ConcurrentDynamicArray
     {
         struct Page
@@ -101,7 +101,7 @@ namespace nova
             return { index, pageTable[pageIndex]->page[index - (pageIndex * PageSize)] };
         }
 
-        template<class Fn>
+        template<typename Fn>
         void ForEach(Fn&& fn)
         {
             for (u32 i = 0; i < size; ++i)
@@ -109,7 +109,7 @@ namespace nova
         }
     };
 
-    template<class Element, class Key>
+    template<typename Element, typename Key>
     struct Registry
     {
         enum class ElementFlag : uint8_t
@@ -170,7 +170,7 @@ namespace nova
             return elements[usz(key)].second;
         }
 
-        template<class Fn>
+        template<typename Fn>
         void ForEach(Fn&& visit)
         {
             u64 size = elements.GetSize();

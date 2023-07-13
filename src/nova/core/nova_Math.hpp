@@ -4,7 +4,73 @@
 
 namespace nova
 {
-    template<class T>
+    inline
+    std::string DurationToString(std::chrono::duration<double, std::nano> dur)
+    {
+        f64 nanos = dur.count();
+
+        if (nanos > 1e9)
+        {
+            f64 seconds = nanos / 1e9;
+            u32 decimals = 2 - u32(std::log10(seconds));
+            return std::format("{:.{}f}s",seconds, decimals);
+        }
+        if (nanos > 1e6)
+        {
+            f64 millis = nanos / 1e6;
+            u32 decimals = 2 - u32(std::log10(millis));
+            return std::format("{:.{}f}ms", millis, decimals);
+        }
+        if (nanos > 1e3)
+        {
+            f64 micros = nanos / 1e3;
+            u32 decimals = 2 - u32(std::log10(micros));
+            return std::format("{:.{}f}us", micros, decimals);
+        }
+        if (nanos > 0)
+        {
+            u32 decimals = 2 - u32(std::log10(nanos));
+            return std::format("{:.{}f}ns", nanos, decimals);
+        }
+
+        return "0";
+    }
+
+    inline
+    std::string ByteSizeToString(u64 bytes)
+    {
+        auto Gigabyte = 1ull << 30;
+        auto Megabyte = 1ull << 20;
+        auto Kilobyte = 1ull << 10;
+
+        if (bytes > Gigabyte)
+        {
+            f64 gigabytes = bytes / f64(Gigabyte);
+            u32 decimals = 2 - u32(std::log10(gigabytes));
+            return std::format("{:.{}f}GB", gigabytes, decimals);
+        }
+        if (bytes > Megabyte)
+        {
+            f64 megabytes = bytes / f64(Megabyte);
+            u32 decimals = 2 - u32(std::log10(megabytes));
+            return std::format("{:.{}f}MB", megabytes, decimals);
+        }
+        if (bytes > Kilobyte)
+        {
+            f64 kilobytes = bytes / f64(Kilobyte);
+            u32 decimals = 2 - u32(std::log10(kilobytes));
+            return std::format("{:.{}f}KB", kilobytes, decimals);
+        }
+        if (bytes > 0)
+        {
+            u32 decimals = 2 - u32(std::log10(bytes));
+            return std::format("{:.{}f}", f64(bytes), decimals);
+        }
+
+        return "0";
+    }
+
+    template<typename T>
     constexpr
     T AlignUpPower2(T v, u64 align) noexcept {
         return T((u64(v) + (align - 1)) &~ (align - 1));

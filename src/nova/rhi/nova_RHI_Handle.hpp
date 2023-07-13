@@ -519,12 +519,12 @@ namespace nova
             return ctx->Buffer_GetAddress(buffer);
         }
 
-        template<class T>
+        template<typename T>
         T& Get(u64 index, u64 offset = 0) const
         {
             return ctx->Buffer_Get<T>(buffer, index, offset);
         }
-        template<class T>
+        template<typename T>
         void Set(Span<T> elements, u64 index = 0, u64 offset = 0) const
         {
             ctx->Buffer_Set<T>(buffer, elements, index, offset);

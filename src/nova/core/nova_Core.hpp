@@ -206,16 +206,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-        template<class... Ts>
+        template<typename... Ts>
         struct Overloads : Ts... {
             using Ts::operator()...;
         };
 
-        template<class... Ts> Overloads(Ts...) -> Overloads<Ts...>;
+        template<typename... Ts> Overloads(Ts...) -> Overloads<Ts...>;
 
 // -----------------------------------------------------------------------------
 
-        template<class T>
+        template<typename T>
         struct Span
         {
             std::span<const T> span;
@@ -406,7 +406,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    template<class T>
+    template<typename T>
     T* Temp(T&& v)
     {
         return &v;
@@ -444,7 +444,7 @@ namespace nova
 
 //     inline thread_local ThreadSupplementaryStack NovaStack;
 
-//     template<class T>
+//     template<typename T>
 //     class StackPtr
 //     {
 //         T* ptr;

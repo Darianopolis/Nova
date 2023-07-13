@@ -65,7 +65,7 @@ namespace nova
 #endif
         }
 
-        template<class Rep, class Period>
+        template<typename Rep, typename Period>
         bool Wait(std::chrono::duration<Rep, Period> duration, bool preempt = false)
         {
             if (duration <= 0ns)

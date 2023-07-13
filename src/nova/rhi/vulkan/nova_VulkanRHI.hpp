@@ -303,9 +303,9 @@ namespace nova
     public:
         VkDescriptorPool descriptorPool = {};
 
-        std::vector<Queue> graphicQueues = {};
+        std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};
-        std::vector<Queue> computeQueues = {};
+        std::vector<Queue>  computeQueues = {};
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
@@ -345,6 +345,7 @@ namespace nova
                 void* ptr = mi_malloc_aligned(size, align);
                 if (ptr)
                 {
+                    MemoryAllocated += mi_usable_size(ptr);
                     ++AllocationCount;
                     ++NewAllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
@@ -364,6 +365,7 @@ namespace nova
             .pfnFree = +[](void*, void* ptr) {
                 if (ptr)
                 {
+                    MemoryAllocated -= mi_usable_size(ptr);
                     --AllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                     NOVA_LOG("Freeing ptr = {}", ptr);

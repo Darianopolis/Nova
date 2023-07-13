@@ -43,6 +43,7 @@ Validation: {} ({})
             auto& feature = deviceFeatures[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2];
             auto& f = feature.emplace<VkPhysicalDeviceFeatures2>();
             f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            // NOVA_LOG("Setting type: {} ({}) @ {}", u32(f.sType), i32(f.sType), (void*)&f);
         }
 
         void Extension(std::string name)
@@ -50,12 +51,13 @@ Validation: {} ({})
             extensions.emplace(std::move(name));
         }
 
-        template<class T>
+        template<typename T>
         T& Feature(VkStructureType type)
         {
             auto& feature = deviceFeatures[type];
             if (!feature.has_value()) {
                 auto& f = feature.emplace<T>();
+                // NOVA_LOG("Setting type: {} ({}) @ {}", u32(type), i32(type), (void*)&f);
                 f.sType = type;
                 f.pNext = pNext;
                 pNext = &f;
@@ -273,6 +275,13 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
                 .rayTracingPositionFetch = VK_TRUE;
         }
+
+        // for (const VkBaseInStructure* cur = static_cast<const VkBaseInStructure*>(chain.Build())
+        //     ; cur
+        //     ; cur = static_cast<const VkBaseInStructure*>(cur->pNext))
+        // {
+        //     NOVA_LOG("Feature, sType = {} ({}) @ {}", u32(cur->sType), i32(cur->sType), (void*)cur);
+        // }
 
         auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
         {

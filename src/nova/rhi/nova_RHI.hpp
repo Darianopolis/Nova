@@ -13,6 +13,7 @@ namespace nova
     inline std::atomic<u64> TimeAdaptingToPresent = 0;
     inline std::atomic<u64> TimePresenting = 0;
     inline std::atomic<u64> TimeSettingGraphicsState = 0;
+    inline std::atomic<u64> MemoryAllocated = 0;
 
     inline
     void VkCall(VkResult res)
@@ -21,7 +22,7 @@ namespace nova
             NOVA_THROW("Error: {}", int(res));
     }
 
-    template<class Container, class Fn, class ... Args>
+    template<typename Container, typename Fn, typename ... Args>
     void VkQuery(Container&& container, Fn&& fn, Args&& ... args)
     {
         u32 count;
@@ -680,13 +681,13 @@ namespace nova
         virtual void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) = 0;
         virtual void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) = 0;
 
-        template<class T>
+        template<typename T>
         T& Buffer_Get(Buffer buffer, u64 index, u64 offset = 0)
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));
             return *reinterpret_cast<T*>(BufferImpl_Get(buffer ,index, offset, Stride));
         }
-        template<class T>
+        template<typename T>
         void Buffer_Set(Buffer buffer, Span<T> elements, u64 index = 0, u64 offset = 0)
         {
             constexpr auto Stride = AlignUpPower2(sizeof(T), alignof(T));

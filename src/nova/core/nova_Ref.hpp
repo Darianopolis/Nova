@@ -62,7 +62,7 @@ namespace nova::types
 //                          Reference counted pointer
 // -----------------------------------------------------------------------------
 
-    template<class T>
+    template<typename T>
     class Ref
     {
         T* value{};
@@ -85,7 +85,7 @@ namespace nova::types
 
 // -----------------------------------------------------------------------------
 
-        template<class... Args>
+        template<typename... Args>
         static Ref<T> Create(Args&&... args)
         {
             return Ref(new T(std::forward<Args>(args)...));
@@ -159,6 +159,21 @@ namespace nova::types
             return value == other.value;
         }
 
+        auto operator!=(const Ref<T>& other) const
+        {
+            return value != other.value;
+        }
+
+        auto operator==(T* other) const
+        {
+            return value == other;
+        }
+
+        auto operator!=(T* other) const
+        {
+            return value != other;
+        }
+
 // -----------------------------------------------------------------------------
 
         operator T&() &
@@ -175,14 +190,14 @@ namespace nova::types
 //                                 Upcasting
 // -----------------------------------------------------------------------------
 
-        template<class T2>
+        template<typename T2>
         requires std::derived_from<T, T2>
         operator Ref<T2>() const
         {
             return Ref<T2>(value);
         }
 
-        template<class T2>
+        template<typename T2>
         requires std::derived_from<T, T2>
         Ref<T2> ToBase()
         {
@@ -193,7 +208,7 @@ namespace nova::types
 //                                Downcasting
 // -----------------------------------------------------------------------------
 
-        template<class T2>
+        template<typename T2>
         Ref<T2> As() const
         {
 #ifdef NOVA_SAFE_REFERENCES
@@ -206,7 +221,7 @@ namespace nova::types
 #endif
         }
 
-        template<class T2>
+        template<typename T2>
         Ref<T2> TryAs() const
         {
             return Ref<T2>(dynamic_cast<T2*>(value));
@@ -240,3 +255,11 @@ namespace nova::types
         }
     };
 }
+
+template<typename T>
+struct ankerl::unordered_dense::hash<nova::Ref<T>> {
+    using is_avalanching = void;
+    nova::types::u64 operator()(const nova::Ref<T>& key) const noexcept {
+        return detail::wyhash::hash(nova::types::u64(key.Raw()));
+    }
+};
