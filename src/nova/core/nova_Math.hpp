@@ -46,24 +46,25 @@ namespace nova
         if (bytes > Gigabyte)
         {
             f64 gigabytes = bytes / f64(Gigabyte);
-            u32 decimals = 2 - u32(std::log10(gigabytes));
+            u32 decimals = 2 - std::min(2u, u32(std::log10(gigabytes)));
             return std::format("{:.{}f}GB", gigabytes, decimals);
         }
         if (bytes > Megabyte)
         {
             f64 megabytes = bytes / f64(Megabyte);
-            u32 decimals = 2 - u32(std::log10(megabytes));
-            return std::format("{:.{}f}MB", megabytes, decimals);
+            u32 decimals = 2 - std::min(2u, u32(std::log10(megabytes)));
+            std::string str =  std::format("{:.{}f}MB", megabytes, decimals);
+            return str;
         }
         if (bytes > Kilobyte)
         {
             f64 kilobytes = bytes / f64(Kilobyte);
-            u32 decimals = 2 - u32(std::log10(kilobytes));
+            u32 decimals = 2 - std::min(2u, u32(std::log10(kilobytes)));
             return std::format("{:.{}f}KB", kilobytes, decimals);
         }
         if (bytes > 0)
         {
-            u32 decimals = 2 - u32(std::log10(bytes));
+            u32 decimals = 2 - std::min(2u, u32(std::log10(bytes)));
             return std::format("{:.{}f}", f64(bytes), decimals);
         }
 
@@ -117,14 +118,14 @@ namespace nova
 
         // Extract the scale. We calculate the euclidean length of the columns. We then
         // construct a vector with those lengths.
-        float s1 = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] *  matrix[2]);
-        float s2 = std::sqrt(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] *  matrix[6]);
-        float s3 = std::sqrt(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
+        f32 s1 = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] *  matrix[2]);
+        f32 s2 = std::sqrt(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] *  matrix[6]);
+        f32 s3 = std::sqrt(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
         trs.scale = Vec3(s1, s2, s3);
 
-        float is1 = 1.f / s1;
-        float is2 = 1.f / s2;
-        float is3 = 1.f / s3;
+        f32 is1 = 1.f / s1;
+        f32 is2 = 1.f / s2;
+        f32 is3 = 1.f / s3;
 
         // Remove the scaling from the matrix, leaving only the rotation. matrix is now the
         // rotation matrix.

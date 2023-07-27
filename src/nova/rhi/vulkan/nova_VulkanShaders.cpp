@@ -3,7 +3,7 @@
 #include <nova/core/nova_Files.hpp>
 
 #include <glslang/Public/ShaderLang.h>
-#include <glslang/Public/resource_limits_c.h>
+#include <glslang/Public/ResourceLimits.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 
 namespace nova
@@ -48,7 +48,7 @@ namespace nova
             if (exists)
             {
                 userData->name = target.string();
-                // userData->content = nova::ReadFileToString(userData->name);
+                // userData->content = nova::files::ReadTextFile(userData->name);
                 NOVA_THROW("Include load file not supported yet");
             }
             else
@@ -117,14 +117,14 @@ namespace nova
         }
 
         glslang::TShader glslShader { glslangStage };
-        auto resource = (const TBuiltInResource*)glslang_default_resource();
+        auto resource = GetDefaultResources();
         glslShader.setEnvInput(glslang::EShSourceGlsl, glslangStage, glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
         glslShader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
         glslShader.setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_6);
 
         // ---- Source ----
 
-        const std::string& glslCode = sourceCode.empty() ? ReadFileToString(filename) : sourceCode;
+        const std::string& glslCode = sourceCode.empty() ? files::ReadTextFile(filename) : sourceCode;
         const char* source = glslCode.data();
         i32 sourceLength = i32(glslCode.size());
         const char* sourceName = "shader";
@@ -151,8 +151,8 @@ namespace nova
         std::string preprocessed;
         if (!glslShader.preprocess(
             resource,
-            100,
-            EEsProfile,
+            460,
+            ECoreProfile,
             false,
             false,
             EShMessages::EShMsgEnhanced,
@@ -214,7 +214,7 @@ namespace nova
 
     Shader VulkanContext::Shader_Create(ShaderStage stage, Span<ShaderElement> elements)
     {
-        std::string shader = R"(#version 460
+        std::string shader = R"(#version 460 core
 #extension GL_GOOGLE_include_directive                   : enable
 #extension GL_EXT_scalar_block_layout                    : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
@@ -250,6 +250,13 @@ namespace nova
                 return "vec3";
             break;case ShaderVarType::Vec4:
                 return "vec4";
+
+            break;case ShaderVarType::Vec2U:
+                return "uvec2";
+            break;case ShaderVarType::Vec3U:
+                return "uvec3";
+            break;case ShaderVarType::Vec4U:
+                return "uvec4";
 
             break;case ShaderVarType::U32:
                 return "uint";

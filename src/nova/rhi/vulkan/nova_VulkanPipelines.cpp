@@ -83,11 +83,11 @@ namespace nova
         break;case Topology::Points:
             key.topology = Topology::Points;
         break;case Topology::Lines:
-                case Topology::LineStrip:
+              case Topology::LineStrip:
             key.topology = Topology::Lines;
         break;case Topology::Triangles:
-                case Topology::TriangleStrip:
-                case Topology::TriangleFan:
+              case Topology::TriangleStrip:
+              case Topology::TriangleFan:
             key.topology = Topology::Triangles;
         break;case Topology::Patches:
             key.topology = Topology::Patches;

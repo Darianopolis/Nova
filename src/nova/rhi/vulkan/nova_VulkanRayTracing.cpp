@@ -142,7 +142,7 @@ namespace nova
         // Gen
 
         Get(pipeline).rayGenRegion.size = handleSize;
-        Get(pipeline).rayGenRegion.stride = handleSize;
+        Get(pipeline).rayGenRegion.stride = handleStride; // raygen size === stride
         for (u32 i = 0; i < rayGenIndices.size(); ++i)
             std::memcpy(getMapped(0, i), getHandle(rayGenIndices[i]), handleSize);
 

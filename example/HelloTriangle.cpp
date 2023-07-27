@@ -20,7 +20,7 @@ int main()
 
     auto ctx = nova::Context::Create({
         .backend = nova::Backend::Vulkan,
-        .debug = true,
+        .debug = false,
     });
     auto context = nova::HContext(ctx);
 

@@ -34,16 +34,22 @@ Validation: {} ({})
 
     struct VulkanFeatureChain
     {
-        ankerl::unordered_dense::map<VkStructureType, std::any> deviceFeatures;
+        ankerl::unordered_dense::map<VkStructureType, VkBaseInStructure*> deviceFeatures;
         ankerl::unordered_dense::set<std::string> extensions;
-        void* pNext = nullptr;
+        VkBaseInStructure* pNext = nullptr;
 
         VulkanFeatureChain()
         {
-            auto& feature = deviceFeatures[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2];
-            auto& f = feature.emplace<VkPhysicalDeviceFeatures2>();
-            f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-            // NOVA_LOG("Setting type: {} ({}) @ {}", u32(f.sType), i32(f.sType), (void*)&f);
+            // Feature<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+            // pNext = nullptr;
+        }
+
+        ~VulkanFeatureChain()
+        {
+            for (auto&[type, feature] : deviceFeatures)
+            {
+                mi_free(feature);
+            }
         }
 
         void Extension(std::string name)
@@ -54,23 +60,26 @@ Validation: {} ({})
         template<typename T>
         T& Feature(VkStructureType type)
         {
-            auto& feature = deviceFeatures[type];
-            if (!feature.has_value()) {
-                auto& f = feature.emplace<T>();
-                // NOVA_LOG("Setting type: {} ({}) @ {}", u32(type), i32(type), (void*)&f);
-                f.sType = type;
-                f.pNext = pNext;
-                pNext = &f;
+            auto& f = deviceFeatures[type];
+            if (!f) 
+            {
+                f = static_cast<VkBaseInStructure*>(mi_malloc(sizeof(T)));
+                new(f) T{};
+                NOVA_LOG("Setting type: {} ({}) @ {} ({})", u32(type), i32(type), (void*)f, typeid(T).name());
+                f->sType = type;
+                f->pNext = pNext;
+                pNext = f;
             }
 
-            return std::any_cast<T&>(feature);
+            return *(T*)f;
         }
 
         const void* Build()
         {
-            auto& f2 = std::any_cast<VkPhysicalDeviceFeatures2&>(deviceFeatures.at(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2));
-            f2.pNext = pNext;
-            return &f2;
+            // auto f2 = reinterpret_cast<VkPhysicalDeviceFeatures2*>(deviceFeatures.at(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2));
+            // f2->pNext = pNext;
+            // return f2;
+            return pNext;
         }
     };
 
@@ -142,10 +151,10 @@ Validation: {} ({})
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(_gpu, &properties);
-            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 
             {
                 gpu = _gpu;
-                break;
+                break;                                                                    
             }
         }
 
@@ -239,6 +248,18 @@ Validation: {} ({})
                 .graphicsPipelineLibrary = VK_TRUE;
         }
 
+        if (config.meshShaders)
+        {
+            chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+            auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
+                
+            f.meshShader = true;            
+            f.meshShaderQueries = true;
+            f.multiviewMeshShader = true;
+            f.taskShader = true;
+        }
+
         if (config.descriptorBuffers)
         {
             chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
@@ -270,18 +291,11 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV)
                 .rayTracingInvocationReorder = VK_TRUE;
 
-            chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
-                .rayTracingPositionFetch = VK_TRUE;
+            // chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+            // chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(
+            //     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
+            //     .rayTracingPositionFetch = VK_TRUE;
         }
-
-        // for (const VkBaseInStructure* cur = static_cast<const VkBaseInStructure*>(chain.Build())
-        //     ; cur
-        //     ; cur = static_cast<const VkBaseInStructure*>(cur->pNext))
-        // {
-        //     NOVA_LOG("Feature, sType = {} ({}) @ {}", u32(cur->sType), i32(cur->sType), (void*)cur);
-        // }
 
         auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
         {

@@ -14,6 +14,7 @@ namespace nova
 
         struct TimerResolutionGuard
         {
+            // https://stackoverflow.com/questions/85122/how-to-make-thread-sleep-less-than-a-millisecond-on-windows/31411628#31411628
             const ZwSetTimerResolutionType ZwSetTimerResolution;
             std::chrono::nanoseconds minQuantum;
 

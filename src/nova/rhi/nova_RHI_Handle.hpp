@@ -44,9 +44,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(fence); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Fence_Destroy(fence);
+            fence = {};
         }
 
         void Wait(u64 waitValue = 0ull) const
@@ -88,9 +89,10 @@ namespace nova
             ctx->Commands_SetState(state, texture, layout, stages, access);
         }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Commands_DestroyState(state);
+            state = {};
         }
     };
 
@@ -280,9 +282,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(pool); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Commands_DestroyPool(pool);
+            pool = {};
         }
 
         HCommandList Begin(CommandState state) const
@@ -310,9 +313,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(sampler); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Sampler_Destroy(sampler);
+            sampler = {};
         }
     };
 
@@ -338,9 +342,10 @@ namespace nova
 
         bool IsValid() const { return ctx && ctx->IsValid(texture); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Texture_Destroy(texture);
+            texture = {};
         }
 
         Vec3U GetExtent() const
@@ -368,9 +373,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(swapchain); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Swapchain_Destroy(swapchain);
+            swapchain = {};
         }
 
         HTexture GetCurrent() const
@@ -403,9 +409,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(shader); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Shader_Destroy(shader);
+            shader = {};
         }
     };
 
@@ -423,9 +430,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(pipelineLayout); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Pipelines_DestroyLayout(pipelineLayout);
+            pipelineLayout = {};
         }
     };
 
@@ -469,9 +477,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(descriptorSetLayout); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Descriptors_DestroySetLayout(descriptorSetLayout);
+            descriptorSetLayout = {};
         }
 
         HDescriptorSet Allocate(u64 customSize = 0) const
@@ -494,9 +503,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(buffer); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->Buffer_Destroy(buffer);
+            buffer = {};
         }
 
         void Resize(u64 size) const
@@ -545,9 +555,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(builder); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->AccelerationStructures_DestroyBuilder(builder);
+            builder = {};
         }
 
         void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const
@@ -617,9 +628,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(structure); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->AccelerationStructures_Destroy(structure);
+            structure = {};
         }
 
         u64 GetAddress() const
@@ -642,9 +654,10 @@ namespace nova
     public:
         bool IsValid() const { return ctx && ctx->IsValid(pipeline); }
 
-        void Destroy() const
+        void Destroy()
         {
             ctx->RayTracing_DestroyPipeline(pipeline);
+            pipeline = {};
         }
 
         void Update(PipelineLayout layout,

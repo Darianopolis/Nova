@@ -1,4 +1,4 @@
-#include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/nova_RHI_Handle.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -38,22 +38,23 @@ int main()
         .debug = true,
         .rayTracing = true,
     });
+    auto context = nova::HContext(ctx);
 
     // Create surface and swapchain for GLFW window
 
 
-    auto swapchain = ctx->Swapchain_Create(glfwGetWin32Window(window),
+    auto swapchain = context.CreateSwapchain(glfwGetWin32Window(window),
         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
 
     // Create required Nova objects
 
-    auto queue = ctx->Queue_Get(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = ctx->Commands_CreatePool(queue);
-    auto fence = ctx->Fence_Create();
-    auto state = ctx->Commands_CreateState();
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto cmdPool = context.CreateCommandPool(queue);
+    auto fence = context.CreateFence();
+    auto state = context.CreateCommandState();
 
-    auto builder = ctx->AccelerationStructures_CreateBuilder();
+    auto builder = context.CreateAccelerationStructureBuilder();
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -63,18 +64,18 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = ctx->Descriptors_CreateSetLayout({
-        nova::binding::StorageTexture("outImage", ctx->Swapchain_GetFormat(swapchain)),
+    auto descLayout = context.CreateDescriptorSetLayout({
+        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
         nova::binding::AccelerationStructure("tlas"),
     }, true);
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = ctx->Pipelines_CreateLayout({}, {descLayout}, nova::BindPoint::RayTracing);
+    auto pipelineLayout = context.CreatePipelineLayout({}, {descLayout}, nova::BindPoint::RayTracing);
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto rayGenShader = ctx->Shader_Create(nova::ShaderStage::RayGen, {
+    auto rayGenShader = context.CreateShader(nova::ShaderStage::RayGen, {
         nova::shader::Layout(pipelineLayout),
         nova::shader::Fragment(R"glsl(
             layout(location = 0) rayPayloadEXT uint     payload;
@@ -86,22 +87,20 @@ int main()
             hitObjectNV hit;
             hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
+            vec3 color = vec3(0.1);
             if (hitObjectIsHitNV(hit))
             {
                 hitObjectGetAttributesNV(hit, 0);
-                imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(1.0 - bary.x - bary.y, bary.x, bary.y), 1));
+                color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
             }
-            else
-            {
-                imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.1), 1));
-            }
+            imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
         )glsl")
     });
 
     // Create a ray tracing pipeline with one ray gen shader
 
-    auto pipeline = ctx->RayTracing_CreatePipeline();
-    ctx->RayTracing_UpdatePipeline(pipeline, pipelineLayout, {rayGenShader}, {}, {}, {});
+    auto pipeline = context.CreateRayTracingPipeline();
+    pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
     NOVA_TIMEIT("pipeline");
 
@@ -111,54 +110,51 @@ int main()
 
     // Vertex data
 
-    auto vertices = ctx->Buffer_Create(3 * sizeof(Vec3),
+    auto vertices = context.CreateBuffer(3 * sizeof(Vec3),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    ctx->Buffer_Set<Vec3>(vertices, { {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
+    vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
     // Index data
 
-    auto indices = ctx->Buffer_Create(3 * sizeof(u32),
+    auto indices = context.CreateBuffer(3 * sizeof(u32),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    ctx->Buffer_Set<u32>(indices, { 0u, 1u, 2u });
+    indices.Set<u32>({ 0u, 1u, 2u });
 
     // Configure BLAS build
 
-    ctx->AccelerationStructures_SetTriangles(builder, 0,
-        ctx->Buffer_GetAddress(vertices), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
-        ctx->Buffer_GetAddress(indices), nova::IndexType::U32, 1);
-    ctx->AccelerationStructures_Prepare(builder,
-        nova::AccelerationStructureType::BottomLevel,
+    builder.SetTriangles(0,
+        vertices.GetAddress(), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
+        indices.GetAddress(), nova::IndexType::U32, 1);
+    builder.Prepare(nova::AccelerationStructureType::BottomLevel,
         nova::AccelerationStructureFlags::PreferFastTrace
         | nova::AccelerationStructureFlags::AllowCompaction, 1);
 
     // Create BLAS and scratch buffer
 
-    auto uncompactedBlas = ctx->AccelerationStructures_Create(
-        ctx->AccelerationStructures_GetBuildSize(builder),
+    auto uncompactedBlas = context.CreateAccelerationStructure(builder.GetBuildSize(),
         nova::AccelerationStructureType::BottomLevel);
-    auto scratch = ctx->Buffer_Create(
-        ctx->AccelerationStructures_GetBuildScratchSize(builder),
+    auto scratch = context.CreateBuffer(builder.GetBuildScratchSize(),
         nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
 
     // Build BLAS
 
-    auto cmd = ctx->Commands_Begin(cmdPool, state);
-    ctx->Cmd_BuildAccelerationStructure(cmd, builder, uncompactedBlas, scratch);
-    ctx->Queue_Submit(queue, {cmd}, {}, {fence});
-    ctx->Fence_Wait(fence);
+    auto cmd = cmdPool.Begin(state);
+    cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
+    queue.Submit({cmd}, {}, {fence});
+    fence.Wait();
 
     // Compact BLAS
 
-    auto blas = ctx->AccelerationStructures_Create(
-        ctx->AccelerationStructures_GetCompactSize(builder),
+    auto blas = context.CreateAccelerationStructure(
+        builder.GetCompactSize(),
         nova::AccelerationStructureType::BottomLevel);
 
-    cmd = ctx->Commands_Begin(cmdPool, state);
-    ctx->Cmd_CompactAccelerationStructure(cmd, blas, uncompactedBlas);
-    ctx->Queue_Submit(queue, {cmd}, {}, {fence});
-    ctx->Fence_Wait(fence);
+    cmd = cmdPool.Begin(state);
+    cmd.CompactAccelerationStructure(blas, uncompactedBlas);
+    queue.Submit({cmd}, {}, {fence});
+    fence.Wait();
 
     vertices = {};
     indices = {};
@@ -172,23 +168,22 @@ int main()
 
     // Instance data
 
-    auto instances = ctx->Buffer_Create(ctx->AccelerationStructures_GetInstanceSize(),
+    auto instances = context.CreateBuffer(builder.GetInstanceSize(),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
     // Configure TLAS build
 
-    ctx->AccelerationStructures_SetInstances(builder, 0, ctx->Buffer_GetAddress(instances), 1);
-    ctx->AccelerationStructures_Prepare(builder,
-        nova::AccelerationStructureType::TopLevel,
+    builder.SetInstances(0, instances.GetAddress(), 1);
+    builder.Prepare(nova::AccelerationStructureType::TopLevel,
         nova::AccelerationStructureFlags::PreferFastTrace, 1);
 
     // Create TLAS and resize scratch buffer
 
-    auto tlas = ctx->AccelerationStructures_Create(
-        ctx->AccelerationStructures_GetBuildSize(builder),
+    auto tlas = context.CreateAccelerationStructure(
+        builder.GetBuildSize(),
         nova::AccelerationStructureType::TopLevel);
-    ctx->Buffer_Resize(scratch, ctx->AccelerationStructures_GetBuildScratchSize(builder));
+    scratch.Resize(builder.GetBuildScratchSize());
 
     NOVA_TIMEIT("tlas-prepare");
 
@@ -200,42 +195,42 @@ int main()
     {
         // Wait for previous frame and acquire new swapchain image
 
-        ctx->Fence_Wait(fence);
-        ctx->Queue_Acquire(queue, {swapchain}, {fence});
+        fence.Wait();
+        queue.Acquire({swapchain}, {fence});
 
         // Start new command buffer
 
-        ctx->Commands_Reset(cmdPool);
-        cmd = ctx->Commands_Begin(cmdPool, state);
+        cmdPool.Reset();
+        cmd = cmdPool.Begin(state);
 
         // Build scene TLAS
 
-        ctx->AccelerationStructures_WriteInstance(ctx->Buffer_GetMapped(instances), 0, blas,
-            glm::scale(Mat4(1), Vec3(ctx->Swapchain_GetExtent(swapchain), 1.f)),
+        builder.WriteInstance(instances.GetMapped(), 0, blas,
+            glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
             0, 0xFF, 0, {});
-        ctx->Cmd_BuildAccelerationStructure(cmd, builder, tlas, scratch);
+        cmd.BuildAccelerationStructure(builder, tlas, scratch);
 
         // Transition ready for writing ray trace output
 
-        ctx->Cmd_Barrier(cmd, nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
-        ctx->Cmd_Transition(cmd, ctx->Swapchain_GetCurrent(swapchain),
+        cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
+        cmd.Transition(swapchain.GetCurrent(),
             nova::TextureLayout::GeneralImage,
             nova::PipelineStage::RayTracing);
 
         // Push swapchain image and TLAS descriptors
 
-        ctx->Cmd_PushStorageTexture(cmd, pipelineLayout, 0, 0, ctx->Swapchain_GetCurrent(swapchain));
-        ctx->Cmd_PushAccelerationStructure(cmd, pipelineLayout, 0, 1, tlas);
+        cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
+        cmd.PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
 
         // Trace rays
 
-        ctx->Cmd_TraceRays(cmd, pipeline, Vec3U(ctx->Swapchain_GetExtent(swapchain), 1), 0);
+        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
 
         // Submit and present work
 
-        ctx->Cmd_Present(cmd, swapchain);
-        ctx->Queue_Submit(queue, {cmd}, {fence}, {fence});
-        ctx->Queue_Present(queue, {swapchain}, {fence});
+        cmd.Present(swapchain);
+        queue.Submit({cmd}, {fence}, {fence});
+        queue.Present({swapchain}, {fence});
 
         // Wait for window events
 

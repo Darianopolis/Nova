@@ -330,6 +330,7 @@ namespace nova
         Mat2, Mat3, Mat4,
         Mat4x3, Mat3x4,
         Vec2, Vec3, Vec4,
+        Vec2U, Vec3U, Vec4U,
         U32, U64,
         I32, I64,
         F32, F64,
@@ -352,13 +353,13 @@ namespace nova
         break;case ShaderVarType::Vec4: return  4 * 4;
 
         break;case ShaderVarType::U32:
-                case ShaderVarType::I32:
-                case ShaderVarType::F32:
+              case ShaderVarType::I32:
+              case ShaderVarType::F32:
             return 4;
 
         break;case ShaderVarType::U64:
-                case ShaderVarType::I64:
-                case ShaderVarType::F64:
+              case ShaderVarType::I64:
+              case ShaderVarType::F64:
             return 8;
         }
         return 0;
@@ -528,6 +529,7 @@ namespace nova
     {
         Backend        backend = {};
         bool             debug = false;
+        bool       meshShaders = false;
         bool        rayTracing = false;
         bool descriptorBuffers = false;
     };

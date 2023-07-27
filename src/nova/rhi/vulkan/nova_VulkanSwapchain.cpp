@@ -155,9 +155,7 @@ namespace nova
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
                         }), pAlloc, &texture.view));
 
-                        texture.extent.x = swapchain.extent.width;
-                        texture.extent.y = swapchain.extent.height;
-                        texture.extent.z = 1;
+                        texture.extent = Vec3U(swapchain.extent.width, swapchain.extent.height, 1);
                         texture.format = FromVulkanFormat(swapchain.format.format);
                         texture.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                         texture.mips = 1;
