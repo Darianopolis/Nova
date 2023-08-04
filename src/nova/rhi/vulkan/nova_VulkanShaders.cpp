@@ -294,7 +294,7 @@ namespace nova
         u32 outputLocation = 0;
         auto getTypeLocationWidth = [](ShaderVarType type) {
 
-            switch (type)
+            switch (type) 
             {
             break;case ShaderVarType::Mat2:
                 return 2;
@@ -367,9 +367,9 @@ namespace nova
                                     switch (binding.format)
                                     {
                                     break;case Format::RGBA8_UNorm:
-                                            case Format::BGRA8_UNorm:
-                                            case Format::RGBA8_SRGB:
-                                            case Format::BGRA8_SRGB:
+                                          case Format::BGRA8_UNorm:
+                                          case Format::RGBA8_SRGB:
+                                          case Format::BGRA8_SRGB:
                                         formatString = "rgba8";
                                         imageType = "image2D";
                                     break;case Format::R32_UInt:

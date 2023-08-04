@@ -50,7 +50,7 @@ namespace nova
             fence = {};
         }
 
-        void Wait(u64 waitValue = 0ull) const
+        void Wait(u64 waitValue = ~0ull) const
         {
             ctx->Fence_Wait(fence, waitValue);
         }
@@ -60,7 +60,7 @@ namespace nova
             return ctx->Fence_Advance(fence);
         }
 
-        void Signal(u64 signalValue = 0ull) const
+        void Signal(u64 signalValue = ~0ull) const
         {
             ctx->Fence_Signal(fence, signalValue);
         }

@@ -148,6 +148,7 @@ namespace nova
             fn(payload, *this);
 
             ImGui::End();
+
         }
         ended = false;
     }

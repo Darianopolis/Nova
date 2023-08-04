@@ -578,9 +578,9 @@ namespace nova
 
         virtual Fence Fence_Create() = 0;
         virtual void  Fence_Destroy(Fence) = 0;
-        virtual void  Fence_Wait(Fence, u64 waitValue = 0ull) = 0;
+        virtual void  Fence_Wait(Fence, u64 waitValue = ~0ull) = 0;
         virtual u64   Fence_Advance(Fence) = 0;
-        virtual void  Fence_Signal(Fence, u64 signalValue = 0ull) = 0;
+        virtual void  Fence_Signal(Fence, u64 signalValue = ~0ull) = 0;
         virtual u64   Fence_GetPendingValue(Fence) = 0;
 
 // -----------------------------------------------------------------------------

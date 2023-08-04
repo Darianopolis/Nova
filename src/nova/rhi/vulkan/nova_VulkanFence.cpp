@@ -33,7 +33,8 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
             .pSemaphores = &fence.semaphore,
-            .pValues = waitValue ? &waitValue : &fence.value,
+            // .pValues = waitValue ? &waitValue : &fence.value,
+            .pValues = (waitValue != ~0ull) ? &waitValue : &fence.value,
         }), UINT64_MAX));
     }
 
@@ -49,7 +50,8 @@ namespace nova
         VkCall(vkSignalSemaphore(device, Temp(VkSemaphoreSignalInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
             .semaphore = fence.semaphore,
-            .value = signalValue ? signalValue : fence.value,
+            // .value = signalValue ? signalValue : fence.value,
+            .value = (signalValue != ~0ull) ? signalValue : fence.value,
         })));
     }
 

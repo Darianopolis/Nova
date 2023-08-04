@@ -3,6 +3,7 @@
 #include <nova/rhi/nova_RHI.hpp>
 
 #include <nova/core/nova_Registry.hpp>
+#include <nova/core/nova_Array.hpp>
 
 namespace nova
 {
@@ -432,9 +433,9 @@ namespace nova
 
         Fence Fence_Create() final;
         void  Fence_Destroy(Fence) final;
-        void  Fence_Wait(Fence, u64 waitValue = 0ull) final;
+        void  Fence_Wait(Fence, u64 waitValue = ~0ull) final;
         u64   Fence_Advance(Fence) final;
-        void  Fence_Signal(Fence, u64 signalValue = 0ull) final;
+        void  Fence_Signal(Fence, u64 signalValue = ~0ull) final;
         u64   Fence_GetPendingValue(Fence) final;
 
 // -----------------------------------------------------------------------------

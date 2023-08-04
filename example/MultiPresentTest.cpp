@@ -1,4 +1,5 @@
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 #include <nova/rhi/nova_RHI_Handle.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/imgui/nova_ImGui.hpp>
@@ -18,7 +19,7 @@ int main()
 {
     auto ctx = nova::Context::Create({
         .backend = nova::Backend::Vulkan,
-        .debug = true,
+        .debug = false,
     });
     auto context = nova::HContext(ctx);
 
@@ -105,9 +106,6 @@ int main()
         cmd.Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd.Present(swapchain2);
 
-        int* v = new int();
-        delete v;
-
         // Submit work
         queue.Submit({cmd}, {fence}, {fence});
 
@@ -128,13 +126,11 @@ int main()
     });
 
     NOVA_ON_SCOPE_EXIT(&) {
-        // fences[0].Wait();
-        // fences[1].Wait();
         fence.Wait();
     };
     while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
     {
         update();
-        glfwWaitEvents();
+        glfwPollEvents();
     }
 }

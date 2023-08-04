@@ -291,10 +291,10 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_FEATURES_NV)
                 .rayTracingInvocationReorder = VK_TRUE;
 
-            // chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
-            // chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(
-            //     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
-            //     .rayTracingPositionFetch = VK_TRUE;
+            chain.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
+                .rayTracingPositionFetch = VK_TRUE;
         }
 
         auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
