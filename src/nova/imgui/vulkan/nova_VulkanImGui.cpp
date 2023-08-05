@@ -10,10 +10,10 @@
 
 namespace nova
 {
-    VulkanImGuiWrapper::VulkanImGuiWrapper(Context* _context,
-            CommandList cmd, Format format, GLFWwindow* window,
+    ImGuiLayer::ImGuiLayer(HContext _context,
+            HCommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config)
-        : context(&dynamic_cast<VulkanContext&>(*_context))
+        : context(_context)
     {
         u32 framesInFlight = std::max(config.imageCount, 2u);
 
@@ -61,8 +61,8 @@ namespace nova
             .Instance = context->instance,
             .PhysicalDevice = context->gpu,
             .Device = context->device,
-            .QueueFamily = context->Get(context->graphicQueues.front()).family,
-            .Queue = context->Get(context->graphicQueues.front()).handle,
+            .QueueFamily = context->graphicQueues.front()->family,
+            .Queue = context->graphicQueues.front()->handle,
             .DescriptorPool = context->descriptorPool,
             .Subpass = 0,
             .MinImageCount = framesInFlight,
@@ -80,12 +80,12 @@ namespace nova
         fontConfig.GlyphOffset = ImVec2(config.glyphOffset.x, config.glyphOffset.y);
         ImGui::GetIO().Fonts->ClearFonts();
         ImGui::GetIO().Fonts->AddFontFromFileTTF(config.font, config.fontSize, &fontConfig);
-        ImGui_ImplVulkan_CreateFontsTexture(context->Get(cmd).buffer);
+        ImGui_ImplVulkan_CreateFontsTexture(cmd->buffer);
 
         ImGui::SetCurrentContext(lastImguiCtx);
     }
 
-    VulkanImGuiWrapper::~VulkanImGuiWrapper()
+    ImGuiLayer::~ImGuiLayer()
     {
         // if (!renderPass)
         //     return;
@@ -101,7 +101,7 @@ namespace nova
         ImGui::DestroyContext(imguiCtx);
     }
 
-    void VulkanImGuiWrapper::BeginFrame_(DockspaceWindowFn fn, void* payload)
+    void ImGuiLayer::BeginFrame_(DockspaceWindowFn fn, void* payload)
     {
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
@@ -153,7 +153,7 @@ namespace nova
         ended = false;
     }
 
-    void VulkanImGuiWrapper::EndFrame()
+    void ImGuiLayer::EndFrame()
     {
         if (!ended)
         {
@@ -172,12 +172,12 @@ namespace nova
         }
     }
 
-    bool VulkanImGuiWrapper::HasDrawData()
+    bool ImGuiLayer::HasDrawData()
     {
         return ended;
     }
 
-    void VulkanImGuiWrapper::DrawFrame(CommandList cmd, Texture texture)
+    void ImGuiLayer::DrawFrame(HCommandList cmd, HTexture texture)
     {
         EndFrame();
 
@@ -185,10 +185,10 @@ namespace nova
         ImGui::SetCurrentContext(imguiCtx);
 
         // if (Vec2U(context->Texture_GetExtent(texture)) != lastSize
-        //     || context->Get(texture).usage != lastUsage)
+        //     || context->texture->usage != lastUsage)
         // {
         //     lastSize = Vec2U(context->Texture_GetExtent(texture));
-        //     lastUsage = context->Get(texture).usage;
+        //     lastUsage = context->texture->usage;
 
         //     vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
 
@@ -199,12 +199,12 @@ namespace nova
         //             .attachmentImageInfoCount = 1,
         //             .pAttachmentImageInfos = Temp(VkFramebufferAttachmentImageInfo {
         //                 .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-        //                 .usage = GetVulkanImageUsage(context->Get(texture).usage),
+        //                 .usage = GetVulkanImageUsage(context->texture->usage),
         //                 .width = lastSize.x,
         //                 .height = lastSize.y,
         //                 .layerCount = 1,
         //                 .viewFormatCount = 1,
-        //                 .pViewFormats = nova::Temp(GetVulkanFormat(context->Get(texture).format)),
+        //                 .pViewFormats = nova::Temp(GetVulkanFormat(context->texture->format)),
         //             }),
         //         }),
         //         .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
@@ -216,35 +216,35 @@ namespace nova
         //     }), context->pAlloc, &framebuffer));
         // }
 
-        context->Cmd_Transition(cmd, texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        cmd->Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
-        // vkCmdBeginRenderPass(context->Get(cmd).buffer, Temp(VkRenderPassBeginInfo {
+        // vkCmdBeginRenderPass(context->buffer, Temp(VkRenderPassBeginInfo {
         //     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         //     .pNext = Temp(VkRenderPassAttachmentBeginInfo {
         //         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
         //         .attachmentCount = 1,
-        //         .pAttachments = &context->Get(texture).view,
+        //         .pAttachments = &context->texture->view,
         //     }),
         //     .renderPass = renderPass,
         //     .framebuffer = framebuffer,
         //     .renderArea = { {}, { lastSize.x, lastSize.y } },
         // }), VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBeginRendering(context->Get(cmd).buffer, Temp(VkRenderingInfo {
+        vkCmdBeginRendering(cmd->buffer, Temp(VkRenderingInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = { {}, { context->Get(texture).extent.x, context->Get(texture).extent.y } },
+            .renderArea = { {}, { texture->extent.x, texture->extent.y } },
             .layerCount = 1,
             .colorAttachmentCount = 1,
             .pColorAttachments = Temp(VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .imageView = context->Get(texture).view,
+                .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             }),
         }));
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), context->Get(cmd).buffer);
-        // vkCmdEndRenderPass(context->Get(cmd).buffer);
-        vkCmdEndRendering(context->Get(cmd).buffer);
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
+        // vkCmdEndRenderPass(context->buffer);
+        vkCmdEndRendering(cmd->buffer);
 
         ImGui::SetCurrentContext(lastImguiCtx);
     }

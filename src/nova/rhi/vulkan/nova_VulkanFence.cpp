@@ -2,62 +2,51 @@
 
 namespace nova
 {
-    Fence VulkanContext::Fence_Create()
+    Fence::Fence(HContext _context)
+        : Object(_context)
     {
-        auto[id, fence] = fences.Acquire();
-
-        VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
+        VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = Temp(VkSemaphoreTypeCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             }),
-        }), pAlloc, &fence.semaphore));
-
-        return id;
+        }), context->pAlloc, &semaphore));
     }
 
-    void VulkanContext::Fence_Destroy(Fence id)
+    Fence::~Fence()
     {
-        auto& fence = Get(id);
-        vkDestroySemaphore(device, fence.semaphore, pAlloc);
-        fences.Return(id);
+        vkDestroySemaphore(context->device, semaphore, context->pAlloc);
     }
 
-    void VulkanContext::Fence_Wait(Fence id, u64 waitValue)
+    void Fence::Wait(u64 waitValue)
     {
-        auto& fence = Get(id);
-
-        VkCall(vkWaitSemaphores(device, Temp(VkSemaphoreWaitInfo {
+        VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
-            .pSemaphores = &fence.semaphore,
-            // .pValues = waitValue ? &waitValue : &fence.value,
-            .pValues = (waitValue != ~0ull) ? &waitValue : &fence.value,
+            .pSemaphores = &semaphore,
+            .pValues = (waitValue != ~0ull) ? &waitValue : &value,
         }), UINT64_MAX));
     }
 
-    u64 VulkanContext::Fence_Advance(Fence id)
+    u64 Fence::Advance()
     {
-        return ++Get(id).value;
+        return ++value;
     }
 
-    void VulkanContext::Fence_Signal(Fence id, u64 signalValue)
+    void Fence::Signal(u64 signalValue)
     {
-        auto& fence = Get(id);
-
-        VkCall(vkSignalSemaphore(device, Temp(VkSemaphoreSignalInfo {
+        VkCall(vkSignalSemaphore(context->device, Temp(VkSemaphoreSignalInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
-            .semaphore = fence.semaphore,
-            // .value = signalValue ? signalValue : fence.value,
-            .value = (signalValue != ~0ull) ? signalValue : fence.value,
+            .semaphore = semaphore,
+            .value = (signalValue != ~0ull) ? signalValue : value,
         })));
     }
 
-    u64 VulkanContext::Fence_GetPendingValue(Fence id)
+    u64 Fence::GetPendingValue()
     {
-        return Get(id).value;
+        return value;
     }
 
 }

@@ -2,30 +2,32 @@
 
 namespace nova
 {
-    void VulkanContext::Cmd_SetComputeState(CommandList cmd, PipelineLayout layout, Shader shader)
+    void CommandList::SetComputeState(HPipelineLayout layout, HShader shader)
     {
         auto key = ComputePipelineKey {};
-        key.shader = Get(shader).id;
-        key.layout = Get(layout).id;
+        key.shader = shader->id;
+        key.layout = layout->id;
 
-        auto pipeline = computePipelines[key];
+        auto context = pool->context;
+
+        auto pipeline = context->computePipelines[key];
         if (!pipeline)
         {
-            VkCall(vkCreateComputePipelines(device, pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
+            VkCall(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-                .stage = Get(shader).GetStageInfo(),
-                .layout = Get(layout).layout,
+                .stage = shader->GetStageInfo(),
+                .layout = layout->layout,
                 .basePipelineIndex = -1,
-            }), pAlloc, &pipeline));
+            }), context->pAlloc, &pipeline));
 
-            computePipelines[key] = pipeline;
+            context->computePipelines[key] = pipeline;
         }
 
-        vkCmdBindPipeline(Get(cmd).buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     }
 
-    void VulkanContext::Cmd_Dispatch(CommandList cmd, Vec3U groups)
+    void CommandList::Dispatch(Vec3U groups)
     {
-        vkCmdDispatch(Get(cmd).buffer, groups.x, groups.y, groups.z);
+        vkCmdDispatch(buffer, groups.x, groups.y, groups.z);
     }
 }

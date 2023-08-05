@@ -11,29 +11,55 @@ namespace nova
         Invalid = 0,
     };
 
-    struct VulkanQueue
+    struct Context;
+
+    struct Queue : Object
     {
         VkQueue               handle = {};
         u32                   family = UINT32_MAX;
         VkPipelineStageFlags2 stages = {};
+    
+    public:
+        Queue(HContext context);
+        ~Queue() final;
+    
+        void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals);
+        bool Acquire(Span<HSwapchain>, Span<HFence> signals);
+        void Present(Span<HSwapchain>, Span<HFence> waits, bool hostWait = false);
     };
 
-    struct VulkanFence
+    struct Fence : Object
     {
         VkSemaphore semaphore = {};
         u64             value = 0;
+    
+    public:
+        Fence(HContext);
+        ~Fence() final;
+
+        void Wait(u64 waitValue = ~0ull);
+        u64 Advance();
+        void Signal(u64 signalValue = ~0ull);
+        u64 GetPendingValue();
     };
 
-    struct VulkanCommandPool
+    struct CommandPool : Object
     {
-        Queue queue = {};
+        HQueue queue = {};
 
-        VkCommandPool             pool = {};
-        std::vector<CommandList> lists = {};
-        u32                      index = 0;
+        VkCommandPool                              pool = {};
+        std::vector<std::unique_ptr<CommandList>> lists = {};
+        u32                                       index = 0;
+    
+    public:
+        CommandPool(HContext, HQueue);
+        ~CommandPool() final;
+
+        HCommandList Begin(HCommandState);
+        void Reset();
     };
 
-    struct VulkanCommandState
+    struct CommandState : Object
     {
         struct ImageState
         {
@@ -50,32 +76,92 @@ namespace nova
         Format                depthAttachmentFormat = nova::Format::Undefined;
         Format              stencilAttachmentFormat = nova::Format::Undefined;
         Vec2U                       renderingExtent;
+    
+    public:
+        CommandState(HContext);
+        ~CommandState() final;
+
+        void SetState(HTexture texture, VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access);
     };
 
-    struct VulkanCommandList
+    struct CommandList
     {
-        CommandPool       pool = {};
-        CommandState     state = {};
+        HCommandPool      pool = {};
+        HCommandState    state = {};
         VkCommandBuffer buffer = {};
+    
+    public:
+        CommandList() = default;
+        CommandList(const CommandList&) = delete;
+        CommandList(CommandList&&) = delete;
+
+        void Present(HSwapchain swapchain);
+
+        void SetGraphicsState(HPipelineLayout layout, Span<HShader> shaders, const PipelineState& state);
+        void PushConstants(HPipelineLayout layout, u64 offset, u64 size, const void* data);
+
+        void Barrier(PipelineStage src, PipelineStage dst);
+
+        void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture = {}, HTexture stencilAttachment = {});
+        void EndRendering();
+        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
+        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
+        void BindIndexBuffer(HBuffer buffer, IndexType indexType, u64 offset);
+        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
+        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
+        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
+
+        void SetComputeState(HPipelineLayout layout, HShader shader);
+        void Dispatch(Vec3U groups);
+
+        void BindDescriptorSets(HPipelineLayout layout, u32 firstSet, Span<HDescriptorSet> sets);
+
+        void PushStorageTexture(HPipelineLayout layout, u32 setIndex, u32 binding, HTexture texture, u32 arrayIndex = 0);
+        void PushAccelerationStructure(HPipelineLayout layout, u32 setIndex, u32 binding, HAccelerationStructure accelStructure, u32 arrayIndex = 0);
+
+        void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0);
+        void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
+        void Barrier(HBuffer buffer, PipelineStage src, PipelineStage dst);
+        
+        void Transition(HTexture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
+        void Transition(HTexture texture, TextureLayout newLayout, PipelineStage newStages);
+        void Clear(HTexture texture, Vec4 color);
+        void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0);
+        void CopyFromTexture(HBuffer dst, HTexture src, Rect2D region);
+        void GenerateMips(HTexture mips);
+        void BlitImage(HTexture dst, HTexture src, Filter filter);
+
+        void BuildAccelerationStructure(HAccelerationStructureBuilder builder, HAccelerationStructure structure, HBuffer scratch);
+        void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src);
+
+        void TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u32 genIndex);
     };
 
-    struct VulkanSwapchain
+    struct Swapchain : Object
     {
-        VkSurfaceKHR          surface = {};
-        VkSwapchainKHR      swapchain = {};
-        VkSurfaceFormatKHR     format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        TextureUsage            usage = {};
-        PresentMode       presentMode = PresentMode::Fifo;
-        std::vector<Texture> textures = {};
-        uint32_t                index = UINT32_MAX;
-        VkExtent2D             extent = { 0, 0 };
-        bool                  invalid = false;
+        VkSurfaceKHR                           surface = {};
+        VkSwapchainKHR                       swapchain = {};
+        VkSurfaceFormatKHR                      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        TextureUsage                             usage = {};
+        PresentMode                        presentMode = PresentMode::Fifo;
+        std::vector<std::unique_ptr<Texture>> textures = {};
+        uint32_t                                 index = UINT32_MAX;
+        VkExtent2D                              extent = { 0, 0 };
+        bool                                   invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
+
+    public:
+        Swapchain(HContext, void* window, TextureUsage usage, PresentMode mode);
+        ~Swapchain() final;
+
+        HTexture GetCurrent();
+        Vec2U GetExtent();
+        Format GetFormat();
     };
 
-    struct VulkanPipelineLayout
+    struct PipelineLayout : Object
     {
         UID id = UID::Invalid;
 
@@ -85,38 +171,58 @@ namespace nova
         BindPoint bindPoint = {};
 
         std::vector<PushConstantRange>     pcRanges;
-        std::vector<DescriptorSetLayout> setLayouts;
+        std::vector<HDescriptorSetLayout> setLayouts;
 
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
+    
+    public:
+        PipelineLayout(HContext, Span<PushConstantRange>, Span<HDescriptorSetLayout>, BindPoint);
+        ~PipelineLayout() final;
     };
 
-    struct VulkanDescriptorSetLayout
+    struct DescriptorSetLayout : Object
     {
         std::vector<DescriptorBinding> bindings = {};
 
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
         std::vector<u64>     offsets = {};
+    
+    public:
+        DescriptorSetLayout(HContext, Span<DescriptorBinding> bindings, bool pushDescriptors = false);
+        ~DescriptorSetLayout();
     };
 
-    struct VulkanDescriptorSet
+    struct DescriptorSet : Object
     {
-        DescriptorSetLayout layout;
-        VkDescriptorSet        set;
+        HDescriptorSetLayout layout;
+        VkDescriptorSet         set;
+    
+    public:
+        DescriptorSet(HDescriptorSetLayout, u64 customSize = 0);
+        ~DescriptorSet() final;
+
+        void WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex);
+        void WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex);
     };
 
-    struct VulkanShader
+    struct Shader : Object
     {
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
         ShaderStage     stage = {};
+    
+    public:
+        Shader(HContext, ShaderStage stage, const std::string& filename, const std::string& sourceCode);
+        Shader(HContext, ShaderStage stage, Span<ShaderElement> elements);
+        ~Shader() final;
 
         VkPipelineShaderStageCreateInfo GetStageInfo();
     };
 
-    struct VulkanBuffer
+    struct Buffer : Object
     {
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
@@ -124,14 +230,40 @@ namespace nova
         VkDeviceAddress  address = 0ull;
         BufferFlags        flags = BufferFlags::None;
         BufferUsage        usage = {};
+    
+    public:
+        Buffer(HContext, u64 size, BufferUsage usage, BufferFlags flags = {});
+        ~Buffer() final;
+
+        void Resize(u64 size);
+        u64 GetSize();
+        b8* GetMapped();
+        u64 GetAddress();
+
+        template<typename T>
+        T& Get(u64 index, u64 offset = 0)
+        {
+            return reinterpret_cast<T*>(GetMapped() + offset)[index];
+        }
+
+        template<typename T>
+        void Set(Span<T> elements, u64 index = 0, u64 offset = 0)
+        {
+            T* dst = reinterpret_cast<T*>(GetMapped() + offset) + index;
+            std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
+        }
     };
 
-    struct VulkanSampler
+    struct Sampler : Object
     {
         VkSampler sampler;
+    
+    public:
+        Sampler(HContext, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f);
+        ~Sampler() final;
     };
 
-    struct VulkanTexture
+    struct Texture : Object
     {
         VkImage             image = {};
         VmaAllocation  allocation = {};
@@ -143,9 +275,17 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
+    
+    public:
+        Texture(HContext, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
+        Texture(HContext, VkImage, VmaAllocation, VkImageView, TextureUsage, Format, VkImageAspectFlags, Vec3U extent, u32 mips, u32 layers);
+        ~Texture() final;
+
+        Vec3U GetExtent();
+        Format GetFormat();
     };
 
-    struct VulkanAccelerationStructureBuilder
+    struct AccelerationStructureBuilder : Object
     {
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
@@ -163,27 +303,68 @@ namespace nova
         bool    sizeDirty = false;
 
         VkQueryPool queryPool = {};
+    
+    public:
+        AccelerationStructureBuilder(HContext);
+        ~AccelerationStructureBuilder() final;
+
+        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count);
+        void SetTriangles(u32 geometryIndex,
+            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount);
+
+        void Prepare(AccelerationStructureType type, AccelerationStructureFlags flags,
+            u32 geometryCount, u32 firstGeometry = 0u);
+        
+        u32 GetInstanceSize();
+        void WriteInstance(
+            void* bufferAddress, u32 index,
+            HAccelerationStructure structure,
+            const Mat4& matrix,
+            u32 customIndex, u8 mask,
+            u32 sbtOffset, GeometryInstanceFlags flags);
+        
+        u64 GetBuildSize();
+        u64 GetBuildScratchSize();
+        u64 GetUpdateScratchSize();
+        u64 GetCompactSize();
     };
 
-    struct VulkanAccelerationStructure
+    struct AccelerationStructure : Object
     {
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer  buffer = {};
+        HBuffer buffer;
         bool ownBuffer;
+    
+    public:
+        AccelerationStructure(HContext, u64 size, AccelerationStructureType type, HBuffer buffer = {}, u64 offset = 0);
+        ~AccelerationStructure() final;
+
+        u64 GetAddress();
     };
 
-    struct VulkanRayTracingPipeline
+    struct RayTracingPipeline : Object
     {
-        VkPipeline pipeline = {};
-        Buffer    sbtBuffer = {};
+        VkPipeline               pipeline = {};
+        std::unique_ptr<Buffer> sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
         VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
+    
+    public:
+        RayTracingPipeline(HContext);
+        ~RayTracingPipeline() final;
+
+        void Update(HPipelineLayout layout,
+            Span<HShader> rayGenShaders,
+            Span<HShader> rayMissShaders,
+            Span<HitShaderGroup> rayHitShaderGroup,
+            Span<HShader> callableShaders);
     };
 
 // -----------------------------------------------------------------------------
@@ -290,7 +471,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct VulkanContext : Context
+    struct Context
     {
         ContextConfig config = {};
 
@@ -304,9 +485,9 @@ namespace nova
     public:
         VkDescriptorPool descriptorPool = {};
 
-        std::vector<Queue>  graphicQueues = {};
-        std::vector<Queue> transferQueues = {};
-        std::vector<Queue>  computeQueues = {};
+        std::vector<std::unique_ptr<Queue>>  graphicQueues = {};
+        std::vector<std::unique_ptr<Queue>> transferQueues = {};
+        std::vector<std::unique_ptr<Queue>>  computeQueues = {};
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
@@ -385,254 +566,12 @@ namespace nova
         VkAllocationCallbacks* pAlloc = &alloc;
 
     public:
-        VulkanContext(const ContextConfig& config);
-        ~VulkanContext();
+        Context(const ContextConfig& config);
+        ~Context();
 
-        void WaitIdle() final;
-        const ContextConfig& GetConfig() final;
+        void WaitIdle();
+        const ContextConfig& GetConfig();
 
-#define NOVA_ADD_VULKAN_REGISTRY(type, name) \
-    Registry<Vulkan##type, type> name;       \
-    NOVA_FORCE_INLINE Vulkan##type& Get(type id) noexcept { return name.Get(id); }
-
-// -----------------------------------------------------------------------------
-
-        bool IsValid(Buffer handle) final                       { return buffers.IsValid(handle); }
-        bool IsValid(CommandList handle) final                  { return commandLists.IsValid(handle); }
-        bool IsValid(CommandPool handle) final                  { return commandPools.IsValid(handle); }
-        bool IsValid(DescriptorSet handle) final                { return descriptorSets.IsValid(handle); }
-        bool IsValid(DescriptorSetLayout handle) final          { return descriptorSetLayouts.IsValid(handle); }
-        bool IsValid(Fence handle) final                        { return fences.IsValid(handle); }
-        bool IsValid(PipelineLayout handle) final               { return pipelineLayouts.IsValid(handle); }
-        bool IsValid(Queue handle) final                        { return queues.IsValid(handle); }
-        bool IsValid(CommandState handle) final                 { return commandStates.IsValid(handle); }
-        bool IsValid(Sampler handle) final                      { return samplers.IsValid(handle); }
-        bool IsValid(Shader handle) final                       { return shaders.IsValid(handle); }
-        bool IsValid(Swapchain handle) final                    { return swapchains.IsValid(handle); }
-        bool IsValid(Texture handle) final                      { return textures.IsValid(handle); }
-        bool IsValid(AccelerationStructure handle) final        { return accelerationStructures.IsValid(handle); }
-        bool IsValid(AccelerationStructureBuilder handle) final { return accelerationStructureBuilders.IsValid(handle); }
-        bool IsValid(RayTracingPipeline handle) final           { return rayTracingPipelines.IsValid(handle); }
-
-// -----------------------------------------------------------------------------
-//                                 Queue
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Queue, queues)
-
-        Queue Queue_Get(QueueFlags flags, u32 index) final;
-        void  Queue_Submit(Queue, Span<CommandList> commandLists, Span<Fence> waits, Span<Fence> signals) final;
-        bool  Queue_Acquire(Queue, Span<Swapchain> swapchains, Span<Fence> signals) final;
-        void  Queue_Present(Queue, Span<Swapchain> swapchains, Span<Fence> waits, bool hostWait = false) final;
-
-// -----------------------------------------------------------------------------
-//                                 Fence
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Fence, fences)
-
-        Fence Fence_Create() final;
-        void  Fence_Destroy(Fence) final;
-        void  Fence_Wait(Fence, u64 waitValue = ~0ull) final;
-        u64   Fence_Advance(Fence) final;
-        void  Fence_Signal(Fence, u64 signalValue = ~0ull) final;
-        u64   Fence_GetPendingValue(Fence) final;
-
-// -----------------------------------------------------------------------------
-//                                Commands
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(CommandPool, commandPools)
-        NOVA_ADD_VULKAN_REGISTRY(CommandState, commandStates)
-        NOVA_ADD_VULKAN_REGISTRY(CommandList, commandLists)
-
-        CommandPool Commands_CreatePool(Queue queue) final;
-        void        Commands_DestroyPool(CommandPool) final;
-        CommandList Commands_Begin(CommandPool pool, CommandState state) final;
-        void        Commands_Reset(CommandPool pool) final;
-
-        CommandState Commands_CreateState() final;
-        void         Commands_DestroyState(CommandState) final;
-        void         Commands_SetState(CommandState state, Texture texture,
-            VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) final;
-
-// -----------------------------------------------------------------------------
-//                                Swapchain
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Swapchain, swapchains)
-
-        Swapchain Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode) final;
-        void      Swapchain_Destroy(Swapchain) final;
-        Texture   Swapchain_GetCurrent(Swapchain) final;
-        Vec2U     Swapchain_GetExtent(Swapchain) final;
-        Format    Swapchain_GetFormat(Swapchain) final;
-
-        void Cmd_Present(CommandList, Swapchain swapchain) final;
-
-// -----------------------------------------------------------------------------
-//                                  Shader
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Shader, shaders)
-
-        Shader Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode = {}) final;
-        Shader Shader_Create(ShaderStage stage, Span<ShaderElement> elements) final;
-        void   Shader_Destroy(Shader) final;
-
-// -----------------------------------------------------------------------------
-//                             Pipeline Layout
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(PipelineLayout, pipelineLayouts)
-
-        PipelineLayout Pipelines_CreateLayout(Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint) final;
-        void           Pipelines_DestroyLayout(PipelineLayout) final;
-
-        void Cmd_SetGraphicsState(CommandList, PipelineLayout layout, Span<Shader> shaders, const PipelineState& state) final;
-        void Cmd_PushConstants(CommandList, PipelineLayout layout, u64 offset, u64 size, const void* data) final;
-
-// -----------------------------------------------------------------------------
-//                                Commands
-// -----------------------------------------------------------------------------
-
-        void Cmd_Barrier(CommandList, PipelineStage src, PipelineStage dst) final;
-
-// -----------------------------------------------------------------------------
-//                                Drawing
-// -----------------------------------------------------------------------------
-
-        void Cmd_BeginRendering(CommandList, Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) final;
-        void Cmd_EndRendering(CommandList) final;
-        void Cmd_Draw(CommandList, u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) final;
-        void Cmd_DrawIndexed(CommandList cmd, u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) final;
-        void Cmd_ClearColor(CommandList cmd, u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) final;
-        void Cmd_BindIndexBuffer(CommandList cmd, Buffer buffer, IndexType indexType, u64 offset = 0) final;
-        void Cmd_ClearDepth(CommandList cmd, f32 depth, Vec2U size, Vec2I offset = {}) final;
-        void Cmd_ClearStencil(CommandList cmd, u32 value, Vec2U size, Vec2I offset = {}) final;
-
-// -----------------------------------------------------------------------------
-//                                 Compute
-// -----------------------------------------------------------------------------
-
-        void Cmd_SetComputeState(CommandList, PipelineLayout layout, Shader shader) final;
-        void Cmd_Dispatch(CommandList, Vec3U groups) final;
-
-// -----------------------------------------------------------------------------
-//                               Descriptors
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(DescriptorSetLayout, descriptorSetLayouts)
-        NOVA_ADD_VULKAN_REGISTRY(DescriptorSet, descriptorSets)
-
-        DescriptorSetLayout Descriptors_CreateSetLayout(Span<DescriptorBinding> bindings, bool pushDescriptors = false) final;
-        void                Descriptors_DestroySetLayout(DescriptorSetLayout) final;
-
-        DescriptorSet       Descriptors_AllocateSet(DescriptorSetLayout layout, u64 customSize = 0) final;
-        void                Descriptors_FreeSet(DescriptorSet) final;
-        void                Descriptors_WriteSampledTexture(DescriptorSet set, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex = 0) final;
-        void                Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex = 0) final;
-
-        void Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) final;
-
-        void Cmd_PushStorageTexture(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex = 0) final;
-        void Cmd_PushAccelerationStructure(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex = 0) final;
-
-// -----------------------------------------------------------------------------
-//                                 Buffer
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Buffer, buffers)
-
-        Buffer Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags = {}) final;
-        void   Buffer_Destroy(Buffer) final;
-        void   Buffer_Resize(Buffer, u64 size) final;
-        u64    Buffer_GetSize(Buffer) final;
-        b8*    Buffer_GetMapped(Buffer) final;
-        u64    Buffer_GetAddress(Buffer) final;
-        void*  BufferImpl_Get(Buffer, u64 index, u64 offset, usz stride) final;
-        void   BufferImpl_Set(Buffer, const void* data, usz count, u64 index, u64 offset, usz stride) final;
-
-        void Cmd_UpdateBuffer(CommandList, Buffer dst, const void* pData, usz size, u64 dstOffset = 0) final;
-        void Cmd_CopyToBuffer(CommandList, Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) final;
-        void Cmd_Barrier(CommandList, Buffer buffer, PipelineStage src, PipelineStage dst) final;
-
-// -----------------------------------------------------------------------------
-//                                 Texture
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(Sampler, samplers)
-        NOVA_ADD_VULKAN_REGISTRY(Texture, textures)
-
-        Sampler Sampler_Create(Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f) final;
-        void    Sampler_Destroy(Sampler) final;
-
-        Texture Texture_Create(Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {}) final;
-        void    Texture_Destroy(Texture) final;
-        Vec3U   Texture_GetExtent(Texture) final;
-        Format  Texture_GetFormat(Texture) final;
-
-        void Cmd_Transition(CommandList, Texture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
-        void Cmd_Transition(CommandList, Texture texture, TextureLayout layout, PipelineStage stage) final;
-        void Cmd_Clear(CommandList, Texture texture, Vec4 color) final;
-        void Cmd_CopyToTexture(CommandList, Texture dst, Buffer src, u64 srcOffset = 0) final;
-        void Cmd_CopyFromTexture(CommandList, Buffer dst, Texture src, Rect2D region) final;
-        void Cmd_GenerateMips(CommandList, Texture texture) final;
-        void Cmd_BlitImage(CommandList, Texture dst, Texture src, Filter filter) final;
-
-// -----------------------------------------------------------------------------
-//                           Acceleration Structure
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(AccelerationStructureBuilder, accelerationStructureBuilders)
-        NOVA_ADD_VULKAN_REGISTRY(AccelerationStructure, accelerationStructures)
-
-        AccelerationStructureBuilder AccelerationStructures_CreateBuilder() final;
-        void                         AccelerationStructures_DestroyBuilder(AccelerationStructureBuilder) final;
-
-        void AccelerationStructures_SetInstances(AccelerationStructureBuilder, u32 geometryIndex, u64 deviceAddress, u32 count) final;
-        void AccelerationStructures_SetTriangles(AccelerationStructureBuilder, u32 geometryIndex,
-            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, IndexType indexFormat, u32 triangleCount) final;
-
-        void AccelerationStructures_Prepare(AccelerationStructureBuilder builder, AccelerationStructureType type, AccelerationStructureFlags flags,
-            u32 geometryCount, u32 firstGeometry = 0u) final;
-
-        u32  AccelerationStructures_GetInstanceSize() final;
-        void AccelerationStructures_WriteInstance(
-            void* bufferAddress, u32 index,
-            AccelerationStructure structure,
-            const Mat4& matrix,
-            u32 customIndex, u8 mask,
-            u32 sbtOffset, GeometryInstanceFlags flags) final;
-
-        u64 AccelerationStructures_GetBuildSize(AccelerationStructureBuilder) final;
-        u64 AccelerationStructures_GetBuildScratchSize(AccelerationStructureBuilder) final;
-        u64 AccelerationStructures_GetUpdateScratchSize(AccelerationStructureBuilder) final;
-        u64 AccelerationStructures_GetCompactSize(AccelerationStructureBuilder) final;
-
-        AccelerationStructure AccelerationStructures_Create(u64 size, AccelerationStructureType type, Buffer buffer = {}, u64 offset = {}) final;
-        void                  AccelerationStructures_Destroy(AccelerationStructure) final;
-        u64                   AccelerationStructures_GetAddress(AccelerationStructure) final;
-
-        void Cmd_BuildAccelerationStructure(CommandList, AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch)  final;
-        void Cmd_CompactAccelerationStructure(CommandList, AccelerationStructure dst, AccelerationStructure src) final;
-
-// -----------------------------------------------------------------------------
-//                                Ray Tracing
-// -----------------------------------------------------------------------------
-
-        NOVA_ADD_VULKAN_REGISTRY(RayTracingPipeline, rayTracingPipelines)
-
-        RayTracingPipeline RayTracing_CreatePipeline() final;
-        void               RayTracing_DestroyPipeline(RayTracingPipeline) final;
-        void               RayTracing_UpdatePipeline(RayTracingPipeline,
-            PipelineLayout layout,
-            Span<Shader> rayGenShaders,
-            Span<Shader> rayMissShaders,
-            Span<HitShaderGroup> rayHitShaderGroup,
-            Span<Shader> callableShaders) final;
-
-        void Cmd_TraceRays(CommandList, RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) final;
+        HQueue GetQueue(QueueFlags flags, u32 index);
     };
 }

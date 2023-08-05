@@ -2,8 +2,8 @@
 
 namespace nova
 {
-    std::atomic_int64_t VulkanContext::AllocationCount = 0;
-    std::atomic_int64_t VulkanContext::NewAllocationCount = 0;
+    std::atomic_int64_t Context::AllocationCount = 0;
+    std::atomic_int64_t Context::NewAllocationCount = 0;
 
     static
     VkBool32 VKAPI_CALL DebugCallback(
@@ -83,7 +83,7 @@ Validation: {} ({})
         }
     };
 
-    VulkanContext::VulkanContext(const ContextConfig& _context)
+    Context::Context(const ContextConfig& _context)
         : config(_context)
     {
         std::vector<const char*> instanceLayers;
@@ -164,27 +164,27 @@ Validation: {} ({})
         vkGetPhysicalDeviceQueueFamilyProperties(gpu, Temp(3u), properties.data());
         for (u32 i = 0; i < 16; ++i)
         {
-            auto[id, queue] = queues.Acquire();
-            queue.stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-            graphicQueues.emplace_back(id);
-            queue.family = 0;
+            auto queue = std::make_unique<Queue>(this);
+            queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+            queue->family = 0;
+            graphicQueues.emplace_back(std::move(queue));
         }
         for (u32 i = 0; i < 2; ++i)
         {
-            auto[id, queue] = queues.Acquire();
-            queue.stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            transferQueues.emplace_back(id);
-            queue.family = 1;
+            auto queue = std::make_unique<Queue>(this);
+            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->family = 1;
+            transferQueues.emplace_back(std::move(queue));
         }
         for (u32 i = 0; i < 8; ++i)
         {
-            auto[id, queue] = queues.Acquire();
-            queue.stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            computeQueues.emplace_back(id);
-            queue.family = 2;
+            auto queue = std::make_unique<Queue>(this);
+            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->family = 2;
+            computeQueues.emplace_back(std::move(queue));
         }
         NOVA_LOGEXPR(graphicQueues.size());
-        NOVA_LOGEXPR((u32)graphicQueues.front());
+        NOVA_LOGEXPR(graphicQueues.front().get());
 
         VulkanFeatureChain chain;
 
@@ -319,19 +319,19 @@ Validation: {} ({})
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = Get(graphicQueues.front()).family,
+                    .queueFamilyIndex = graphicQueues.front()->family,
                     .queueCount = u32(graphicQueues.size()),
                     .pQueuePriorities = priorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = Get(transferQueues.front()).family,
+                    .queueFamilyIndex = transferQueues.front()->family,
                     .queueCount = u32(transferQueues.size()),
                     .pQueuePriorities = lowPriorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = Get(computeQueues.front()).family,
+                    .queueFamilyIndex = computeQueues.front()->family,
                     .queueCount = u32(computeQueues.size()),
                     .pQueuePriorities = lowPriorities,
                 },
@@ -350,13 +350,13 @@ Validation: {} ({})
         // ---- Shared resources ----
 
         for (u32 i = 0; i < graphicQueues.size(); ++i)
-            vkGetDeviceQueue(device, Get(graphicQueues[i]).family, i, &Get(graphicQueues[i]).handle);
+            vkGetDeviceQueue(device, graphicQueues[i]->family, i, &graphicQueues[i]->handle);
 
         for (u32 i = 0; i < transferQueues.size(); ++i)
-            vkGetDeviceQueue(device, Get(transferQueues[i]).family, i, &Get(transferQueues[i]).handle);
+            vkGetDeviceQueue(device, transferQueues[i]->family, i, &transferQueues[i]->handle);
 
         for (u32 i = 0; i < computeQueues.size(); ++i)
-            vkGetDeviceQueue(device, Get(computeQueues[i]).family, i, &Get(computeQueues[i]).handle);
+            vkGetDeviceQueue(device, computeQueues[i]->family, i, &computeQueues[i]->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -409,37 +409,37 @@ Validation: {} ({})
         NOVA_LOG("Created!");
     }
 
-    VulkanContext::~VulkanContext()
+    Context::~Context()
     {
         WaitIdle();
 
-        // Clean out API object registries
-        u32 cleanedUp = 0;
-        swapchains.ForEach(          [&](auto handle, auto&) { cleanedUp++; Swapchain_Destroy(handle);            });
-        fences.ForEach(              [&](auto handle, auto&) { cleanedUp++; Fence_Destroy(handle);                });
-        commandPools.ForEach(        [&](auto handle, auto&) { cleanedUp++; Commands_DestroyPool(handle);         });
-        samplers.ForEach(            [&](auto handle, auto&) { cleanedUp++; Sampler_Destroy(handle);              });
-        textures.ForEach(            [&](auto handle, auto&) { cleanedUp++; Texture_Destroy(handle);              });
-        pipelineLayouts.ForEach(     [&](auto handle, auto&) { cleanedUp++; Pipelines_DestroyLayout(handle);      });
-        shaders.ForEach(             [&](auto handle, auto&) { cleanedUp++; Shader_Destroy(handle);               });
-        descriptorSetLayouts.ForEach([&](auto handle, auto&) { cleanedUp++; Descriptors_DestroySetLayout(handle); });
+        // // Clean out API object registries
+        // u32 cleanedUp = 0;
+        // swapchains.ForEach(          [&](auto handle, auto&) { cleanedUp++; Swapchain_Destroy(handle);            });
+        // fences.ForEach(              [&](auto handle, auto&) { cleanedUp++; Fence_Destroy(handle);                });
+        // commandPools.ForEach(        [&](auto handle, auto&) { cleanedUp++; Commands_DestroyPool(handle);         });
+        // samplers.ForEach(            [&](auto handle, auto&) { cleanedUp++; Sampler_Destroy(handle);              });
+        // textures.ForEach(            [&](auto handle, auto&) { cleanedUp++; Texture_Destroy(handle);              });
+        // pipelineLayouts.ForEach(     [&](auto handle, auto&) { cleanedUp++; Pipelines_DestroyLayout(handle);      });
+        // shaders.ForEach(             [&](auto handle, auto&) { cleanedUp++; Shader_Destroy(handle);               });
+        // descriptorSetLayouts.ForEach([&](auto handle, auto&) { cleanedUp++; Descriptors_DestroySetLayout(handle); });
 
-        accelerationStructureBuilders.ForEach([&](auto handle, auto&) { cleanedUp++; AccelerationStructures_DestroyBuilder(handle); });
-        accelerationStructures.ForEach(       [&](auto handle, auto&) { cleanedUp++; AccelerationStructures_Destroy(handle); });
-        rayTracingPipelines.ForEach(          [&](auto handle, auto&) { cleanedUp++; RayTracing_DestroyPipeline(handle); });
+        // accelerationStructureBuilders.ForEach([&](auto handle, auto&) { cleanedUp++; AccelerationStructures_DestroyBuilder(handle); });
+        // accelerationStructures.ForEach(       [&](auto handle, auto&) { cleanedUp++; AccelerationStructures_Destroy(handle); });
+        // rayTracingPipelines.ForEach(          [&](auto handle, auto&) { cleanedUp++; RayTracing_DestroyPipeline(handle); });
 
-        buffers.ForEach([&](auto handle, auto&) { cleanedUp++; Buffer_Destroy(handle); });
+        // buffers.ForEach([&](auto handle, auto&) { cleanedUp++; Buffer_Destroy(handle); });
 
-        if (cleanedUp)
-            NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
+        // if (cleanedUp)
+        //     NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
 
-        // Deleted graphics pipeline library stages
-        for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
-        for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
+        // // Deleted graphics pipeline library stages
+        // for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
+        // for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
+        // for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        // for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
+        // for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
+        // for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
 
         // Destroy context vk objects
         vkDestroyPipelineCache(device, pipelineCache, pAlloc);
@@ -453,12 +453,12 @@ Validation: {} ({})
         NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
     }
 
-    void VulkanContext::WaitIdle()
+    void Context::WaitIdle()
     {
         vkDeviceWaitIdle(device);
     }
 
-    const ContextConfig& VulkanContext::GetConfig()
+    const ContextConfig& Context::GetConfig()
     {
         return config;
     }

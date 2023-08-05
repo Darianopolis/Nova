@@ -2,100 +2,80 @@
 
 namespace nova
 {
-    CommandPool VulkanContext::Commands_CreatePool(Queue queue)
+    CommandPool::CommandPool(HContext _context, HQueue _queue)
+        : Object(_context)
+        , queue(_queue)
     {
-        auto[id, pool] = commandPools.Acquire();
-
-        pool.queue = queue;
-
-        VkCall(vkCreateCommandPool(device, Temp(VkCommandPoolCreateInfo {
+        VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .queueFamilyIndex = Get(queue).family,
-        }), pAlloc, &pool.pool));
-
-        return id;
+            .queueFamilyIndex = queue->family,
+        }), context->pAlloc, &pool));
     }
 
-    void VulkanContext::Commands_DestroyPool(CommandPool id)
+    CommandPool::~CommandPool()
     {
-        auto& pool = Get(id);
-        if (pool.pool)
-            vkDestroyCommandPool(device, pool.pool, pAlloc);
-
-        for (auto list : pool.lists)
-            commandLists.Return(list);
-
-        commandPools.Return(id);
+        if (pool)
+            vkDestroyCommandPool(context->device, pool, context->pAlloc);
     }
 
-    CommandList VulkanContext::Commands_Begin(CommandPool hPool, CommandState state)
+    HCommandList CommandPool::Begin(HCommandState state)
     {
-        auto& pool = Get(hPool);
-
-        CommandList cmd;
-        if (pool.index >= pool.lists.size())
+        HCommandList cmd;
+        if (index >= lists.size())
         {
-            auto[hList, list] = commandLists.Acquire();
-            cmd = hList;
-            pool.lists.emplace_back(cmd);
+            cmd = lists.emplace_back(new CommandList());
 
-            list.pool = hPool;
-            VkCall(vkAllocateCommandBuffers(device, Temp(VkCommandBufferAllocateInfo {
+            cmd->pool = this;
+            VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pool.pool,
+                .commandPool = pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = 1,
-            }), &list.buffer));
-            pool.index++;
+            }), &cmd->buffer));
+            index++;
         }
         else
         {
-            cmd = pool.lists[pool.index++];
+            cmd = lists[index++];
         }
 
-        VkCall(vkBeginCommandBuffer(Get(cmd).buffer, Temp(VkCommandBufferBeginInfo {
+        VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        Get(cmd).state = state;
+        cmd->state = state;
 
         return cmd;
     }
 
-    void VulkanContext::Commands_Reset(CommandPool id)
+    void CommandPool::Reset()
     {
-        auto& pool = Get(id);
-
-        pool.index = 0;
-        VkCall(vkResetCommandPool(device, pool.pool, 0));
+        index = 0;
+        VkCall(vkResetCommandPool(context->device, pool, 0));
     }
 
 // -----------------------------------------------------------------------------
 
-    CommandState VulkanContext::Commands_CreateState()
-    {
-        auto[id, state] = commandStates.Acquire();
-        return id;
-    }
+    CommandState::CommandState(HContext _context)
+        : Object(_context)
+    {}
 
-    void VulkanContext::Commands_DestroyState(CommandState id)
-    {
-        commandStates.Return(id);
-    }
+    CommandState::~CommandState()
+    {}
 
-    void VulkanContext::Commands_SetState(CommandState state, Texture texture,
+    void CommandState::SetState(HTexture texture,
         VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access)
     {
-        (void)state;
+        // TODO
         (void)texture;
         (void)layout;
         (void)stages;
         (void)access;
     }
 
-    void VulkanContext::Cmd_Barrier(CommandList cmd, PipelineStage src, PipelineStage dst)
+    void CommandList::Barrier(PipelineStage src, PipelineStage dst)
     {
-        vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
             .pMemoryBarriers = Temp(VkMemoryBarrier2 {

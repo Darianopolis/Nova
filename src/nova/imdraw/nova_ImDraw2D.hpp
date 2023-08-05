@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nova/rhi/nova_RHI_Handle.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 namespace nova
 {
@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        HTexture texture;
+        std::unique_ptr<Texture> texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -119,35 +119,35 @@ namespace nova
     public:
         HContext context = {};
 
-        HSampler defaultSampler = {};
+        Sampler defaultSampler;
 
-        HPipelineLayout pipelineLayout = {};
+        PipelineLayout pipelineLayout;
 
-        HDescriptorSetLayout descriptorSetLayout = {};
-        HDescriptorSet             descriptorSet = {};
+        DescriptorSetLayout descriptorSetLayout;
+        DescriptorSet             descriptorSet;
         u32                      nextTextureSlot = 0;
         std::vector<u32>     textureSlotFreelist = {};
 
-        HShader rectVertShader = {};
-        HShader rectFragShader = {};
-        HBuffer     rectBuffer = {};
-        u32          rectIndex = 0;
+        Shader rectVertShader;
+        Shader rectFragShader;
+        Buffer     rectBuffer;
+        u32         rectIndex = 0;
 
         ImBounds2D bounds;
 
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        ImDraw2D(Context* context);
+        ImDraw2D(HContext context);
         ~ImDraw2D();
 
-        HSampler GetDefaultSampler() const noexcept;
+        HSampler GetDefaultSampler() noexcept;
         const ImBounds2D& GetBounds() const noexcept;
 
-        ImTextureID RegisterTexture(Texture texture, Sampler sampler);
+        ImTextureID RegisterTexture(HTexture texture, HSampler sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
-        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue);
+        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, HCommandPool cmdPool, HCommandState state, HFence fence, HQueue queue);
 
         void Reset();
         void DrawRect(const ImRoundRect& rect);
@@ -155,6 +155,6 @@ namespace nova
 
         ImBounds2D MeasureString(std::string_view str, ImFont& font);
 
-        void Record(CommandList commandList);
+        void Record(HCommandList);
     };
 }

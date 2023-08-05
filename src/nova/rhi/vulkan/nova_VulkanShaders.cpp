@@ -85,18 +85,16 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    Shader VulkanContext::Shader_Create(ShaderStage stage, const std::string& filename, const std::string& sourceCode)
+    static
+    void CompileShader(HShader shader, const std::string& filename, const std::string& sourceCode)
     {
-        auto[id, shader] = shaders.Acquire();
-
-        shader.stage = stage;
-        shader.id = GetUID();
+        shader->id = shader->context->GetUID();
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
         EShLanguage glslangStage;
-        switch (GetVulkanShaderStage(shader.stage))
+        switch (GetVulkanShaderStage(shader->stage))
         {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
         break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
@@ -113,7 +111,7 @@ namespace nova
         break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
 
-        break;default: NOVA_THROW("Unknown stage: {}", int(shader.stage));
+        break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
         }
 
         glslang::TShader glslShader { glslangStage };
@@ -203,16 +201,23 @@ namespace nova
         if (!logger.getAllMessages().empty())
             NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
 
-        VkCall(vkCreateShaderModule(device, Temp(VkShaderModuleCreateInfo {
+        VkCall(vkCreateShaderModule(shader->context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), pAlloc, &shader.handle));
-
-        return id;
+        }), shader->context->pAlloc, &shader->handle));
     }
 
-    Shader VulkanContext::Shader_Create(ShaderStage stage, Span<ShaderElement> elements)
+    Shader::Shader(HContext _context, ShaderStage _stage, const std::string& filename, const std::string& sourceCode)
+        : Object(_context)
+        , stage(_stage)
+    {
+        CompileShader(this, filename, sourceCode);
+    }
+
+    Shader::Shader(HContext _context, ShaderStage _stage, Span<ShaderElement> elements)
+        : Object(_context)
+        , stage(_stage)
     {
         std::string shader = R"(#version 460 core
 #extension GL_GOOGLE_include_directive                   : enable
@@ -334,7 +339,7 @@ namespace nova
 
                     // Push Constants
 
-                    for (auto& pushConstants : Get(pipelineLayout).pcRanges)
+                    for (auto& pushConstants : pipelineLayout->pcRanges)
                     {
                         write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
                         for (auto& member : pushConstants.constants)
@@ -347,12 +352,12 @@ namespace nova
 
                     // Descriptor Sets
 
-                    for (u32 setIdx = 0; setIdx < Get(pipelineLayout).sets.size(); ++setIdx)
+                    for (u32 setIdx = 0; setIdx < pipelineLayout->sets.size(); ++setIdx)
                     {
-                        auto set = Get(pipelineLayout).setLayouts[setIdx];
-                        for (u32 bindingIdx = 0; bindingIdx < Get(set).bindings.size(); ++bindingIdx)
+                        auto set = pipelineLayout->setLayouts[setIdx];
+                        for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
                         {
-                            auto& binding = Get(set).bindings[bindingIdx];
+                            auto& binding = set->bindings[bindingIdx];
 
                             std::visit(Overloads {
                                 [&](const binding::SampledTexture& binding) {
@@ -463,18 +468,15 @@ namespace nova
 
         // NOVA_LOG("Generated shader:\n{}", shader);
 
-        return Shader_Create(stage, "generated", shader);
+        CompileShader(this, "generated", shader);
     }
 
-    void VulkanContext::Shader_Destroy(Shader id)
+    Shader::~Shader()
     {
-        if (Get(id).handle)
-            vkDestroyShaderModule(device, Get(id).handle, pAlloc);
-
-        shaders.Return(id);
+        vkDestroyShaderModule(context->device, handle, context->pAlloc);
     }
 
-    VkPipelineShaderStageCreateInfo VulkanShader::GetStageInfo()
+    VkPipelineShaderStageCreateInfo Shader::GetStageInfo()
     {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,

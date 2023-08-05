@@ -15,40 +15,49 @@
 
 using namespace nova::types;
 
-int main()
+void TryMain()
 {
-    auto ctx = nova::Context::Create({
+    nova::Context context{{
         .backend = nova::Backend::Vulkan,
         .debug = false,
-    });
-    auto context = nova::HContext(ctx);
+    }};
 
     auto presentMode = nova::PresentMode::Mailbox;
-    auto swapchainUsage = nova::TextureUsage::ColorAttach
-        | nova::TextureUsage::Storage;
+    auto swapchainUsage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
 
     glfwInit();
     NOVA_ON_SCOPE_EXIT(&) { glfwTerminate(); };
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    auto window1 = glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window1); };
-    auto swapchain1 = context.CreateSwapchain(glfwGetWin32Window(window1), swapchainUsage, presentMode);
-
-    auto window2 = glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) { glfwDestroyWindow(window2); };
-    auto swapchain2 = context.CreateSwapchain(glfwGetWin32Window(window2), swapchainUsage, presentMode);
+    GLFWwindow* windows[] { 
+        glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr),
+        glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr),
+    };
+    NOVA_ON_SCOPE_EXIT(&) {
+        glfwDestroyWindow(windows[0]);
+        glfwDestroyWindow(windows[1]);
+    };
+    nova::Swapchain swapchains[] {
+        {context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode},
+        {context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode},
+    };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto state = context.CreateCommandState();
+    auto state = nova::CommandState(context);
     u64 waitValues[] { 0ull, 0ull };
-    auto fence = context.CreateFence();
-    nova::HCommandPool commandPools[] { context.CreateCommandPool(queue), context.CreateCommandPool(queue) };
+    auto fence = nova::Fence(context);
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
-    auto cmd = commandPools[0].Begin(state);
-    auto imgui = nova::VulkanImGuiWrapper(context, cmd, swapchain1.GetFormat(), window1, { .flags = ImGuiConfigFlags_ViewportsEnable });
-    queue.Submit({cmd}, {}, {fence});
-    fence.Wait();
+    auto imgui = [&] {
+        auto cmd = commandPools[0].Begin(state);
+        NOVA_ON_SCOPE_EXIT(&) {  
+            queue->Submit({cmd}, {}, {fence});
+            fence.Wait();
+        };
+        return nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
+            windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
+    }();
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
@@ -61,9 +70,13 @@ int main()
         if (newTime - lastTime > 1s)
         {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
-                frames, nova::VulkanContext::AllocationCount.load(), nova::VulkanContext::NewAllocationCount.exchange(0));
+                frames, nova::Context::AllocationCount.load(), 
+                nova::Context::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
-            NOVA_LOG("submit :: clear     = {:.2f}\nsubmit :: adapting1 = {:.2f}\nsubmit :: adapting2 = {:.2f}\npresent             = {:.2f}",
+            NOVA_LOG("submit :: clear     = {:.2f}\n"
+                     "submit :: adapting1 = {:.2f}\n"
+                     "submit :: adapting2 = {:.2f}\n"
+                     "present             = {:.2f}",
                 nova::TimeSubmitting.exchange(0) / divisor,
                 nova::TimeAdaptingFromAcquire.exchange(0)  / divisor,
                 nova::TimeAdaptingToPresent.exchange(0)  / divisor,
@@ -74,63 +87,68 @@ int main()
         }
 
         // Pick fence and commandPool for frame in flight
-        auto fif = frame % 2;
-        auto commandPool = commandPools[fif];
-        frame++;
+        auto fif = frame++ % 2;
 
         // Wait for previous commands in frame to complete
         fence.Wait(waitValues[fif]);
 
         // Acquire new images from swapchains
-        queue.Acquire({swapchain1, swapchain2}, {fence});
+        queue->Acquire({swapchains[0], swapchains[1]}, {fence});
 
         // Clear resource state tracking
         // state.Clear(3);
 
         // Reset command pool and begin new command list
-        commandPool.Reset();
-        cmd = commandPool.Begin(state);
+        commandPools[fif].Reset();
+        auto cmd = commandPools[fif].Begin(state);
 
         // Clear screen
-        cmd.Clear(swapchain1.GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Clear(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchain1.GetCurrent());
+        imgui.DrawFrame(cmd, swapchains[0].GetCurrent());
 
         // Present #1
-        cmd.Present(swapchain1);
+        cmd->Present(swapchains[0]);
 
         // Clear and present #2
-        cmd.Clear(swapchain2.GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd.Present(swapchain2);
+        cmd->Clear(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd->Present(swapchains[1]);
 
         // Submit work
-        queue.Submit({cmd}, {fence}, {fence});
+        queue->Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue.Present({swapchain1, swapchain2}, {fence}, false);
+        queue->Present({swapchains[0], swapchains[1]}, {fence}, false);
 
         waitValues[fif] = fence.GetPendingValue();
     };
 
-    glfwSetWindowUserPointer(window1, &update);
-    glfwSetWindowSizeCallback(window1, [](auto w, int,int) {
-        (*(decltype(update)*)glfwGetWindowUserPointer(w))();
-    });
+    for (auto window : windows)
+    {
+        glfwSetWindowUserPointer(window, &update);
+        glfwSetWindowSizeCallback(window, [](auto w, int,int) {
+            (*static_cast<decltype(update)*>(glfwGetWindowUserPointer(w)))();
+        });
+    }
 
-    glfwSetWindowUserPointer(window2, &update);
-    glfwSetWindowSizeCallback(window2, [](auto w, int,int) {
-        (*(decltype(update)*)glfwGetWindowUserPointer(w))();
-    });
-
-    NOVA_ON_SCOPE_EXIT(&) {
-        fence.Wait();
-    };
-    while (!glfwWindowShouldClose(window1) && !glfwWindowShouldClose(window2))
+    while (!glfwWindowShouldClose(windows[0]) && !glfwWindowShouldClose(windows[1]))
     {
         update();
         glfwPollEvents();
+    }
+}
+
+int main()
+{
+    try
+    {
+        TryMain();
+    }
+    catch(...)
+    {
+        std::cout << "Error\n";
     }
 }

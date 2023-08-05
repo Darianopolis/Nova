@@ -8,30 +8,18 @@
 
 namespace nova
 {
-    ImDraw2D::ImDraw2D(Context* _context)
-        : context{_context}
-    {
-
-// -----------------------------------------------------------------------------
-
-        descriptorSetLayout = context.CreateDescriptorSetLayout({
-            nova::binding::SampledTexture("textures", 65'536),
-        });
-        descriptorSet = descriptorSetLayout.Allocate();
-
-        pipelineLayout = context.CreatePipelineLayout(
+    ImDraw2D::ImDraw2D(HContext _context)
+        : context(_context)
+        , defaultSampler(context, Filter::Linear,
+            AddressMode::Border,
+            BorderColor::TransparentBlack,
+            16.f)
+        , pipelineLayout(context, 
             {{"pc", {PushConstants::Layout.begin(), PushConstants::Layout.end()}}},
-            {descriptorSetLayout}, nova::BindPoint::Graphics);
-
-// -----------------------------------------------------------------------------
-
-        rectBuffer = context.CreateBuffer(sizeof(ImRoundRect) * MaxPrimitives,
-            BufferUsage::Storage,
-            BufferFlags::DeviceLocal | BufferFlags::Mapped);
-
-// -----------------------------------------------------------------------------
-
-        rectVertShader = context.CreateShader(ShaderStage::Vertex, {
+            {descriptorSetLayout}, nova::BindPoint::Graphics)
+        , descriptorSetLayout(context, {nova::binding::SampledTexture("textures", 65'536)})
+        , descriptorSet(descriptorSetLayout)
+        , rectVertShader(context, ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -52,9 +40,8 @@ namespace nova
                 outInstanceID = instanceID;
                 gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
             )glsl")
-        });
-
-        rectFragShader = context.CreateShader(ShaderStage::Fragment, {
+        })
+        , rectFragShader(context, ShaderStage::Fragment, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -93,30 +80,18 @@ namespace nova
                         : centerColor;
                 }
             )glsl")
-        });
-
-// -----------------------------------------------------------------------------
-
-        defaultSampler = context.CreateSampler(
-            Filter::Linear,
-            AddressMode::Border,
-            BorderColor::TransparentBlack,
-            16.f);
-    }
+        })
+        , rectBuffer(context, sizeof(ImRoundRect) * MaxPrimitives,
+            BufferUsage::Storage,
+            BufferFlags::DeviceLocal | BufferFlags::Mapped)
+    {}
 
     ImDraw2D::~ImDraw2D()
-    {
-        defaultSampler.Destroy();
-        pipelineLayout.Destroy();
-        descriptorSetLayout.Destroy();
-        rectVertShader.Destroy();
-        rectFragShader.Destroy();
-        rectBuffer.Destroy();
-    }
+    {}
 
 // -----------------------------------------------------------------------------
 
-    HSampler ImDraw2D::GetDefaultSampler() const noexcept
+    HSampler ImDraw2D::GetDefaultSampler() noexcept
     {
         return defaultSampler;
     }
@@ -128,7 +103,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
+    ImTextureID ImDraw2D::RegisterTexture(HTexture texture, HSampler sampler)
     {
         u32 index;
         if (textureSlotFreelist.empty())
@@ -153,7 +128,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    std::unique_ptr<ImFont> ImDraw2D::LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue)
+    std::unique_ptr<ImFont> ImDraw2D::LoadFont(const char* file, f32 size, HCommandPool cmdPool, HCommandState state, HFence fence, HQueue queue)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -173,9 +148,8 @@ namespace nova
         auto font = std::make_unique<ImFont>();
         font->imDraw = this;
 
-        auto staging = context.CreateBuffer(u64(size) * u64(size) * 4,
+        auto staging = nova::Buffer(context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc, BufferFlags::Mapped);
-        NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)
@@ -200,7 +174,7 @@ namespace nova
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = context.CreateTexture(
+            glyph.texture = std::make_unique<Texture>(context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8_UNorm);
@@ -208,11 +182,11 @@ namespace nova
             usz dataSize = w * h * 4;
             std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
 
-            auto cmd = HCommandPool(context, cmdPool).Begin(state);
-            cmd.CopyToTexture(glyph.texture, staging);
-            cmd.GenerateMips(glyph.texture);
-            HQueue(context, queue).Submit({cmd}, {}, {fence});
-            HFence(context, fence).Wait();
+            auto cmd = cmdPool->Begin(state);
+            cmd->CopyToTexture(glyph.texture, staging);
+            cmd->GenerateMips(glyph.texture);
+            queue->Submit({cmd}, {}, {fence});
+            fence->Wait();
 
             glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
@@ -227,7 +201,7 @@ namespace nova
     {
         for (auto& glyph : glyphs)
         {
-            if (glyph.texture.IsValid())
+            if (glyph.texture)
                 imDraw->UnregisterTexture(glyph.index);
         }
     }
@@ -293,11 +267,9 @@ namespace nova
         return strBounds;
     }
 
-    void ImDraw2D::Record(CommandList _cmd)
+    void ImDraw2D::Record(HCommandList cmd)
     {
-        auto cmd = HCommandList(context, _cmd);
-
-        cmd.PushConstants(pipelineLayout,
+        cmd->PushConstants(pipelineLayout,
             0, sizeof(PushConstants),
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
@@ -305,17 +277,17 @@ namespace nova
                 .rectInstancesVA = rectBuffer.GetAddress(),
             }));
 
-        cmd.BindDescriptorSets(pipelineLayout, 0, {descriptorSet});
+        cmd->BindDescriptorSets(pipelineLayout, 0, {descriptorSet});
 
         for (auto& command : drawCommands)
         {
             switch (command.type)
             {
             break;case ImDrawType::RoundRect:
-                cmd.SetGraphicsState(pipelineLayout,
+                cmd->SetGraphicsState(pipelineLayout,
                     {rectVertShader, rectFragShader},
                     { .blendEnable = true });
-                cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
+                cmd->Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }
     }

@@ -2,71 +2,65 @@
 
 namespace nova
 {
-    Buffer VulkanContext::Buffer_Create(u64 size, BufferUsage usage, BufferFlags flags)
+    Buffer::Buffer(HContext _context, u64 size, BufferUsage usage, BufferFlags flags)
+        : Object(_context)
     {
-        auto[id, buffer] = buffers.Acquire();
+        buffer = nullptr;
+        allocation = nullptr;
 
-        buffer.buffer = nullptr;
-        buffer.allocation = nullptr;
+        flags = flags;
+        usage = usage;
 
-        buffer.flags = flags;
-        buffer.usage = usage;
+        size = 0;
 
-        buffer.size = 0;
-
-        Buffer_Resize(id, size);
-
-        return id;
+        Resize(size);
     }
 
     static
-    void ResetBuffer(VulkanContext& ctx, VulkanBuffer& buffer)
+    void ResetBuffer(HContext ctx, HBuffer buffer)
     {
-        if (!buffer.buffer)
+        if (!buffer->buffer)
             return;
 
-        vmaDestroyBuffer(ctx.vma, buffer.buffer, buffer.allocation);
+        vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
+        buffer = nullptr;
     }
 
-    void VulkanContext::Buffer_Destroy(Buffer id)
+    Buffer::~Buffer()
     {
-        ResetBuffer(*this, Get(id));
-
-        buffers.Return(id);
+        ResetBuffer(context, this);
     }
 
-    void VulkanContext::Buffer_Resize(Buffer id, u64 size)
+    void Buffer::Resize(u64 _size)
     {
-        auto& buffer = Get(id);
-
-        if (buffer.size >= size)
+        if (size >= _size)
             return;
 
-        buffer.size = size;
+        size = _size;
 
-        ResetBuffer(*this, buffer);
+        ResetBuffer(context, this);
 
         VmaAllocationCreateFlags vmaFlags = {};
-        if (buffer.flags >= BufferFlags::Mapped)
+        if (flags >= BufferFlags::Mapped)
         {
             vmaFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-            if (buffer.flags >= BufferFlags::DeviceLocal)
+            if (flags >= BufferFlags::DeviceLocal)
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
             else
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         }
 
-        auto usage = GetVulkanBufferUsage(buffer.usage);
-        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (buffer.flags >= BufferFlags::Addressable)
-            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        auto vkUsage = GetVulkanBufferUsage(usage);
+        vkUsage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (flags >= BufferFlags::Addressable)
+            vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         VkCall(vmaCreateBuffer(
-            vma,
+            context->vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                .size = buffer.size,
-                .usage = usage,
+                .size = size,
+                .usage = vkUsage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
@@ -76,63 +70,53 @@ namespace nova
             Temp(VmaAllocationCreateInfo {
                 .flags = vmaFlags,
                 .usage = VMA_MEMORY_USAGE_AUTO,
-                .requiredFlags = (buffer.flags >= BufferFlags::DeviceLocal)
+                .requiredFlags = (flags >= BufferFlags::DeviceLocal)
                     ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
                     : VkMemoryPropertyFlags(0),
             }),
-            &buffer.buffer,
-            &buffer.allocation,
+            &buffer,
+            &allocation,
             nullptr));
 
-        if (buffer.flags >= BufferFlags::Addressable)
+        if (flags >= BufferFlags::Addressable)
         {
-            buffer.address = vkGetBufferDeviceAddress(device, Temp(VkBufferDeviceAddressInfo {
+            address = vkGetBufferDeviceAddress(context->device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = buffer.buffer,
+                .buffer = buffer,
             }));
         }
     }
 
-    u64 VulkanContext::Buffer_GetSize(Buffer id)
+    u64 Buffer::GetSize()
     {
-        return Get(id).size;
+        return size;
     }
 
-    b8* VulkanContext::Buffer_GetMapped(Buffer buffer)
+    b8* Buffer::GetMapped()
     {
         VmaAllocationInfo info;
-        vmaGetAllocationInfo(vma, Get(buffer).allocation, &info);
+        vmaGetAllocationInfo(context->vma, allocation, &info);
         return reinterpret_cast<b8*>(info.pMappedData);
     }
 
-    u64 VulkanContext::Buffer_GetAddress(Buffer id)
+    u64 Buffer::GetAddress()
     {
-        return Get(id).address;
-    }
-
-    void* VulkanContext::BufferImpl_Get(Buffer id, u64 index, u64 offset, usz stride)
-    {
-        return Buffer_GetMapped(id) + offset + (index * stride);
-    }
-
-    void VulkanContext::BufferImpl_Set(Buffer id, const void* data, usz count, u64 index, u64 offset, usz stride)
-    {
-        std::memcpy(BufferImpl_Get(id, index, offset, stride), data, count * stride);
+        return address;
     }
 
 // -----------------------------------------------------------------------------
 
-    void VulkanContext::Cmd_UpdateBuffer(CommandList cmd, Buffer dst, const void* pData, usz size, u64 dstOffset)
+    void CommandList::UpdateBuffer(HBuffer dst, const void* pData, usz size, u64 dstOffset)
     {
-        vkCmdUpdateBuffer(Get(cmd).buffer, Get(dst).buffer, dstOffset, size, pData);
+        vkCmdUpdateBuffer(buffer, dst->buffer, dstOffset, size, pData);
     }
 
-    void VulkanContext::Cmd_CopyToBuffer(CommandList cmd, Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset)
+    void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset, u64 srcOffset)
     {
-        vkCmdCopyBuffer2(Get(cmd).buffer, Temp(VkCopyBufferInfo2 {
+        vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
-            .srcBuffer = Get(src).buffer,
-            .dstBuffer = Get(dst).buffer,
+            .srcBuffer = src->buffer,
+            .dstBuffer = dst->buffer,
             .regionCount = 1,
             .pRegions = Temp(VkBufferCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
@@ -143,9 +127,9 @@ namespace nova
         }));
     }
 
-    void VulkanContext::Cmd_Barrier(CommandList cmd, Buffer buffer, PipelineStage src, PipelineStage dst)
+    void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst)
     {
-        vkCmdPipelineBarrier2(Get(cmd).buffer, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {
@@ -154,7 +138,7 @@ namespace nova
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
                 .dstStageMask = GetVulkanPipelineStage(dst),
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .buffer = Get(buffer).buffer,
+                .buffer = _buffer->buffer,
                 .size = VK_WHOLE_SIZE,
             }),
         }));

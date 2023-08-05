@@ -2,181 +2,156 @@
 
 namespace nova
 {
-    Swapchain VulkanContext::Swapchain_Create(void* window, TextureUsage usage, PresentMode presentMode)
+    Swapchain::Swapchain(HContext _context, void* window, TextureUsage _usage, PresentMode _presentMode)
+        : Object(_context)
+        , usage(_usage)
+        , presentMode(_presentMode)
     {
-        auto[id, swapchain] = swapchains.Acquire();
-        VkCall(vkCreateWin32SurfaceKHR(instance, Temp(VkWin32SurfaceCreateInfoKHR {
+        VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(window),
-        }), pAlloc, &swapchain.surface));
-
-        swapchain.usage = usage;
-        swapchain.presentMode = presentMode;
+        }), context->pAlloc, &surface));
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, gpu, swapchain.surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {
-                swapchain.format = surfaceFormat;
+                format = surfaceFormat;
                 break;
             }
         }
-
-        return id;
     }
 
-    void VulkanContext::Swapchain_Destroy(Swapchain id)
+    Swapchain::~Swapchain()
     {
-        auto& swapchain = Get(id);
+        for (auto semaphore : semaphores)
+            vkDestroySemaphore(context->device, semaphore, context->pAlloc);
 
-        for (auto semaphore : swapchain.semaphores)
-            vkDestroySemaphore(device, semaphore, pAlloc);
+        textures.clear();
 
-        for (auto texture : swapchain.textures)
-            Texture_Destroy(texture);
+        if (swapchain)
+            vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
 
-        if (swapchain.swapchain)
-            vkDestroySwapchainKHR(device, swapchain.swapchain, pAlloc);
-
-        vkDestroySurfaceKHR(instance, swapchain.surface, pAlloc);
-
-        swapchains.Return(id);
+        vkDestroySurfaceKHR(context->instance, surface, context->pAlloc);
     }
 
-    Texture VulkanContext::Swapchain_GetCurrent(Swapchain id)
+    HTexture Swapchain::GetCurrent()
     {
-        auto& swapchain = Get(id);
-        return swapchain.textures[swapchain.index];
+        return textures[index];
     }
 
-    Vec2U VulkanContext::Swapchain_GetExtent(Swapchain id)
+    Vec2U Swapchain::GetExtent()
     {
-        auto& swapchain = Get(id);
-        return { swapchain.extent.width, swapchain.extent.height };
+        return { extent.width, extent.height };
     }
 
-    Format VulkanContext::Swapchain_GetFormat(Swapchain id)
+    Format Swapchain::GetFormat()
     {
-        return FromVulkanFormat(Get(id).format.format);
+        return FromVulkanFormat(format.format);
     }
 
 // -----------------------------------------------------------------------------
 
-    bool VulkanContext::Queue_Acquire(Queue hQueue, Span<Swapchain> _swapchains, Span<Fence> signals)
+    bool Queue::Acquire(Span<HSwapchain> _swapchains, Span<HFence> signals)
     {
-        auto& queue = Get(hQueue);
-
         bool anyResized = false;
 
-        for (auto hSwapchain : _swapchains)
+        for (auto swapchain : _swapchains)
         {
-            auto& swapchain = Get(hSwapchain);
-
             do
             {
                 VkSurfaceCapabilitiesKHR caps;
-                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, swapchain.surface, &caps));
+                VkCall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->gpu, swapchain->surface, &caps));
 
-                bool recreate = swapchain.invalid
-                    || !swapchain.swapchain
-                    || caps.currentExtent.width != swapchain.extent.width
-                    || caps.currentExtent.height != swapchain.extent.height;
+                bool recreate = swapchain->invalid
+                    || !swapchain->swapchain
+                    || caps.currentExtent.width != swapchain->extent.width
+                    || caps.currentExtent.height != swapchain->extent.height;
 
                 if (recreate)
                 {
                     anyResized |= recreate;
 
-                    VkCall(vkQueueWaitIdle(queue.handle));
+                    VkCall(vkQueueWaitIdle(handle));
 
-                    auto oldSwapchain = swapchain.swapchain;
+                    auto oldSwapchain = swapchain->swapchain;
 
-                    auto vkUsage = GetVulkanImageUsage(swapchain.usage)
+                    auto vkUsage = GetVulkanImageUsage(swapchain->usage)
                         | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-                    swapchain.extent = caps.currentExtent;
-                    VkCall(vkCreateSwapchainKHR(device, Temp(VkSwapchainCreateInfoKHR {
+                    swapchain->extent = caps.currentExtent;
+                    VkCall(vkCreateSwapchainKHR(context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                        .surface = swapchain.surface,
+                        .surface = swapchain->surface,
                         .minImageCount = caps.minImageCount,
-                        .imageFormat = swapchain.format.format,
-                        .imageColorSpace = swapchain.format.colorSpace,
-                        .imageExtent = swapchain.extent,
+                        .imageFormat = swapchain->format.format,
+                        .imageColorSpace = swapchain->format.colorSpace,
+                        .imageExtent = swapchain->extent,
                         .imageArrayLayers = 1,
                         .imageUsage = vkUsage,
                         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, // TODO: concurrent for async present
                         .queueFamilyIndexCount = 1,
-                        .pQueueFamilyIndices = &queue.family,
+                        .pQueueFamilyIndices = &family,
                         .preTransform = caps.currentTransform,
                         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                        .presentMode = GetVulkanPresentMode(swapchain.presentMode),
+                        .presentMode = GetVulkanPresentMode(swapchain->presentMode),
                         .clipped = VK_TRUE,
                         .oldSwapchain = oldSwapchain,
-                    }), pAlloc, &swapchain.swapchain));
+                    }), context->pAlloc, &swapchain->swapchain));
 
-                    swapchain.invalid = false;
+                    swapchain->semaphoreIndex = false;
 
-                    vkDestroySwapchainKHR(device, oldSwapchain, pAlloc);
+                    vkDestroySwapchainKHR(context->device, oldSwapchain, context->pAlloc);
 
                     std::vector<VkImage> vkImages;
-                    VkQuery(vkImages, vkGetSwapchainImagesKHR, device, swapchain.swapchain);
+                    VkQuery(vkImages, vkGetSwapchainImagesKHR, context->device, swapchain->swapchain);
 
-                    while (swapchain.semaphores.size() < vkImages.size() * 2)
+                    while (swapchain->semaphores.size() < vkImages.size() * 2)
                     {
-                        auto& semaphore = swapchain.semaphores.emplace_back();
-                        VkCall(vkCreateSemaphore(device, Temp(VkSemaphoreCreateInfo {
+                        auto& semaphore = swapchain->semaphores.emplace_back();
+                        VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-                        }), pAlloc, &semaphore));
+                        }), context->pAlloc, &semaphore));
                     }
 
-                    for (auto texture : swapchain.textures)
-                        Texture_Destroy(texture);
-
-                    swapchain.textures.resize(vkImages.size());
+                    swapchain->textures.clear();
                     for (uint32_t i = 0; i < vkImages.size(); ++i)
                     {
-                        auto& hTexture = swapchain.textures[i];
-                        hTexture = textures.Acquire().first;
-                        auto& texture = Get(hTexture);
-
-                        texture.allocation = nullptr;
-                        texture.image = vkImages[i];
-                        texture.usage = swapchain.usage;
-
-                        VkCall(vkCreateImageView(device, Temp(VkImageViewCreateInfo {
+                        VkImageView view;
+                        VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                            .image = texture.image,
+                            .image = vkImages[i],
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                            .format = swapchain.format.format,
+                            .format = swapchain->format.format,
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                        }), pAlloc, &texture.view));
+                        }), context->pAlloc, &view));
 
-                        texture.extent = Vec3U(swapchain.extent.width, swapchain.extent.height, 1);
-                        texture.format = FromVulkanFormat(swapchain.format.format);
-                        texture.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                        texture.mips = 1;
-                        texture.layers = 1;
+                        swapchain->textures.emplace_back(std::make_unique<Texture>(context, 
+                            vkImages[i], nullptr, view, 
+                            swapchain->usage, swapchain->GetFormat(), VK_IMAGE_ASPECT_COLOR_BIT, 
+                            Vec3U(swapchain->extent.width, swapchain->extent.height, 1), 1, 1));
                     }
                 }
 
-                auto result = vkAcquireNextImage2KHR(device, Temp(VkAcquireNextImageInfoKHR {
+                auto result = vkAcquireNextImage2KHR(context->device, Temp(VkAcquireNextImageInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
-                    .swapchain = swapchain.swapchain,
+                    .swapchain = swapchain->swapchain,
                     .timeout = UINT64_MAX,
-                    .semaphore = signals.size() ? swapchain.semaphores[swapchain.semaphoreIndex] : nullptr,
+                    .semaphore = signals.size() ? swapchain->semaphores[swapchain->semaphoreIndex] : nullptr,
                     .deviceMask = 1,
-                }), &swapchain.index);
+                }), &swapchain->index);
 
                 if (result != VK_SUCCESS)
                 {
                     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
                     {
-                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain.swapchain, int(result));
-                        swapchain.invalid = true;
+                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(result));
+                        swapchain->invalid = true;
                     }
                     else
                     {
@@ -184,7 +159,7 @@ namespace nova
                     }
                 }
             }
-            while (swapchain.invalid);
+            while (swapchain->invalid);
         }
 
         if (signals.size())
@@ -192,28 +167,28 @@ namespace nova
             auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i)
             {
-                auto swapchain = Get(_swapchains[i]);
+                auto swapchain = _swapchains[i];
                 waitInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = swapchain.semaphores[swapchain.semaphoreIndex],
+                    .semaphore = swapchain->semaphores[swapchain->semaphoreIndex],
                 };
-                swapchain.semaphoreIndex = (swapchain.semaphoreIndex + 1) % swapchain.semaphores.size();
+                swapchain->semaphoreIndex = (swapchain->semaphoreIndex + 1) % swapchain->semaphores.size();
             }
 
             auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
             for (u32 i = 0; i < signals.size(); ++i)
             {
-                auto signal = Get(signals[i]);
+                auto signal = signals[i];
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = signal.semaphore,
-                    .value = Fence_Advance(signals[i]),
+                    .semaphore = signal->semaphore,
+                    .value = signals[i]->Advance(),
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkQueueSubmit2(queue.handle, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(_swapchains.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -226,10 +201,8 @@ namespace nova
         return anyResized;
     }
 
-    void VulkanContext::Queue_Present(Queue hQueue, Span<Swapchain> _swapchains, Span<Fence> waits, bool hostWait)
+    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, bool hostWait)
     {
-        auto& queue = Get(hQueue);
-
         VkSemaphore* binaryWaits = nullptr;
 
         if (hostWait && waits.size())
@@ -238,12 +211,11 @@ namespace nova
             auto values = NOVA_ALLOC_STACK(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i)
             {
-                auto& wait = Get(waits[i]);
-                semaphores[i] = wait.semaphore;
-                values[i] = wait.value;
+                semaphores[i] = waits[i]->semaphore;
+                values[i] = waits[i]->value;
             }
 
-            VkCall(vkWaitSemaphores(device, Temp(VkSemaphoreWaitInfo {
+            VkCall(vkWaitSemaphores(context->device, Temp(VkSemaphoreWaitInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                 .semaphoreCount = u32(waits.size()),
                 .pSemaphores = semaphores,
@@ -256,11 +228,10 @@ namespace nova
             auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
             for (u32 i = 0; i < waits.size(); ++i)
             {
-                auto& wait = Get(waits[i]);
                 waitInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = wait.semaphore,
-                    .value = wait.value,
+                    .semaphore = waits[i]->semaphore,
+                    .value = waits[i]->value,
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
@@ -268,15 +239,15 @@ namespace nova
             auto signalInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i)
             {
-                auto& swapchain = Get(_swapchains[i]);
+                auto swapchain = _swapchains[i];
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = swapchain.semaphores[swapchain.semaphoreIndex],
+                    .semaphore = swapchain->semaphores[swapchain->semaphoreIndex],
                 };
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkQueueSubmit2(queue.handle, 1, Temp(VkSubmitInfo2 {
+            VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -288,9 +259,9 @@ namespace nova
             binaryWaits = NOVA_ALLOC_STACK(VkSemaphore, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i)
             {
-                auto swapchain = Get(_swapchains[i]);
-                binaryWaits[i] = swapchain.semaphores[swapchain.semaphoreIndex];
-                swapchain.semaphoreIndex = (swapchain.semaphoreIndex + 1) % swapchain.semaphores.size();
+                auto swapchain = _swapchains[i];
+                binaryWaits[i] = swapchain->semaphores[swapchain->semaphoreIndex];
+                swapchain->semaphoreIndex = (swapchain->semaphoreIndex + 1) % swapchain->semaphores.size();
             }
         }
 
@@ -298,14 +269,14 @@ namespace nova
         auto indices = NOVA_ALLOC_STACK(u32, _swapchains.size());
         for (u32 i = 0; i < _swapchains.size(); ++i)
         {
-            auto swapchain = Get(_swapchains[i]);
-            vkSwapchains[i] = swapchain.swapchain;
-            indices[i] = swapchain.index;
+            auto swapchain = _swapchains[i];
+            vkSwapchains[i] = swapchain->swapchain;
+            indices[i] = swapchain->index;
         }
 
         auto results = NOVA_ALLOC_STACK(VkResult, _swapchains.size());
         auto start = std::chrono::steady_clock::now();
-        vkQueuePresentKHR(queue.handle, Temp(VkPresentInfoKHR {
+        vkQueuePresentKHR(handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binaryWaits ? u32(_swapchains.size()) : 0u,
             .pWaitSemaphores = binaryWaits,
@@ -320,8 +291,8 @@ namespace nova
         {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
             {
-                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)Get(_swapchains[i]).swapchain, int(results[i]));
-                Get(_swapchains[i]).invalid = true;
+                NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)_swapchains[i]->swapchain, int(results[i]));
+                _swapchains[i]->invalid = true;
             }
             else
             {
@@ -330,9 +301,9 @@ namespace nova
         }
     }
 
-    void VulkanContext::Cmd_Present(CommandList cmd, Swapchain swapchain)
+    void CommandList::Present(HSwapchain swapchain)
     {
-        Cmd_Transition(cmd, Swapchain_GetCurrent(swapchain),
+        Transition(swapchain->GetCurrent(),
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_PIPELINE_STAGE_2_NONE,
             0);

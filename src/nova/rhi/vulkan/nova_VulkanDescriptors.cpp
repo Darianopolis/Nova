@@ -2,16 +2,15 @@
 
 namespace nova
 {
-    DescriptorSetLayout VulkanContext::Descriptors_CreateSetLayout(Span<DescriptorBinding> bindings, bool pushDescriptors)
+    DescriptorSetLayout::DescriptorSetLayout(HContext _context, Span<DescriptorBinding> _bindings, bool pushDescriptors)
+        : Object(_context)
     {
-        auto[id, setLayout] = descriptorSetLayouts.Acquire();
+        auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, _bindings.size());
+        auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, _bindings.size());
 
-        auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
-        auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
-
-        for (u32 i = 0; i < bindings.size(); ++i)
+        for (u32 i = 0; i < _bindings.size(); ++i)
         {
-            auto& binding = bindings[i];
+            auto& binding = _bindings[i];
 
             vkBindings[i] = {
                 .binding = i,
@@ -57,89 +56,80 @@ namespace nova
             }, binding);
         }
 
-        VkCall(vkCreateDescriptorSetLayout(device, Temp(VkDescriptorSetLayoutCreateInfo {
+        VkCall(vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-                .bindingCount = u32(bindings.size()),
+                .bindingCount = u32(_bindings.size()),
                 .pBindingFlags = flags,
             }),
             .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT
                 | (pushDescriptors
                     ? VkDescriptorBindingFlags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR)
                     : VkDescriptorBindingFlags(0)),
-            .bindingCount = u32(bindings.size()),
+            .bindingCount = u32(_bindings.size()),
             .pBindings = vkBindings,
-        }), pAlloc, &setLayout.layout));
+        }), context->pAlloc, &layout));
 
-        setLayout.bindings.reserve(bindings.size());
-        std::move(bindings.begin(), bindings.end(), std::back_insert_iterator(setLayout.bindings));
-
-        return id;
+        bindings.reserve(_bindings.size());
+        std::move(_bindings.begin(), _bindings.end(), std::back_insert_iterator(bindings));
     }
 
-    void VulkanContext::Descriptors_DestroySetLayout(DescriptorSetLayout id)
+    DescriptorSetLayout::~DescriptorSetLayout()
     {
-        if (Get(id).layout)
-            vkDestroyDescriptorSetLayout(device, Get(id).layout, pAlloc);
-
-        descriptorSetLayouts.Return(id);
+        if (layout)
+            vkDestroyDescriptorSetLayout(context->device, layout, context->pAlloc);
     }
 
-    DescriptorSet VulkanContext::Descriptors_AllocateSet(DescriptorSetLayout layout, u64 customSize)
+    DescriptorSet::DescriptorSet(HDescriptorSetLayout _layout, u64 customSize)
+        : Object(layout->context)
+        , layout(_layout)
     {
         (void)customSize; // TODO
 
-        auto[id, set] = descriptorSets.Acquire();
-
-        vkAllocateDescriptorSets(device, Temp(VkDescriptorSetAllocateInfo {
+        vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = descriptorPool,
+            .descriptorPool = context->descriptorPool,
             .descriptorSetCount = 1,
-            .pSetLayouts = &Get(layout).layout,
-        }), &set.set);
-
-        return id;
+            .pSetLayouts = &layout->layout,
+        }), &set);
     }
 
-    void VulkanContext::Descriptors_FreeSet(DescriptorSet set)
+    DescriptorSet::~DescriptorSet()
     {
-        if (Get(set).set)
-            vkFreeDescriptorSets(device, descriptorPool, 1, &Get(set).set);
-
-        descriptorSets.Return(set);
+        vkFreeDescriptorSets(context->device, context->descriptorPool, 1, &set);
     }
 
 // -----------------------------------------------------------------------------
 
-    void VulkanContext::Descriptors_WriteSampledTexture(DescriptorSet set, u32 binding, Texture texture, Sampler sampler, u32 arrayIndex)
+    void DescriptorSet::WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex)
     {
-        vkUpdateDescriptorSets(device, 1, Temp(VkWriteDescriptorSet {
+        vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = Get(set).set,
+            .dstSet = set,
             .dstBinding = binding,
             .dstArrayElement = arrayIndex,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = Temp(VkDescriptorImageInfo {
-                .sampler = Get(sampler).sampler,
-                .imageView = Get(texture).view,
+                .sampler = sampler->sampler,
+                .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             }),
         }), 0, nullptr);
     }
 
-    void VulkanContext::Descriptors_WriteUniformBuffer(DescriptorSet set, u32 binding, Buffer buffer, u32 arrayIndex)
+    void DescriptorSet::WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex)
     {
-        vkUpdateDescriptorSets(device, 1, Temp(VkWriteDescriptorSet {
+        vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = Get(set).set,
+            .dstSet = set,
             .dstBinding = binding,
             .dstArrayElement = arrayIndex,
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .pBufferInfo = Temp(VkDescriptorBufferInfo {
-                .buffer = Get(buffer).buffer,
+                .buffer = buffer->buffer,
                 .range = VK_WHOLE_SIZE,
             }),
         }), 0, nullptr);
@@ -147,22 +137,22 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void VulkanContext::Cmd_BindDescriptorSets(CommandList cmd, PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets)
+    void CommandList::BindDescriptorSets(HPipelineLayout pipelineLayout, u32 firstSet, Span<HDescriptorSet> sets)
     {
         auto vkSets = NOVA_ALLOC_STACK(VkDescriptorSet, sets.size());
         for (u32 i = 0; i < sets.size(); ++i)
-            vkSets[i] = Get(sets[i]).set;
+            vkSets[i] = sets[i]->set;
 
-        vkCmdBindDescriptorSets(Get(cmd).buffer, GetVulkanPipelineBindPoint(Get(pipelineLayout).bindPoint),
-            Get(pipelineLayout).layout, firstSet,
+        vkCmdBindDescriptorSets(buffer, GetVulkanPipelineBindPoint(pipelineLayout->bindPoint),
+            pipelineLayout->layout, firstSet,
             u32(sets.size()), vkSets,
             0, nullptr);
     }
 
-    void VulkanContext::Cmd_PushStorageTexture(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex)
+    void CommandList::PushStorageTexture(HPipelineLayout layout, u32 setIndex, u32 binding, HTexture texture, u32 arrayIndex)
     {
-        vkCmdPushDescriptorSetKHR(Get(cmd).buffer,
-            GetVulkanPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
+        vkCmdPushDescriptorSetKHR(buffer,
+            GetVulkanPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstBinding = binding,
@@ -170,22 +160,22 @@ namespace nova
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = Temp(VkDescriptorImageInfo {
-                    .imageView = Get(texture).view,
-                    .imageLayout = Get(Get(cmd).state).imageStates[Get(texture).image].layout,
+                    .imageView = texture->view,
+                    .imageLayout = state->imageStates[texture->image].layout,
                 }),
             }));
     }
 
-    void VulkanContext::Cmd_PushAccelerationStructure(CommandList cmd, PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex)
+    void CommandList::PushAccelerationStructure(HPipelineLayout layout, u32 setIndex, u32 binding, HAccelerationStructure accelerationStructure, u32 arrayIndex)
     {
-        vkCmdPushDescriptorSetKHR(Get(cmd).buffer,
-            GetVulkanPipelineBindPoint(Get(layout).bindPoint), Get(layout).layout, setIndex,
+        vkCmdPushDescriptorSetKHR(buffer,
+            GetVulkanPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,
             1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
                     .accelerationStructureCount = 1,
-                    .pAccelerationStructures = &Get(accelerationStructure).structure,
+                    .pAccelerationStructures = &accelerationStructure->structure,
                 }),
                 .dstBinding = binding,
                 .dstArrayElement = arrayIndex,

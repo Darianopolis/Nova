@@ -6,14 +6,9 @@
 
 namespace nova
 {
-    struct VulkanImGuiWrapper : ImGuiWrapper
+    struct ImGuiLayer
     {
-        VulkanContext*          context = {};
-        // VkRenderPass   renderPass = {};
-        // VkFramebuffer framebuffer = {};
-
-        // Vec2U         lastSize = {};
-        // TextureUsage lastUsage = {};
+        HContext context = {};
 
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
@@ -21,17 +16,30 @@ namespace nova
         bool ended = false;
 
     public:
-        VulkanImGuiWrapper(Context* context,
-            CommandList cmd, Format format, GLFWwindow* window,
+        ImGuiLayer(HContext context,
+            HCommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config);
 
-        ~VulkanImGuiWrapper() final;
+        ~ImGuiLayer();
 
-        void BeginFrame_(DockspaceWindowFn fn, void* payload) final;
-        // void BeginFrame() final;
-        void EndFrame() final;
+        using DockspaceWindowFn = void(*)(void*, ImGuiLayer&);
+        void BeginFrame_(DockspaceWindowFn fn, void* payload);
+        void EndFrame();
 
-        bool HasDrawData() final;
-        void DrawFrame(CommandList cmd, Texture texture) final;
+        template<typename Fn>
+        void BeginFrame(Fn&& fn)
+        {
+            BeginFrame_(
+                [](void* payload, ImGuiLayer& self) { (*static_cast<Fn*>(payload))(self); },
+                const_cast<Fn*>(&fn));
+        }
+
+        void BeginFrame()
+        {
+            BeginFrame_([](void*, ImGuiLayer&) {}, nullptr);
+        }
+
+        bool HasDrawData();
+        void DrawFrame(HCommandList cmd, HTexture texture);
     };
 }
