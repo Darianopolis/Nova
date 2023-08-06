@@ -17,10 +17,10 @@ using namespace nova::types;
 
 void TryMain()
 {
-    nova::Context context{{
+    auto context = nova::Context({
         .backend = nova::Backend::Vulkan,
         .debug = false,
-    }};
+    });
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
@@ -46,17 +46,17 @@ void TryMain()
     auto state = nova::CommandState(context);
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence(context);
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
 
     auto imgui = [&] {
         auto cmd = commandPools[0].Begin(state);
-        NOVA_ON_SCOPE_EXIT(&) {  
-            queue->Submit({cmd}, {}, {fence});
-            fence.Wait();
-        };
-        return nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
+        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
             windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
+
+        queue->Submit({cmd}, {}, {fence});
+        fence.Wait();
+        
+        return _imgui;
     }();
 
     u64 frame = 0;
@@ -125,6 +125,8 @@ void TryMain()
 
         waitValues[fif] = fence.GetPendingValue();
     };
+    
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
 
     for (auto window : windows)
     {

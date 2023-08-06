@@ -106,7 +106,7 @@ namespace nova
         void EndRendering();
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
-        void BindIndexBuffer(HBuffer buffer, IndexType indexType, u64 offset);
+        void BindIndexBuffer(HBuffer buffer, IndexType indexType, u64 offset = 0);
         void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
@@ -203,8 +203,8 @@ namespace nova
         DescriptorSet(HDescriptorSetLayout, u64 customSize = 0);
         ~DescriptorSet() final;
 
-        void WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex);
-        void WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex);
+        void WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex = 0);
+        void WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex = 0);
     };
 
     struct Shader : Object

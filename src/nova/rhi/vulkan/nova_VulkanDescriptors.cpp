@@ -82,7 +82,7 @@ namespace nova
     }
 
     DescriptorSet::DescriptorSet(HDescriptorSetLayout _layout, u64 customSize)
-        : Object(layout->context)
+        : Object(_layout->context)
         , layout(_layout)
     {
         (void)customSize; // TODO

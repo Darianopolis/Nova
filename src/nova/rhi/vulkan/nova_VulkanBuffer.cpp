@@ -2,18 +2,12 @@
 
 namespace nova
 {
-    Buffer::Buffer(HContext _context, u64 size, BufferUsage usage, BufferFlags flags)
+    Buffer::Buffer(HContext _context, u64 _size, BufferUsage _usage, BufferFlags _flags)
         : Object(_context)
+        , flags(_flags)
+        , usage(_usage)
     {
-        buffer = nullptr;
-        allocation = nullptr;
-
-        flags = flags;
-        usage = usage;
-
-        size = 0;
-
-        Resize(size);
+        Resize(_size);
     }
 
     static

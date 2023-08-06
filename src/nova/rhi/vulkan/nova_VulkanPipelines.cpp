@@ -2,12 +2,11 @@
 
 namespace nova
 {
-    PipelineLayout::PipelineLayout(HContext _context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> _descriptorSetLayouts, BindPoint bindPoint)
+    PipelineLayout::PipelineLayout(HContext _context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> _descriptorSetLayouts, BindPoint _bindPoint)
         : Object(_context)
+        , bindPoint(_bindPoint)
     {
         id = context->GetUID();
-
-        bindPoint = bindPoint;
 
         for (auto& range : pushConstantRanges)
         {

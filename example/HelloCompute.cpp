@@ -1,4 +1,4 @@
-#include <nova/rhi/nova_RHI_Handle.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -33,15 +33,14 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    auto ctx = nova::Context::Create({
+    auto context = nova::Context({
         .backend = nova::Backend::Vulkan,
         .debug = false,
     });
-    auto context = nova::HContext(ctx);
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = context.CreateSwapchain(glfwGetWin32Window(window),
+    auto swapchain = nova::Swapchain(context, glfwGetWin32Window(window),
         nova::TextureUsage::Storage
         | nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
@@ -50,9 +49,9 @@ int main()
     // Create required Nova objects
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = context.CreateCommandPool(queue);
-    auto fence = context.CreateFence();
-    auto state = context.CreateCommandState();
+    auto cmdPool = nova::CommandPool(context, queue);
+    auto fence = nova::Fence(context);
+    auto state = nova::CommandState(context);
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -62,18 +61,18 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = context.CreateDescriptorSetLayout({
+    auto descLayout = nova::DescriptorSetLayout(context, {
         nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
         // nova::binding::StorageTexture("outImage", nova::Format::RGBA8_UNorm),
     }, true);
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = context.CreatePipelineLayout({}, {descLayout}, nova::BindPoint::Compute);
+    auto pipelineLayout = nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto computeShader = context.CreateShader(nova::ShaderStage::Compute, {
+    auto computeShader = nova::Shader(context, nova::ShaderStage::Compute, {
         nova::shader::Layout(pipelineLayout),
         nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
@@ -82,16 +81,16 @@ int main()
         )glsl")
     });
 
-    auto rasterPipelineLayout = context.CreatePipelineLayout({}, {}, nova::BindPoint::Graphics);
+    auto rasterPipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
 
-    auto vertexShader = context.CreateShader(nova::ShaderStage::Vertex, {
+    auto vertexShader = nova::Shader(context, nova::ShaderStage::Vertex, {
         nova::shader::Output("uv", nova::ShaderVarType::Vec2),
         nova::shader::Kernel(R"glsl(
             uv = vec2(float((gl_VertexIndex << 1) & 2), float(gl_VertexIndex & 2));
             gl_Position = vec4(uv * vec2(2.0) - vec2(1.0), 0.0, 1.0);
         )glsl"),
     });
-    auto fragmentShader = context.CreateShader(nova::ShaderStage::Fragment, {
+    auto fragmentShader = nova::Shader(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("uv", nova::ShaderVarType::Vec2),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel(R"glsl(
@@ -112,7 +111,7 @@ int main()
 
     auto lastTime = std::chrono::steady_clock::now();
     auto frames = 0;
-    // NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         // Debug output statistics
@@ -128,7 +127,7 @@ int main()
         // Wait for previous frame and acquire new swapchain image
 
         fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+        queue->Acquire({swapchain}, {fence});
         auto target = swapchain.GetCurrent();
 
         // Start new command buffer
@@ -136,45 +135,45 @@ int main()
         cmdPool.Reset();
         auto cmd = cmdPool.Begin(state);
 
-        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
-        cmd.SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
+        cmd->BeginRendering({{}, Vec2U(target->GetExtent())}, {target});
+        cmd->SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
             .cullMode = nova::CullMode::None,
         });
-        cmd.Draw(3, 1, 0, 0);
-        cmd.EndRendering();
+        cmd->Draw(3, 1, 0, 0);
+        cmd->EndRendering();
 
         if (useCompute)
         {
             // Transition ready for writing compute output
 
-            cmd.Transition(target,
+            cmd->Transition(target,
                 nova::TextureLayout::GeneralImage,
                 nova::PipelineStage::Compute);
 
             // Push swapchain image and TLAS descriptors
 
-            cmd.PushStorageTexture(pipelineLayout, 0, 0, target);
+            cmd->PushStorageTexture(pipelineLayout, 0, 0, target);
 
             // Trace rays
 
-            cmd.SetComputeState(pipelineLayout, computeShader);
-            cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
+            cmd->SetComputeState(pipelineLayout, computeShader);
+            cmd->Dispatch(Vec3U((Vec2U(target->GetExtent()) + 15u) / 16u, 1));
         }
         else
         {
-            cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
-            cmd.SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
+            cmd->BeginRendering({{}, Vec2U(target->GetExtent())}, {target});
+            cmd->SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
                 .cullMode = nova::CullMode::None,
             });
-            cmd.Draw(3, 1, 0, 0);
-            cmd.EndRendering();
+            cmd->Draw(3, 1, 0, 0);
+            cmd->EndRendering();
         }
 
         // Submit and present work
 
-        cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+        cmd->Present(swapchain);
+        queue->Submit({cmd}, {fence}, {fence});
+        queue->Present({swapchain}, {fence});
 
         // Wait for window events
         glfwPollEvents();
