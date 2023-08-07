@@ -49,7 +49,7 @@ namespace nova
 
         template<typename T2>
         requires Dereferenceable<T2, T>
-        Handle(const T2& t)
+        Handle(T2& t)
             : value(&*t)
         {}
 
@@ -70,7 +70,7 @@ namespace nova
         {
             return value;
         }
-
+        
         operator bool() const noexcept
         {
             return value;
@@ -79,6 +79,12 @@ namespace nova
         T* get() const noexcept
         {
             return value;
+        }
+    
+        void Destroy() noexcept
+        {
+            delete value;
+            value = nullptr;
         }
     };
     

@@ -80,12 +80,15 @@ namespace nova
         }
 
         // Create pipeline
-
+        
         if (pipeline)
+        {
+            vkDeviceWaitIdle(context->device);
             vkDestroyPipeline(context->device, pipeline, context->pAlloc);
+        }
 
         VkCall(vkCreateRayTracingPipelinesKHR(context->device,
-            0, context->pipelineCache,
+            0, nullptr,//context->pipelineCache,
             1, Temp(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
                 .flags = context->config.descriptorBuffers

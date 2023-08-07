@@ -79,8 +79,8 @@ namespace nova::types
 
         ~Ref()
         {
-            if (value)
-                value->RefCounted_Release();
+            if (value && value->RefCounted_Release())
+                delete value;
         }
 
 // -----------------------------------------------------------------------------
