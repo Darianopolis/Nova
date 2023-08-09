@@ -2,9 +2,11 @@
 
 namespace nova
 {
-    Sampler::Sampler(HContext _context, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
-        : Object(_context)
+    HSampler Sampler::Create(HContext context, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
     {
+        auto impl = new Sampler;
+        impl->context = context;
+        
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = GetVulkanFilter(filter),
@@ -20,7 +22,9 @@ namespace nova
             .maxAnisotropy = anisotropy,
             .maxLod = VK_LOD_CLAMP_NONE,
             .borderColor = GetVulkanBorderColor(color),
-        }), context->pAlloc, &sampler));
+        }), context->pAlloc, &impl->sampler));
+
+        return impl;
     }
 
     Sampler::~Sampler()
@@ -30,38 +34,27 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    Texture::Texture(HContext _context, 
-        VkImage _image, VmaAllocation _allocation, VkImageView _view, 
-        TextureUsage _usage, Format _format, VkImageAspectFlags _aspect, 
-        Vec3U _extent, u32 _mips, u32 _layers)
-        : Object(_context)
-        , image(_image), allocation(_allocation), view(_view)
-        , usage(_usage), format(_format), aspect(_aspect)
-        , extent(_extent), mips(_mips), layers(_layers)
+    HTexture Texture::Create(HContext context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
     {
+        auto impl = new Texture;
+        impl->context = context;
+        impl->format = _format;
+        impl->usage = _usage;
+        bool makeView = (GetVulkanImageUsage(_usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
 
-    }
-
-    Texture::Texture(HContext _context, Vec3U size, TextureUsage _usage, Format _format, TextureFlags flags)
-        : Object(_context)
-    {
-        format = _format;
-        usage = _usage;
-        bool makeView = (GetVulkanImageUsage(usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
-
-        mips = flags >= TextureFlags::Mips
+        impl->mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
             : 1;
 
         VkImageType imageType;
         VkImageViewType viewType;
-        layers = 1;
+        impl->layers = 1;
 
         if (flags >= TextureFlags::Array)
         {
             if (size.z > 0)
             {
-                layers = size.z;
+                impl->layers = size.z;
                 size.z = 1;
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
@@ -69,7 +62,7 @@ namespace nova
             else
             if (size.y > 0)
             {
-                layers = size.y;
+                impl->layers = size.y;
                 size.y = 1;
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
@@ -104,7 +97,7 @@ namespace nova
             }
         }
 
-        extent = glm::max(size, Vec3U(1));
+        impl->extent = glm::max(size, Vec3U(1));
 
         // ---- Create image -----
 
@@ -112,13 +105,13 @@ namespace nova
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = GetVulkanFormat(format),
-                .extent = { extent.x, extent.y, extent.z },
-                .mipLevels = mips,
-                .arrayLayers = layers,
+                .format = GetVulkanFormat(impl->format),
+                .extent = { impl->extent.x, impl->extent.y, impl->extent.z },
+                .mipLevels = impl->mips,
+                .arrayLayers = impl->layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = GetVulkanImageUsage(usage)
+                .usage = GetVulkanImageUsage(impl->usage)
                     | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
@@ -128,29 +121,29 @@ namespace nova
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
             Temp(VmaAllocationCreateInfo { }),
-            &image,
-            &allocation,
+            &impl->image,
+            &impl->allocation,
             nullptr));
 
         // ---- Pick aspects -----
 
-        switch (GetVulkanFormat(format))
+        switch (GetVulkanFormat(impl->format))
         {
         break;case VK_FORMAT_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;case VK_FORMAT_D16_UNORM:
               case VK_FORMAT_X8_D24_UNORM_PACK32:
               case VK_FORMAT_D32_SFLOAT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         break;case VK_FORMAT_D16_UNORM_S8_UINT:
               case VK_FORMAT_D24_UNORM_S8_UINT:
               case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
         break;default:
-            aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+            impl->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
         }
 
         // ---- Make view -----
@@ -159,12 +152,14 @@ namespace nova
         {
             VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                .image = image,
+                .image = impl->image,
                 .viewType = viewType,
-                .format = GetVulkanFormat(format),
-                .subresourceRange = { aspect, 0, mips, 0, layers },
-            }), context->pAlloc, &view));
+                .format = GetVulkanFormat(impl->format),
+                .subresourceRange = { impl->aspect, 0, impl->mips, 0, impl->layers },
+            }), context->pAlloc, &impl->view));
         }
+
+        return impl;
     }
 
     Texture::~Texture()

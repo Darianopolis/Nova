@@ -2,9 +2,11 @@
 
 namespace nova
 {
-    Fence::Fence(HContext _context)
-        : Object(_context)
+    HFence Fence::Create(HContext context)
     {
+        auto impl = new Fence;
+        impl->context = context;
+
         VkCall(vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = Temp(VkSemaphoreTypeCreateInfo {
@@ -12,7 +14,9 @@ namespace nova
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
             }),
-        }), context->pAlloc, &semaphore));
+        }), context->pAlloc, &impl->semaphore));
+
+        return impl;
     }
 
     Fence::~Fence()

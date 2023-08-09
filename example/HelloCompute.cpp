@@ -33,25 +33,32 @@ int main()
 
     NOVA_TIMEIT_RESET();
 
-    auto context = nova::Context({
+    auto context = nova::Context::Create({
         .backend = nova::Backend::Vulkan,
         .debug = false,
     });
+    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain(context, glfwGetWin32Window(window),
+    auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::Storage
         | nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Immediate);
+    NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool(context, queue);
-    auto fence = nova::Fence(context);
-    auto state = nova::CommandState(context);
+    auto queue = context->GetQueue(nova::QueueFlags::Graphics, 0);
+    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto fence = nova::Fence::Create(context);
+    auto state = nova::CommandState::Create(context);
+    NOVA_ON_SCOPE_EXIT(&) {
+        cmdPool.Destroy();
+        fence.Destroy();
+        state.Destroy();
+    };
 
     NOVA_TIMEIT("base-vulkan-objects");
 
@@ -61,18 +68,19 @@ int main()
 
     // Create descriptor layout to hold one storage image and acceleration structure
 
-    auto descLayout = nova::DescriptorSetLayout(context, {
-        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
-        // nova::binding::StorageTexture("outImage", nova::Format::RGBA8_UNorm),
+    auto descLayout = nova::DescriptorSetLayout::Create(context, {
+        nova::binding::StorageTexture("outImage", swapchain->GetFormat()),
     }, true);
+    NOVA_ON_SCOPE_EXIT(&) { descLayout.Destroy(); };
 
     // Create a pipeline layout for the above set layout
 
-    auto pipelineLayout = nova::PipelineLayout(context, {}, {descLayout}, nova::BindPoint::Compute);
+    auto pipelineLayout = nova::PipelineLayout::Create(context, {}, {descLayout}, nova::BindPoint::Compute);
+    NOVA_ON_SCOPE_EXIT(&) { pipelineLayout.Destroy(); };
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto computeShader = nova::Shader(context, nova::ShaderStage::Compute, {
+    auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, {
         nova::shader::Layout(pipelineLayout),
         nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
@@ -80,23 +88,28 @@ int main()
             imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
         )glsl")
     });
+    NOVA_ON_SCOPE_EXIT(&) { computeShader.Destroy(); };
 
-    auto rasterPipelineLayout = nova::PipelineLayout(context, {}, {}, nova::BindPoint::Graphics);
+    auto rasterPipelineLayout = nova::PipelineLayout::Create(context, {}, {}, nova::BindPoint::Graphics);
+    NOVA_ON_SCOPE_EXIT(&) { rasterPipelineLayout.Destroy(); };
 
-    auto vertexShader = nova::Shader(context, nova::ShaderStage::Vertex, {
+    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
         nova::shader::Output("uv", nova::ShaderVarType::Vec2),
         nova::shader::Kernel(R"glsl(
             uv = vec2(float((gl_VertexIndex << 1) & 2), float(gl_VertexIndex & 2));
             gl_Position = vec4(uv * vec2(2.0) - vec2(1.0), 0.0, 1.0);
         )glsl"),
     });
-    auto fragmentShader = nova::Shader(context, nova::ShaderStage::Fragment, {
+    NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
+
+    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("uv", nova::ShaderVarType::Vec2),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel(R"glsl(
             fragColor = vec4(uv, 0.5, 1.0);
         )glsl")
     });
+    NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -111,7 +124,7 @@ int main()
 
     auto lastTime = std::chrono::steady_clock::now();
     auto frames = 0;
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         // Debug output statistics
@@ -126,14 +139,14 @@ int main()
 
         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait();
+        fence->Wait();
         queue->Acquire({swapchain}, {fence});
-        auto target = swapchain.GetCurrent();
+        auto target = swapchain->GetCurrent();
 
         // Start new command buffer
 
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+        cmdPool->Reset();
+        auto cmd = cmdPool->Begin(state);
 
         cmd->BeginRendering({{}, Vec2U(target->GetExtent())}, {target});
         cmd->SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {

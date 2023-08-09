@@ -2,14 +2,18 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder::AccelerationStructureBuilder(HContext _context)
-        : Object(_context)
+    HAccelerationStructureBuilder AccelerationStructureBuilder::Create(HContext context)
     {
+        auto impl = new AccelerationStructureBuilder;
+        impl->context = context;
+        
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
-        }), context->pAlloc, &queryPool));
+        }), context->pAlloc, &impl->queryPool));
+
+        return impl;
     }
 
     static
@@ -175,33 +179,36 @@ namespace nova
         return size;
     }
 
-    AccelerationStructure::AccelerationStructure(HContext _context, u64 size, AccelerationStructureType type, HBuffer _buffer, u64 offset)
-        : Object(_context)
+    HAccelerationStructure AccelerationStructure::Create(HContext context, u64 size, AccelerationStructureType type, HBuffer buffer, u64 offset)
     {
-        ownBuffer = !_buffer;
-        if (ownBuffer)
+        auto impl = new AccelerationStructure;
+        impl->context = context;
+        impl->ownBuffer = !buffer;
+        if (impl->ownBuffer)
         {
-            buffer = new Buffer(context, size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
+            impl->buffer = Buffer::Create(context, size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
         }
         else
         {
-            buffer = _buffer;
+            impl->buffer = buffer;
         }
 
         VkCall(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
-            .buffer = buffer->buffer,
+            .buffer = impl->buffer->buffer,
             .offset = offset,
-            .size = buffer->size,
+            .size = impl->buffer->size,
             .type = GetVulkanAccelStructureType(type),
-        }), context->pAlloc, &structure));
+        }), context->pAlloc, &impl->structure));
 
-        address = vkGetAccelerationStructureDeviceAddressKHR(
+        impl->address = vkGetAccelerationStructureDeviceAddressKHR(
             context->device,
             Temp(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
-                .accelerationStructure = structure
+                .accelerationStructure = impl->structure
             }));
+        
+        return impl;
     }
 
     AccelerationStructure::~AccelerationStructure()

@@ -83,9 +83,11 @@ Validation: {} ({})
         }
     };
 
-    Context::Context(const ContextConfig& _context)
-        : config(_context)
+    HContext Context::Create(const ContextConfig& config)
     {
+        auto impl = new Context;
+        impl->config = config;
+
         std::vector<const char*> instanceLayers;
         if (config.debug)
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
@@ -111,7 +113,7 @@ Validation: {} ({})
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                             | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
             .pfnUserCallback = DebugCallback,
-            .pUserData = this,
+            .pUserData = impl,
         };
 
         std::vector<VkValidationFeatureEnableEXT> validationFeaturesEnabled {
@@ -138,22 +140,22 @@ Validation: {} ({})
             .ppEnabledLayerNames = instanceLayers.data(),
             .enabledExtensionCount = u32(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), pAlloc, &instance));
+        }), impl->pAlloc, &impl->instance));
 
-        volkLoadInstanceOnly(instance);
+        volkLoadInstanceOnly(impl->instance);
 
         if (config.debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(instance, &debugMessengerCreateInfo, pAlloc, &debugMessenger));
+            VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, instance);
-        for (auto& _gpu : gpus)
+        VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
+        for (auto& gpu : gpus)
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            vkGetPhysicalDeviceProperties2(_gpu, &properties);
+            vkGetPhysicalDeviceProperties2(gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 
             {
-                gpu = _gpu;
+                impl->gpu = gpu;
                 break;                                                                    
             }
         }
@@ -161,30 +163,33 @@ Validation: {} ({})
         // ---- Logical Device ----
 
         std::array<VkQueueFamilyProperties, 3> properties;
-        vkGetPhysicalDeviceQueueFamilyProperties(gpu, Temp(3u), properties.data());
+        vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
         for (u32 i = 0; i < 16; ++i)
         {
-            auto queue = std::make_unique<Queue>(this);
+            auto queue = new Queue;
+            queue->context = impl;
             queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             queue->family = 0;
-            graphicQueues.emplace_back(std::move(queue));
+            impl->graphicQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 2; ++i)
         {
-            auto queue = std::make_unique<Queue>(this);
+            auto queue = new Queue;
+            queue->context = impl;
             queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 1;
-            transferQueues.emplace_back(std::move(queue));
+            impl->transferQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 8; ++i)
         {
-            auto queue = std::make_unique<Queue>(this);
+            auto queue = new Queue;
+            queue->context = impl;
             queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 2;
-            computeQueues.emplace_back(std::move(queue));
+            impl->computeQueues.emplace_back(queue);
         }
-        NOVA_LOGEXPR(graphicQueues.size());
-        NOVA_LOGEXPR(graphicQueues.front().get());
+        NOVA_LOGEXPR(impl->graphicQueues.size());
+        NOVA_LOGEXPR(impl->graphicQueues.front().get());
 
         VulkanFeatureChain chain;
 
@@ -304,72 +309,72 @@ Validation: {} ({})
                 deviceExtensions[i++] = ext.c_str();
         }
 
-        auto priorities = NOVA_ALLOC_STACK(float, graphicQueues.size());
-        for (u32 i = 0; i < graphicQueues.size(); ++i)
+        auto priorities = NOVA_ALLOC_STACK(float, impl->graphicQueues.size());
+        for (u32 i = 0; i < impl->graphicQueues.size(); ++i)
             priorities[i] = 1.f;
 
         auto lowPriorities = NOVA_ALLOC_STACK(float, 8);
         for (u32 i = 0; i < 8; ++i)
             lowPriorities[i] = 0.1f;
 
-        VkCall(vkCreateDevice(gpu, Temp(VkDeviceCreateInfo {
+        VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
             .queueCreateInfoCount = 3,
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = graphicQueues.front()->family,
-                    .queueCount = u32(graphicQueues.size()),
+                    .queueFamilyIndex = impl->graphicQueues.front()->family,
+                    .queueCount = u32(impl->graphicQueues.size()),
                     .pQueuePriorities = priorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = transferQueues.front()->family,
-                    .queueCount = u32(transferQueues.size()),
+                    .queueFamilyIndex = impl->transferQueues.front()->family,
+                    .queueCount = u32(impl->transferQueues.size()),
                     .pQueuePriorities = lowPriorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = computeQueues.front()->family,
-                    .queueCount = u32(computeQueues.size()),
+                    .queueFamilyIndex = impl->computeQueues.front()->family,
+                    .queueCount = u32(impl->computeQueues.size()),
                     .pQueuePriorities = lowPriorities,
                 },
             }.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
             .ppEnabledExtensionNames = deviceExtensions,
-        }), pAlloc, &device));
+        }), impl->pAlloc, &impl->device));
 
-        volkLoadDevice(device);
+        volkLoadDevice(impl->device);
 
-        vkGetPhysicalDeviceProperties2(gpu, Temp(VkPhysicalDeviceProperties2 {
+        vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &descriptorSizes,
+            .pNext = &impl->descriptorSizes,
         }));
 
         // ---- Shared resources ----
 
-        for (u32 i = 0; i < graphicQueues.size(); ++i)
-            vkGetDeviceQueue(device, graphicQueues[i]->family, i, &graphicQueues[i]->handle);
+        for (u32 i = 0; i < impl->graphicQueues.size(); ++i)
+            vkGetDeviceQueue(impl->device, impl->graphicQueues[i]->family, i, &impl->graphicQueues[i]->handle);
 
-        for (u32 i = 0; i < transferQueues.size(); ++i)
-            vkGetDeviceQueue(device, transferQueues[i]->family, i, &transferQueues[i]->handle);
+        for (u32 i = 0; i < impl->transferQueues.size(); ++i)
+            vkGetDeviceQueue(impl->device, impl->transferQueues[i]->family, i, &impl->transferQueues[i]->handle);
 
-        for (u32 i = 0; i < computeQueues.size(); ++i)
-            vkGetDeviceQueue(device, computeQueues[i]->family, i, &computeQueues[i]->handle);
+        for (u32 i = 0; i < impl->computeQueues.size(); ++i)
+            vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-            .physicalDevice = gpu,
-            .device = device,
-            .pAllocationCallbacks = pAlloc,
+            .physicalDevice = impl->gpu,
+            .device = impl->device,
+            .pAllocationCallbacks = impl->pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
             }),
-            .instance = instance,
+            .instance = impl->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
-        }), &vma));
+        }), &impl->vma));
 
         {
             // Already rely on a bottomless descriptor pool, so not going to pretend to pass some bogus sizes here.
@@ -391,27 +396,33 @@ Validation: {} ({})
                 VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       MaxDescriptorPerType },
             };
 
-            VkCall(vkCreateDescriptorPool(device, Temp(VkDescriptorPoolCreateInfo {
+            VkCall(vkCreateDescriptorPool(impl->device, Temp(VkDescriptorPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
                     | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
                 .maxSets = u32(MaxDescriptorPerType * sizes.size()),
                 .poolSizeCount = u32(sizes.size()),
                 .pPoolSizes = sizes.data(),
-            }), pAlloc, &descriptorPool));
+            }), impl->pAlloc, &impl->descriptorPool));
         }
 
-        VkCall(vkCreatePipelineCache(device, Temp(VkPipelineCacheCreateInfo {
+        VkCall(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
-        }), pAlloc, &pipelineCache));
+        }), impl->pAlloc, &impl->pipelineCache));
 
         NOVA_LOG("Created!");
+
+        return impl;
     }
 
     Context::~Context()
     {
         WaitIdle();
+
+        for (auto& queue : graphicQueues)  queue.Destroy();
+        for (auto& queue : computeQueues)  queue.Destroy();
+        for (auto& queue : transferQueues) queue.Destroy();
 
         // // Clean out API object registries
         // u32 cleanedUp = 0;

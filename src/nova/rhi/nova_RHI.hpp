@@ -93,13 +93,9 @@ namespace nova
 
     struct Object
     {
-        HContext context;
+        HContext context = {};
     
     public:
-        Object(HContext _context)
-            : context(_context)
-        {}
-
         virtual ~Object() = 0;
     };
 

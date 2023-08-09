@@ -2,29 +2,33 @@
 
 namespace nova
 {
-    Swapchain::Swapchain(HContext _context, void* window, TextureUsage _usage, PresentMode _presentMode)
-        : Object(_context)
-        , usage(_usage)
-        , presentMode(_presentMode)
+    HSwapchain Swapchain::Create(HContext context, void* window, TextureUsage usage, PresentMode presentMode)
     {
+        auto impl = new Swapchain;
+        impl->context = context;
+        impl->usage = usage;
+        impl->presentMode = presentMode;
+
         VkCall(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(window),
-        }), context->pAlloc, &surface));
+        }), context->pAlloc, &impl->surface));
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, surface);
+        VkQuery(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
 
         for (auto& surfaceFormat : surfaceFormats)
         {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
                 || surfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM))
             {
-                format = surfaceFormat;
+                impl->format = surfaceFormat;
                 break;
             }
         }
+
+        return impl;
     }
 
     Swapchain::~Swapchain()
@@ -32,7 +36,8 @@ namespace nova
         for (auto semaphore : semaphores)
             vkDestroySemaphore(context->device, semaphore, context->pAlloc);
 
-        textures.clear();
+        for (auto& texture : textures)
+            texture.Destroy();
 
         if (swapchain)
             vkDestroySwapchainKHR(context->device, swapchain, context->pAlloc);
@@ -119,22 +124,29 @@ namespace nova
                         }), context->pAlloc, &semaphore));
                     }
 
-                    swapchain->textures.clear();
+                    for (auto& texture : swapchain->textures)
+                        texture.Destroy();
+                    swapchain->textures.resize(vkImages.size());
                     for (uint32_t i = 0; i < vkImages.size(); ++i)
                     {
-                        VkImageView view;
+                        auto& texture = (swapchain->textures[i] = new Texture);
+                        texture->context = context;
+
+                        texture->usage = swapchain->usage;
+                        texture->format = swapchain->GetFormat();
+                        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+                        texture->extent = Vec3(swapchain->extent.width, swapchain->extent.height, 1);
+                        texture->mips = 1;
+                        texture->layers = 1;
+
+                        texture->image = vkImages[i];
                         VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                             .image = vkImages[i],
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
                             .format = swapchain->format.format,
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                        }), context->pAlloc, &view));
-
-                        swapchain->textures.emplace_back(std::make_unique<Texture>(context, 
-                            vkImages[i], nullptr, view, 
-                            swapchain->usage, swapchain->GetFormat(), VK_IMAGE_ASPECT_COLOR_BIT, 
-                            Vec3U(swapchain->extent.width, swapchain->extent.height, 1), 1, 1));
+                        }), context->pAlloc, &texture->view));
                     }
                 }
 

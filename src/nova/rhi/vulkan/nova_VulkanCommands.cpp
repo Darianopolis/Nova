@@ -2,20 +2,26 @@
 
 namespace nova
 {
-    CommandPool::CommandPool(HContext _context, HQueue _queue)
-        : Object(_context)
-        , queue(_queue)
+    HCommandPool CommandPool::Create(HContext context, HQueue queue)
     {
+        auto impl = new CommandPool;
+        impl->context = context;
+        impl->queue = queue;
+
         VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = queue->family,
-        }), context->pAlloc, &pool));
+        }), context->pAlloc, &impl->pool));
+
+        return impl;
     }
 
     CommandPool::~CommandPool()
     {
-        if (pool)
-            vkDestroyCommandPool(context->device, pool, context->pAlloc);
+        for (auto& list : lists)
+            list.Destroy();
+
+        vkDestroyCommandPool(context->device, pool, context->pAlloc);
     }
 
     HCommandList CommandPool::Begin(HCommandState state)
@@ -23,7 +29,7 @@ namespace nova
         HCommandList cmd;
         if (index >= lists.size())
         {
-            cmd = lists.emplace_back(new CommandList());
+            cmd = lists.emplace_back(new CommandList);
 
             cmd->pool = this;
             VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
@@ -56,9 +62,13 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    CommandState::CommandState(HContext _context)
-        : Object(_context)
-    {}
+    HCommandState CommandState::Create(HContext context)
+    {
+        auto impl = new CommandState;
+        impl->context = context;
+
+        return impl;
+    }
 
     CommandState::~CommandState()
     {}

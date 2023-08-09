@@ -2,15 +2,17 @@
 
 namespace nova
 {
-    PipelineLayout::PipelineLayout(HContext _context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> _descriptorSetLayouts, BindPoint _bindPoint)
-        : Object(_context)
-        , bindPoint(_bindPoint)
+    HPipelineLayout PipelineLayout::Create(HContext context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
     {
-        id = context->GetUID();
+        auto impl = new PipelineLayout;
+        impl->context = context;
+        impl->bindPoint = bindPoint;
+
+        impl->id = context->GetUID();
 
         for (auto& range : pushConstantRanges)
         {
-            pcRanges.push_back(range);
+            impl->pcRanges.push_back(range);
             u32 size = 0;
             u32 largestAlign = 0;
             for (auto& member : range.constants)
@@ -20,23 +22,25 @@ namespace nova
                 size += GetShaderVarTypeSize(member.type);
             }
             size = AlignUpPower2(size, largestAlign);
-            ranges.emplace_back(VK_SHADER_STAGE_ALL, range.offset, size);
-            ranges.back().stageFlags = VK_SHADER_STAGE_ALL;
+            impl->ranges.emplace_back(VK_SHADER_STAGE_ALL, range.offset, size);
+            impl->ranges.back().stageFlags = VK_SHADER_STAGE_ALL;
         }
 
-        for (auto& setLayout : _descriptorSetLayouts)
+        for (auto& setLayout : descriptorSetLayouts)
         {
-            setLayouts.push_back(setLayout);
-            sets.emplace_back(setLayout->layout);
+            impl->setLayouts.push_back(setLayout);
+            impl->sets.emplace_back(setLayout->layout);
         }
 
         VkCall(vkCreatePipelineLayout(context->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = u32(sets.size()),
-            .pSetLayouts = sets.data(),
-            .pushConstantRangeCount = u32(ranges.size()),
-            .pPushConstantRanges = ranges.data(),
-        }), context->pAlloc, &layout));
+            .setLayoutCount = u32(impl->sets.size()),
+            .pSetLayouts = impl->sets.data(),
+            .pushConstantRangeCount = u32(impl->ranges.size()),
+            .pPushConstantRanges = impl->ranges.data(),
+        }), context->pAlloc, &impl->layout));
+
+        return impl;
     }
 
     PipelineLayout::~PipelineLayout()

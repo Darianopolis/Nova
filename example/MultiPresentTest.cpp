@@ -17,10 +17,11 @@ using namespace nova::types;
 
 void TryMain()
 {
-    auto context = nova::Context({
+    auto context = nova::Context::Create({
         .backend = nova::Backend::Vulkan,
-        .debug = false,
+        .debug = true,
     });
+    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
@@ -37,24 +38,37 @@ void TryMain()
         glfwDestroyWindow(windows[0]);
         glfwDestroyWindow(windows[1]);
     };
-    nova::Swapchain swapchains[] {
-        {context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode},
-        {context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode},
+    nova::HSwapchain swapchains[] {
+        nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode),
+        nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode),
+    };
+    NOVA_ON_SCOPE_EXIT(&) {
+        swapchains[0].Destroy();
+        swapchains[1].Destroy();
     };
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto state = nova::CommandState(context);
+    auto queue = context->GetQueue(nova::QueueFlags::Graphics, 0);
+    auto state = nova::CommandState::Create(context);
+    NOVA_ON_SCOPE_EXIT(&) { state.Destroy(); };
     u64 waitValues[] { 0ull, 0ull };
-    auto fence = nova::Fence(context);
-    nova::CommandPool commandPools[] { {context, queue}, {context, queue} };
+    auto fence = nova::Fence::Create(context);
+    NOVA_ON_SCOPE_EXIT(&) { fence.Destroy(); };
+    nova::HCommandPool commandPools[] { 
+        nova::CommandPool::Create(context, queue), 
+        nova::CommandPool::Create(context, queue) 
+    };
+    NOVA_ON_SCOPE_EXIT(&) { 
+        commandPools[0].Destroy();
+        commandPools[1].Destroy();
+    };
 
     auto imgui = [&] {
-        auto cmd = commandPools[0].Begin(state);
-        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
+        auto cmd = commandPools[0]->Begin(state);
+        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0]->GetFormat(), 
             windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
 
         queue->Submit({cmd}, {}, {fence});
-        fence.Wait();
+        fence->Wait();
         
         return _imgui;
     }();
@@ -90,7 +104,7 @@ void TryMain()
         auto fif = frame++ % 2;
 
         // Wait for previous commands in frame to complete
-        fence.Wait(waitValues[fif]);
+        fence->Wait(waitValues[fif]);
 
         // Acquire new images from swapchains
         queue->Acquire({swapchains[0], swapchains[1]}, {fence});
@@ -99,22 +113,22 @@ void TryMain()
         // state.Clear(3);
 
         // Reset command pool and begin new command list
-        commandPools[fif].Reset();
-        auto cmd = commandPools[fif].Begin(state);
+        commandPools[fif]->Reset();
+        auto cmd = commandPools[fif]->Begin(state);
 
         // Clear screen
-        cmd->Clear(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd->Clear(swapchains[0]->GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0].GetCurrent());
+        imgui.DrawFrame(cmd, swapchains[0]->GetCurrent());
 
         // Present #1
         cmd->Present(swapchains[0]);
 
         // Clear and present #2
-        cmd->Clear(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd->Clear(swapchains[1]->GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd->Present(swapchains[1]);
 
         // Submit work
@@ -123,10 +137,10 @@ void TryMain()
         // Present both swapchains
         queue->Present({swapchains[0], swapchains[1]}, {fence}, false);
 
-        waitValues[fif] = fence.GetPendingValue();
+        waitValues[fif] = fence->GetPendingValue();
     };
     
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
 
     for (auto window : windows)
     {

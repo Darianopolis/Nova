@@ -2,15 +2,17 @@
 
 namespace nova
 {
-    DescriptorSetLayout::DescriptorSetLayout(HContext _context, Span<DescriptorBinding> _bindings, bool pushDescriptors)
-        : Object(_context)
+    HDescriptorSetLayout DescriptorSetLayout::Create(HContext context, Span<DescriptorBinding> bindings, bool pushDescriptors)
     {
-        auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, _bindings.size());
-        auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, _bindings.size());
+        auto impl = new DescriptorSetLayout;
+        impl->context = context;
 
-        for (u32 i = 0; i < _bindings.size(); ++i)
+        auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
+        auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
+
+        for (u32 i = 0; i < bindings.size(); ++i)
         {
-            auto& binding = _bindings[i];
+            auto& binding = bindings[i];
 
             vkBindings[i] = {
                 .binding = i,
@@ -60,19 +62,21 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-                .bindingCount = u32(_bindings.size()),
+                .bindingCount = u32(bindings.size()),
                 .pBindingFlags = flags,
             }),
             .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT
                 | (pushDescriptors
                     ? VkDescriptorBindingFlags(VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR)
                     : VkDescriptorBindingFlags(0)),
-            .bindingCount = u32(_bindings.size()),
+            .bindingCount = u32(bindings.size()),
             .pBindings = vkBindings,
-        }), context->pAlloc, &layout));
+        }), context->pAlloc, &impl->layout));
 
-        bindings.reserve(_bindings.size());
-        std::move(_bindings.begin(), _bindings.end(), std::back_insert_iterator(bindings));
+        impl->bindings.reserve(bindings.size());
+        std::move(bindings.begin(), bindings.end(), std::back_insert_iterator(impl->bindings));
+
+        return impl;
     }
 
     DescriptorSetLayout::~DescriptorSetLayout()
@@ -81,18 +85,22 @@ namespace nova
             vkDestroyDescriptorSetLayout(context->device, layout, context->pAlloc);
     }
 
-    DescriptorSet::DescriptorSet(HDescriptorSetLayout _layout, u64 customSize)
-        : Object(_layout->context)
-        , layout(_layout)
+    HDescriptorSet DescriptorSet::Create(HDescriptorSetLayout layout, u64 customSize)
     {
+        auto impl = new DescriptorSet;
+        impl->context = layout->context;
+        impl->layout = layout;
+
         (void)customSize; // TODO
 
-        vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
+        vkAllocateDescriptorSets(impl->context->device, Temp(VkDescriptorSetAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = context->descriptorPool,
+            .descriptorPool = impl->context->descriptorPool,
             .descriptorSetCount = 1,
             .pSetLayouts = &layout->layout,
-        }), &set);
+        }), &impl->set);
+
+        return impl;
     }
 
     DescriptorSet::~DescriptorSet()

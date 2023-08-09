@@ -10,16 +10,19 @@ namespace nova
 {
     ImDraw2D::ImDraw2D(HContext _context)
         : context(_context)
-        , defaultSampler(context, Filter::Linear,
+    {
+        defaultSampler = nova::Sampler::Create(context, Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
-            16.f)
-        , pipelineLayout(context, 
+            16.f);
+        pipelineLayout = nova::PipelineLayout::Create(context, 
             {{"pc", {PushConstants::Layout.begin(), PushConstants::Layout.end()}}},
-            {descriptorSetLayout}, nova::BindPoint::Graphics)
-        , descriptorSetLayout(context, {nova::binding::SampledTexture("textures", 65'536)})
-        , descriptorSet(descriptorSetLayout)
-        , rectVertShader(context, ShaderStage::Vertex, {
+            {descriptorSetLayout}, nova::BindPoint::Graphics);
+
+        descriptorSetLayout = nova::DescriptorSetLayout::Create(context, {nova::binding::SampledTexture("textures", 65'536)});
+        descriptorSet = nova::DescriptorSet::Create(descriptorSetLayout);
+
+        rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -40,8 +43,9 @@ namespace nova
                 outInstanceID = instanceID;
                 gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
             )glsl")
-        })
-        , rectFragShader(context, ShaderStage::Fragment, {
+        });
+
+        rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Layout(pipelineLayout),
 
@@ -80,11 +84,12 @@ namespace nova
                         : centerColor;
                 }
             )glsl")
-        })
-        , rectBuffer(context, sizeof(ImRoundRect) * MaxPrimitives,
+        });
+
+        rectBuffer = nova::Buffer::Create(context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,
-            BufferFlags::DeviceLocal | BufferFlags::Mapped)
-    {}
+            BufferFlags::DeviceLocal | BufferFlags::Mapped);
+    }
 
     ImDraw2D::~ImDraw2D()
     {}
@@ -116,7 +121,7 @@ namespace nova
             textureSlotFreelist.pop_back();
         }
 
-        descriptorSet.WriteSampledTexture(0, texture, sampler, index);
+        descriptorSet->WriteSampledTexture(0, texture, sampler, index);
 
         return ImTextureID(index);
     }
@@ -148,8 +153,9 @@ namespace nova
         auto font = std::make_unique<ImFont>();
         font->imDraw = this;
 
-        auto staging = nova::Buffer(context, u64(size) * u64(size) * 4,
+        auto staging = nova::Buffer::Create(context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc, BufferFlags::Mapped);
+        NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)
@@ -174,13 +180,13 @@ namespace nova
             for (u32 i = 0; i < w * h; ++i)
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
 
-            glyph.texture = std::make_unique<Texture>(context,
+            glyph.texture = nova::Texture::Create(context,
                 Vec3(f32(w), f32(h), 0.f),
                 TextureUsage::Sampled,
                 Format::RGBA8_UNorm);
 
             usz dataSize = w * h * 4;
-            std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
+            std::memcpy(staging->GetMapped(), pixels.data(), dataSize);
 
             auto cmd = cmdPool->Begin(state);
             cmd->CopyToTexture(glyph.texture, staging);
@@ -202,7 +208,10 @@ namespace nova
         for (auto& glyph : glyphs)
         {
             if (glyph.texture)
+            {
                 imDraw->UnregisterTexture(glyph.index);
+                glyph.texture.Destroy();
+            }
         }
     }
 
@@ -220,7 +229,7 @@ namespace nova
             ? drawCommands.back()
             : drawCommands.emplace_back(ImDrawType::RoundRect, rectIndex, 0);
 
-        rectBuffer.Get<ImRoundRect>(cmd.first + cmd.count) = rect;
+        rectBuffer->Get<ImRoundRect>(cmd.first + cmd.count) = rect;
 
         bounds.Expand({{rect.centerPos - rect.halfExtent}, {rect.centerPos + rect.halfExtent}});
 
@@ -274,7 +283,7 @@ namespace nova
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
                 .centerPos = bounds.Center(),
-                .rectInstancesVA = rectBuffer.GetAddress(),
+                .rectInstancesVA = rectBuffer->GetAddress(),
             }));
 
         cmd->BindDescriptorSets(pipelineLayout, 0, {descriptorSet});

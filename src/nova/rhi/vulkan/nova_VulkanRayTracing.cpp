@@ -2,16 +2,21 @@
 
 namespace nova
 {
-    RayTracingPipeline::RayTracingPipeline(HContext _context)
-        : Object(_context)
+    HRayTracingPipeline RayTracingPipeline::Create(HContext context)
     {
-        sbtBuffer = std::make_unique<Buffer>(context, 0,
+        auto impl = new RayTracingPipeline;
+        impl->context = context;
+
+        impl->sbtBuffer = nova::Buffer::Create(context, 0,
             BufferUsage::ShaderBindingTable,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
+        
+        return impl;
     }
 
     RayTracingPipeline::~RayTracingPipeline()
     {
+        sbtBuffer.Destroy();
         vkDestroyPipeline(context->device, pipeline, context->pAlloc);
     }
 

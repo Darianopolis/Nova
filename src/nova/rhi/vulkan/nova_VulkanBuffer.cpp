@@ -2,12 +2,16 @@
 
 namespace nova
 {
-    Buffer::Buffer(HContext _context, u64 _size, BufferUsage _usage, BufferFlags _flags)
-        : Object(_context)
-        , flags(_flags)
-        , usage(_usage)
+    HBuffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags)
     {
-        Resize(_size);
+        auto impl = new Buffer;
+        impl->context = context;
+        impl->flags = flags;
+        impl->usage = usage;
+
+        impl->Resize(size);
+
+        return impl;
     }
 
     static

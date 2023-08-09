@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        std::unique_ptr<Texture> texture;
+        HTexture texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -119,18 +119,18 @@ namespace nova
     public:
         HContext context = {};
 
-        Sampler defaultSampler;
+        HSampler defaultSampler;
 
-        PipelineLayout pipelineLayout;
+        HPipelineLayout pipelineLayout;
 
-        DescriptorSetLayout descriptorSetLayout;
-        DescriptorSet             descriptorSet;
+        HDescriptorSetLayout descriptorSetLayout;
+        HDescriptorSet             descriptorSet;
         u32                      nextTextureSlot = 0;
         std::vector<u32>     textureSlotFreelist = {};
 
-        Shader rectVertShader;
-        Shader rectFragShader;
-        Buffer     rectBuffer;
+        HShader rectVertShader;
+        HShader rectFragShader;
+        HBuffer     rectBuffer;
         u32         rectIndex = 0;
 
         ImBounds2D bounds;

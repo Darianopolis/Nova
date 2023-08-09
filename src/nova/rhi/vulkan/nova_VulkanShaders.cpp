@@ -208,17 +208,23 @@ namespace nova
         }), shader->context->pAlloc, &shader->handle));
     }
 
-    Shader::Shader(HContext _context, ShaderStage _stage, const std::string& filename, const std::string& sourceCode)
-        : Object(_context)
-        , stage(_stage)
+    HShader Shader::Create(HContext context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
     {
-        CompileShader(this, filename, sourceCode);
+        auto impl = new Shader;
+        impl->context = context;
+        impl->stage = stage;
+
+        CompileShader(impl, filename, sourceCode);
+
+        return impl;
     }
 
-    Shader::Shader(HContext _context, ShaderStage _stage, Span<ShaderElement> elements)
-        : Object(_context)
-        , stage(_stage)
+    HShader Shader::Create(HContext context, ShaderStage stage, Span<ShaderElement> elements)
     {
+        auto impl = new Shader;
+        impl->context = context;
+        impl->stage = stage;
+
         std::string shader = R"(#version 460 core
 #extension GL_GOOGLE_include_directive                   : enable
 #extension GL_EXT_scalar_block_layout                    : enable
@@ -468,7 +474,9 @@ namespace nova
 
         // NOVA_LOG("Generated shader:\n{}", shader);
 
-        CompileShader(this, "generated", shader);
+        CompileShader(impl, "generated", shader);
+
+        return impl;
     }
 
     Shader::~Shader()

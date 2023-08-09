@@ -2,9 +2,12 @@
 
 namespace nova
 {
-    Queue::Queue(HContext _context)
-        : Object(_context)
-    {}
+    HQueue Queue::Create(HContext context)
+    {
+        auto impl = new Queue;
+        impl->context = context;
+        return impl;
+    }
 
     Queue::~Queue()
     {}
