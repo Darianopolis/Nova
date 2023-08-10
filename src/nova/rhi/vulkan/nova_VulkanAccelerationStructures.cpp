@@ -177,8 +177,8 @@ namespace nova
 
     u64 AccelerationStructureBuilder::GetCompactSize() const
     {
-        VkDeviceSize size = {};
-        VkCall(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
+        VkDeviceSize size;
+        VkCall(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
         return size;
     }
 

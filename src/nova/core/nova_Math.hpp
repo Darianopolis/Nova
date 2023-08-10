@@ -39,28 +39,51 @@ namespace nova
     inline
     std::string ByteSizeToString(u64 bytes)
     {
-        auto Gigabyte = 1ull << 30;
-        auto Megabyte = 1ull << 20;
-        auto Kilobyte = 1ull << 10;
+        constexpr auto Exabyte   = 1ull << 60;
+        constexpr auto Petabyte  = 1ull << 50;
+        constexpr auto Terabyte  = 1ull << 40;
+
+        if (bytes > Exabyte)
+        {
+            f64 exabytes = bytes / f64(Exabyte);
+            u32 decimals = 2 - std::min(2u, u32(std::log10(exabytes)));
+            return std::format("{:.{}f}EiB", exabytes, decimals);
+        }
+        if (bytes > Petabyte)
+        {
+            f64 petabytes = bytes / f64(Petabyte);
+            u32 decimals = 2 - std::min(2u, u32(std::log10(petabytes)));
+            return std::format("{:.{}f}PiB", petabytes, decimals);
+        }
+        if (bytes > Terabyte)
+        {
+            f64 terabytes = bytes / f64(Terabyte);
+            u32 decimals = 2 - std::min(2u, u32(std::log10(terabytes)));
+            return std::format("{:.{}f}TiB", terabytes, decimals);
+        }
+        
+        constexpr auto Gigabyte = 1ull << 30;
+        constexpr auto Megabyte = 1ull << 20;
+        constexpr auto Kilobyte = 1ull << 10;
 
         if (bytes > Gigabyte)
         {
             f64 gigabytes = bytes / f64(Gigabyte);
             u32 decimals = 2 - std::min(2u, u32(std::log10(gigabytes)));
-            return std::format("{:.{}f}GB", gigabytes, decimals);
+            return std::format("{:.{}f}GiB", gigabytes, decimals);
         }
         if (bytes > Megabyte)
         {
             f64 megabytes = bytes / f64(Megabyte);
             u32 decimals = 2 - std::min(2u, u32(std::log10(megabytes)));
-            std::string str =  std::format("{:.{}f}MB", megabytes, decimals);
+            std::string str =  std::format("{:.{}f}MiB", megabytes, decimals);
             return str;
         }
         if (bytes > Kilobyte)
         {
             f64 kilobytes = bytes / f64(Kilobyte);
             u32 decimals = 2 - std::min(2u, u32(std::log10(kilobytes)));
-            return std::format("{:.{}f}KB", kilobytes, decimals);
+            return std::format("{:.{}f}KiB", kilobytes, decimals);
         }
         if (bytes > 0)
         {
