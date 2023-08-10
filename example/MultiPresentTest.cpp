@@ -18,7 +18,6 @@ using namespace nova::types;
 void TryMain()
 {
     auto context = nova::Context::Create({
-        .backend = nova::Backend::Vulkan,
         .debug = true,
     });
     NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
@@ -38,7 +37,7 @@ void TryMain()
         glfwDestroyWindow(windows[0]);
         glfwDestroyWindow(windows[1]);
     };
-    nova::HSwapchain swapchains[] {
+    nova::Swapchain swapchains[] {
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode),
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode),
     };
@@ -47,13 +46,13 @@ void TryMain()
         swapchains[1].Destroy();
     };
 
-    auto queue = context->GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto state = nova::CommandState::Create(context);
     NOVA_ON_SCOPE_EXIT(&) { state.Destroy(); };
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
     NOVA_ON_SCOPE_EXIT(&) { fence.Destroy(); };
-    nova::HCommandPool commandPools[] { 
+    nova::CommandPool commandPools[] { 
         nova::CommandPool::Create(context, queue), 
         nova::CommandPool::Create(context, queue) 
     };
@@ -63,12 +62,12 @@ void TryMain()
     };
 
     auto imgui = [&] {
-        auto cmd = commandPools[0]->Begin(state);
-        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0]->GetFormat(), 
+        auto cmd = commandPools[0].Begin(state);
+        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
             windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
 
-        queue->Submit({cmd}, {}, {fence});
-        fence->Wait();
+        queue.Submit({cmd}, {}, {fence});
+        fence.Wait();
         
         return _imgui;
     }();
@@ -84,8 +83,8 @@ void TryMain()
         if (newTime - lastTime > 1s)
         {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
-                frames, nova::Context::AllocationCount.load(), 
-                nova::Context::NewAllocationCount.exchange(0));
+                frames, nova::Context::Impl::AllocationCount.load(), 
+                nova::Context::Impl::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
             NOVA_LOG("submit :: clear     = {:.2f}\n"
                      "submit :: adapting1 = {:.2f}\n"
@@ -104,43 +103,43 @@ void TryMain()
         auto fif = frame++ % 2;
 
         // Wait for previous commands in frame to complete
-        fence->Wait(waitValues[fif]);
+        fence.Wait(waitValues[fif]);
 
         // Acquire new images from swapchains
-        queue->Acquire({swapchains[0], swapchains[1]}, {fence});
+        queue.Acquire({swapchains[0], swapchains[1]}, {fence});
 
         // Clear resource state tracking
         // state.Clear(3);
 
         // Reset command pool and begin new command list
-        commandPools[fif]->Reset();
-        auto cmd = commandPools[fif]->Begin(state);
+        commandPools[fif].Reset();
+        auto cmd = commandPools[fif].Begin(state);
 
         // Clear screen
-        cmd->Clear(swapchains[0]->GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd.Clear(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0]->GetCurrent());
+        imgui.DrawFrame(cmd, swapchains[0].GetCurrent());
 
         // Present #1
-        cmd->Present(swapchains[0]);
+        cmd.Present(swapchains[0]);
 
         // Clear and present #2
-        cmd->Clear(swapchains[1]->GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
-        cmd->Present(swapchains[1]);
+        cmd.Clear(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd.Present(swapchains[1]);
 
         // Submit work
-        queue->Submit({cmd}, {fence}, {fence});
+        queue.Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue->Present({swapchains[0], swapchains[1]}, {fence}, false);
+        queue.Present({swapchains[0], swapchains[1]}, {fence}, false);
 
-        waitValues[fif] = fence->GetPendingValue();
+        waitValues[fif] = fence.GetPendingValue();
     };
     
-    NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
 
     for (auto window : windows)
     {

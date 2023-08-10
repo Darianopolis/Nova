@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    void CommandList::BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment, HTexture stencilAttachment)
+    void CommandList::BeginRendering(Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment) const
     {
-        state->colorAttachmentsFormats.resize(colorAttachments.size());
+        impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
 
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i)
@@ -21,10 +21,10 @@ namespace nova
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
 
-            state->colorAttachmentsFormats[i] = colorAttachments[i]->format;
+            impl->state->colorAttachmentsFormats[i] = colorAttachments[i]->format;
         }
 
-        state->renderingExtent = region.extent;
+        impl->state->renderingExtent = region.extent;
 
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -53,8 +53,8 @@ namespace nova
                 info.pDepthAttachment = &depthInfo;
                 info.pStencilAttachment = &depthInfo;
 
-                state->depthAttachmentFormat = depthAttachment->format;
-                state->stencilAttachmentFormat = stencilAttachment->format;
+                impl->state->depthAttachmentFormat = depthAttachment->format;
+                impl->state->stencilAttachmentFormat = stencilAttachment->format;
             }
         }
         else
@@ -72,7 +72,7 @@ namespace nova
 
                 info.pDepthAttachment = &depthInfo;
 
-                state->depthAttachmentFormat = depthAttachment->format;
+                impl->state->depthAttachmentFormat = depthAttachment->format;
             }
 
             if (stencilAttachment)
@@ -88,37 +88,37 @@ namespace nova
 
                 info.pStencilAttachment = &stencilInfo;
 
-                state->stencilAttachmentFormat = stencilAttachment->format;
+                impl->state->stencilAttachmentFormat = stencilAttachment->format;
             }
         }
 
-        vkCmdBeginRendering(buffer, &info);
+        vkCmdBeginRendering(impl->buffer, &info);
     }
 
-    void CommandList::EndRendering()
+    void CommandList::EndRendering() const
     {
-        vkCmdEndRendering(buffer);
+        vkCmdEndRendering(impl->buffer);
     }
 
-    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance)
+    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
     {
-        vkCmdDraw(buffer, vertices, instances, firstVertex, firstInstance);
+        vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
     }
 
-    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance)
+    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
     {
-        vkCmdDrawIndexed(buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
+        vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 
-    void CommandList::BindIndexBuffer(HBuffer indexBuffer, IndexType indexType, u64 offset)
+    void CommandList::BindIndexBuffer(Buffer indexBuffer, IndexType indexType, u64 offset) const
     {
-        vkCmdBindIndexBuffer(buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
+        vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
     }
 
-    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset)
+    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .colorAttachment = attachment,
                 .clearValue = {{{ color.r, color.g, color.b, color.a }}},
@@ -130,10 +130,10 @@ namespace nova
             }));
     }
 
-    void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset)
+    void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .clearValue = { .depthStencil = { .depth = depth } },
             }),
@@ -144,10 +144,10 @@ namespace nova
             }));
     }
 
-    void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset)
+    void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
-            buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
                 .clearValue = { .depthStencil = { .stencil = value } },
             }),

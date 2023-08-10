@@ -2,8 +2,8 @@
 
 namespace nova
 {
-    std::atomic_int64_t Context::AllocationCount = 0;
-    std::atomic_int64_t Context::NewAllocationCount = 0;
+    std::atomic_int64_t Context::Impl::AllocationCount = 0;
+    std::atomic_int64_t Context::Impl::NewAllocationCount = 0;
 
     static
     VkBool32 VKAPI_CALL DebugCallback(
@@ -83,9 +83,9 @@ Validation: {} ({})
         }
     };
 
-    HContext Context::Create(const ContextConfig& config)
+    Context Context::Create(const ContextConfig& config)
     {
-        auto impl = new Context;
+        auto impl = new Impl;
         impl->config = config;
 
         std::vector<const char*> instanceLayers;
@@ -166,30 +166,30 @@ Validation: {} ({})
         vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
         for (u32 i = 0; i < 16; ++i)
         {
-            auto queue = new Queue;
-            queue->context = impl;
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             queue->family = 0;
             impl->graphicQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 2; ++i)
         {
-            auto queue = new Queue;
-            queue->context = impl;
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 1;
             impl->transferQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 8; ++i)
         {
-            auto queue = new Queue;
-            queue->context = impl;
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 2;
             impl->computeQueues.emplace_back(queue);
         }
         NOVA_LOGEXPR(impl->graphicQueues.size());
-        NOVA_LOGEXPR(impl->graphicQueues.front().get());
+        NOVA_LOGEXPR(impl->graphicQueues.front().impl);
 
         VulkanFeatureChain chain;
 
@@ -413,16 +413,16 @@ Validation: {} ({})
 
         NOVA_LOG("Created!");
 
-        return impl;
+        return { impl };
     }
 
-    Context::~Context()
+    void Context::Destroy()
     {
         WaitIdle();
 
-        for (auto& queue : graphicQueues)  queue.Destroy();
-        for (auto& queue : computeQueues)  queue.Destroy();
-        for (auto& queue : transferQueues) queue.Destroy();
+        for (auto& queue : impl->graphicQueues)  delete queue.impl;
+        for (auto& queue : impl->computeQueues)  delete queue.impl;
+        for (auto& queue : impl->transferQueues) delete queue.impl;
 
         // // Clean out API object registries
         // u32 cleanedUp = 0;
@@ -453,24 +453,27 @@ Validation: {} ({})
         // for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
 
         // Destroy context vk objects
-        vkDestroyPipelineCache(device, pipelineCache, pAlloc);
-        vkDestroyDescriptorPool(device, descriptorPool, pAlloc);
-        vmaDestroyAllocator(vma);
-        vkDestroyDevice(device, pAlloc);
-        if (debugMessenger)
-            vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAlloc);
-        vkDestroyInstance(instance, pAlloc);
+        vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
+        vkDestroyDescriptorPool(impl->device, impl->descriptorPool, impl->pAlloc);
+        vmaDestroyAllocator(impl->vma);
+        vkDestroyDevice(impl->device, impl->pAlloc);
+        if (impl->debugMessenger)
+            vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
+        vkDestroyInstance(impl->instance, impl->pAlloc);
 
-        NOVA_LOG("~Context(Allocations = {})", AllocationCount.load());
+        NOVA_LOG("~Context(Allocations = {})", Impl::AllocationCount.load());
+
+        delete impl;
+        impl = nullptr;
     }
 
-    void Context::WaitIdle()
+    void Context::WaitIdle() const
     {
-        vkDeviceWaitIdle(device);
+        vkDeviceWaitIdle(impl->device);
     }
 
-    const ContextConfig& Context::GetConfig()
+    const ContextConfig& Context::GetConfig() const
     {
-        return config;
+        return impl->config;
     }
 }

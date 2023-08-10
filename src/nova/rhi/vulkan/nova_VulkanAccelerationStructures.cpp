@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    HAccelerationStructureBuilder AccelerationStructureBuilder::Create(HContext context)
+    AccelerationStructureBuilder AccelerationStructureBuilder::Create(Context context)
     {
-        auto impl = new AccelerationStructureBuilder;
+        auto impl = new Impl;
         impl->context = context;
         
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
@@ -13,11 +13,11 @@ namespace nova
             .queryCount = 1,
         }), context->pAlloc, &impl->queryPool));
 
-        return impl;
+        return { impl };
     }
 
     static
-    void EnsureGeometries(HAccelerationStructureBuilder builder, u32 geometryIndex)
+    void EnsureGeometries(AccelerationStructureBuilder builder, u32 geometryIndex)
     {
         if (geometryIndex >= builder->geometries.size())
         {
@@ -27,16 +27,19 @@ namespace nova
         }
     }
 
-    AccelerationStructureBuilder::~AccelerationStructureBuilder()
+    void AccelerationStructureBuilder::Destroy()
     {
-        vkDestroyQueryPool(context->device, queryPool, context->pAlloc);
+        vkDestroyQueryPool(impl->context->device, impl->queryPool, impl->context->pAlloc);
+        
+        delete impl;
+        impl = nullptr;
     }
 
-    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count)
+    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const
     {
-        EnsureGeometries(this, geometryIndex);
+        EnsureGeometries(*this, geometryIndex);
 
-        auto& instances = geometries[geometryIndex];
+        auto& instances = impl->geometries[geometryIndex];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         instances.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR {
@@ -44,19 +47,19 @@ namespace nova
             .data = {{ deviceAddress }},
         };
 
-        auto& range = ranges[geometryIndex];
+        auto& range = impl->ranges[geometryIndex];
         range.primitiveCount = count;
 
-        primitiveCounts[geometryIndex] = count;
+        impl->primitiveCounts[geometryIndex] = count;
     }
 
     void AccelerationStructureBuilder::SetTriangles(u32 geometryIndex,
         u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-        u64 indexAddress, IndexType indexType, u32 triangleCount)
+        u64 indexAddress, IndexType indexType, u32 triangleCount) const
     {
-        EnsureGeometries(this, geometryIndex);
+        EnsureGeometries(*this, geometryIndex);
 
-        auto& instances = geometries[geometryIndex];
+        auto& instances = impl->geometries[geometryIndex];
         instances.sType =VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
@@ -69,33 +72,33 @@ namespace nova
             .indexData = {{ indexAddress }},
         };
 
-        auto& range = ranges[geometryIndex];
+        auto& range = impl->ranges[geometryIndex];
         range.primitiveCount = triangleCount;
 
-        primitiveCounts[geometryIndex] = triangleCount;
+        impl->primitiveCounts[geometryIndex] = triangleCount;
     }
 
     void AccelerationStructureBuilder::Prepare(AccelerationStructureType _type, AccelerationStructureFlags _flags,
-        u32 _geometryCount, u32 _firstGeometry)
+        u32 _geometryCount, u32 _firstGeometry) const
     {
-        type = GetVulkanAccelStructureType(_type);
-        flags = GetVulkanAccelStructureBuildFlags(_flags);
-        geometryCount = _geometryCount;
-        firstGeometry = _firstGeometry;
-        sizeDirty = true;
+        impl->type = GetVulkanAccelStructureType(_type);
+        impl->flags = GetVulkanAccelStructureBuildFlags(_flags);
+        impl->geometryCount = _geometryCount;
+        impl->firstGeometry = _firstGeometry;
+        impl->sizeDirty = true;
     }
 
-    u32 AccelerationStructureBuilder::GetInstanceSize()
+    u32 AccelerationStructureBuilder::GetInstanceSize() const
     {
         return u32(sizeof(VkAccelerationStructureInstanceKHR));
     }
 
     void AccelerationStructureBuilder::WriteInstance(
         void* bufferAddress, u32 index,
-        HAccelerationStructure structure,
+        AccelerationStructure structure,
         const Mat4& M,
         u32 customIndex, u8 mask,
-        u32 sbtOffset, GeometryInstanceFlags geomFlags)
+        u32 sbtOffset, GeometryInstanceFlags geomFlags) const
     {
         VkGeometryInstanceFlagsKHR vkFlags = 0;
 
@@ -122,12 +125,12 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbtOffset,
             .flags = vkFlags,
-            .accelerationStructureReference = structure->GetAddress(),
+            .accelerationStructureReference = structure.GetAddress(),
         };
     }
 
     static
-    void EnsureSizes(HContext ctx, HAccelerationStructureBuilder builder)
+    void EnsureSizes(Context ctx, AccelerationStructureBuilder builder)
     {
         if (!builder->sizeDirty)
             return;
@@ -154,34 +157,36 @@ namespace nova
         builder->sizeDirty = false;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildSize()
+    u64 AccelerationStructureBuilder::GetBuildSize() const
     {
-        EnsureSizes(context, this);
-        return buildSize;
+        EnsureSizes(impl->context, *this);
+        return impl->buildSize;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildScratchSize()
+    u64 AccelerationStructureBuilder::GetBuildScratchSize() const
     {
-        EnsureSizes(context, this);
-        return buildScratchSize;
+        EnsureSizes(impl->context, *this);
+        return impl->buildScratchSize;
     }
 
-    u64 AccelerationStructureBuilder::GetUpdateScratchSize()
+    u64 AccelerationStructureBuilder::GetUpdateScratchSize() const
     {
-        EnsureSizes(context, this);
-        return updateScratchSize;
+        EnsureSizes(impl->context, *this);
+        return impl->updateScratchSize;
     }
 
-    u64 AccelerationStructureBuilder::GetCompactSize()
+    u64 AccelerationStructureBuilder::GetCompactSize() const
     {
         VkDeviceSize size = {};
-        VkCall(vkGetQueryPoolResults(context->device, queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
+        VkCall(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), 0));
         return size;
     }
 
-    HAccelerationStructure AccelerationStructure::Create(HContext context, u64 size, AccelerationStructureType type, HBuffer buffer, u64 offset)
+// -----------------------------------------------------------------------------
+
+    AccelerationStructure AccelerationStructure::Create(Context context, u64 size, AccelerationStructureType type, Buffer buffer, u64 offset)
     {
-        auto impl = new AccelerationStructure;
+        auto impl = new Impl;
         impl->context = context;
         impl->ownBuffer = !buffer;
         if (impl->ownBuffer)
@@ -208,29 +213,32 @@ namespace nova
                 .accelerationStructure = impl->structure
             }));
         
-        return impl;
+        return { impl };
     }
 
-    AccelerationStructure::~AccelerationStructure()
+    void AccelerationStructure::Destroy()
     {
-        vkDestroyAccelerationStructureKHR(context->device, structure, context->pAlloc);
-        if (ownBuffer)
-            delete buffer.get();
+        vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->pAlloc);
+        if (impl->ownBuffer)
+            impl->buffer.Destroy();
+        
+        delete impl;
+        impl = nullptr;
     }
 
-    u64 AccelerationStructure::GetAddress()
+    u64 AccelerationStructure::GetAddress() const
     {
-        return address;
+        return impl->address;
     }
 
-    void CommandList::BuildAccelerationStructure(HAccelerationStructureBuilder builder, HAccelerationStructure structure, HBuffer scratch)
+    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) const
     {
         bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
         if (compact)
-            vkCmdResetQueryPool(buffer, builder->queryPool, 0, 1);
+            vkCmdResetQueryPool(impl->buffer, builder->queryPool, 0, 1);
 
         vkCmdBuildAccelerationStructuresKHR(
-            buffer,
+            impl->buffer,
             1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = builder->type,
@@ -239,12 +247,13 @@ namespace nova
                 .geometryCount = builder->geometryCount,
                 .pGeometries = builder->geometries.data() + builder->firstGeometry,
                 .scratchData = {{ AlignUpPower2(scratch->address,
-                    pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
+                    impl->pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
             }), Temp(builder->ranges.data()));
+        
 
         if (compact)
         {
-            vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
+            vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .memoryBarrierCount = 1,
                 .pMemoryBarriers = Temp(VkMemoryBarrier2 {
@@ -254,21 +263,20 @@ namespace nova
                 })
             }));
 
-            vkCmdWriteAccelerationStructuresPropertiesKHR(buffer,
+            vkCmdWriteAccelerationStructuresPropertiesKHR(impl->buffer,
                 1, &structure->structure,
                 VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
                 builder->queryPool, 0);
         }
     }
 
-    void CommandList::CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src)
+    void CommandList::CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const
     {
-        vkCmdCopyAccelerationStructureKHR(buffer, Temp(VkCopyAccelerationStructureInfoKHR {
+        vkCmdCopyAccelerationStructureKHR(impl->buffer, Temp(VkCopyAccelerationStructureInfoKHR {
             .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
             .src = src->structure,
             .dst = dst->structure,
             .mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR,
         }));
     }
-
 }

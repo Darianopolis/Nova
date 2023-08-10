@@ -78,7 +78,7 @@ namespace nova
 
     struct ImGlyph
     {
-        HTexture texture;
+        Texture texture;
         ImTextureID index;
         f32 width;
         f32 height;
@@ -117,20 +117,20 @@ namespace nova
         static constexpr u32 MaxPrimitives = 65'536;
 
     public:
-        HContext context = {};
+        Context context = {};
 
-        HSampler defaultSampler;
+        Sampler defaultSampler;
 
-        HPipelineLayout pipelineLayout;
+        PipelineLayout pipelineLayout;
 
-        HDescriptorSetLayout descriptorSetLayout;
-        HDescriptorSet             descriptorSet;
+        DescriptorSetLayout descriptorSetLayout;
+        DescriptorSet             descriptorSet;
         u32                      nextTextureSlot = 0;
         std::vector<u32>     textureSlotFreelist = {};
 
-        HShader rectVertShader;
-        HShader rectFragShader;
-        HBuffer     rectBuffer;
+        Shader rectVertShader;
+        Shader rectFragShader;
+        Buffer     rectBuffer;
         u32         rectIndex = 0;
 
         ImBounds2D bounds;
@@ -138,16 +138,16 @@ namespace nova
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        ImDraw2D(HContext context);
+        ImDraw2D(Context context);
         ~ImDraw2D();
 
-        HSampler GetDefaultSampler() noexcept;
+        Sampler GetDefaultSampler() noexcept;
         const ImBounds2D& GetBounds() const noexcept;
 
-        ImTextureID RegisterTexture(HTexture texture, HSampler sampler);
+        ImTextureID RegisterTexture(Texture texture, Sampler sampler);
         void UnregisterTexture(ImTextureID textureSlot);
 
-        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, HCommandPool cmdPool, HCommandState state, HFence fence, HQueue queue);
+        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue);
 
         void Reset();
         void DrawRect(const ImRoundRect& rect);
@@ -155,6 +155,6 @@ namespace nova
 
         ImBounds2D MeasureString(std::string_view str, ImFont& font);
 
-        void Record(HCommandList);
+        void Record(CommandList);
     };
 }

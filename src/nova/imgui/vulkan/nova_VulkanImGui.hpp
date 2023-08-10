@@ -8,7 +8,7 @@ namespace nova
 {
     struct ImGuiLayer
     {
-        HContext context = {};
+        Context context = {};
 
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
@@ -16,8 +16,8 @@ namespace nova
         bool ended = false;
 
     public:
-        ImGuiLayer(HContext context,
-            HCommandList cmd, Format format, GLFWwindow* window,
+        ImGuiLayer(Context context,
+            CommandList cmd, Format format, GLFWwindow* window,
             const ImGuiConfig& config);
 
         ~ImGuiLayer();
@@ -40,6 +40,6 @@ namespace nova
         }
 
         bool HasDrawData();
-        void DrawFrame(HCommandList cmd, HTexture texture);
+        void DrawFrame(CommandList cmd, Texture texture);
     };
 }

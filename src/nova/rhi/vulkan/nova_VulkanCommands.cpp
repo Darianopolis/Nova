@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    HCommandPool CommandPool::Create(HContext context, HQueue queue)
+    CommandPool CommandPool::Create(Context context, Queue queue)
     {
-        auto impl = new CommandPool;
+        auto impl = new Impl;
         impl->context = context;
         impl->queue = queue;
 
@@ -13,36 +13,39 @@ namespace nova
             .queueFamilyIndex = queue->family,
         }), context->pAlloc, &impl->pool));
 
-        return impl;
+        return { impl };
     }
 
-    CommandPool::~CommandPool()
+    void CommandPool::Destroy()
     {
-        for (auto& list : lists)
-            list.Destroy();
+        for (auto& list : impl->lists)
+            delete list.impl;
 
-        vkDestroyCommandPool(context->device, pool, context->pAlloc);
+        vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->pAlloc);
+
+        delete impl;
+        impl = nullptr;
     }
 
-    HCommandList CommandPool::Begin(HCommandState state)
+    CommandList CommandPool::Begin(CommandState state) const
     {
-        HCommandList cmd;
-        if (index >= lists.size())
+        CommandList cmd;
+        if (impl->index >= impl->lists.size())
         {
-            cmd = lists.emplace_back(new CommandList);
+            cmd = impl->lists.emplace_back(new CommandList::Impl);
 
-            cmd->pool = this;
-            VkCall(vkAllocateCommandBuffers(context->device, Temp(VkCommandBufferAllocateInfo {
+            cmd->pool = *this;
+            VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = pool,
+                .commandPool = impl->pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = 1,
             }), &cmd->buffer));
-            index++;
+            impl->index++;
         }
         else
         {
-            cmd = lists[index++];
+            cmd = impl->lists[impl->index++];
         }
 
         VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
@@ -54,27 +57,30 @@ namespace nova
         return cmd;
     }
 
-    void CommandPool::Reset()
+    void CommandPool::Reset() const
     {
-        index = 0;
-        VkCall(vkResetCommandPool(context->device, pool, 0));
+        impl->index = 0;
+        VkCall(vkResetCommandPool(impl->context->device, impl->pool, 0));
     }
 
 // -----------------------------------------------------------------------------
 
-    HCommandState CommandState::Create(HContext context)
+    CommandState CommandState::Create(Context context)
     {
-        auto impl = new CommandState;
+        auto impl = new Impl;
         impl->context = context;
 
-        return impl;
+        return { impl };
     }
 
-    CommandState::~CommandState()
-    {}
+    void CommandState::Destroy()
+    {
+        delete impl;
+        impl = nullptr;
+    }
 
-    void CommandState::SetState(HTexture texture,
-        VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access)
+    void CommandState::SetState(Texture texture,
+        VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) const
     {
         // TODO
         (void)texture;
@@ -83,9 +89,9 @@ namespace nova
         (void)access;
     }
 
-    void CommandList::Barrier(PipelineStage src, PipelineStage dst)
+    void CommandList::Barrier(PipelineStage src, PipelineStage dst) const
     {
-        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
             .pMemoryBarriers = Temp(VkMemoryBarrier2 {

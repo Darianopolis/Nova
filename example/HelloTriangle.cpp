@@ -18,7 +18,6 @@ int main()
     NOVA_LOG("Size = {}", sizeof(std::mutex));
 
     auto context = nova::Context::Create({
-        .backend = nova::Backend::Vulkan,
         .debug = false,
     });
     NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
@@ -29,7 +28,7 @@ int main()
         nova::PresentMode::Fifo);
     NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
 
-    auto queue = context->GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
@@ -51,7 +50,7 @@ int main()
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_ON_SCOPE_EXIT(&) { vertices.Destroy(); };
-    vertices->Set<Vertex>({ 
+    vertices.Set<Vertex>({ 
         {{-0.6f, 0.6f, 0.f}, {1.f, 0.f, 0.f}}, 
         {{ 0.6f, 0.6f, 0.f}, {0.f, 1.f, 0.f}}, 
         {{ 0.f, -0.6f, 0.f}, {0.f, 0.f, 1.f}} 
@@ -61,12 +60,12 @@ int main()
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_ON_SCOPE_EXIT(&) { indices.Destroy(); };
-    indices->Set<u32>({0, 1, 2});
+    indices.Set<u32>({0, 1, 2});
 
     // Pipeline
 
     auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
+        {nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}})},
     });
     auto pcRange = nova::PushConstantRange("pc", {{"vertexVA", nova::ShaderVarType::U64},});
     auto pipelineLayout = nova::PipelineLayout::Create(context, {pcRange}, {descLayout}, nova::BindPoint::Graphics);
@@ -81,60 +80,60 @@ int main()
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_ON_SCOPE_EXIT(&) { ubo.Destroy(); };
-    ubo->Set<Vec3>({{0.f, 0.f, 0.f}});
+    ubo.Set<Vec3>({{0.f, 0.f, 0.f}});
 
     auto set = nova::DescriptorSet::Create(descLayout);
     NOVA_ON_SCOPE_EXIT(&) { set.Destroy(); };
-    set->WriteUniformBuffer(0, ubo);
+    set.WriteUniformBuffer(0, ubo);
 
     // Create vertex shader
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-        nova::shader::Structure("Vertex", {
+        {nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
-        }),
-        nova::shader::Layout(pipelineLayout),
+        })},
+        {nova::shader::Layout(pipelineLayout)},
 
-        nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Kernel(R"glsl(
+        {nova::shader::Output("color", nova::ShaderVarType::Vec3)},
+        {nova::shader::Kernel(R"glsl(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + ubo.pos, 1);
-        )glsl"),
+        )glsl")},
     });
     NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
-        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
-        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
-        nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
+        {nova::shader::Input("inColor", nova::ShaderVarType::Vec3)},
+        {nova::shader::Output("fragColor", nova::ShaderVarType::Vec4)},
+        {nova::shader::Kernel("fragColor = vec4(inColor, 1);")},
     });
     NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
 
     // Draw
 
-    NOVA_ON_SCOPE_EXIT(&) { fence->Wait(); };
+    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
-        fence->Wait();
-        queue->Acquire({swapchain}, {fence});
+        fence.Wait();
+        queue.Acquire({swapchain}, {fence});
 
-        cmdPool->Reset();
-        auto cmd = cmdPool->Begin(state);
+        cmdPool.Reset();
+        auto cmd = cmdPool.Begin(state);
 
-        cmd->BeginRendering({{}, swapchain->GetExtent()}, {swapchain->GetCurrent()});
-        cmd->ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain->GetExtent());
-        cmd->SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
-        cmd->PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices->GetAddress()));
-        cmd->BindDescriptorSets(pipelineLayout, 0, {set});
-        cmd->BindIndexBuffer(indices, nova::IndexType::U32);
-        cmd->DrawIndexed(3, 1, 0, 0, 0);
-        cmd->EndRendering();
+        cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
+        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
+        cmd.SetGraphicsState(pipelineLayout, {vertexShader, fragmentShader}, {});
+        cmd.PushConstants(pipelineLayout, 0, sizeof(u64), nova::Temp(vertices.GetAddress()));
+        cmd.BindDescriptorSets(pipelineLayout, 0, {set});
+        cmd.BindIndexBuffer(indices, nova::IndexType::U32);
+        cmd.DrawIndexed(3, 1, 0, 0, 0);
+        cmd.EndRendering();
 
-        cmd->Present(swapchain);
-        queue->Submit({cmd}, {fence}, {fence});
-        queue->Present({swapchain}, {fence});
+        cmd.Present(swapchain);
+        queue.Submit({cmd}, {fence}, {fence});
+        queue.Present({swapchain}, {fence});
 
         glfwWaitEvents();
     }

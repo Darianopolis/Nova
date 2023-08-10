@@ -32,76 +32,8 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
-
-    template<typename T, typename DerefT>
-    concept Dereferenceable = requires(const T& t)
-    {
-        { *t } -> std::same_as<DerefT&>;
-    };
-
-    template<typename T>
-    class Handle 
-    {
-        T* value = {};
-
-    public:
-        Handle() noexcept = default;
-
-        template<typename T2>
-        requires Dereferenceable<T2, T>
-        Handle(T2& t)
-            : value(&*t)
-        {}
-
-        Handle(T* ptr) noexcept
-            : value(ptr)
-        {}
-
-        Handle(T& ptr) noexcept
-            : value(&ptr)
-        {}
-
-        bool operator==(const Handle& other) const noexcept
-        {
-            return value == other.value;
-        }
-
-        T* operator->() const noexcept
-        {
-            return value;
-        }
-        
-        operator bool() const noexcept
-        {
-            return value;
-        }
-
-        T* get() const noexcept
-        {
-            return value;
-        }
-    
-        void Destroy() noexcept
-        {
-            delete value;
-            value = nullptr;
-        }
-    };
     
     struct Context;
-    using HContext = Handle<Context>;
-
-    struct Object
-    {
-        HContext context = {};
-    
-    public:
-        virtual ~Object() = 0;
-    };
-
-    inline
-    Object::~Object() {}
-
     struct Buffer;
     struct CommandList;
     struct CommandPool;
@@ -118,23 +50,6 @@ namespace nova
     struct AccelerationStructure;
     struct AccelerationStructureBuilder;
     struct RayTracingPipeline;
-
-    using HBuffer = Handle<Buffer>;
-    using HCommandList = Handle<CommandList>;
-    using HCommandPool = Handle<CommandPool>;
-    using HDescriptorSet = Handle<DescriptorSet>;
-    using HDescriptorSetLayout = Handle<DescriptorSetLayout>;
-    using HFence = Handle<Fence>;
-    using HPipelineLayout = Handle<PipelineLayout>;
-    using HQueue = Handle<Queue>;
-    using HCommandState = Handle<CommandState>;
-    using HSampler = Handle<Sampler>;
-    using HShader = Handle<Shader>;
-    using HSwapchain = Handle<Swapchain>;
-    using HTexture = Handle<Texture>;
-    using HAccelerationStructure = Handle<AccelerationStructure>;
-    using HAccelerationStructureBuilder = Handle<AccelerationStructureBuilder>;
-    using HRayTracingPipeline = Handle<RayTracingPipeline>;
 
 // -----------------------------------------------------------------------------
 
@@ -387,6 +302,213 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+#define NOVA_BEGIN_API_OBJECT(type, ...) \
+    struct type { \
+        struct Impl; \
+        Impl* impl = {}; \
+        operator bool() const noexcept { return impl; } \
+        Impl* operator->() const noexcept { return impl; }
+#define NOVA_END_API_OBJECT() };
+
+    NOVA_BEGIN_API_OBJECT(Context)
+        static Context Create(const struct ContextConfig&);
+        void Destroy();
+
+        void WaitIdle() const;
+        const ContextConfig& GetConfig() const;
+        Queue GetQueue(QueueFlags, u32 index) const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Sampler)
+        static Sampler Create(Context, Filter, AddressMode, BorderColor, f32 anisotropy);
+        void Destroy();
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Texture)
+        static Texture Create(Context, Vec3U size, TextureUsage, Format, TextureFlags = {});
+        void Destroy();
+
+        Vec3U GetExtent() const;
+        Format GetFormat() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Queue)
+        void Submit(Span<CommandList>, Span<Fence> waits, Span<Fence> signals) const;
+        bool Acquire(Span<Swapchain>, Span<Fence> signals) const;
+        void Present(Span<Swapchain>, Span<Fence> waits, bool hostWait = false) const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Fence)
+        static Fence Create(Context);
+        void Destroy();
+
+        void Wait(u64 waitValue = ~0ull) const;
+        u64  Advance() const;
+        void Signal(u64 signalValue = ~0ull) const;
+        u64  GetPendingValue() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(CommandPool)
+        static CommandPool Create(Context, Queue);
+        void Destroy();
+
+        CommandList Begin(CommandState) const;
+        void Reset() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(CommandState)
+        static CommandState Create(Context);
+        void Destroy();
+
+        void SetState(Texture, VkImageLayout, VkPipelineStageFlags2, VkAccessFlags2) const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(CommandList)
+        void Present(Swapchain) const;
+
+        void SetGraphicsState(PipelineLayout, Span<Shader>, const struct PipelineState&) const;
+        void PushConstants(PipelineLayout, u64 offset, u64 size, const void* data) const;
+        
+        void Barrier(PipelineStage src, PipelineStage dst) const;
+        
+        void BeginRendering(Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment = {}, Texture stencilAttachment = {}) const;
+        void EndRendering() const;
+        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
+        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
+        void BindIndexBuffer(Buffer, IndexType, u64 offset = {}) const;
+        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) const;
+        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
+        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
+
+        void SetComputeState(PipelineLayout, Shader) const;
+        void Dispatch(Vec3U groups) const;
+
+        void BindDescriptorSets(PipelineLayout, u32 firstSet, Span<DescriptorSet>) const;
+        
+        void PushStorageTexture(PipelineLayout, u32 setIndex, u32 binding, Texture, u32 arrayIndex = 0) const;
+        void PushAccelerationStructure(PipelineLayout, u32 setIndex, u32 binding, AccelerationStructure, u32 arrayIndex = 0) const;
+
+        void UpdateBuffer(Buffer dst, const void* data, usz size, u64 dstOffset = 0) const;
+        void CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
+        void Barrier(Buffer, PipelineStage src, PipelineStage dst) const;
+
+        void Transition(Texture, VkImageLayout, VkPipelineStageFlags2, VkAccessFlags2) const;
+        void Transition(Texture, TextureLayout, PipelineStage) const;
+        void Clear(Texture, Vec4 color) const;
+        void CopyToTexture(Texture dst, Buffer src, u64 srcOffset = 0) const;
+        void CopyFromTexture(Buffer dst, Texture src, Rect2D regino) const;
+        void GenerateMips(Texture) const;
+        void BlitImage(Texture dst, Texture src, Filter) const;
+
+        void BuildAccelerationStructure(AccelerationStructureBuilder, AccelerationStructure, Buffer scratch) const;
+        void CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const;
+
+        void TraceRays(RayTracingPipeline, Vec3U extent, u32 genIndex) const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Swapchain)
+        static Swapchain Create(Context, void* window, TextureUsage, PresentMode);
+        void Destroy();
+
+        Texture GetCurrent() const;
+        Vec2U GetExtent() const;
+        Format GetFormat() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(PipelineLayout)
+        static PipelineLayout Create(Context, Span<struct PushConstantRange>, Span<DescriptorSetLayout>, BindPoint);
+        void Destroy();
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(DescriptorSetLayout)
+        static DescriptorSetLayout Create(Context, Span<struct DescriptorBinding>, bool pushDescriptors = false);
+        void Destroy();
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(DescriptorSet)
+        static DescriptorSet Create(DescriptorSetLayout, u64 customSize = 0);
+        void Destroy();
+
+        void WriteSampledTexture(u32 binding, Texture, Sampler, u32 arrayIndex = 0) const;
+        void WriteUniformBuffer(u32 binding, Buffer, u32 arrayIndex = 0) const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Shader)
+        static Shader Create(Context, ShaderStage, const std::string& filename, const std::string& code);
+        static Shader Create(Context, ShaderStage, Span<struct ShaderElement> elements);
+        void Destroy();
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(Buffer)
+        static Buffer Create(Context, u64 size, BufferUsage, BufferFlags = {});
+        void Destroy();
+
+        void Resize(u64 size) const;
+        u64 GetSize() const;
+        b8* GetMapped() const;
+        u64 GetAddress() const;
+
+        template<typename T>
+        T& Get(u64 index, u64 offset = 0)
+        {
+            return reinterpret_cast<T*>(GetMapped() + offset)[index];
+        }
+
+        template<typename T>
+        void Set(Span<T> elements, u64 index = 0, u64 offset = 0)
+        {
+            T* dst = reinterpret_cast<T*>(GetMapped() + offset) + index;
+            std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
+        }
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(AccelerationStructureBuilder)
+        static AccelerationStructureBuilder Create(Context);
+        void Destroy();
+
+        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const;
+        void SetTriangles(u32 geometryIndex,
+            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
+            u64 indexAddress, IndexType indexFormat, u32 triangleCount) const;
+        
+        void Prepare(AccelerationStructureType, AccelerationStructureFlags, u32 geometryCount, u32 firstGeometry = 0) const;
+
+        u32 GetInstanceSize() const;
+        void WriteInstance(void* bufferAddress, u32 index, 
+            AccelerationStructure, 
+            const Mat4& transform, 
+            u32 customIndex, u8 mask,
+            u32 sbtOffset, GeometryInstanceFlags flags) const;
+
+        u64 GetBuildSize() const;
+        u64 GetBuildScratchSize() const;
+        u64 GetUpdateScratchSize() const;
+        u64 GetCompactSize() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(AccelerationStructure)
+        static AccelerationStructure Create(Context, u64 size, AccelerationStructureType, Buffer = {}, u64 offset = 0);
+        void Destroy();
+
+        u64 GetAddress() const;
+    NOVA_END_API_OBJECT()
+
+    NOVA_BEGIN_API_OBJECT(RayTracingPipeline)
+        static RayTracingPipeline Create(Context);
+        void Destroy();
+
+        void Update(PipelineLayout, 
+            Span<Shader> rayGenShaders,
+            Span<Shader> rayMissShaders,
+            Span<struct HitShaderGroup> rayhitShaderGroups,
+            Span<Shader> callableShaders) const;
+    NOVA_END_API_OBJECT()
+
+#undef NOVA_BEGIN_API_OBJECT
+#undef NOVA_END_API_OBJECT
+
+// -----------------------------------------------------------------------------
+
     struct RenderingDescription
     {
         Span<Format> colorFormats;
@@ -499,11 +621,18 @@ namespace nova
         };
     }
 
-    using DescriptorBinding = std::variant<
-        binding::SampledTexture,
-        binding::StorageTexture,
-        binding::AccelerationStructure,
-        binding::UniformBuffer>;
+    struct DescriptorBinding
+    {   
+        using V = std::variant<
+            binding::SampledTexture,
+            binding::StorageTexture,
+            binding::AccelerationStructure,
+            binding::UniformBuffer>;
+
+        V element;
+
+        DescriptorBinding(V v): element(v) {}
+    };
 
     struct DescriptorSetBindingOffset
     {
@@ -545,7 +674,7 @@ namespace nova
 
         struct Layout
         {
-            HPipelineLayout layout;
+            PipelineLayout layout;
         };
 
         struct BufferReference
@@ -584,36 +713,36 @@ namespace nova
         };
     }
 
-    using ShaderElement = std::variant<
-        shader::Structure,
-        shader::Layout,
-        shader::BufferReference,
-        shader::Input,
-        shader::Output,
-        shader::Fragment,
-        shader::ComputeKernel,
-        shader::Kernel>;
+    struct ShaderElement
+    {
+        using V = std::variant<
+            shader::Structure,
+            shader::Layout,
+            shader::BufferReference,
+            shader::Input,
+            shader::Output,
+            shader::Fragment,
+            shader::ComputeKernel,
+            shader::Kernel>;
+        
+        V element;
+        
+        ShaderElement(V v): element(v) {}
+    };
 
 // -----------------------------------------------------------------------------
 
     struct HitShaderGroup
     {
-        HShader   closestHitShader = {};
-        HShader       anyHitShader = {};
-        HShader intersectionShader = {};
+        Shader   closestHitShader = {};
+        Shader       anyHitShader = {};
+        Shader intersectionShader = {};
     };
 
 // -----------------------------------------------------------------------------
 
-    enum class Backend
-    {
-        None,
-        Vulkan,
-    };
-
     struct ContextConfig
     {
-        Backend        backend = {};
         bool             debug = false;
         bool       meshShaders = false;
         bool        rayTracing = false;

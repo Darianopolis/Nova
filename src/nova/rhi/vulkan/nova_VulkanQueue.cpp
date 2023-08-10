@@ -2,35 +2,26 @@
 
 namespace nova
 {
-    HQueue Queue::Create(HContext context)
+    Queue Context::GetQueue(QueueFlags flags, u32 index) const
     {
-        auto impl = new Queue;
-        impl->context = context;
-        return impl;
-    }
 
-    Queue::~Queue()
-    {}
-
-    HQueue Context::GetQueue(QueueFlags flags, u32 index)
-    {
         if (flags >= QueueFlags::Graphics)
         {
-            if (index >= graphicQueues.size())
+            if (index >= impl->graphicQueues.size())
                 NOVA_THROW("Tried to access graphics queue out of bounds - {}", index);
-            return graphicQueues[index];
+            return impl->graphicQueues[index];
         }
 
         if (flags >= QueueFlags::Transfer)
-            return transferQueues[index];
+            return impl->transferQueues[index];
 
         if (flags >= QueueFlags::Compute)
-            return computeQueues[index];
+            return impl->computeQueues[index];
 
         NOVA_THROW("Illegal queue flags: {}", u32(flags));
     }
 
-    void Queue::Submit(Span<HCommandList> _commandLists, Span<HFence> waits, Span<HFence> signals)
+    void Queue::Submit(Span<CommandList> _commandLists, Span<Fence> waits, Span<Fence> signals) const
     {
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, _commandLists.size());
         for (u32 i = 0; i < _commandLists.size(); ++i)
@@ -63,13 +54,13 @@ namespace nova
             signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
-                .value = signal->Advance(),
+                .value = signal.Advance(),
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             };
         }
 
         auto start = std::chrono::steady_clock::now();
-        VkCall(vkQueueSubmit2(handle, 1, Temp(VkSubmitInfo2 {
+        VkCall(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
             .pWaitSemaphoreInfos = waitInfos,

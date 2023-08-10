@@ -2,62 +2,65 @@
 
 namespace nova
 {
-    HBuffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags)
+    Buffer Buffer::Create(Context context, u64 size, BufferUsage usage, BufferFlags flags)
     {
-        auto impl = new Buffer;
+        auto impl = new Impl;
         impl->context = context;
         impl->flags = flags;
         impl->usage = usage;
 
-        impl->Resize(size);
-
-        return impl;
+        Buffer buffer{ impl };
+        buffer.Resize(size);
+        return buffer;
     }
 
     static
-    void ResetBuffer(HContext ctx, HBuffer buffer)
+    void ResetBuffer(Context ctx, Buffer buffer)
     {
         if (!buffer->buffer)
             return;
 
         vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
-        buffer = nullptr;
+        buffer.impl->buffer = nullptr;
     }
 
-    Buffer::~Buffer()
+    void Buffer::Destroy()
     {
-        ResetBuffer(context, this);
+        ResetBuffer(impl->context, *this);
+
+        delete impl;
+        impl = nullptr;
     }
 
-    void Buffer::Resize(u64 _size)
+    void Buffer::Resize(u64 _size) const
     {
-        if (size >= _size)
+        if (impl->size >= _size)
             return;
 
-        size = _size;
+        impl->size = _size;
 
-        ResetBuffer(context, this);
+        ResetBuffer(impl->context, *this);
 
         VmaAllocationCreateFlags vmaFlags = {};
-        if (flags >= BufferFlags::Mapped)
+        if (impl->flags >= BufferFlags::Mapped)
         {
             vmaFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-            if (flags >= BufferFlags::DeviceLocal)
+            if (impl->flags >= BufferFlags::DeviceLocal)
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
             else
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
         }
 
-        auto vkUsage = GetVulkanBufferUsage(usage);
+        auto vkUsage = GetVulkanBufferUsage(impl->usage);
         vkUsage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (flags >= BufferFlags::Addressable)
+        if (impl->flags >= BufferFlags::Addressable)
             vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         VkCall(vmaCreateBuffer(
-            context->vma,
+            impl->context->vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                .size = size,
+                .size = impl->size,
                 .usage = vkUsage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
@@ -68,50 +71,50 @@ namespace nova
             Temp(VmaAllocationCreateInfo {
                 .flags = vmaFlags,
                 .usage = VMA_MEMORY_USAGE_AUTO,
-                .requiredFlags = (flags >= BufferFlags::DeviceLocal)
+                .requiredFlags = (impl->flags >= BufferFlags::DeviceLocal)
                     ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
                     : VkMemoryPropertyFlags(0),
             }),
-            &buffer,
-            &allocation,
+            &impl->buffer,
+            &impl->allocation,
             nullptr));
 
-        if (flags >= BufferFlags::Addressable)
+        if (impl->flags >= BufferFlags::Addressable)
         {
-            address = vkGetBufferDeviceAddress(context->device, Temp(VkBufferDeviceAddressInfo {
+            impl->address = vkGetBufferDeviceAddress(impl->context->device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = buffer,
+                .buffer = impl->buffer,
             }));
         }
     }
 
-    u64 Buffer::GetSize()
+    u64 Buffer::GetSize() const
     {
-        return size;
+        return impl->size;
     }
 
-    b8* Buffer::GetMapped()
+    b8* Buffer::GetMapped() const
     {
         VmaAllocationInfo info;
-        vmaGetAllocationInfo(context->vma, allocation, &info);
+        vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
         return reinterpret_cast<b8*>(info.pMappedData);
     }
 
-    u64 Buffer::GetAddress()
+    u64 Buffer::GetAddress() const
     {
-        return address;
+        return impl->address;
     }
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::UpdateBuffer(HBuffer dst, const void* pData, usz size, u64 dstOffset)
+    void CommandList::UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset) const
     {
-        vkCmdUpdateBuffer(buffer, dst->buffer, dstOffset, size, pData);
+        vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
     }
 
-    void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset, u64 srcOffset)
+    void CommandList::CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset) const
     {
-        vkCmdCopyBuffer2(buffer, Temp(VkCopyBufferInfo2 {
+        vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
             .srcBuffer = src->buffer,
             .dstBuffer = dst->buffer,
@@ -125,9 +128,9 @@ namespace nova
         }));
     }
 
-    void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst)
+    void CommandList::Barrier(Buffer _buffer, PipelineStage src, PipelineStage dst) const
     {
-        vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
+        vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {

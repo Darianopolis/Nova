@@ -86,7 +86,7 @@ namespace nova
     };
 
     static
-    void CompileShader(HShader shader, const std::string& filename, const std::string& sourceCode)
+    void CompileShader(Shader shader, const std::string& filename, const std::string& sourceCode)
     {
         shader->id = shader->context->GetUID();
 
@@ -208,24 +208,24 @@ namespace nova
         }), shader->context->pAlloc, &shader->handle));
     }
 
-    HShader Shader::Create(HContext context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
+    Shader Shader::Create(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
     {
-        auto impl = new Shader;
+        auto impl = new Impl;
         impl->context = context;
         impl->stage = stage;
 
-        CompileShader(impl, filename, sourceCode);
-
-        return impl;
+        Shader shader{ impl };
+        CompileShader(shader, filename, sourceCode);
+        return shader;
     }
 
-    HShader Shader::Create(HContext context, ShaderStage stage, Span<ShaderElement> elements)
+    Shader Shader::Create(Context context, ShaderStage stage, Span<ShaderElement> elements)
     {
-        auto impl = new Shader;
+        auto impl = new Impl;
         impl->context = context;
         impl->stage = stage;
 
-        std::string shader = R"(#version 460 core
+        std::string code = R"(#version 460 core
 #extension GL_GOOGLE_include_directive                   : enable
 #extension GL_EXT_scalar_block_layout                    : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
@@ -237,7 +237,7 @@ namespace nova
 #extension GL_EXT_fragment_shader_barycentric            : enable
 )";
 
-#define write(...) std::format_to(std::back_insert_iterator(shader), __VA_ARGS__)
+#define write(...) std::format_to(std::back_insert_iterator(code), __VA_ARGS__)
 
         auto typeToString = [](ShaderVarType type)
         {
@@ -407,7 +407,7 @@ namespace nova
                                     }
                                     write("}} {}{};\n", binding.name, getArrayPart(binding.count));
                                 }
-                            }, binding);
+                            }, binding.element);
                         }
                     }
                 },
@@ -467,24 +467,27 @@ namespace nova
                 [&](const shader::Kernel& kernel) {
                     write("void main() {{\n{}\n}}\n", kernel.glsl);
                 },
-            }, element);
+            }, element.element);
         }
 
 #undef write
 
         // NOVA_LOG("Generated shader:\n{}", shader);
 
-        CompileShader(impl, "generated", shader);
-
-        return impl;
+        Shader shader{ impl };
+        CompileShader(shader, "generated", code);
+        return shader;
     }
 
-    Shader::~Shader()
+    void Shader::Destroy()
     {
-        vkDestroyShaderModule(context->device, handle, context->pAlloc);
+        vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
+
+        delete impl;
+        impl = nullptr;
     }
 
-    VkPipelineShaderStageCreateInfo Shader::GetStageInfo()
+    VkPipelineShaderStageCreateInfo Shader::Impl::GetStageInfo() const
     {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,

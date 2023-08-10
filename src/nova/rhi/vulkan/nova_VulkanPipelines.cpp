@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    HPipelineLayout PipelineLayout::Create(HContext context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
+    PipelineLayout PipelineLayout::Create(Context context, Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
     {
-        auto impl = new PipelineLayout;
+        auto impl = new Impl;
         impl->context = context;
         impl->bindPoint = bindPoint;
 
@@ -40,19 +40,22 @@ namespace nova
             .pPushConstantRanges = impl->ranges.data(),
         }), context->pAlloc, &impl->layout));
 
-        return impl;
+        return { impl };
     }
 
-    PipelineLayout::~PipelineLayout()
+    void PipelineLayout::Destroy()
     {
-        vkDestroyPipelineLayout(context->device, layout, context->pAlloc);
+        vkDestroyPipelineLayout(impl->context->device, impl->layout, impl->context->pAlloc);
+
+        delete impl;
+        impl = nullptr;
     }
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::PushConstants(HPipelineLayout layout, u64 offset, u64 size, const void* data)
+    void CommandList::PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const
     {
-        vkCmdPushConstants(buffer, layout->layout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
+        vkCmdPushConstants(impl->buffer, layout->layout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +75,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsVertexInputStage(
-        HContext           context,
+        Context            context,
         const PipelineState& state)
     {
         auto key = GraphicsPipelineVertexInputStageKey {};
@@ -137,10 +140,10 @@ namespace nova
 
     static
     VkPipeline GetGraphicsPreRasterizationStage(
-        HContext           context,
-        Span<HShader>      shaders,
+        Context            context,
+        Span<Shader>       shaders,
         const PipelineState& state,
-        HPipelineLayout     layout)
+        PipelineLayout      layout)
     {
         auto key = GraphicsPipelinePreRasterizationStageKey {};
 
@@ -203,10 +206,10 @@ namespace nova
 
     static
     VkPipeline GetGraphicsFragmentShaderStage(
-        HContext           context,
-        HShader             shader,
+        Context            context,
+        Shader              shader,
         const PipelineState& state,
-        HPipelineLayout     layout)
+        PipelineLayout      layout)
     {
         (void)state;
 
@@ -264,7 +267,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsFragmentOutputStage(
-        HContext                   context,
+        Context                    context,
         RenderingDescription renderingDesc,
         const PipelineState&         state)
     {
@@ -361,7 +364,7 @@ namespace nova
 
     static
     VkPipeline GetGraphicsPipelineLibrarySet(
-        HContext           context,
+        Context            context,
         Span<VkPipeline> libraries,
         VkPipelineLayout    layout)
     {
@@ -394,20 +397,20 @@ namespace nova
         return pipeline;
     }
 
-    void CommandList::SetGraphicsState(HPipelineLayout layout, Span<HShader> _shaders, const PipelineState& pipelineState)
+    void CommandList::SetGraphicsState(PipelineLayout layout, Span<Shader> _shaders, const PipelineState& pipelineState) const
     {
         auto start = std::chrono::steady_clock::now();
 
-        auto context = pool->context;
+        auto context = impl->pool->context;
 
         // Viewport + Scissors
 
         {
-            auto size = state->renderingExtent;
+            auto size = impl->state->renderingExtent;
 
             if (pipelineState.flipVertical)
             {
-                vkCmdSetViewportWithCount(buffer, 1, nova::Temp(VkViewport {
+                vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                     .y = f32(size.y),
                     .width = f32(size.x), .height = -f32(size.y),
                     .minDepth = 0.f, .maxDepth = 1.f,
@@ -415,37 +418,37 @@ namespace nova
             }
             else
             {
-                vkCmdSetViewportWithCount(buffer, 1, nova::Temp(VkViewport {
+                vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                     .width = f32(size.x), .height = f32(size.y),
                     .minDepth = 0.f, .maxDepth = 1.f,
                 }));
             }
-            vkCmdSetScissorWithCount(buffer, 1, nova::Temp(VkRect2D {
+            vkCmdSetScissorWithCount(impl->buffer, 1, nova::Temp(VkRect2D {
                 .extent = { size.x, size.y },
             }));
         }
 
         // Input Assembly
 
-        vkCmdSetPrimitiveTopology(buffer, GetVulkanTopology(pipelineState.topology));
+        vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(pipelineState.topology));
 
         // Pre-rasterization (dynamic 2)
 
-        vkCmdSetCullMode(buffer, GetVulkanCullMode(pipelineState.cullMode));
-        vkCmdSetFrontFace(buffer, GetVulkanFrontFace(pipelineState.frontFace));
-        vkCmdSetLineWidth(buffer, pipelineState.lineWidth);
+        vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(pipelineState.cullMode));
+        vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(pipelineState.frontFace));
+        vkCmdSetLineWidth(impl->buffer, pipelineState.lineWidth);
 
         // Depth + Stencil
 
-        vkCmdSetDepthTestEnable(buffer, pipelineState.depthEnable);
-        vkCmdSetDepthWriteEnable(buffer, pipelineState.depthWrite);
-        vkCmdSetDepthCompareOp(buffer, GetVulkanCompareOp(pipelineState.depthCompare));
+        vkCmdSetDepthTestEnable(impl->buffer, pipelineState.depthEnable);
+        vkCmdSetDepthWriteEnable(impl->buffer, pipelineState.depthWrite);
+        vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(pipelineState.depthCompare));
 
         {
             // Separate shaders
 
-            HShader fragmentShader = {};
-            std::array<HShader, 4> preRasterStageShaders;
+            Shader fragmentShader = {};
+            std::array<Shader, 4> preRasterStageShaders;
             u32 preRasterStageShaderIndex = 0;
             for (auto& shader : _shaders)
             {
@@ -458,18 +461,18 @@ namespace nova
             // Request pipeline
 
             auto vi = GetGraphicsVertexInputStage(context, pipelineState);
-            auto pr = GetGraphicsPreRasterizationStage(pool->context,
+            auto pr = GetGraphicsPreRasterizationStage(impl->pool->context,
                 { preRasterStageShaders.data(), preRasterStageShaderIndex }, pipelineState, layout);
             auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader, pipelineState, layout);
             auto fo = GetGraphicsFragmentOutputStage(context, {
-                    .colorFormats = state->colorAttachmentsFormats,
-                    .depthFormat = state->depthAttachmentFormat,
-                    .stencilFormat = state->stencilAttachmentFormat,
+                    .colorFormats = impl->state->colorAttachmentsFormats,
+                    .depthFormat = impl->state->depthAttachmentFormat,
+                    .stencilFormat = impl->state->stencilAttachmentFormat,
                 }, pipelineState);
 
             auto pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo }, layout->layout);
 
-            vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         }
 
         TimeSettingGraphicsState += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();

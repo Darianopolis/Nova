@@ -2,29 +2,32 @@
 
 namespace nova
 {
-    HRayTracingPipeline RayTracingPipeline::Create(HContext context)
+    RayTracingPipeline RayTracingPipeline::Create(Context context)
     {
-        auto impl = new RayTracingPipeline;
+        auto impl = new Impl;
         impl->context = context;
 
         impl->sbtBuffer = nova::Buffer::Create(context, 0,
             BufferUsage::ShaderBindingTable,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
         
-        return impl;
+        return { impl };
     }
 
-    RayTracingPipeline::~RayTracingPipeline()
+    void RayTracingPipeline::Destroy()
     {
-        sbtBuffer.Destroy();
-        vkDestroyPipeline(context->device, pipeline, context->pAlloc);
+        impl->sbtBuffer.Destroy();
+        vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
+
+        delete impl;
+        impl = nullptr;
     }
 
-    void RayTracingPipeline::Update(HPipelineLayout layout,
-        Span<HShader> rayGenShaders,
-        Span<HShader> rayMissShaders,
+    void RayTracingPipeline::Update(PipelineLayout layout,
+        Span<Shader> rayGenShaders,
+        Span<Shader> rayMissShaders,
         Span<HitShaderGroup> rayHitShaderGroup,
-        Span<HShader> callableShaders)
+        Span<Shader> callableShaders) const
     {
         // Convert to stages and groups
 
@@ -33,7 +36,7 @@ namespace nova
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        auto getShaderIndex = [&](HShader shader) {
+        auto getShaderIndex = [&](Shader shader) {
             if (!shader)
                 return VK_SHADER_UNUSED_KHR;
 
@@ -86,17 +89,17 @@ namespace nova
 
         // Create pipeline
         
-        if (pipeline)
+        if (impl->pipeline)
         {
-            vkDeviceWaitIdle(context->device);
-            vkDestroyPipeline(context->device, pipeline, context->pAlloc);
+            vkDeviceWaitIdle(impl->context->device);
+            vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
         }
 
-        VkCall(vkCreateRayTracingPipelinesKHR(context->device,
+        VkCall(vkCreateRayTracingPipelinesKHR(impl->context->device,
             0, nullptr,//context->pipelineCache,
             1, Temp(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-                .flags = context->config.descriptorBuffers
+                .flags = impl->context->config.descriptorBuffers
                     ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                     : VkPipelineCreateFlags(0),
                 .stageCount = u32(stages.size()),
@@ -106,13 +109,13 @@ namespace nova
                 .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
                 .layout = layout->layout,
             }),
-            context->pAlloc, &pipeline));
+            impl->context->pAlloc, &impl->pipeline));
 
         // Compute table parameters
 
-        u32 handleSize = context->rayTracingPipelineProperties.shaderGroupHandleSize;
-        u32 handleStride = u32(AlignUpPower2(handleSize, context->rayTracingPipelineProperties.shaderGroupHandleAlignment));
-        u64 groupAlign = context->rayTracingPipelineProperties.shaderGroupBaseAlignment;
+        u32 handleSize = impl->context->rayTracingPipelineProperties.shaderGroupHandleSize;
+        u32 handleStride = u32(AlignUpPower2(handleSize, impl->context->rayTracingPipelineProperties.shaderGroupHandleAlignment));
+        u64 groupAlign = impl->context->rayTracingPipelineProperties.shaderGroupBaseAlignment;
         u64 rayMissOffset = AlignUpPower2(rayGenIndices.size() * handleStride, groupAlign);
         u64 rayHitOffset = rayMissOffset + AlignUpPower2(rayMissIndices.size() * handleSize, groupAlign);
         u64 rayCallOffset = rayHitOffset + AlignUpPower2(rayHitIndices.size() * handleSize, groupAlign);
@@ -120,16 +123,16 @@ namespace nova
 
         // Allocate table and get groups from pipeline
 
-        if (tableSize > sbtBuffer->GetSize())
+        if (tableSize > impl->sbtBuffer.GetSize())
         {
             NOVA_LOG("Resizing existing buffer");
-            sbtBuffer->Resize(std::max(256ull, tableSize));
+            impl->sbtBuffer.Resize(std::max(256ull, tableSize));
         }
 
-        auto getMapped = [&](u64 offset, u32 i) { return sbtBuffer->GetMapped() + offset + (i * handleStride); };
+        auto getMapped = [&](u64 offset, u32 i) { return impl->sbtBuffer.GetMapped() + offset + (i * handleStride); };
 
         std::vector<u8> handles(groups.size() * handleSize);
-        VkCall(vkGetRayTracingShaderGroupHandlesKHR(context->device, pipeline,
+        VkCall(vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
             0, u32(groups.size()),
             u32(handles.size()), handles.data()));
 
@@ -137,44 +140,44 @@ namespace nova
 
         // Gen
 
-        rayGenRegion.size = handleSize;
-        rayGenRegion.stride = handleStride; // raygen size === stride
+        impl->rayGenRegion.size = handleSize;
+        impl->rayGenRegion.stride = handleStride; // raygen size === stride
         for (u32 i = 0; i < rayGenIndices.size(); ++i)
             std::memcpy(getMapped(0, i), getHandle(rayGenIndices[i]), handleSize);
 
         // Miss
 
-        rayMissRegion.deviceAddress = sbtBuffer->GetAddress() + rayMissOffset;
-        rayMissRegion.size = rayHitOffset - rayMissOffset;
-        rayMissRegion.stride = handleStride;
+        impl->rayMissRegion.deviceAddress = impl->sbtBuffer.GetAddress() + rayMissOffset;
+        impl->rayMissRegion.size = rayHitOffset - rayMissOffset;
+        impl->rayMissRegion.stride = handleStride;
         for (u32 i = 0; i < rayMissIndices.size(); ++i)
             std::memcpy(getMapped(rayMissOffset, i), getHandle(rayMissIndices[i]), handleSize);
 
         // Hit
 
-        rayHitRegion.deviceAddress = sbtBuffer->GetAddress() + rayHitOffset;
-        rayHitRegion.size = rayCallOffset - rayHitOffset;
-        rayHitRegion.stride = handleStride;
+        impl->rayHitRegion.deviceAddress = impl->sbtBuffer.GetAddress() + rayHitOffset;
+        impl->rayHitRegion.size = rayCallOffset - rayHitOffset;
+        impl->rayHitRegion.stride = handleStride;
         for (u32 i = 0; i < rayHitIndices.size(); ++i)
             std::memcpy(getMapped(rayHitOffset, i), getHandle(rayHitIndices[i]), handleSize);
 
         // Call
 
-        rayCallRegion.deviceAddress = sbtBuffer->GetAddress() + rayCallOffset;
-        rayCallRegion.size = tableSize - rayCallOffset;
-        rayCallRegion.stride = handleStride;
+        impl->rayCallRegion.deviceAddress = impl->sbtBuffer.GetAddress() + rayCallOffset;
+        impl->rayCallRegion.size = tableSize - rayCallOffset;
+        impl->rayCallRegion.stride = handleStride;
         for (u32 i = 0; i < rayCallIndices.size(); ++i)
             std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
-    void CommandList::TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u32 genIndex)
+    void CommandList::TraceRays(RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const
     {
-        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
+        vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
 
         auto rayGenRegion = pipeline->rayGenRegion;
-        rayGenRegion.deviceAddress = pipeline->sbtBuffer->GetAddress() + (rayGenRegion.stride * genIndex);
+        rayGenRegion.deviceAddress = pipeline->sbtBuffer.GetAddress() + (rayGenRegion.stride * genIndex);
 
-        vkCmdTraceRaysKHR(buffer,
+        vkCmdTraceRaysKHR(impl->buffer,
             &rayGenRegion,
             &pipeline->rayMissRegion,
             &pipeline->rayHitRegion,

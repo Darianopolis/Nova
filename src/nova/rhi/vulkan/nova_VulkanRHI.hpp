@@ -11,60 +11,38 @@ namespace nova
         Invalid = 0,
     };
 
-    struct Context;
-
-    struct Queue : Object
+    struct Queue::Impl
     {
+        Context context = {};
+
         VkQueue               handle = {};
         u32                   family = UINT32_MAX;
         VkPipelineStageFlags2 stages = {};
-    
-    public:
-        ~Queue() final;
-
-        static
-        HQueue Create(HContext context);
-    
-        void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals);
-        bool Acquire(Span<HSwapchain>, Span<HFence> signals);
-        void Present(Span<HSwapchain>, Span<HFence> waits, bool hostWait = false);
     };
 
-    struct Fence : Object
+    struct Fence::Impl
     {
+        Context context = {};
+        
         VkSemaphore semaphore = {};
         u64             value = 0;
-    
-    public:
-        ~Fence() final;
-
-        static HFence Create(HContext);
-
-        void Wait(u64 waitValue = ~0ull);
-        u64 Advance();
-        void Signal(u64 signalValue = ~0ull);
-        u64 GetPendingValue();
     };
 
-    struct CommandPool : Object
+    struct CommandPool::Impl
     {
-        HQueue queue = {};
-
-        VkCommandPool              pool = {};
-        std::vector<HCommandList> lists = {};
-        u32                       index = 0;
-    
-    public:
-        ~CommandPool() final;
+        Context context = {};
         
-        static HCommandPool Create(HContext, HQueue);
+        Queue queue = {};
 
-        HCommandList Begin(HCommandState);
-        void Reset();
+        VkCommandPool             pool = {};
+        std::vector<CommandList> lists = {};
+        u32                      index = 0;
     };
 
-    struct CommandState : Object
+    struct CommandState::Impl
     {
+        Context context = {};
+        
         struct ImageState
         {
             VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -80,91 +58,37 @@ namespace nova
         Format                depthAttachmentFormat = nova::Format::Undefined;
         Format              stencilAttachmentFormat = nova::Format::Undefined;
         Vec2U                       renderingExtent;
-    
-    public:
-        ~CommandState() final;
-        
-        static HCommandState Create(HContext);
-
-        void SetState(HTexture texture, VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access);
     };
 
-    struct CommandList
+    struct CommandList::Impl
     {
-        HCommandPool      pool = {};
-        HCommandState    state = {};
+        CommandPool       pool = {};
+        CommandState     state = {};
         VkCommandBuffer buffer = {};
-    
-    public:
-        void Present(HSwapchain swapchain);
-
-        void SetGraphicsState(HPipelineLayout layout, Span<HShader> shaders, const PipelineState& state);
-        void PushConstants(HPipelineLayout layout, u64 offset, u64 size, const void* data);
-
-        void Barrier(PipelineStage src, PipelineStage dst);
-
-        void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture = {}, HTexture stencilAttachment = {});
-        void EndRendering();
-        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance);
-        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance);
-        void BindIndexBuffer(HBuffer buffer, IndexType indexType, u64 offset = 0);
-        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {});
-        void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {});
-        void ClearStencil(u32 value, Vec2U size, Vec2I offset = {});
-
-        void SetComputeState(HPipelineLayout layout, HShader shader);
-        void Dispatch(Vec3U groups);
-
-        void BindDescriptorSets(HPipelineLayout layout, u32 firstSet, Span<HDescriptorSet> sets);
-
-        void PushStorageTexture(HPipelineLayout layout, u32 setIndex, u32 binding, HTexture texture, u32 arrayIndex = 0);
-        void PushAccelerationStructure(HPipelineLayout layout, u32 setIndex, u32 binding, HAccelerationStructure accelStructure, u32 arrayIndex = 0);
-
-        void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0);
-        void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0);
-        void Barrier(HBuffer buffer, PipelineStage src, PipelineStage dst);
-        
-        void Transition(HTexture texture, VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess);
-        void Transition(HTexture texture, TextureLayout newLayout, PipelineStage newStages);
-        void Clear(HTexture texture, Vec4 color);
-        void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0);
-        void CopyFromTexture(HBuffer dst, HTexture src, Rect2D region);
-        void GenerateMips(HTexture mips);
-        void BlitImage(HTexture dst, HTexture src, Filter filter);
-
-        void BuildAccelerationStructure(HAccelerationStructureBuilder builder, HAccelerationStructure structure, HBuffer scratch);
-        void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src);
-
-        void TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u32 genIndex);
     };
 
-    struct Swapchain : Object
+    struct Swapchain::Impl
     {
-        VkSurfaceKHR           surface = {};
-        VkSwapchainKHR       swapchain = {};
-        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        TextureUsage             usage = {};
-        PresentMode        presentMode = PresentMode::Fifo;
-        std::vector<HTexture> textures = {};
-        uint32_t                 index = UINT32_MAX;
-        VkExtent2D              extent = { 0, 0 };
-        bool                   invalid = false;
+        Context context = {};
+        
+        VkSurfaceKHR          surface = {};
+        VkSwapchainKHR      swapchain = {};
+        VkSurfaceFormatKHR     format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        TextureUsage            usage = {};
+        PresentMode       presentMode = PresentMode::Fifo;
+        std::vector<Texture> textures = {};
+        uint32_t                index = UINT32_MAX;
+        VkExtent2D             extent = { 0, 0 };
+        bool                  invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                  semaphoreIndex = 0;
-
-    public:
-        ~Swapchain() final;
-
-        static HSwapchain Create(HContext, void* window, TextureUsage usage, PresentMode mode);
-
-        HTexture GetCurrent();
-        Vec2U GetExtent();
-        Format GetFormat();
     };
 
-    struct PipelineLayout : Object
+    struct PipelineLayout::Impl
     {
+        Context context = {};
+        
         UID id = UID::Invalid;
 
         VkPipelineLayout layout;
@@ -173,106 +97,65 @@ namespace nova
         BindPoint bindPoint = {};
 
         std::vector<PushConstantRange>     pcRanges;
-        std::vector<HDescriptorSetLayout> setLayouts;
+        std::vector<DescriptorSetLayout> setLayouts;
 
         std::vector<VkPushConstantRange> ranges;
         std::vector<VkDescriptorSetLayout> sets;
-    
-    public:
-        ~PipelineLayout() final;
-        
-        static HPipelineLayout Create(HContext, Span<PushConstantRange>, Span<HDescriptorSetLayout>, BindPoint);
     };
 
-    struct DescriptorSetLayout : Object
+    struct DescriptorSetLayout::Impl
     {
+        Context context = {};
+        
         std::vector<DescriptorBinding> bindings = {};
 
         VkDescriptorSetLayout layout = {};
         u64                     size = 0;
         std::vector<u64>     offsets = {};
-    
-    public:
-        ~DescriptorSetLayout();
-
-        static HDescriptorSetLayout Create(HContext, Span<DescriptorBinding> bindings, bool pushDescriptors = false);
     };
 
-    struct DescriptorSet : Object
+    struct DescriptorSet::Impl
     {
-        HDescriptorSetLayout layout;
-        VkDescriptorSet         set;
-    
-    public:
-        ~DescriptorSet() final;
-
-        static HDescriptorSet Create(HDescriptorSetLayout, u64 customSize = 0);
-
-        void WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex = 0);
-        void WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex = 0);
+        DescriptorSetLayout layout;
+        VkDescriptorSet        set;
     };
 
-    struct Shader : Object
+    struct Shader::Impl
     {
+        Context context = {};
+        
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
         ShaderStage     stage = {};
     
     public:
-        ~Shader() final;
-
-        static HShader Create(HContext, ShaderStage stage, const std::string& filename, const std::string& sourceCode);
-        static HShader Create(HContext, ShaderStage stage, Span<ShaderElement> elements);
-
-        VkPipelineShaderStageCreateInfo GetStageInfo();
+        VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 
-    struct Buffer : Object
+    struct Buffer::Impl
     {
+        Context context = {};
+        
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
         VkDeviceSize        size = 0ull;
         VkDeviceAddress  address = 0ull;
         BufferFlags        flags = BufferFlags::None;
         BufferUsage        usage = {};
-    
-    public:
-        ~Buffer() final;
-
-        static HBuffer Create(HContext, u64 size, BufferUsage usage, BufferFlags flags = {});
-
-        void Resize(u64 size);
-        u64 GetSize();
-        b8* GetMapped();
-        u64 GetAddress();
-
-        template<typename T>
-        T& Get(u64 index, u64 offset = 0)
-        {
-            return reinterpret_cast<T*>(GetMapped() + offset)[index];
-        }
-
-        template<typename T>
-        void Set(Span<T> elements, u64 index = 0, u64 offset = 0)
-        {
-            T* dst = reinterpret_cast<T*>(GetMapped() + offset) + index;
-            std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
-        }
     };
 
-    struct Sampler : Object
+    struct Sampler::Impl
     {
+        Context context = {};
+        
         VkSampler sampler;
-    
-    public:
-        ~Sampler() final;
-
-        static HSampler Create(HContext, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy = 0.f);
     };
 
-    struct Texture : Object
+    struct Texture::Impl
     {
+        Context context = {};
+        
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
@@ -283,18 +166,12 @@ namespace nova
         Vec3U extent = {};
         u32     mips = 0;
         u32   layers = 0;
-    
-    public:
-        ~Texture() final;
-        
-        static HTexture Create(HContext, Vec3U size, TextureUsage usage, Format format, TextureFlags flags = {});
-
-        Vec3U GetExtent();
-        Format GetFormat();
     };
 
-    struct AccelerationStructureBuilder : Object
+    struct AccelerationStructureBuilder::Impl
     {
+        Context context = {};
+        
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
@@ -311,71 +188,31 @@ namespace nova
         bool    sizeDirty = false;
 
         VkQueryPool queryPool = {};
-    
-    public:
-        ~AccelerationStructureBuilder() final;
-
-        static HAccelerationStructureBuilder Create(HContext);
-
-        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count);
-        void SetTriangles(u32 geometryIndex,
-            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, IndexType indexFormat, u32 triangleCount);
-
-        void Prepare(AccelerationStructureType type, AccelerationStructureFlags flags,
-            u32 geometryCount, u32 firstGeometry = 0u);
-        
-        u32 GetInstanceSize();
-        void WriteInstance(
-            void* bufferAddress, u32 index,
-            HAccelerationStructure structure,
-            const Mat4& matrix,
-            u32 customIndex, u8 mask,
-            u32 sbtOffset, GeometryInstanceFlags flags);
-        
-        u64 GetBuildSize();
-        u64 GetBuildScratchSize();
-        u64 GetUpdateScratchSize();
-        u64 GetCompactSize();
     };
 
-    struct AccelerationStructure : Object
+    struct AccelerationStructure::Impl
     {
+        Context context = {};
+        
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        HBuffer buffer;
+        Buffer buffer;
         bool ownBuffer;
-    
-    public:
-        ~AccelerationStructure() final;
-        
-        static HAccelerationStructure Create(HContext, u64 size, AccelerationStructureType type, HBuffer buffer = {}, u64 offset = 0);
-
-        u64 GetAddress();
     };
 
-    struct RayTracingPipeline : Object
+    struct RayTracingPipeline::Impl
     {
+        Context context = {};
+        
         VkPipeline pipeline = {};
-        HBuffer   sbtBuffer = {};
+        Buffer   sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
         VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
         VkStridedDeviceAddressRegionKHR rayCallRegion = {};
-    
-    public:
-        ~RayTracingPipeline() final;
-
-        static HRayTracingPipeline Create(HContext);
-
-        void Update(HPipelineLayout layout,
-            Span<HShader> rayGenShaders,
-            Span<HShader> rayMissShaders,
-            Span<HitShaderGroup> rayHitShaderGroup,
-            Span<HShader> callableShaders);
     };
 
 // -----------------------------------------------------------------------------
@@ -482,7 +319,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Context
+    struct Context::Impl
     {
         ContextConfig config = {};
 
@@ -496,9 +333,9 @@ namespace nova
     public:
         VkDescriptorPool descriptorPool = {};
 
-        std::vector<HQueue>  graphicQueues = {};
-        std::vector<HQueue> transferQueues = {};
-        std::vector<HQueue>  computeQueues = {};
+        std::vector<Queue>  graphicQueues = {};
+        std::vector<Queue> transferQueues = {};
+        std::vector<Queue>  computeQueues = {};
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
@@ -575,15 +412,5 @@ namespace nova
             },
         };
         VkAllocationCallbacks* pAlloc = &alloc;
-
-    public:
-        ~Context();
-
-        static HContext Create(const ContextConfig& config);
-
-        void WaitIdle();
-        const ContextConfig& GetConfig();
-
-        HQueue GetQueue(QueueFlags flags, u32 index);
     };
 }

@@ -33,21 +33,26 @@ void TryMain()
     //   apply chroma key based on alpha.
     SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
 
-    auto ctx = nova::Context::Create({
-        .backend = nova::Backend::Vulkan,
+    auto context = nova::Context::Create({
         .debug = false,
     });
-    auto context = nova::HContext(ctx);
+    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
 
-    auto swapchain = context.CreateSwapchain(hwnd,
+    auto swapchain = nova::Swapchain::Create(context, hwnd,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
+    NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto commandPool = context.CreateCommandPool(queue);
-    auto fence = context.CreateFence();
-    auto state = context.CreateCommandState();
+    auto commandPool = nova::CommandPool::Create(context, queue);
+    auto fence = nova::Fence::Create(context);
+    auto state = nova::CommandState::Create(context);
+    NOVA_ON_SCOPE_EXIT(&) { 
+        commandPool.Destroy();
+        fence.Destroy();
+        state.Destroy();
+    };
 
 // -----------------------------------------------------------------------------
 
@@ -55,20 +60,20 @@ void TryMain()
 
 // -----------------------------------------------------------------------------
 
-    nova::HTexture texture;
+    nova::Texture texture;
     nova::ImTextureID texID;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
 
-        texture = context.CreateTexture(
+        texture = nova::Texture::Create(context,
             Vec3(f32(w), f32(h), 0.f),
             nova::TextureUsage::Sampled,
             nova::Format::RGBA8_UNorm);
 
         usz size = w * h * 4;
-        auto staging = context.CreateBuffer(size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+        auto staging = nova::Buffer::Create(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
         NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
         std::memcpy(staging.GetMapped(), data, size);
 
