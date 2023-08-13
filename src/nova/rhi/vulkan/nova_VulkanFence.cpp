@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Fence Fence::Create(Context context)
+    Fence Fence::Create(HContext context)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -21,6 +21,8 @@ namespace nova
 
     void Fence::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroySemaphore(impl->context->device, impl->semaphore, impl->context->pAlloc);
 
         delete impl;

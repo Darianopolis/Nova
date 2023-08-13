@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    AccelerationStructureBuilder AccelerationStructureBuilder::Create(Context context)
+    AccelerationStructureBuilder AccelerationStructureBuilder::Create(HContext context)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -29,6 +29,8 @@ namespace nova
 
     void AccelerationStructureBuilder::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroyQueryPool(impl->context->device, impl->queryPool, impl->context->pAlloc);
         
         delete impl;
@@ -95,7 +97,7 @@ namespace nova
 
     void AccelerationStructureBuilder::WriteInstance(
         void* bufferAddress, u32 index,
-        AccelerationStructure structure,
+        HAccelerationStructure structure,
         const Mat4& M,
         u32 customIndex, u8 mask,
         u32 sbtOffset, GeometryInstanceFlags geomFlags) const
@@ -125,12 +127,12 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbtOffset,
             .flags = vkFlags,
-            .accelerationStructureReference = structure.GetAddress(),
+            .accelerationStructureReference = structure().GetAddress(),
         };
     }
 
     static
-    void EnsureSizes(Context ctx, AccelerationStructureBuilder builder)
+    void EnsureSizes(HContext ctx, AccelerationStructureBuilder builder)
     {
         if (!builder->sizeDirty)
             return;
@@ -184,7 +186,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    AccelerationStructure AccelerationStructure::Create(Context context, u64 size, AccelerationStructureType type, Buffer buffer, u64 offset)
+    AccelerationStructure AccelerationStructure::Create(HContext context, u64 size, AccelerationStructureType type, HBuffer buffer, u64 offset)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -218,6 +220,8 @@ namespace nova
 
     void AccelerationStructure::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->pAlloc);
         if (impl->ownBuffer)
             impl->buffer.Destroy();
@@ -231,7 +235,7 @@ namespace nova
         return impl->address;
     }
 
-    void CommandList::BuildAccelerationStructure(AccelerationStructureBuilder builder, AccelerationStructure structure, Buffer scratch) const
+    void CommandList::BuildAccelerationStructure(HAccelerationStructureBuilder builder, HAccelerationStructure structure, HBuffer scratch) const
     {
         bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
         if (compact)
@@ -270,7 +274,7 @@ namespace nova
         }
     }
 
-    void CommandList::CompactAccelerationStructure(AccelerationStructure dst, AccelerationStructure src) const
+    void CommandList::CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const
     {
         vkCmdCopyAccelerationStructureKHR(impl->buffer, Temp(VkCopyAccelerationStructureInfoKHR {
             .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,

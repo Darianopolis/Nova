@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    PipelineLayout PipelineLayout::Create(Context context, Span<PushConstantRange> pushConstantRanges, Span<DescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
+    PipelineLayout PipelineLayout::Create(HContext context, Span<PushConstantRange> pushConstantRanges, Span<HDescriptorSetLayout> descriptorSetLayouts, BindPoint bindPoint)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -45,6 +45,8 @@ namespace nova
 
     void PipelineLayout::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroyPipelineLayout(impl->context->device, impl->layout, impl->context->pAlloc);
 
         delete impl;
@@ -53,7 +55,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::PushConstants(PipelineLayout layout, u64 offset, u64 size, const void* data) const
+    void CommandList::PushConstants(HPipelineLayout layout, u64 offset, u64 size, const void* data) const
     {
         vkCmdPushConstants(impl->buffer, layout->layout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
@@ -397,7 +399,7 @@ namespace nova
         return pipeline;
     }
 
-    void CommandList::SetGraphicsState(PipelineLayout layout, Span<Shader> _shaders, const PipelineState& pipelineState) const
+    void CommandList::SetGraphicsState(HPipelineLayout layout, Span<HShader> _shaders, const PipelineState& pipelineState) const
     {
         auto start = std::chrono::steady_clock::now();
 

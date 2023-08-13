@@ -14,6 +14,9 @@ namespace nova
         ImGuiContext* lastImguiCtx = {};
 
         bool ended = false;
+        
+        bool dockMenuBar = true;
+        bool noDockBg = true;
 
     public:
         ImGuiLayer(Context context,

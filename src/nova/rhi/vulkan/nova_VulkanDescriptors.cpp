@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    DescriptorSetLayout DescriptorSetLayout::Create(Context context, Span<DescriptorBinding> bindings, bool pushDescriptors)
+    DescriptorSetLayout DescriptorSetLayout::Create(HContext context, Span<DescriptorBinding> bindings, bool pushDescriptors)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -55,7 +55,7 @@ namespace nova
                     if (binding.count)
                         flags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
                 },
-            }, binding.element);
+            }, binding);
         }
 
         VkCall(vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
@@ -81,6 +81,8 @@ namespace nova
 
     void DescriptorSetLayout::Destroy()
     {
+        if (!impl) return;
+        
         if (impl->layout)
             vkDestroyDescriptorSetLayout(impl->context->device, impl->layout, impl->context->pAlloc);
         
@@ -88,7 +90,7 @@ namespace nova
         impl = nullptr;
     }
 
-    DescriptorSet DescriptorSet::Create(DescriptorSetLayout layout, u64 customSize)
+    DescriptorSet DescriptorSet::Create(HDescriptorSetLayout layout, u64 customSize)
     {
         auto impl = new Impl;
         impl->layout = layout;
@@ -107,12 +109,17 @@ namespace nova
 
     void DescriptorSet::Destroy()
     {
+        if (!impl) return;
+        
         vkFreeDescriptorSets(impl->layout->context->device, impl->layout->context->descriptorPool, 1, &impl->set);
+
+        delete impl;
+        impl = nullptr;
     }
 
 // -----------------------------------------------------------------------------
 
-    void DescriptorSet::WriteSampledTexture(u32 binding, Texture texture, Sampler sampler, u32 arrayIndex) const
+    void DescriptorSet::WriteSampledTexture(u32 binding, HTexture texture, HSampler sampler, u32 arrayIndex) const
     {
         vkUpdateDescriptorSets(impl->layout->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -129,7 +136,7 @@ namespace nova
         }), 0, nullptr);
     }
 
-    void DescriptorSet::WriteUniformBuffer(u32 binding, Buffer buffer, u32 arrayIndex) const
+    void DescriptorSet::WriteUniformBuffer(u32 binding, HBuffer buffer, u32 arrayIndex) const
     {
         vkUpdateDescriptorSets(impl->layout->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -147,7 +154,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::BindDescriptorSets(PipelineLayout pipelineLayout, u32 firstSet, Span<DescriptorSet> sets) const
+    void CommandList::BindDescriptorSets(HPipelineLayout pipelineLayout, u32 firstSet, Span<HDescriptorSet> sets) const
     {
         auto vkSets = NOVA_ALLOC_STACK(VkDescriptorSet, sets.size());
         for (u32 i = 0; i < sets.size(); ++i)
@@ -159,7 +166,7 @@ namespace nova
             0, nullptr);
     }
 
-    void CommandList::PushStorageTexture(PipelineLayout layout, u32 setIndex, u32 binding, Texture texture, u32 arrayIndex) const
+    void CommandList::PushStorageTexture(HPipelineLayout layout, u32 setIndex, u32 binding, HTexture texture, u32 arrayIndex) const
     {
         vkCmdPushDescriptorSetKHR(impl->buffer,
             GetVulkanPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,
@@ -176,7 +183,7 @@ namespace nova
             }));
     }
 
-    void CommandList::PushAccelerationStructure(PipelineLayout layout, u32 setIndex, u32 binding, AccelerationStructure accelerationStructure, u32 arrayIndex) const
+    void CommandList::PushAccelerationStructure(HPipelineLayout layout, u32 setIndex, u32 binding, HAccelerationStructure accelerationStructure, u32 arrayIndex) const
     {
         vkCmdPushDescriptorSetKHR(impl->buffer,
             GetVulkanPipelineBindPoint(layout->bindPoint), layout->layout, setIndex,

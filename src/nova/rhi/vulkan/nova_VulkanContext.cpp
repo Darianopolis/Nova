@@ -418,6 +418,8 @@ Validation: {} ({})
 
     void Context::Destroy()
     {
+        if (!impl) return;
+        
         WaitIdle();
 
         for (auto& queue : impl->graphicQueues)  delete queue.impl;
@@ -444,13 +446,13 @@ Validation: {} ({})
         // if (cleanedUp)
         //     NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
 
-        // // Deleted graphics pipeline library stages
-        // for (auto&[key, pipeline] : vertexInputStages)    vkDestroyPipeline(device, pipeline, pAlloc);
-        // for (auto&[key, pipeline] : preRasterStages)      vkDestroyPipeline(device, pipeline, pAlloc);
-        // for (auto&[key, pipeline] : fragmentShaderStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        // for (auto&[key, pipeline] : fragmentOutputStages) vkDestroyPipeline(device, pipeline, pAlloc);
-        // for (auto&[key, pipeline] : graphicsPipelineSets) vkDestroyPipeline(device, pipeline, pAlloc);
-        // for (auto&[key, pipeline] : computePipelines)     vkDestroyPipeline(device, pipeline, pAlloc);
+        // Deleted graphics pipeline library stages
+        for (auto&[key, pipeline] : impl->vertexInputStages)    vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->preRasterStages)      vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->fragmentShaderStages) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->fragmentOutputStages) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->graphicsPipelineSets) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->computePipelines)     vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
 
         // Destroy context vk objects
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);

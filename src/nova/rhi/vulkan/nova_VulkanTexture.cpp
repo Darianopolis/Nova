@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Sampler Sampler::Create(Context context, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
+    Sampler Sampler::Create(HContext context, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -29,6 +29,8 @@ namespace nova
 
     void Sampler::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroySampler(impl->context->device, impl->sampler, impl->context->pAlloc);
 
         delete impl;
@@ -37,7 +39,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    Texture Texture::Create(Context context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags)
+    Texture Texture::Create(HContext context, Vec3U size, TextureUsage usage, Format format, TextureFlags flags)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -167,6 +169,8 @@ namespace nova
 
     void Texture::Destroy()
     {
+        if (!impl) return;
+        
         if (impl->view)
             vkDestroyImageView(impl->context->device, impl->view, impl->context->pAlloc);
 
@@ -189,7 +193,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::Transition(Texture texture,
+    void CommandList::Transition(HTexture texture,
         VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const
     {
         auto& imageState = impl->state->imageStates[texture->image];
@@ -222,7 +226,7 @@ namespace nova
         imageState.access = newAccess;
     }
 
-    void CommandList::Transition(Texture texture, TextureLayout layout, PipelineStage stage) const
+    void CommandList::Transition(HTexture texture, TextureLayout layout, PipelineStage stage) const
     {
         auto queue = impl->pool->queue;
         auto vkLayout = GetVulkanImageLayout(layout);
@@ -258,7 +262,7 @@ namespace nova
         imageState.access = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
     }
 
-    void CommandList::Clear(Texture texture, Vec4 color) const
+    void CommandList::Clear(HTexture texture, Vec4 color) const
     {
         Transition(texture,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -272,7 +276,7 @@ namespace nova
                 VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->mips, 0, texture->layers }));
     }
 
-    void CommandList::CopyToTexture(Texture dst, Buffer src, u64 srcOffset) const
+    void CommandList::CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset) const
     {
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
@@ -292,7 +296,7 @@ namespace nova
         }));
     }
 
-    void CommandList::CopyFromTexture(Buffer dst, Texture src, Rect2D region) const
+    void CommandList::CopyFromTexture(HBuffer dst, HTexture src, Rect2D region) const
     {
         Transition(src,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -313,7 +317,7 @@ namespace nova
         }));
     }
 
-    void CommandList::GenerateMips(Texture texture) const
+    void CommandList::GenerateMips(HTexture texture) const
     {
         if (texture->mips == 1)
             return;
@@ -383,7 +387,7 @@ namespace nova
         imageState.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
-    void CommandList::BlitImage(Texture dst, Texture src, Filter filter) const
+    void CommandList::BlitImage(HTexture dst, HTexture src, Filter filter) const
     {
         Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);

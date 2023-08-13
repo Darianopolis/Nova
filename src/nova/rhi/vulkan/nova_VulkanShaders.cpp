@@ -208,7 +208,7 @@ namespace nova
         }), shader->context->pAlloc, &shader->handle));
     }
 
-    Shader Shader::Create(Context context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
+    Shader Shader::Create(HContext context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -219,7 +219,7 @@ namespace nova
         return shader;
     }
 
-    Shader Shader::Create(Context context, ShaderStage stage, Span<ShaderElement> elements)
+    Shader Shader::Create(HContext context, ShaderStage stage, Span<ShaderElement> elements)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -407,7 +407,7 @@ namespace nova
                                     }
                                     write("}} {}{};\n", binding.name, getArrayPart(binding.count));
                                 }
-                            }, binding.element);
+                            }, binding);
                         }
                     }
                 },
@@ -467,7 +467,7 @@ namespace nova
                 [&](const shader::Kernel& kernel) {
                     write("void main() {{\n{}\n}}\n", kernel.glsl);
                 },
-            }, element.element);
+            }, element);
         }
 
 #undef write
@@ -481,6 +481,8 @@ namespace nova
 
     void Shader::Destroy()
     {
+        if (!impl) return;
+        
         vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
 
         delete impl;

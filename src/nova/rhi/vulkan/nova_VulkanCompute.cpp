@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    void CommandList::SetComputeState(PipelineLayout layout, Shader shader) const
+    void CommandList::SetComputeState(HPipelineLayout layout, HShader shader) const
     {
         auto key = ComputePipelineKey {};
         key.shader = shader->id;

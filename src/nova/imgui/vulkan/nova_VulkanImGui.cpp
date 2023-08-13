@@ -115,7 +115,7 @@ namespace nova
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
         {
             ImGuiDockNodeFlags dockspaceFlags = 0;
-            ImGuiWindowFlags windowFlags = 0;
+            ImGuiWindowFlags dockspaceWindowFlags = 0;
 
             // TODO: More configuration
 
@@ -127,21 +127,25 @@ namespace nova
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-            windowFlags |= ImGuiWindowFlags_NoTitleBar
+            dockspaceWindowFlags |= ImGuiWindowFlags_NoTitleBar
                 | ImGuiWindowFlags_NoCollapse
                 | ImGuiWindowFlags_NoResize
                 | ImGuiWindowFlags_NoMove
                 | ImGuiWindowFlags_NoBringToFrontOnFocus
-                | ImGuiWindowFlags_NoNavFocus
+                | ImGuiWindowFlags_NoNavFocus;
 
-                | ImGuiWindowFlags_MenuBar;
+            if (dockMenuBar)
+                dockspaceWindowFlags |= ImGuiWindowFlags_MenuBar;
 
-            // Pass through background
-            windowFlags |= ImGuiWindowFlags_NoBackground;
-            dockspaceFlags |= ImGuiDockNodeFlags_PassthruCentralNode;
+            if (noDockBg)
+            {
+                // Pass through background
+                dockspaceWindowFlags |= ImGuiWindowFlags_NoBackground;
+                dockspaceFlags |= ImGuiDockNodeFlags_PassthruCentralNode;
+            }
 
             // Register dockspace
-            ImGui::Begin("Dockspace", Temp(true), windowFlags);
+            ImGui::Begin("Dockspace", Temp(true), dockspaceWindowFlags);
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
 

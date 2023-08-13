@@ -70,8 +70,8 @@ int main()
     // Create descriptor layout to hold one storage image and acceleration structure
 
     auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        {nova::binding::StorageTexture("outImage", swapchain.GetFormat())},
-        {nova::binding::AccelerationStructure("tlas")},
+        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
+        nova::binding::AccelerationStructure("tlas"),
     }, true);
     NOVA_ON_SCOPE_EXIT(&) { descLayout.Destroy(); };
 
@@ -83,12 +83,12 @@ int main()
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, {
-        {nova::shader::Layout(pipelineLayout)},
-        {nova::shader::Fragment(R"glsl(
+        nova::shader::Layout(pipelineLayout),
+        nova::shader::Fragment(R"glsl(
             layout(location = 0) rayPayloadEXT uint     payload;
             layout(location = 0) hitObjectAttributeNV vec3 bary;
-        )glsl")},
-        {nova::shader::Kernel(R"glsl(
+        )glsl"),
+        nova::shader::Kernel(R"glsl(
             vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
             vec3 dir = vec3(0, 0, -1);
             hitObjectNV hit;
@@ -101,7 +101,7 @@ int main()
                 color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
             }
             imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
-        )glsl")},
+        )glsl"),
     });
     NOVA_ON_SCOPE_EXIT(&) { rayGenShader.Destroy(); };
 

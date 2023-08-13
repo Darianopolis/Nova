@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    CommandPool CommandPool::Create(Context context, Queue queue)
+    CommandPool CommandPool::Create(HContext context, HQueue queue)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -18,6 +18,8 @@ namespace nova
 
     void CommandPool::Destroy()
     {
+        if (!impl) return;
+        
         for (auto& list : impl->lists)
             delete list.impl;
 
@@ -27,7 +29,7 @@ namespace nova
         impl = nullptr;
     }
 
-    CommandList CommandPool::Begin(CommandState state) const
+    CommandList CommandPool::Begin(HCommandState state) const
     {
         CommandList cmd;
         if (impl->index >= impl->lists.size())
@@ -65,7 +67,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    CommandState CommandState::Create(Context context)
+    CommandState CommandState::Create(HContext context)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -79,7 +81,7 @@ namespace nova
         impl = nullptr;
     }
 
-    void CommandState::SetState(Texture texture,
+    void CommandState::SetState(HTexture texture,
         VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) const
     {
         // TODO

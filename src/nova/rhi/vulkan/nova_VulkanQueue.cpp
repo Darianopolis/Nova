@@ -21,7 +21,7 @@ namespace nova
         NOVA_THROW("Illegal queue flags: {}", u32(flags));
     }
 
-    void Queue::Submit(Span<CommandList> _commandLists, Span<Fence> waits, Span<Fence> signals) const
+    void Queue::Submit(Span<HCommandList> _commandLists, Span<HFence> waits, Span<HFence> signals) const
     {
         auto bufferInfos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, _commandLists.size());
         for (u32 i = 0; i < _commandLists.size(); ++i)
@@ -54,7 +54,7 @@ namespace nova
             signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
-                .value = signal.Advance(),
+                .value = signal().Advance(),
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             };
         }

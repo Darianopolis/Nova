@@ -62,8 +62,8 @@ namespace nova
 
     struct CommandList::Impl
     {
-        CommandPool       pool = {};
-        CommandState     state = {};
+        CommandPool      pool = {};
+        CommandState    state = {};
         VkCommandBuffer buffer = {};
     };
 
@@ -117,7 +117,7 @@ namespace nova
     struct DescriptorSet::Impl
     {
         DescriptorSetLayout layout;
-        VkDescriptorSet        set;
+        VkDescriptorSet         set;
     };
 
     struct Shader::Impl

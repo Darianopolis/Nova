@@ -19,21 +19,21 @@ namespace nova
             {{"pc", {PushConstants::Layout.begin(), PushConstants::Layout.end()}}},
             {descriptorSetLayout}, nova::BindPoint::Graphics);
 
-        descriptorSetLayout = nova::DescriptorSetLayout::Create(context, {{nova::binding::SampledTexture("textures", 65'536)}});
+        descriptorSetLayout = nova::DescriptorSetLayout::Create(context, {nova::binding::SampledTexture("textures", 65'536)});
         descriptorSet = nova::DescriptorSet::Create(descriptorSetLayout);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
-            {nova::shader::Structure("ImRoundRect", ImRoundRect::Layout)},
-            {nova::shader::Layout(pipelineLayout)},
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::Layout(pipelineLayout),
 
-            {nova::shader::Output("outTex", nova::ShaderVarType::Vec2)},
-            {nova::shader::Output("outInstanceID", nova::ShaderVarType::U32)},
-            {nova::shader::Fragment(R"glsl(
+            nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
+            nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
+            nova::shader::Fragment(R"glsl(
                 const vec2[6] deltas = vec2[] (
                     vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
                     vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
-            )glsl")},
-            {nova::shader::Kernel(R"glsl(
+            )glsl"),
+            nova::shader::Kernel(R"glsl(
                 uint instanceID = gl_VertexIndex / 6;
                 uint vertexID = gl_VertexIndex % 6;
 
@@ -42,18 +42,18 @@ namespace nova
                 outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
                 gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
-            )glsl")},
+            )glsl"),
         });
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
-            {nova::shader::Structure("ImRoundRect", ImRoundRect::Layout)},
-            {nova::shader::Layout(pipelineLayout)},
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::Layout(pipelineLayout),
 
-            {nova::shader::Input("inTex", nova::ShaderVarType::Vec2)},
-            {nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat)},
-            {nova::shader::Output("outColor", nova::ShaderVarType::Vec4)},
+            nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
+            nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
+            nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
-            {nova::shader::Kernel(R"glsl(
+            nova::shader::Kernel(R"glsl(
                 ImRoundRect box = ImRoundRect_BR(pc.rectInstancesVA)[inInstanceID];
 
                 vec2 absPos = abs(inTex);
@@ -83,7 +83,7 @@ namespace nova
                         ? box.borderColor
                         : centerColor;
                 }
-            )glsl")}
+            )glsl"),
         });
 
         rectBuffer = nova::Buffer::Create(context, sizeof(ImRoundRect) * MaxPrimitives,

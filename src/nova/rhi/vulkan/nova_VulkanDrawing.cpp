@@ -2,8 +2,11 @@
 
 namespace nova
 {
-    void CommandList::BeginRendering(Rect2D region, Span<Texture> colorAttachments, Texture depthAttachment, Texture stencilAttachment) const
+    void CommandList::BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment, HTexture stencilAttachment) const
     {
+        // auto depthAttachment = _depthAttachment.Get();
+        // auto stencilAttachment = _stencilAttachment.Get();
+
         impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
 
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
@@ -110,7 +113,7 @@ namespace nova
         vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 
-    void CommandList::BindIndexBuffer(Buffer indexBuffer, IndexType indexType, u64 offset) const
+    void CommandList::BindIndexBuffer(HBuffer indexBuffer, IndexType indexType, u64 offset) const
     {
         vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
     }

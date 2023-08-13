@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Buffer Buffer::Create(Context context, u64 size, BufferUsage usage, BufferFlags flags)
+    Buffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -26,6 +26,8 @@ namespace nova
 
     void Buffer::Destroy()
     {
+        if (!impl) return;
+        
         ResetBuffer(impl->context, *this);
 
         delete impl;
@@ -107,12 +109,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::UpdateBuffer(Buffer dst, const void* pData, usz size, u64 dstOffset) const
+    void CommandList::UpdateBuffer(HBuffer dst, const void* pData, usz size, u64 dstOffset) const
     {
         vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
     }
 
-    void CommandList::CopyToBuffer(Buffer dst, Buffer src, u64 size, u64 dstOffset, u64 srcOffset) const
+    void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset, u64 srcOffset) const
     {
         vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
@@ -128,7 +130,7 @@ namespace nova
         }));
     }
 
-    void CommandList::Barrier(Buffer _buffer, PipelineStage src, PipelineStage dst) const
+    void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst) const
     {
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,

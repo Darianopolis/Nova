@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    RayTracingPipeline RayTracingPipeline::Create(Context context)
+    RayTracingPipeline RayTracingPipeline::Create(HContext context)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -16,6 +16,8 @@ namespace nova
 
     void RayTracingPipeline::Destroy()
     {
+        if (!impl) return;
+        
         impl->sbtBuffer.Destroy();
         vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
 
@@ -23,11 +25,11 @@ namespace nova
         impl = nullptr;
     }
 
-    void RayTracingPipeline::Update(PipelineLayout layout,
-        Span<Shader> rayGenShaders,
-        Span<Shader> rayMissShaders,
+    void RayTracingPipeline::Update(HPipelineLayout layout,
+        Span<HShader> rayGenShaders,
+        Span<HShader> rayMissShaders,
         Span<HitShaderGroup> rayHitShaderGroup,
-        Span<Shader> callableShaders) const
+        Span<HShader> callableShaders) const
     {
         // Convert to stages and groups
 
@@ -170,7 +172,7 @@ namespace nova
             std::memcpy(getMapped(rayCallOffset, i), getHandle(rayCallIndices[i]), handleSize);
     }
 
-    void CommandList::TraceRays(RayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const
+    void CommandList::TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u32 genIndex) const
     {
         vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
 

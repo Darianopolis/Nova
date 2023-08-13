@@ -68,7 +68,7 @@ int main()
     // Create descriptor layout to hold one storage image and acceleration structure
 
     auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        {nova::binding::StorageTexture("outImage", swapchain.GetFormat())},
+        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
     }, true);
     NOVA_ON_SCOPE_EXIT(&) { descLayout.Destroy(); };
 
@@ -80,12 +80,12 @@ int main()
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, {
-        {nova::shader::Layout(pipelineLayout)},
-        {nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
+        nova::shader::Layout(pipelineLayout),
+        nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
             vec2 uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
             imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
-        )glsl")},
+        )glsl"),
     });
     NOVA_ON_SCOPE_EXIT(&) { computeShader.Destroy(); };
 
@@ -93,20 +93,20 @@ int main()
     NOVA_ON_SCOPE_EXIT(&) { rasterPipelineLayout.Destroy(); };
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-        {nova::shader::Output("uv", nova::ShaderVarType::Vec2)},
-        {nova::shader::Kernel(R"glsl(
+        nova::shader::Output("uv", nova::ShaderVarType::Vec2),
+        nova::shader::Kernel(R"glsl(
             uv = vec2(float((gl_VertexIndex << 1) & 2), float(gl_VertexIndex & 2));
             gl_Position = vec4(uv * vec2(2.0) - vec2(1.0), 0.0, 1.0);
-        )glsl")},
+        )glsl"),
     });
     NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
-        {nova::shader::Input("uv", nova::ShaderVarType::Vec2)},
-        {nova::shader::Output("fragColor", nova::ShaderVarType::Vec4)},
-        {nova::shader::Kernel(R"glsl(
+        nova::shader::Input("uv", nova::ShaderVarType::Vec2),
+        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
+        nova::shader::Kernel(R"glsl(
             fragColor = vec4(uv, 0.5, 1.0);
-        )glsl")},
+        )glsl"),
     });
     NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
 

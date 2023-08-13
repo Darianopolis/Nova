@@ -65,7 +65,7 @@ int main()
     // Pipeline
 
     auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        {nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}})},
+        nova::binding::UniformBuffer("ubo", {{"pos", nova::ShaderVarType::Vec3}}),
     });
     auto pcRange = nova::PushConstantRange("pc", {{"vertexVA", nova::ShaderVarType::U64},});
     auto pipelineLayout = nova::PipelineLayout::Create(context, {pcRange}, {descLayout}, nova::BindPoint::Graphics);
@@ -89,25 +89,25 @@ int main()
     // Create vertex shader
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-        {nova::shader::Structure("Vertex", {
+        nova::shader::Structure("Vertex", {
             {"position", nova::ShaderVarType::Vec3},
             {"color", nova::ShaderVarType::Vec3},
-        })},
-        {nova::shader::Layout(pipelineLayout)},
+        }),
+        nova::shader::Layout(pipelineLayout),
 
-        {nova::shader::Output("color", nova::ShaderVarType::Vec3)},
-        {nova::shader::Kernel(R"glsl(
+        nova::shader::Output("color", nova::ShaderVarType::Vec3),
+        nova::shader::Kernel(R"glsl(
             Vertex v = Vertex_BR(pc.vertexVA)[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + ubo.pos, 1);
-        )glsl")},
+        )glsl"),
     });
     NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
-        {nova::shader::Input("inColor", nova::ShaderVarType::Vec3)},
-        {nova::shader::Output("fragColor", nova::ShaderVarType::Vec4)},
-        {nova::shader::Kernel("fragColor = vec4(inColor, 1);")},
+        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
+        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
+        nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
     });
     NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
 
