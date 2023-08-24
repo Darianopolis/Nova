@@ -153,12 +153,16 @@ Validation: {} ({})
         {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(gpu, &properties);
-            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 
+            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
             {
                 impl->gpu = gpu;
-                break;                                                                    
+                break;
             }
         }
+        // u32 gpuCount = 1;
+        // VkCall(vkEnumeratePhysicalDevices(impl->instance, &gpuCount, &impl->gpu));
+        // if (gpuCount == 0)
+        //     NOVA_THROW("No physical devices found!");
 
         // ---- Logical Device ----
 

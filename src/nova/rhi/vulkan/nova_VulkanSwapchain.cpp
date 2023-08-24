@@ -304,15 +304,12 @@ namespace nova
         }));
         TimePresenting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
-        for (u32 i = 0; i < _swapchains.size(); ++i)
-        {
-            if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR)
-            {
+        for (u32 i = 0; i < _swapchains.size(); ++i) {
+            if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR) {
                 NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)_swapchains[i]->swapchain, int(results[i]));
                 _swapchains[i]->invalid = true;
             }
-            else
-            {
+            else {
                 VkCall(results[i]);
             }
         }

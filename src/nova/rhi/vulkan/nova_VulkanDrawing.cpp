@@ -4,9 +4,6 @@ namespace nova
 {
     void CommandList::BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment, HTexture stencilAttachment) const
     {
-        // auto depthAttachment = _depthAttachment.Get();
-        // auto stencilAttachment = _stencilAttachment.Get();
-
         impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
 
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());

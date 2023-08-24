@@ -8,13 +8,6 @@
 
 namespace nova
 {
-    inline std::atomic<u64> TimeSubmitting = 0;
-    inline std::atomic<u64> TimeAdaptingFromAcquire = 0;
-    inline std::atomic<u64> TimeAdaptingToPresent = 0;
-    inline std::atomic<u64> TimePresenting = 0;
-    inline std::atomic<u64> TimeSettingGraphicsState = 0;
-    inline std::atomic<u64> MemoryAllocated = 0;
-
     inline
     void VkCall(VkResult res)
     {
@@ -355,7 +348,7 @@ namespace nova
         Vec2, Vec3, Vec4,
         Vec2U, Vec3U, Vec4U,
         U32, U64,
-        I32, I64,
+        I16, I32, I64,
         F32, F64,
     };
 
@@ -374,6 +367,9 @@ namespace nova
         break;case ShaderVarType::Vec2: return  2 * 4;
         break;case ShaderVarType::Vec3: return  3 * 4;
         break;case ShaderVarType::Vec4: return  4 * 4;
+
+        break;case ShaderVarType::I16:
+            return 2;
 
         break;case ShaderVarType::U32:
               case ShaderVarType::I32:
