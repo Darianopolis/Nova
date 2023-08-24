@@ -1,10 +1,8 @@
-#include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-#include <nova/rhi/nova_RHI_Handle.hpp>
-#include <nova/core/nova_Timer.hpp>
-#include <nova/imgui/nova_ImGui.hpp>
+#include "example_Main.hpp"
 
-#include <nova/imgui/vulkan/nova_VulkanImGui.hpp>
+#include <nova/core/nova_Timer.hpp>
+#include <nova/rhi/nova_RHI.hpp>
+#include <nova/ui/nova_ImGui.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -13,9 +11,7 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
-using namespace nova::types;
-
-void TryMain()
+void example_MultiTarget()
 {
     auto context = nova::Context::Create({
         .debug = true,
@@ -83,17 +79,17 @@ void TryMain()
         if (newTime - lastTime > 1s)
         {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
-                frames, nova::Context::Impl::AllocationCount.load(), 
-                nova::Context::Impl::NewAllocationCount.exchange(0));
+                frames, nova::rhi::stats::AllocationCount.load(), 
+                nova::rhi::stats::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
             NOVA_LOG("submit :: clear     = {:.2f}\n"
                      "submit :: adapting1 = {:.2f}\n"
                      "submit :: adapting2 = {:.2f}\n"
                      "present             = {:.2f}",
-                nova::TimeSubmitting.exchange(0) / divisor,
-                nova::TimeAdaptingFromAcquire.exchange(0)  / divisor,
-                nova::TimeAdaptingToPresent.exchange(0)  / divisor,
-                nova::TimePresenting.exchange(0) / divisor);
+                nova::rhi::stats::TimeSubmitting.exchange(0) / divisor,
+                nova::rhi::stats::TimeAdaptingFromAcquire.exchange(0)  / divisor,
+                nova::rhi::stats::TimeAdaptingToPresent.exchange(0)  / divisor,
+                nova::rhi::stats::TimePresenting.exchange(0) / divisor);
 
             lastTime = std::chrono::steady_clock::now();
             frames = 0;
@@ -153,17 +149,5 @@ void TryMain()
     {
         update();
         glfwPollEvents();
-    }
-}
-
-int main()
-{
-    try
-    {
-        TryMain();
-    }
-    catch(...)
-    {
-        std::cout << "Error\n";
     }
 }

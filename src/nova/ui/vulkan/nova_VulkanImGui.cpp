@@ -1,4 +1,4 @@
-#include "nova_VulkanImGui.hpp"
+#include <nova/ui/nova_ImGui.hpp>
 
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 

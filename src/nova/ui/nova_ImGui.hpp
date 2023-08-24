@@ -1,11 +1,23 @@
 #pragma once
 
-#include <nova/imgui/nova_ImGui.hpp>
+#include <nova/core/nova_Core.hpp>
+#include <nova/rhi/nova_RHI.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include <imgui.h>
+#include <GLFW/glfw3.h>
 
 namespace nova
 {
+    struct ImGuiConfig
+    {
+        f32      uiScale = 1.5f;
+        const char* font = "assets/fonts/CONSOLA.TTF";
+        f32     fontSize = 20.f;
+        Vec2 glyphOffset = Vec2(1.f, 1.67f);
+        i32        flags = 0;
+        u32   imageCount = 2;
+    };
+
     struct ImGuiLayer
     {
         Context context = {};

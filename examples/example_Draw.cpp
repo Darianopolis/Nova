@@ -1,19 +1,15 @@
-#include <nova/rhi/nova_RHI_Handle.hpp>
-#include <nova/core/nova_Timer.hpp>
+#include "example_Main.hpp"
 
-#include <nova/imdraw/nova_ImDraw2D.hpp>
+#include <nova/core/nova_Timer.hpp>
+#include <nova/rhi/nova_RHI.hpp>
+#include <nova/ui/nova_ImDraw2D.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
 #include <stb_image.h>
 
-#include <array>
-#include <iostream>
-
-using namespace nova::types;
-
-void TryMain()
+void example_Draw()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -219,13 +215,4 @@ void TryMain()
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
     }
-}
-
-int main()
-{
-    try
-    {
-        TryMain();
-    }
-    catch(...) {}
 }

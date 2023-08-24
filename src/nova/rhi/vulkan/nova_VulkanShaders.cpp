@@ -185,7 +185,7 @@ namespace nova
         glslang::SpvOptions spvOptions {
             .generateDebugInfo = false,
             .stripDebugInfo = false,
-            .disableOptimizer = false,
+            .disableOptimizer = true,
             .disassemble = false,
             .validate = true,
             .emitNonSemanticShaderDebugInfo = false,

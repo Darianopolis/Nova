@@ -2,9 +2,6 @@
 
 namespace nova
 {
-    std::atomic_int64_t Context::Impl::AllocationCount = 0;
-    std::atomic_int64_t Context::Impl::NewAllocationCount = 0;
-
     static
     VkBool32 VKAPI_CALL DebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -467,7 +464,7 @@ Validation: {} ({})
             vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
         vkDestroyInstance(impl->instance, impl->pAlloc);
 
-        NOVA_LOG("~Context(Allocations = {})", Impl::AllocationCount.load());
+        NOVA_LOG("~Context(Allocations = {})", rhi::stats::AllocationCount.load());
 
         delete impl;
         impl = nullptr;

@@ -2,7 +2,6 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
-#include <nova/core/nova_Registry.hpp>
 #include <nova/core/nova_Array.hpp>
 
 namespace nova
@@ -367,17 +366,14 @@ namespace nova
         VkPipelineCache pipelineCache = {};
 
     public:
-        static std::atomic_int64_t    AllocationCount;
-        static std::atomic_int64_t NewAllocationCount;
-
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
                 void* ptr = mi_malloc_aligned(size, align);
                 if (ptr)
                 {
-                    MemoryAllocated += mi_usable_size(ptr);
-                    ++AllocationCount;
-                    ++NewAllocationCount;
+                    rhi::stats::MemoryAllocated += mi_usable_size(ptr);
+                    ++rhi::stats::AllocationCount;
+                    ++rhi::stats::NewAllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                     NOVA_LOG(" --\n{}", std::stacktrace::current());
                     NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
@@ -395,8 +391,8 @@ namespace nova
             .pfnFree = +[](void*, void* ptr) {
                 if (ptr)
                 {
-                    MemoryAllocated -= mi_usable_size(ptr);
-                    --AllocationCount;
+                    rhi::stats::MemoryAllocated -= mi_usable_size(ptr);
+                    --rhi::stats::AllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                     NOVA_LOG("Freeing ptr = {}", ptr);
                     NOVA_LOG("    Allocations - :: {}", AllocationCount.load());

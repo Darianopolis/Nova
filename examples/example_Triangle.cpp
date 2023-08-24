@@ -1,11 +1,11 @@
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include "example_Main.hpp"
+
+#include <nova/rhi/nova_RHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-using namespace nova::types;
-
-int main()
+void example_Triangle()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

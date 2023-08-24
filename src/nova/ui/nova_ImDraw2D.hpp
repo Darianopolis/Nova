@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include <nova/rhi/nova_RHI.hpp>
 
 namespace nova
 {

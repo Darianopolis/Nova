@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nova/core/nova_Core.hpp>
+#include "nova_Core.hpp"
 
 #define NOVA_SAFE_REFERENCES 1
 

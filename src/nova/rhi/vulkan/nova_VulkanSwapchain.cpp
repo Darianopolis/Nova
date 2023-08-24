@@ -212,7 +212,7 @@ namespace nova
                 .signalSemaphoreInfoCount = u32(signals.size()),
                 .pSignalSemaphoreInfos = signalInfos,
             }), nullptr));
-            TimeAdaptingFromAcquire += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+            rhi::stats::TimeAdaptingFromAcquire += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
         }
 
         return anyResized;
@@ -271,7 +271,7 @@ namespace nova
                 .signalSemaphoreInfoCount = u32(_swapchains.size()),
                 .pSignalSemaphoreInfos = signalInfos,
             }), nullptr));
-            TimeAdaptingToPresent += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+            rhi::stats::TimeAdaptingToPresent += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
             binaryWaits = NOVA_ALLOC_STACK(VkSemaphore, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i)
@@ -302,7 +302,7 @@ namespace nova
             .pImageIndices = indices,
             .pResults = results,
         }));
-        TimePresenting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+        rhi::stats::TimePresenting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
         for (u32 i = 0; i < _swapchains.size(); ++i) {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR) {
