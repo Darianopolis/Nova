@@ -17,37 +17,6 @@ namespace nova
     {
         u32 framesInFlight = std::max(config.imageCount, 2u);
 
-        // VkCall(vkCreateRenderPass(context->device, Temp(VkRenderPassCreateInfo {
-        //     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        //     .attachmentCount = 1,
-        //     .pAttachments = Temp(VkAttachmentDescription {
-        //         .format = GetVulkanFormat(format),
-        //         .samples = VK_SAMPLE_COUNT_1_BIT,
-        //         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-        //         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        //         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        //         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        //         .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        //         .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        //     }),
-        //     .subpassCount = 1,
-        //     .pSubpasses = Temp(VkSubpassDescription {
-        //         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        //         .colorAttachmentCount = 1,
-        //         .pColorAttachments = Temp(VkAttachmentReference {
-        //             .attachment = 0,
-        //             .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        //         }),
-        //     }),
-        //     .dependencyCount = 1,
-        //     .pDependencies = Temp(VkSubpassDependency {
-        //         .srcSubpass = VK_SUBPASS_EXTERNAL,
-        //         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        //         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        //         .srcAccessMask = 0,
-        //     }),
-        // }), context->pAlloc, &renderPass));
-
         // Create ImGui context and initialize
 
         imguiCtx = ImGui::CreateContext();
@@ -70,7 +39,6 @@ namespace nova
             .UseDynamicRendering = true,
             .ColorAttachmentFormat = GetVulkanFormat(format),
             .CheckVkResultFn = [](VkResult r) { VkCall(r); },
-        // }), renderPass);
         }), nullptr);
 
         // Rescale UI and fonts
@@ -87,12 +55,6 @@ namespace nova
 
     ImGuiLayer::~ImGuiLayer()
     {
-        // if (!renderPass)
-        //     return;
-
-        // vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
-        // vkDestroyRenderPass(context->device, renderPass, context->pAlloc);
-
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
         ImGui_ImplVulkan_Shutdown();
@@ -115,8 +77,6 @@ namespace nova
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiDockNodeFlags dockspaceFlags = 0;
             ImGuiWindowFlags dockspaceWindowFlags = 0;
-
-            // TODO: More configuration
 
             // Make dockspace fullscreen
             auto viewport = ImGui::GetMainViewport();
@@ -185,53 +145,10 @@ namespace nova
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
 
-        // if (Vec2U(context->Texture_GetExtent(texture)) != lastSize
-        //     || context->texture->usage != lastUsage)
-        // {
-        //     lastSize = Vec2U(context->Texture_GetExtent(texture));
-        //     lastUsage = context->texture->usage;
-
-        //     vkDestroyFramebuffer(context->device, framebuffer, context->pAlloc);
-
-        //     VkCall(vkCreateFramebuffer(context->device, Temp(VkFramebufferCreateInfo {
-        //         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        //         .pNext = Temp(VkFramebufferAttachmentsCreateInfo {
-        //             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
-        //             .attachmentImageInfoCount = 1,
-        //             .pAttachmentImageInfos = Temp(VkFramebufferAttachmentImageInfo {
-        //                 .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
-        //                 .usage = GetVulkanImageUsage(context->texture->usage),
-        //                 .width = lastSize.x,
-        //                 .height = lastSize.y,
-        //                 .layerCount = 1,
-        //                 .viewFormatCount = 1,
-        //                 .pViewFormats = nova::Temp(GetVulkanFormat(context->texture->format)),
-        //             }),
-        //         }),
-        //         .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
-        //         .renderPass = renderPass,
-        //         .attachmentCount = 1,
-        //         .width = lastSize.x,
-        //         .height = lastSize.y,
-        //         .layers = 1,
-        //     }), context->pAlloc, &framebuffer));
-        // }
-
         cmd.Transition(texture, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
-        // vkCmdBeginRenderPass(context->buffer, Temp(VkRenderPassBeginInfo {
-        //     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        //     .pNext = Temp(VkRenderPassAttachmentBeginInfo {
-        //         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-        //         .attachmentCount = 1,
-        //         .pAttachments = &context->texture->view,
-        //     }),
-        //     .renderPass = renderPass,
-        //     .framebuffer = framebuffer,
-        //     .renderArea = { {}, { lastSize.x, lastSize.y } },
-        // }), VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBeginRendering(cmd->buffer, Temp(VkRenderingInfo {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
             .renderArea = { {}, { texture->extent.x, texture->extent.y } },
@@ -244,7 +161,6 @@ namespace nova
             }),
         }));
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
-        // vkCmdEndRenderPass(context->buffer);
         vkCmdEndRendering(cmd->buffer);
 
         ImGui::SetCurrentContext(lastImguiCtx);
