@@ -155,7 +155,7 @@ namespace nova
 
         auto staging = nova::Buffer::Create(context, u64(size) * u64(size) * 4,
             BufferUsage::TransferSrc, BufferFlags::Mapped);
-        NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
+        NOVA_CLEANUP(&) { staging.Destroy(); };
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c)

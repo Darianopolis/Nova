@@ -16,20 +16,20 @@ void example_MultiTarget()
     auto context = nova::Context::Create({
         .debug = true,
     });
-    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
+    NOVA_CLEANUP(&) { context.Destroy(); };
 
     auto presentMode = nova::PresentMode::Mailbox;
     auto swapchainUsage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
 
     glfwInit();
-    NOVA_ON_SCOPE_EXIT(&) { glfwTerminate(); };
+    NOVA_CLEANUP(&) { glfwTerminate(); };
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     GLFWwindow* windows[] { 
-        glfwCreateWindow(1920, 1200, "Present Test Window #1", nullptr, nullptr),
-        glfwCreateWindow(1920, 1200, "Present Test Window #2", nullptr, nullptr),
+        glfwCreateWindow(1920, 1200, "Nova - Multi Target #1", nullptr, nullptr),
+        glfwCreateWindow(1920, 1200, "Nova - Multi Target #2", nullptr, nullptr),
     };
-    NOVA_ON_SCOPE_EXIT(&) {
+    NOVA_CLEANUP(&) {
         glfwDestroyWindow(windows[0]);
         glfwDestroyWindow(windows[1]);
     };
@@ -37,22 +37,22 @@ void example_MultiTarget()
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode),
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode),
     };
-    NOVA_ON_SCOPE_EXIT(&) {
+    NOVA_CLEANUP(&) {
         swapchains[0].Destroy();
         swapchains[1].Destroy();
     };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto state = nova::CommandState::Create(context);
-    NOVA_ON_SCOPE_EXIT(&) { state.Destroy(); };
+    NOVA_CLEANUP(&) { state.Destroy(); };
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
-    NOVA_ON_SCOPE_EXIT(&) { fence.Destroy(); };
+    NOVA_CLEANUP(&) { fence.Destroy(); };
     nova::CommandPool commandPools[] { 
         nova::CommandPool::Create(context, queue), 
         nova::CommandPool::Create(context, queue) 
     };
-    NOVA_ON_SCOPE_EXIT(&) { 
+    NOVA_CLEANUP(&) { 
         commandPools[0].Destroy();
         commandPools[1].Destroy();
     };
@@ -135,7 +135,7 @@ void example_MultiTarget()
         waitValues[fif] = fence.GetPendingValue();
     };
     
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_CLEANUP(&) { fence.Wait(); };
 
     for (auto window : windows)
     {

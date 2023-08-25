@@ -149,7 +149,7 @@ namespace nova
         void Worker([[maybe_unused]] JobSystem* system, u32 index)
         {
             JobWorkerState.workerID = index;
-            NOVA_ON_SCOPE_EXIT() { JobWorkerState.workerID = ~0u; };
+            NOVA_CLEANUP() { JobWorkerState.workerID = ~0u; };
 
             for (;;)
             {

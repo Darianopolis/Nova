@@ -247,6 +247,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+#define NOVA_CONCAT_INTERNAL(a, b) a##b
+#define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_DECORATE_FLAG_ENUM(enumType)                                \
     inline enumType operator|(enumType l, enumType r) {                  \
         return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
@@ -315,94 +320,99 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    template<typename Fn>
-    struct DoOnceState
+    namespace guards
     {
-        DoOnceState(Fn&& fn)
+
+        template<typename Fn>
+        struct DoOnceGuard
         {
-            fn();
-        }
-    };
+            DoOnceGuard(Fn&& fn)
+            {
+                fn();
+            }
+        };
 
-    template<typename Fn>
-    struct OnShutdown
-    {
-        Fn fn;
-
-        OnShutdown(Fn&& _fn)
-            : fn(std::move(_fn))
-        {}
-
-        ~OnShutdown()
+        template<typename Fn>
+        struct OnExitGuard
         {
-            fn();
-        }
-    };
+            Fn fn;
 
-#define NOVA_DO_ONCE(...) static ::nova::DoOnceState NOVA_CONCAT(_do_once_$_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_EXIT(...) static ::nova::OnShutdown  NOVA_CONCAT(_on_exit_$_, __COUNTER__) = [__VA_ARGS__]
+            OnExitGuard(Fn&& _fn)
+                : fn(std::move(_fn))
+            {}
+
+            ~OnExitGuard()
+            {
+                fn();
+            }
+        };
+    }
+
+#define NOVA_DO_ONCE(...) static ::nova::guards::DoOnceGuard NOVA_CONCAT(nova_do_once_, __LINE__)  = [__VA_ARGS__]
+#define NOVA_ON_EXIT(...) static ::nova::guards::OnExitGuard NOVA_CONCAT(nova_on_exit__, __LINE__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 
-    template<typename Fn>
-    class OnScopeExit
+    namespace guards
     {
-        Fn fn;
-
-    public:
-        OnScopeExit(Fn fn)
-            : fn(std::move(fn))
-        {}
-
-        ~OnScopeExit()
+        template<typename Fn>
+        class CleanupGuard
         {
-            fn();
-        }
-    };
+            Fn fn;
 
-    template<typename Fn>
-    class OnScopeSuccess
-    {
-        Fn fn;
-        i32 exceptions;
+        public:
+            CleanupGuard(Fn fn)
+                : fn(std::move(fn))
+            {}
 
-    public:
-        OnScopeSuccess(Fn fn)
-            : fn(std::move(fn))
-            , exceptions(std::uncaught_exceptions())
-        {}
-
-        ~OnScopeSuccess()
-        {
-            if (std::uncaught_exceptions() <= exceptions)
+            ~CleanupGuard()
+            {
                 fn();
-        }
-    };
+            }
+        };
 
-    template<typename Fn>
-    class OnScopeFailure
-    {
-        Fn fn;
-        i32 exceptions;
-
-    public:
-        OnScopeFailure(Fn fn)
-            : fn(std::move(fn))
-            , exceptions(std::uncaught_exceptions())
-        {}
-
-        ~OnScopeFailure()
+        template<typename Fn>
+        class CleanupSuccessGuard
         {
-            if (std::uncaught_exceptions() > exceptions)
-                fn();
-        }
-    };
+            Fn fn;
+            i32 exceptions;
 
-#define NOVA_CONCAT_INTERNAL(a, b) a##b
-#define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
-#define NOVA_ON_SCOPE_EXIT(...)    ::nova::OnScopeExit    NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_SUCCESS(...) ::nova::OnScopeSuccess NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
-#define NOVA_ON_SCOPE_FAILURE(...) ::nova::OnScopeFailure NOVA_CONCAT(scope_exit_callback_, __COUNTER__) = [__VA_ARGS__]
+        public:
+            CleanupSuccessGuard(Fn fn)
+                : fn(std::move(fn))
+                , exceptions(std::uncaught_exceptions())
+            {}
+
+            ~CleanupSuccessGuard()
+            {
+                if (std::uncaught_exceptions() <= exceptions)
+                    fn();
+            }
+        };
+
+        template<typename Fn>
+        class CleanupFailureGuard
+        {
+            Fn fn;
+            i32 exceptions;
+
+        public:
+            CleanupFailureGuard(Fn fn)
+                : fn(std::move(fn))
+                , exceptions(std::uncaught_exceptions())
+            {}
+
+            ~CleanupFailureGuard()
+            {
+                if (std::uncaught_exceptions() > exceptions)
+                    fn();
+            }
+        };
+    }
+
+#define NOVA_CLEANUP(...)         ::nova::guards::CleanupGuard        NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
+#define NOVA_CLEANUP_SUCCESS(...) ::nova::guards::CleanupSuccessGuard NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
+#define NOVA_CLEANUP_FAILURE(...) ::nova::guards::CleanupFailureGuard NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 

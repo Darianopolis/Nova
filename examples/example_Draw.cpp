@@ -15,8 +15,8 @@ void example_Draw()
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    auto window = glfwCreateWindow(1920, 1200, "Box Overlay Test Window", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) {
+    auto window = glfwCreateWindow(1920, 1200, "Nova - Draw", nullptr, nullptr);
+    NOVA_CLEANUP(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
@@ -32,19 +32,19 @@ void example_Draw()
     auto context = nova::Context::Create({
         .debug = false,
     });
-    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
+    NOVA_CLEANUP(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, hwnd,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
-    NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
+    NOVA_CLEANUP(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto commandPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
-    NOVA_ON_SCOPE_EXIT(&) { 
+    NOVA_CLEANUP(&) { 
         commandPool.Destroy();
         fence.Destroy();
         state.Destroy();
@@ -61,7 +61,7 @@ void example_Draw()
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
-        NOVA_ON_SCOPE_EXIT(&) { stbi_image_free(data); };
+        NOVA_CLEANUP(&) { stbi_image_free(data); };
 
         texture = nova::Texture::Create(context,
             Vec3(f32(w), f32(h), 0.f),
@@ -70,7 +70,7 @@ void example_Draw()
 
         usz size = w * h * 4;
         auto staging = nova::Buffer::Create(context, size, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
-        NOVA_ON_SCOPE_EXIT(&) { staging.Destroy(); };
+        NOVA_CLEANUP(&) { staging.Destroy(); };
         std::memcpy(staging.GetMapped(), data, size);
 
         auto cmd = commandPool.Begin(state);
@@ -141,7 +141,7 @@ void example_Draw()
 
     auto lastFrame = std::chrono::steady_clock::now();
 
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_CLEANUP(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();

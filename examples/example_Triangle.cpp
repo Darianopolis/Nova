@@ -9,30 +9,28 @@ void example_Triangle()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Hello Nova RT Triangle", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) {
+    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle", nullptr, nullptr);
+    NOVA_CLEANUP(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
 
-    NOVA_LOG("Size = {}", sizeof(std::mutex));
-
     auto context = nova::Context::Create({
         .debug = false,
     });
-    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
+    NOVA_CLEANUP(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
-    NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
+    NOVA_CLEANUP(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
-    NOVA_ON_SCOPE_EXIT(&) {
+    NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
         state.Destroy();
@@ -49,17 +47,17 @@ void example_Triangle()
     auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_ON_SCOPE_EXIT(&) { vertices.Destroy(); };
+    NOVA_CLEANUP(&) { vertices.Destroy(); };
     vertices.Set<Vertex>({ 
-        {{-0.6f, 0.6f, 0.f}, {1.f, 0.f, 0.f}}, 
-        {{ 0.6f, 0.6f, 0.f}, {0.f, 1.f, 0.f}}, 
-        {{ 0.f, -0.6f, 0.f}, {0.f, 0.f, 1.f}} 
+        {{ -0.6f, 0.6f, 0.f }, { 1.f, 0.f, 0.f }}, 
+        {{  0.6f, 0.6f, 0.f }, { 0.f, 1.f, 0.f }}, 
+        {{  0.f, -0.6f, 0.f }, { 0.f, 0.f, 1.f }} 
     });
 
     auto indices = nova::Buffer::Create(context, 6 * 4,
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_ON_SCOPE_EXIT(&) { indices.Destroy(); };
+    NOVA_CLEANUP(&) { indices.Destroy(); };
     indices.Set<u32>({0, 1, 2});
 
     // Pipeline
@@ -69,7 +67,7 @@ void example_Triangle()
     });
     auto pcRange = nova::PushConstantRange("pc", {{"vertexVA", nova::ShaderVarType::U64},});
     auto pipelineLayout = nova::PipelineLayout::Create(context, {pcRange}, {descLayout}, nova::BindPoint::Graphics);
-    NOVA_ON_SCOPE_EXIT(&) {
+    NOVA_CLEANUP(&) {
         descLayout.Destroy();
         pipelineLayout.Destroy();
     };
@@ -79,11 +77,11 @@ void example_Triangle()
     auto ubo = nova::Buffer::Create(context, sizeof(Vec3),
         nova::BufferUsage::Uniform,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_ON_SCOPE_EXIT(&) { ubo.Destroy(); };
+    NOVA_CLEANUP(&) { ubo.Destroy(); };
     ubo.Set<Vec3>({{0.f, 0.f, 0.f}});
 
     auto set = nova::DescriptorSet::Create(descLayout);
-    NOVA_ON_SCOPE_EXIT(&) { set.Destroy(); };
+    NOVA_CLEANUP(&) { set.Destroy(); };
     set.WriteUniformBuffer(0, ubo);
 
     // Create vertex shader
@@ -102,18 +100,18 @@ void example_Triangle()
             gl_Position = vec4(v.position + ubo.pos, 1);
         )glsl"),
     });
-    NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
+    NOVA_CLEANUP(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Kernel("fragColor = vec4(inColor, 1);"),
     });
-    NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
+    NOVA_CLEANUP(&) { fragmentShader.Destroy(); };
 
     // Draw
 
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_CLEANUP(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         fence.Wait();

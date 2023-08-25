@@ -7,17 +7,16 @@
 
 void example_Compute()
 {
+
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
 // -----------------------------------------------------------------------------
 
-    // Initial window setup
-
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1200,
-        "Hello Nova RT Triangle", nullptr, nullptr);
-    NOVA_ON_SCOPE_EXIT(&) {
+        "Nova - Compute", nullptr, nullptr);
+    NOVA_CLEANUP(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
@@ -36,7 +35,7 @@ void example_Compute()
     auto context = nova::Context::Create({
         .debug = false,
     });
-    NOVA_ON_SCOPE_EXIT(&) { context.Destroy(); };
+    NOVA_CLEANUP(&) { context.Destroy(); };
 
     // Create surface and swapchain for GLFW window
 
@@ -45,7 +44,7 @@ void example_Compute()
         | nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Immediate);
-    NOVA_ON_SCOPE_EXIT(&) { swapchain.Destroy(); };
+    NOVA_CLEANUP(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
@@ -53,7 +52,7 @@ void example_Compute()
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
-    NOVA_ON_SCOPE_EXIT(&) {
+    NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
         state.Destroy();
@@ -70,12 +69,12 @@ void example_Compute()
     auto descLayout = nova::DescriptorSetLayout::Create(context, {
         nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
     }, true);
-    NOVA_ON_SCOPE_EXIT(&) { descLayout.Destroy(); };
+    NOVA_CLEANUP(&) { descLayout.Destroy(); };
 
     // Create a pipeline layout for the above set layout
 
     auto pipelineLayout = nova::PipelineLayout::Create(context, {}, {descLayout}, nova::BindPoint::Compute);
-    NOVA_ON_SCOPE_EXIT(&) { pipelineLayout.Destroy(); };
+    NOVA_CLEANUP(&) { pipelineLayout.Destroy(); };
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
@@ -87,10 +86,10 @@ void example_Compute()
             imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
         )glsl"),
     });
-    NOVA_ON_SCOPE_EXIT(&) { computeShader.Destroy(); };
+    NOVA_CLEANUP(&) { computeShader.Destroy(); };
 
     auto rasterPipelineLayout = nova::PipelineLayout::Create(context, {}, {}, nova::BindPoint::Graphics);
-    NOVA_ON_SCOPE_EXIT(&) { rasterPipelineLayout.Destroy(); };
+    NOVA_CLEANUP(&) { rasterPipelineLayout.Destroy(); };
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
         nova::shader::Output("uv", nova::ShaderVarType::Vec2),
@@ -99,7 +98,7 @@ void example_Compute()
             gl_Position = vec4(uv * vec2(2.0) - vec2(1.0), 0.0, 1.0);
         )glsl"),
     });
-    NOVA_ON_SCOPE_EXIT(&) { vertexShader.Destroy(); };
+    NOVA_CLEANUP(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("uv", nova::ShaderVarType::Vec2),
@@ -108,7 +107,7 @@ void example_Compute()
             fragColor = vec4(uv, 0.5, 1.0);
         )glsl"),
     });
-    NOVA_ON_SCOPE_EXIT(&) { fragmentShader.Destroy(); };
+    NOVA_CLEANUP(&) { fragmentShader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -123,7 +122,7 @@ void example_Compute()
 
     auto lastTime = std::chrono::steady_clock::now();
     auto frames = 0;
-    NOVA_ON_SCOPE_EXIT(&) { fence.Wait(); };
+    NOVA_CLEANUP(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window))
     {
         // Debug output statistics
