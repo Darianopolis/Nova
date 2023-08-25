@@ -21,22 +21,6 @@ namespace nova
         inline std::atomic<u64> MemoryAllocated = 0;
     }
 
-    inline
-    void VkCall(VkResult res)
-    {
-        if (res != VK_SUCCESS)
-            NOVA_THROW("Error: {}", int(res));
-    }
-
-    template<typename Container, typename Fn, typename ... Args>
-    void VkQuery(Container&& container, Fn&& fn, Args&& ... args)
-    {
-        u32 count;
-        fn(std::forward<Args>(args)..., &count, nullptr);
-        container.resize(count);
-        fn(std::forward<Args>(args)..., &count, container.data());
-    }
-
 // -----------------------------------------------------------------------------
 
     template<typename T>
@@ -368,8 +352,7 @@ namespace nova
     inline constexpr
     u32 GetShaderVarTypeSize(ShaderVarType type)
     {
-        switch (type)
-        {
+        switch (type) {
         break;case ShaderVarType::Mat2: return  4 * 4;
         break;case ShaderVarType::Mat3: return  9 * 4;
         break;case ShaderVarType::Mat4: return 16 * 4;
@@ -381,18 +364,15 @@ namespace nova
         break;case ShaderVarType::Vec3: return  3 * 4;
         break;case ShaderVarType::Vec4: return  4 * 4;
 
-        break;case ShaderVarType::I16:
-            return 2;
+        break;case ShaderVarType::I16: return 2;
 
         break;case ShaderVarType::U32:
               case ShaderVarType::I32:
-              case ShaderVarType::F32:
-            return 4;
+              case ShaderVarType::F32: return 4;
 
         break;case ShaderVarType::U64:
               case ShaderVarType::I64:
-              case ShaderVarType::F64:
-            return 8;
+              case ShaderVarType::F64: return 8;
         }
         return 0;
     }
@@ -400,10 +380,9 @@ namespace nova
     inline constexpr
     u32 GetShaderVarTypeAlign(ShaderVarType type)
     {
-        switch (type)
-        {
-        break;case ShaderVarType::U64:
-            return 8;
+        switch (type) {
+        break;case ShaderVarType::U64: return 8;
+        break;case ShaderVarType::I16: return 2;
         }
         return 4;
     }

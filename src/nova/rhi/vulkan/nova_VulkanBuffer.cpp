@@ -17,8 +17,9 @@ namespace nova
     static
     void ResetBuffer(Context ctx, Buffer buffer)
     {
-        if (!buffer->buffer)
+        if (!buffer->buffer) {
             return;
+        }
 
         vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
         buffer.impl->buffer = nullptr;
@@ -26,7 +27,9 @@ namespace nova
 
     void Buffer::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         ResetBuffer(impl->context, *this);
 
@@ -36,27 +39,29 @@ namespace nova
 
     void Buffer::Resize(u64 _size) const
     {
-        if (impl->size >= _size)
+        if (impl->size >= _size) {
             return;
+        }
 
         impl->size = _size;
 
         ResetBuffer(impl->context, *this);
 
         VmaAllocationCreateFlags vmaFlags = {};
-        if (impl->flags >= BufferFlags::Mapped)
-        {
+        if (impl->flags >= BufferFlags::Mapped) {
             vmaFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-            if (impl->flags >= BufferFlags::DeviceLocal)
+            if (impl->flags >= BufferFlags::DeviceLocal) {
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-            else
+            } else {
                 vmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+            }
         }
 
         auto vkUsage = GetVulkanBufferUsage(impl->usage);
         vkUsage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (impl->flags >= BufferFlags::Addressable)
+        if (impl->flags >= BufferFlags::Addressable) {
             vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        }
 
         VkCall(vmaCreateBuffer(
             impl->context->vma,
@@ -81,8 +86,7 @@ namespace nova
             &impl->allocation,
             nullptr));
 
-        if (impl->flags >= BufferFlags::Addressable)
-        {
+        if (impl->flags >= BufferFlags::Addressable) {
             impl->address = vkGetBufferDeviceAddress(impl->context->device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                 .buffer = impl->buffer,

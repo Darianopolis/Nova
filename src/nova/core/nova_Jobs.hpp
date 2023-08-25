@@ -28,8 +28,7 @@ namespace nova
         void Wait()
         {
             u32 v = counter.load();
-            while (v != 0)
-            {
+            while (v != 0) {
                 counter.wait(v);
                 v = counter.load();
             }
@@ -72,12 +71,9 @@ namespace nova
 
         Ref<Job> Signal(Ref<Barrier> signal)
         {
-            if (signal->acquired > 0)
-            {
+            if (signal->acquired > 0) {
                 signal->acquired--;
-            }
-            else
-            {
+            } else {
                 signal->counter++;
             }
             signals.emplace_back(std::move(signal));
@@ -121,8 +117,7 @@ namespace nova
     public:
         JobSystem(u32 threads)
         {
-            for (u32 i = 0; i < threads; ++i)
-            {
+            for (u32 i = 0; i < threads; ++i) {
                 workers.emplace_back([this, i] {
                     Worker(this, i);
                 });
@@ -151,16 +146,15 @@ namespace nova
             JobWorkerState.workerID = index;
             NOVA_CLEANUP() { JobWorkerState.workerID = ~0u; };
 
-            for (;;)
-            {
+            for (;;) {
                 // Acquire a lock
                 std::unique_lock lock{mutex};
 
                 // Wait while the queue is empty
-                while (queue.empty())
-                {
-                    if (!running)
+                while (queue.empty()) {
+                    if (!running) {
                         return;
+                    }
                     cv.wait(lock); // Wait for cv.notify_one() that signals a job has been added
                 }
 
@@ -174,15 +168,12 @@ namespace nova
                 // run job
                 job->task();
 
-                for (auto& signal : job->signals)
-                {
+                for (auto& signal : job->signals) {
                     // signal->Signal();
                     // NOVA_LOG("Signalling, counter = {}", signal->counter.load());
-                    if (--signal->counter == 0)
-                    {
+                    if (--signal->counter == 0) {
                         // NOVA_LOG("  Reached 0!");
-                        for (auto& task : signal->pending)
-                        {
+                        for (auto& task : signal->pending) {
                             task->system->Submit(task, true);
                         }
                         signal->counter.notify_all();
@@ -194,10 +185,11 @@ namespace nova
         void Submit(Ref<Job> job, bool front = false)
         {
             std::scoped_lock lock { mutex };
-            if (front)
+            if (front) {
                 queue.push_front(std::move(job));
-            else
+            } else {
                 queue.push_back(std::move(job));
+            }
             cv.notify_one();
         }
     };

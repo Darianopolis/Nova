@@ -27,17 +27,13 @@ namespace nova
             std::filesystem::path target;
             bool exists = false;
 
-            if (isRelative)
-            {
+            if (isRelative) {
                 target = current.parent_path() / requested;
                 exists = std::filesystem::exists(target);
-            }
-            else
-            for (auto& dir : includeDirs)
-            {
+
+            } else for (auto& dir : includeDirs) {
                 target = dir / requested;
-                if (std::filesystem::exists(target))
-                {
+                if (std::filesystem::exists(target)) {
                     exists = true;
                     break;
                 }
@@ -45,14 +41,11 @@ namespace nova
 
             auto userData = new ShaderIncludeUserData{};
 
-            if (exists)
-            {
+            if (exists) {
                 userData->name = target.string();
                 // userData->content = nova::files::ReadTextFile(userData->name);
                 NOVA_THROW("Include load file not supported yet");
-            }
-            else
-            {
+            } else {
                 userData->content = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
                 NOVA_LOG("{}", userData->content);
             }
@@ -94,8 +87,7 @@ namespace nova
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
         EShLanguage glslangStage;
-        switch (GetVulkanShaderStage(shader->stage))
-        {
+        switch (GetVulkanShaderStage(shader->stage)) {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
         break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
         break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: glslangStage = EShLangTessEvaluation;
@@ -140,23 +132,21 @@ namespace nova
             std::istringstream iss(glslCode);
             std::string line;
             u32 lineNum = 0;
-            while (std::getline(iss, line))
-            {
+            while (std::getline(iss, line)) {
                 NOVA_LOG("{:3} : {}", ++lineNum, line);
             }
         };
 
         std::string preprocessed;
         if (!glslShader.preprocess(
-            resource,
-            460,
-            ECoreProfile,
-            false,
-            false,
-            EShMessages::EShMsgEnhanced,
-            &preprocessed,
-            includer))
-        {
+                resource,
+                460,
+                ECoreProfile,
+                false,
+                false,
+                EShMessages::EShMsgEnhanced,
+                &preprocessed,
+                includer)) {
             printShader();
             NOVA_THROW("GLSL preprocessing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
@@ -166,8 +156,7 @@ namespace nova
 
         // ---- Parsing ----
 
-        if (!glslShader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault))
-        {
+        if (!glslShader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault)) {
             printShader();
             NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
@@ -198,8 +187,9 @@ namespace nova
         spv::SpvBuildLogger logger;
         glslang::GlslangToSpv(*intermediate, spirv, &spvOptions);
 
-        if (!logger.getAllMessages().empty())
+        if (!logger.getAllMessages().empty()) {
             NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
+        }
 
         VkCall(vkCreateShaderModule(shader->context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -240,52 +230,32 @@ namespace nova
 
 #define write(...) std::format_to(std::back_insert_iterator(code), __VA_ARGS__)
 
-        auto typeToString = [](ShaderVarType type)
-        {
-            switch (type)
-            {
-            break;case ShaderVarType::Mat2:
-                return "mat2";
-            break;case ShaderVarType::Mat3:
-                return "mat3";
-            break;case ShaderVarType::Mat4:
-                return "mat4";
+        auto typeToString = [](ShaderVarType type) {
+            switch (type) {
+            break;case ShaderVarType::Mat2: return "mat2";
+            break;case ShaderVarType::Mat3: return "mat3";
+            break;case ShaderVarType::Mat4: return "mat4";
 
-            break;case ShaderVarType::Mat4x3:
-                return "mat4x3";
-            break;case ShaderVarType::Mat3x4:
-                return "mat3x4";
+            break;case ShaderVarType::Mat4x3: return "mat4x3";
+            break;case ShaderVarType::Mat3x4: return "mat3x4";
 
-            break;case ShaderVarType::Vec2:
-                return "vec2";
-            break;case ShaderVarType::Vec3:
-                return "vec3";
-            break;case ShaderVarType::Vec4:
-                return "vec4";
+            break;case ShaderVarType::Vec2: return "vec2";
+            break;case ShaderVarType::Vec3: return "vec3";
+            break;case ShaderVarType::Vec4: return "vec4";
 
-            break;case ShaderVarType::Vec2U:
-                return "uvec2";
-            break;case ShaderVarType::Vec3U:
-                return "uvec3";
-            break;case ShaderVarType::Vec4U:
-                return "uvec4";
+            break;case ShaderVarType::Vec2U: return "uvec2";
+            break;case ShaderVarType::Vec3U: return "uvec3";
+            break;case ShaderVarType::Vec4U: return "uvec4";
 
-            break;case ShaderVarType::U32:
-                return "uint";
-            break;case ShaderVarType::U64:
-                return "uint64_t";
+            break;case ShaderVarType::U32: return "uint";
+            break;case ShaderVarType::U64: return "uint64_t";
 
-            break;case ShaderVarType::I16:
-                return "int16_t";
-            break;case ShaderVarType::I32:
-                return "int";
-            break;case ShaderVarType::I64:
-                return "int64_t";
+            break;case ShaderVarType::I16: return "int16_t";
+            break;case ShaderVarType::I32: return "int";
+            break;case ShaderVarType::I64: return "int64_t";
 
-            break;case ShaderVarType::F32:
-                return "float";
-            break;case ShaderVarType::F64:
-                return "double";
+            break;case ShaderVarType::F32: return "float";
+            break;case ShaderVarType::F64: return "double";
             }
 
             std::unreachable();
@@ -308,30 +278,22 @@ namespace nova
         u32 outputLocation = 0;
         auto getTypeLocationWidth = [](ShaderVarType type) {
 
-            switch (type) 
-            {
-            break;case ShaderVarType::Mat2:
-                return 2;
-            break;case ShaderVarType::Mat3:
-                return 3;
-            break;case ShaderVarType::Mat4:
-                return 4;
-
-            break;default:
-                return 1;
+            switch (type)  {
+            break;case ShaderVarType::Mat2: return 2;
+            break;case ShaderVarType::Mat3: return 3;
+            break;case ShaderVarType::Mat4: return 4;
+            break;default:                  return 1;
             }
         };
 
-        for (auto& element : elements)
-        {
+        for (auto& element : elements) {
             std::visit(Overloads {
 // -----------------------------------------------------------------------------
 //                          Structure declaration
 // -----------------------------------------------------------------------------
                 [&](const shader::Structure& structure) {
                     write("struct {} {{\n", structure.name);
-                    for (auto& member : structure.members)
-                    {
+                    for (auto& member : structure.members) {
                         write("    {} {}{};\n",
                             typeToString(member.type), member.name, getArrayPart(member.count));
                     }
@@ -348,11 +310,9 @@ namespace nova
 
                     // Push Constants
 
-                    for (auto& pushConstants : pipelineLayout->pcRanges)
-                    {
+                    for (auto& pushConstants : pipelineLayout->pcRanges) {
                         write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
-                        for (auto& member : pushConstants.constants)
-                        {
+                        for (auto& member : pushConstants.constants) {
                             write("    {} {}{};\n",
                                 typeToString(member.type), member.name, getArrayPart(member.count));
                         }
@@ -361,11 +321,9 @@ namespace nova
 
                     // Descriptor Sets
 
-                    for (u32 setIdx = 0; setIdx < pipelineLayout->sets.size(); ++setIdx)
-                    {
+                    for (u32 setIdx = 0; setIdx < pipelineLayout->sets.size(); ++setIdx) {
                         auto set = pipelineLayout->setLayouts[setIdx];
-                        for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx)
-                        {
+                        for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx) {
                             auto& binding = set->bindings[bindingIdx];
 
                             std::visit(Overloads {
@@ -378,8 +336,7 @@ namespace nova
                                     // TODO: Support 1D/3D
                                     const char* formatString;
                                     const char* imageType;
-                                    switch (binding.format)
-                                    {
+                                    switch (binding.format) {
                                     break;case Format::RGBA8_UNorm:
                                           case Format::BGRA8_UNorm:
                                           case Format::RGBA8_SRGB:
@@ -430,13 +387,16 @@ namespace nova
 // -----------------------------------------------------------------------------
                 [&](const shader::Input& input) {
                     write("layout(location = {}) in", inputLocation);
-                    if (input.flags >= ShaderInputFlags::Flat)
+                    if (input.flags >= ShaderInputFlags::Flat) {
                         write(" flat");
-                    if (input.flags >= ShaderInputFlags::PerVertex)
+                    }
+                    if (input.flags >= ShaderInputFlags::PerVertex) {
                         write(" pervertexEXT");
+                    }
                     write(" {} {}", typeToString(input.type), input.name);
-                    if (input.flags >= ShaderInputFlags::PerVertex)
+                    if (input.flags >= ShaderInputFlags::PerVertex) {
                         write("[3]"); // TODO: Primitive vertex count?
+                    }
                     write(";\n");
 
                     inputLocation += getTypeLocationWidth(input.type);
@@ -484,7 +444,9 @@ namespace nova
 
     void Shader::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
 

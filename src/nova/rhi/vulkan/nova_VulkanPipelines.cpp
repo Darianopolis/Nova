@@ -10,13 +10,11 @@ namespace nova
 
         impl->id = context->GetUID();
 
-        for (auto& range : pushConstantRanges)
-        {
+        for (auto& range : pushConstantRanges) {
             impl->pcRanges.push_back(range);
             u32 size = 0;
             u32 largestAlign = 0;
-            for (auto& member : range.constants)
-            {
+            for (auto& member : range.constants) {
                 largestAlign = std::max(largestAlign, GetShaderVarTypeAlign(member.type));
                 size = AlignUpPower2(size, GetShaderVarTypeAlign(member.type));
                 size += GetShaderVarTypeSize(member.type);
@@ -26,8 +24,7 @@ namespace nova
             impl->ranges.back().stageFlags = VK_SHADER_STAGE_ALL;
         }
 
-        for (auto& setLayout : descriptorSetLayouts)
-        {
+        for (auto& setLayout : descriptorSetLayouts) {
             impl->setLayouts.push_back(setLayout);
             impl->sets.emplace_back(setLayout->layout);
         }
@@ -45,7 +42,9 @@ namespace nova
 
     void PipelineLayout::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkDestroyPipelineLayout(impl->context->device, impl->layout, impl->context->pAlloc);
 
@@ -83,8 +82,7 @@ namespace nova
         auto key = GraphicsPipelineVertexInputStageKey {};
 
         // Set topology class
-        switch (state.topology)
-        {
+        switch (state.topology) {
         break;case Topology::Points:
             key.topology = Topology::Points;
         break;case Topology::Lines:
@@ -100,8 +98,7 @@ namespace nova
 
         auto pipeline = context->vertexInputStages[key];
 
-        if (!pipeline)
-        {
+        if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
@@ -153,17 +150,18 @@ namespace nova
         key.polyMode = state.polyMode;
 
         // Set shaders and layout
-        for (u32 i = 0; i < shaders.size(); ++i)
+        for (u32 i = 0; i < shaders.size(); ++i) {
             key.shaders[i] = shaders[i]->id;
+        }
         key.layout = layout->id;
 
         auto pipeline = context->preRasterStages[key];
 
-        if (!pipeline)
-        {
+        if (!pipeline) {
             auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
-            for (u32 i = 0; i < shaders.size(); ++i)
+            for (u32 i = 0; i < shaders.size(); ++i) {
                 stages[i] = shaders[i]->GetStageInfo();
+            }
 
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
@@ -221,8 +219,7 @@ namespace nova
 
         auto pipeline = context->fragmentShaderStages[key];
 
-        if (!pipeline)
-        {
+        if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
@@ -286,23 +283,19 @@ namespace nova
 
         auto pipeline = context->fragmentOutputStages[key];
 
-        if (!pipeline)
-        {
-
+        if (!pipeline) {
             // Blend states
 
             auto attachBlendStates = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, renderingDesc.colorFormats.size());
 
-            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
-            {
+            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i) {
                 auto& attachState = attachBlendStates[i];
 
                 attachState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                     | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
                 attachState.blendEnable = state.blendEnable;
 
-                if (state.blendEnable)
-                {
+                if (state.blendEnable) {
                     attachState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
                     attachState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
                     attachState.colorBlendOp = VK_BLEND_OP_ADD;
@@ -315,8 +308,9 @@ namespace nova
             // Create
 
             auto vkFormats = NOVA_ALLOC_STACK(VkFormat, renderingDesc.colorFormats.size());
-            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i)
+            for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i) {
                 vkFormats[i] = GetVulkanFormat(renderingDesc.colorFormats[i]);
+            }
 
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
@@ -375,8 +369,7 @@ namespace nova
 
         auto pipeline = context->graphicsPipelineSets[key];
 
-        if (!pipeline)
-        {
+        if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
             VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
@@ -410,16 +403,13 @@ namespace nova
         {
             auto size = impl->state->renderingExtent;
 
-            if (pipelineState.flipVertical)
-            {
+            if (pipelineState.flipVertical) {
                 vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                     .y = f32(size.y),
                     .width = f32(size.x), .height = -f32(size.y),
                     .minDepth = 0.f, .maxDepth = 1.f,
                 }));
-            }
-            else
-            {
+            } else {
                 vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
                     .width = f32(size.x), .height = f32(size.y),
                     .minDepth = 0.f, .maxDepth = 1.f,
@@ -452,12 +442,12 @@ namespace nova
             Shader fragmentShader = {};
             std::array<Shader, 4> preRasterStageShaders;
             u32 preRasterStageShaderIndex = 0;
-            for (auto& shader : _shaders)
-            {
-                if (shader->stage == ShaderStage::Fragment)
+            for (auto& shader : _shaders) {
+                if (shader->stage == ShaderStage::Fragment) {
                     fragmentShader = shader;
-                else
+                } else {
                     preRasterStageShaders[preRasterStageShaderIndex++] = shader;
+                }
             }
 
             // Request pipeline

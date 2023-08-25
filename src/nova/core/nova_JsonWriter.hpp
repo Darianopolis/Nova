@@ -22,23 +22,23 @@ namespace nova
     public:
         void Indent()
         {
-            for (u32 i = 0; i < depth; ++i)
+            for (u32 i = 0; i < depth; ++i) {
                 out << indentString;
+            }
         }
 
         void NewElement()
         {
-            if (hasKey)
-            {
+            if (hasKey) {
                 hasKey = false;
                 return;
             }
 
-            if (!firstElement)
+            if (!firstElement) {
                 out << ',';
+            }
 
-            if (depth > 0)
-            {
+            if (depth > 0) {
                 out << '\n';
                 Indent();
             }
@@ -70,8 +70,7 @@ namespace nova
         void EndObject()
         {
             --depth;
-            if (!firstElement)
-            {
+            if (!firstElement) {
                 out << '\n';
                 Indent();
             }
@@ -90,8 +89,7 @@ namespace nova
         void EndArray()
         {
             --depth;
-            if (!firstElement)
-            {
+            if (!firstElement) {
                 out << '\n';
                 Indent();
             }

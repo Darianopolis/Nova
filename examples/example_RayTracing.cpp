@@ -208,8 +208,7 @@ void example_RayTracing()
 // -----------------------------------------------------------------------------
 
     NOVA_CLEANUP(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         // Wait for previous frame and acquire new swapchain image
 
         fence.Wait();

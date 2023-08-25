@@ -23,8 +23,9 @@ namespace nova
             usz cur_capacity = capacity();
 
             // Only resize if necessary
-            if (cur_capacity >= _new_size)
+            if (cur_capacity >= _new_size) {
                 return;
+            }
 
             _large.capacity = usz(cur_capacity * 1.5);
 
@@ -34,33 +35,32 @@ namespace nova
             // Copy and free iff was previously large
             // Don't call constructors/destructors, trivially relocatable requiremnt!
             std::memcpy(new_data, data(), _size * sizeof(T));
-            if (_is_large)
+            if (_is_large) {
                 mi_free(_large.data);
+            }
 
             _large.data = new_data;
             _is_large = 1;
         }
 
     public:
-        Array()
-        {
-
-        }
+        Array() {}
 
         ~Array()
         {
             clear();
-            if (_is_large)
+            if (_is_large) {
                 mi_free(_large.data);
+            }
         }
         
     public:
         void clear() noexcept(noexcept(std::declval<T>().~T()))
         {
-            if constexpr (!std::is_trivially_destructible_v<T>)
-            {
-                for (auto& e : *this)
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                for (auto& e : *this) {
                     e.~T();
+                }
             }
 
             _size = 0;
@@ -144,12 +144,10 @@ namespace nova
 
         void pop_back()
         {
-            if constexpr (!std::is_trivially_destructible_v<T>())
-            {
+            if constexpr (!std::is_trivially_destructible_v<T>()) {
                 (data() + --_size)->~T();
             }
-            else
-            {
+            else {
                 --_size;
             }
         }

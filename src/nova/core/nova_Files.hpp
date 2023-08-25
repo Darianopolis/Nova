@@ -56,8 +56,9 @@ namespace nova
         std::vector<char> ReadBinaryFile(std::string_view filename)
         {
             std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
-            if (!file.is_open())
+            if (!file.is_open()) {
                 throw std::runtime_error("Failed to open file");
+            }
 
             auto fileSize = size_t(file.tellg());
             std::vector<char> buffer(fileSize);
@@ -73,8 +74,9 @@ namespace nova
         std::string ReadTextFile(std::string_view filename)
         {
             std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
-            if (!file.is_open())
+            if (!file.is_open()) {
                 throw std::runtime_error("Failed to open file");
+            }
 
             std::string output;
             output.reserve((size_t)file.tellg());

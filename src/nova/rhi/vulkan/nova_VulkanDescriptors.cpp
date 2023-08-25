@@ -10,8 +10,7 @@ namespace nova
         auto flags = NOVA_ALLOC_STACK(VkDescriptorBindingFlags, bindings.size());
         auto vkBindings = NOVA_ALLOC_STACK(VkDescriptorSetLayoutBinding, bindings.size());
 
-        for (u32 i = 0; i < bindings.size(); ++i)
-        {
+        for (u32 i = 0; i < bindings.size(); ++i) {
             auto& binding = bindings[i];
 
             vkBindings[i] = {
@@ -22,8 +21,7 @@ namespace nova
             // TODO: Partially bound optional?
             flags[i] = VkDescriptorBindingFlags(0);
 
-            if (!pushDescriptors)
-            {
+            if (!pushDescriptors) {
                 flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
                 flags[i] |= VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
             }
@@ -32,28 +30,32 @@ namespace nova
                 [&](const binding::SampledTexture& binding) {
                     vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                     vkBindings[i].descriptorCount = binding.count.value_or(1u);
-                    if (binding.count)
+                    if (binding.count) {
                         flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    }
                 },
                 [&](const binding::StorageTexture& binding) {
                     vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
                     vkBindings[i].descriptorCount = binding.count.value_or(1u);
-                    if (binding.count)
+                    if (binding.count) {
                         flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    }
                 },
                 [&](const binding::AccelerationStructure& binding) {
                     vkBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
                     vkBindings[i].descriptorCount = binding.count.value_or(1u);
-                    if (binding.count)
+                    if (binding.count) {
                         flags[i] |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    }
                 },
                 [&](const binding::UniformBuffer& binding) {
                     vkBindings[i].descriptorType = binding.dynamic
                         ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
                         : VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                     vkBindings[i].descriptorCount = binding.count.value_or(1u);
-                    if (binding.count)
+                    if (binding.count) {
                         flags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                    }
                 },
             }, binding);
         }
@@ -81,10 +83,11 @@ namespace nova
 
     void DescriptorSetLayout::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
-        if (impl->layout)
-            vkDestroyDescriptorSetLayout(impl->context->device, impl->layout, impl->context->pAlloc);
+        vkDestroyDescriptorSetLayout(impl->context->device, impl->layout, impl->context->pAlloc);
         
         delete impl;
         impl = nullptr;
@@ -109,7 +112,9 @@ namespace nova
 
     void DescriptorSet::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkFreeDescriptorSets(impl->layout->context->device, impl->layout->context->descriptorPool, 1, &impl->set);
 
@@ -157,8 +162,9 @@ namespace nova
     void CommandList::BindDescriptorSets(HPipelineLayout pipelineLayout, u32 firstSet, Span<HDescriptorSet> sets) const
     {
         auto vkSets = NOVA_ALLOC_STACK(VkDescriptorSet, sets.size());
-        for (u32 i = 0; i < sets.size(); ++i)
+        for (u32 i = 0; i < sets.size(); ++i) {
             vkSets[i] = sets[i]->set;
+        }
 
         vkCmdBindDescriptorSets(impl->buffer, GetVulkanPipelineBindPoint(pipelineLayout->bindPoint),
             pipelineLayout->layout, firstSet,

@@ -4,14 +4,16 @@ namespace nova
 {
     Database::Database(const std::string& path)
     {
-        if (auto err = sqlite3_open(path.c_str(), &db))
+        if (auto err = sqlite3_open(path.c_str(), &db)) {
             NOVA_THROW("Error[{}] opening sqlite3 db file [{}]", err, path);
+        }
     }
 
     Database::~Database()
     {
-        if (db)
+        if (db) {
             sqlite3_close(db);
+        }
     }
 
     sqlite3* Database::GetDB()
@@ -25,23 +27,27 @@ namespace nova
         : db(_db.GetDB())
     {
         const c8* tail;
-        if (auto err = sqlite3_prepare_v2(db, sql.c_str(), i32(sql.length()) + 1, &stmt, &tail))
+        if (auto err = sqlite3_prepare_v2(db, sql.c_str(), i32(sql.length()) + 1, &stmt, &tail)) {
             NOVA_THROW("Error[{}] during prepare: {}", err, sqlite3_errmsg(db));
+        }
     }
 
     Statement::~Statement()
     {
-        if (stmt)
+        if (stmt) {
             sqlite3_finalize(stmt);
+        }
     }
 
     void Statement::ResetIfComplete()
     {
-        if (!complete)
+        if (!complete) {
             return;
+        }
 
-        if (auto err = sqlite3_reset(stmt))
+        if (auto err = sqlite3_reset(stmt)) {
             NOVA_THROW("Error[{}] resetting stmt: {}", err, sqlite3_errmsg(db));
+        }
 
         complete = false;
     }
@@ -49,13 +55,16 @@ namespace nova
     bool Statement::Step()
     {
         ResetIfComplete();
+
         auto res = sqlite3_step(stmt);
         if (res == SQLITE_DONE) {
             complete = true;
             return false;
         }
-        if (res == SQLITE_ROW)
+
+        if (res == SQLITE_ROW) {
             return true;
+        }
 
         NOVA_THROW("Error[{}] during step: {}", res, sqlite3_errmsg(db));
     }
@@ -69,8 +78,10 @@ namespace nova
     Statement& Statement::SetNull(u32 index)
     {
         ResetIfComplete();
-        if (auto err = sqlite3_bind_null(stmt, index))
+
+        if (auto err = sqlite3_bind_null(stmt, index)) {
             NOVA_THROW("Error[{}] during set: {}", err, sqlite3_errmsg(db));
+        }
 
         return *this;
     }
@@ -78,8 +89,10 @@ namespace nova
     Statement& Statement::SetString(u32 index, std::string_view str)
     {
         ResetIfComplete();
-        if (auto err = sqlite3_bind_text(stmt, index, &str[0], i32(str.cend() - str.cbegin()), SQLITE_STATIC))
+
+        if (auto err = sqlite3_bind_text(stmt, index, &str[0], i32(str.cend() - str.cbegin()), SQLITE_STATIC)) {
             NOVA_THROW("Error[{}] during set: {}", err, sqlite3_errmsg(db));
+        }
 
         return *this;
     }
@@ -87,8 +100,10 @@ namespace nova
     Statement& Statement::SetInt(u32 index, i64 value)
     {
         ResetIfComplete();
-        if (auto err = sqlite3_bind_int64(stmt, index, value))
+
+        if (auto err = sqlite3_bind_int64(stmt, index, value)) {
             NOVA_THROW("Error[{}] during set: {}", err, sqlite3_errmsg(db));
+        }
 
         return *this;
     }
@@ -96,8 +111,10 @@ namespace nova
     Statement& Statement::SetReal(u32 index, f64 value)
     {
         ResetIfComplete();
-        if (auto err = sqlite3_bind_double(stmt, index, value))
+
+        if (auto err = sqlite3_bind_double(stmt, index, value)) {
             NOVA_THROW("Error[{}] during set: {}", err, sqlite3_errmsg(db));
+        }
 
         return *this;
     }

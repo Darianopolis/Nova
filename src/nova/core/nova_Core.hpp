@@ -268,12 +268,15 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    thread_local inline std::string NovaFormatOutput;
+    namespace detail
+    {
+        thread_local inline std::string NovaFormatOutput;
+    }
 
 #define NOVA_FORMAT_TEMP(fmt, ...) ([&]() -> const std::string& {                                \
-    ::nova::NovaFormatOutput.clear();                                                            \
-    std::format_to(std::back_inserter(::nova::NovaFormatOutput), fmt __VA_OPT__(,) __VA_ARGS__); \
-    return ::nova::NovaFormatOutput;                                                             \
+    ::nova::detail::NovaFormatOutput.clear();                                                            \
+    std::format_to(std::back_inserter(::nova::detail::NovaFormatOutput), fmt __VA_OPT__(,) __VA_ARGS__); \
+    return ::nova::detail::NovaFormatOutput;                                                             \
 }())
 
 #define NOVA_DEBUG() \
@@ -304,25 +307,25 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    thread_local inline std::chrono::steady_clock::time_point NovaTimeitLast;
+    namespace detail
+    {
+        thread_local inline std::chrono::steady_clock::time_point NovaTimeitLast;
+    }
 
-#define NOVA_TIMEIT_RESET() ::nova::NovaTimeitLast = std::chrono::steady_clock::now()
+#define NOVA_TIMEIT_RESET() ::nova::detail::NovaTimeitLast = std::chrono::steady_clock::now()
 
-// #define NOVA_TIMEIT(...) do {                                                  \
-//     using namespace std::chrono;                                               \
-//     NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
-//         duration_cast<milliseconds>(steady_clock::now()                        \
-//             - ::nova::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
-//     ::nova::NovaTimeitLast = steady_clock::now();                              \
-// } while (0)
-
-#define NOVA_TIMEIT(...)
+#define NOVA_TIMEIT(...) do {                                                  \
+    using namespace std::chrono;                                               \
+    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+        duration_cast<milliseconds>(steady_clock::now()                        \
+            - ::nova::detail::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+    ::nova::detail::NovaTimeitLast = steady_clock::now();                      \
+} while (0)
 
 // -----------------------------------------------------------------------------
 
     namespace guards
     {
-
         template<typename Fn>
         struct DoOnceGuard
         {
@@ -428,8 +431,7 @@ namespace nova
     type(type&& other) noexcept;                       \
     type& operator=(type&& other)                      \
     {                                                  \
-        if (this != &other)                            \
-        {                                              \
+        if (this != &other) {                          \
             std::destroy_at(this);                     \
             std::construct_at(this, std::move(other)); \
         }                                              \
@@ -452,7 +454,10 @@ namespace nova
 //         byte* ptr = &stack[0];
 //     };
 
-//     inline thread_local ThreadSupplementaryStack NovaStack;
+//     namespace detail
+//     {
+//         inline thread_local ThreadSupplementaryStack NovaStack;
+//     }
 
 //     template<typename T>
 //     class StackPtr
@@ -461,14 +466,14 @@ namespace nova
 //     public:
 //         StackPtr(usz count)
 //         {
-//             ptr = (T*)NovaStack.ptr;
-//             NovaStack.ptr += sizeof(T) * count;
+//             ptr = (T*)detail::NovaStack.ptr;
+//             detail::NovaStack.ptr += sizeof(T) * count;
 //         }
 
 //         ~StackPtr()
 //         {
 //             // NOVA_ASSERT(NovaStack.ptr >= (byte*)ptr, "Out of order stack free");
-//             NovaStack.ptr = (byte*)ptr;
+//             detail::NovaStack.ptr = (byte*)ptr;
 //         }
 
 //         StackPtr(const StackPtr<T>&) = delete;

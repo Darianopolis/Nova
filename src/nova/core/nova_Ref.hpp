@@ -32,9 +32,7 @@ namespace nova::types
         void RefCounted_Acquire()
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (std::atomic_ref<u32>(referenceCount) == InvalidRefCount)
-                [[unlikely]]
-            {
+            if (std::atomic_ref<u32>(referenceCount) == InvalidRefCount) [[unlikely]] {
                 NOVA_THROW("Attempted to Acquire on RefCounted object that is being destroyed!");
             }
 #endif
@@ -45,8 +43,9 @@ namespace nova::types
         {
             bool toDelete = !--std::atomic_ref<u32>(referenceCount);
 #ifdef NOVA_SAFE_REFERENCES
-            if (toDelete)
+            if (toDelete) {
                 std::atomic_ref<u32>(referenceCount).store(InvalidRefCount);
+            }
 #endif
             return toDelete;
         }
@@ -79,8 +78,9 @@ namespace nova::types
 
         ~Ref()
         {
-            if (value && value->RefCounted_Release())
+            if (value && value->RefCounted_Release()) {
                 delete value;
+            }
         }
 
 // -----------------------------------------------------------------------------
@@ -96,8 +96,7 @@ namespace nova::types
         Ref(T* value)
             : value(value)
         {
-            if (value)
-            {
+            if (value) {
                 value->RefCounted_Acquire();
             }
         }
@@ -108,16 +107,16 @@ namespace nova::types
             : value(moved.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (this == &moved)
+            if (this == &moved) {
                 NOVA_THROW("Ref::Ref(Ref<T>&&) called on self");
+            }
 #endif
             moved.value = nullptr;
         }
 
         Ref<T>& operator=(Ref<T>&& moved) noexcept
         {
-            if (value != moved.value)
-            {
+            if (value != moved.value) {
                 this->~Ref();
                 new (this) Ref(moved);
             }
@@ -130,17 +129,18 @@ namespace nova::types
             : value(copied.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (this == &copied)
+            if (this == &copied) {
                 NOVA_THROW("Ref::Ref(const Ref<T>&) called on self");
+            }
 #endif
-            if (value)
+            if (value) {
                 value->RefCounted_Acquire();
+            }
         }
 
         Ref<T>& operator=(const Ref<T>& copied)
         {
-            if (value != copied.value)
-            {
+            if (value != copied.value) {
                 this->~Ref();
                 new (this) Ref(copied);
             }
@@ -213,8 +213,9 @@ namespace nova::types
         {
 #ifdef NOVA_SAFE_REFERENCES
             auto cast = dynamic_cast<T2*>(value);
-            if (value && !cast)
+            if (value && !cast) {
                 NOVA_THROW("Invalid cast!");
+            }
             return Ref<T2>(cast);
 #else
             return Ref<T2>(static_cast<T2*>(value));
@@ -234,8 +235,9 @@ namespace nova::types
         T* operator->() const
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (!value)
+            if (!value) {
                 NOVA_THROW("Ref<{}>::operator-> called on null reference", typeid(T).name());
+            }
 #endif
             return value;
         }
@@ -243,8 +245,9 @@ namespace nova::types
         T& operator*() const
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (!value)
+            if (!value) {
                 NOVA_THROW("Ref<{}>::operator* called on null reference", typeid(T).name());
+            }
 #endif
             return *value;
         }

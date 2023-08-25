@@ -7,8 +7,7 @@ namespace nova
         impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
 
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
-        for (u32 i = 0; i < colorAttachments.size(); ++i)
-        {
+        for (u32 i = 0; i < colorAttachments.size(); ++i) {
             auto texture = colorAttachments[i];
 
             Transition(colorAttachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -37,10 +36,8 @@ namespace nova
         VkRenderingAttachmentInfo depthInfo = {};
         VkRenderingAttachmentInfo stencilInfo = {};
 
-        if (depthAttachment == stencilAttachment)
-        {
-            if (depthAttachment)
-            {
+        if (depthAttachment == stencilAttachment) {
+            if (depthAttachment) {
                 Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -56,11 +53,8 @@ namespace nova
                 impl->state->depthAttachmentFormat = depthAttachment->format;
                 impl->state->stencilAttachmentFormat = stencilAttachment->format;
             }
-        }
-        else
-        {
-            if (depthAttachment)
-            {
+        } else {
+            if (depthAttachment) {
                 Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -75,8 +69,7 @@ namespace nova
                 impl->state->depthAttachmentFormat = depthAttachment->format;
             }
 
-            if (stencilAttachment)
-            {
+            if (stencilAttachment) {
                 Transition(stencilAttachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,

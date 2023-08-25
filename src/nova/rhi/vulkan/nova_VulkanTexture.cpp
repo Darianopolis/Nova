@@ -29,7 +29,9 @@ namespace nova
 
     void Sampler::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkDestroySampler(impl->context->device, impl->sampler, impl->context->pAlloc);
 
@@ -55,49 +57,34 @@ namespace nova
         VkImageViewType viewType;
         impl->layers = 1;
 
-        if (flags >= TextureFlags::Array)
-        {
-            if (size.z > 0)
-            {
+        if (flags >= TextureFlags::Array) {
+            if (size.z > 0) {
                 impl->layers = size.z;
                 size.z = 1;
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-            }
-            else
-            if (size.y > 0)
-            {
+
+            } else if (size.y > 0) {
                 impl->layers = size.y;
                 size.y = 1;
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
-            }
-            else
-            {
+            } else {
                 NOVA_THROW("Image array must have at least 1 dimension and 1 layer");
             }
-        }
-        else
-        {
-            if (size.z > 0)
-            {
+        } else {
+            if (size.z > 0) {
                 imageType = VK_IMAGE_TYPE_3D;
                 viewType = VK_IMAGE_VIEW_TYPE_3D;
-            }
-            else
-            if (size.y > 0)
-            {
+
+            } else if (size.y > 0) {
                 imageType = VK_IMAGE_TYPE_2D;
                 viewType = VK_IMAGE_VIEW_TYPE_2D;
-            }
-            else
-            if (size.z > 0)
-            {
+
+            } else if (size.z > 0) {
                 imageType = VK_IMAGE_TYPE_1D;
                 viewType = VK_IMAGE_VIEW_TYPE_1D;
-            }
-            else
-            {
+            } else {
                 NOVA_THROW("Image must have at least one non-zero dimension");
             }
         }
@@ -132,8 +119,7 @@ namespace nova
 
         // ---- Pick aspects -----
 
-        switch (GetVulkanFormat(impl->format))
-        {
+        switch (GetVulkanFormat(impl->format)) {
         break;case VK_FORMAT_S8_UINT:
             impl->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
@@ -153,8 +139,7 @@ namespace nova
 
         // ---- Make view -----
 
-        if (makeView)
-        {
+        if (makeView) {
             VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = impl->image,
@@ -169,13 +154,17 @@ namespace nova
 
     void Texture::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
-        if (impl->view)
+        if (impl->view) {
             vkDestroyImageView(impl->context->device, impl->view, impl->context->pAlloc);
+        }
 
-        if (impl->allocation)
+        if (impl->allocation) {
             vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
+        }
         
         delete impl;
         impl = nullptr;
@@ -198,9 +187,6 @@ namespace nova
     {
         auto& imageState = impl->state->imageStates[texture->image];
 
-        // if (state.layout == newLayout)
-        //     return;
-
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
@@ -208,10 +194,8 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
                 .srcStageMask = imageState.stage,
-                // .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .srcAccessMask = imageState.access,
                 .dstStageMask = newStages,
-                // .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 .dstAccessMask = newAccess,
 
                 .oldLayout = imageState.layout,
@@ -319,8 +303,9 @@ namespace nova
 
     void CommandList::GenerateMips(HTexture texture) const
     {
-        if (texture->mips == 1)
+        if (texture->mips == 1) {
             return;
+        }
 
         Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
@@ -331,8 +316,7 @@ namespace nova
         int32_t mipWidth = texture->extent.x;
         int32_t mipHeight = texture->extent.y;
 
-        for (uint32_t mip = 1; mip < texture->mips; ++mip)
-        {
+        for (uint32_t mip = 1; mip < texture->mips; ++mip) {
             vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .imageMemoryBarrierCount = 1,

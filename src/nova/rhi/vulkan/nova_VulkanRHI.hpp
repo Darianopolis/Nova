@@ -6,6 +6,25 @@
 
 namespace nova
 {
+    inline
+    void VkCall(VkResult res)
+    {
+        if (res != VK_SUCCESS) {
+            NOVA_THROW("Error: {}", int(res));
+        }
+    }
+
+    template<typename Container, typename Fn, typename ... Args>
+    void VkQuery(Container&& container, Fn&& fn, Args&& ... args)
+    {
+        u32 count;
+        fn(std::forward<Args>(args)..., &count, nullptr);
+        container.resize(count);
+        fn(std::forward<Args>(args)..., &count, container.data());
+    }
+
+// -----------------------------------------------------------------------------
+
     enum class UID : u64 {
         Invalid = 0,
     };
@@ -369,8 +388,7 @@ namespace nova
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
                 void* ptr = mi_malloc_aligned(size, align);
-                if (ptr)
-                {
+                if (ptr) {
                     rhi::stats::MemoryAllocated += mi_usable_size(ptr);
                     ++rhi::stats::AllocationCount;
                     ++rhi::stats::NewAllocationCount;
@@ -389,8 +407,7 @@ namespace nova
                 return ptr;
             },
             .pfnFree = +[](void*, void* ptr) {
-                if (ptr)
-                {
+                if (ptr) {
                     rhi::stats::MemoryAllocated -= mi_usable_size(ptr);
                     --rhi::stats::AllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS

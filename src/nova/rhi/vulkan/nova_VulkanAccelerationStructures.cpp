@@ -19,8 +19,7 @@ namespace nova
     static
     void EnsureGeometries(AccelerationStructureBuilder builder, u32 geometryIndex)
     {
-        if (geometryIndex >= builder->geometries.size())
-        {
+        if (geometryIndex >= builder->geometries.size()) {
             builder->geometries.resize(geometryIndex + 1);
             builder->ranges.resize(geometryIndex + 1);
             builder->primitiveCounts.resize(geometryIndex + 1);
@@ -29,7 +28,9 @@ namespace nova
 
     void AccelerationStructureBuilder::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkDestroyQueryPool(impl->context->device, impl->queryPool, impl->context->pAlloc);
         
@@ -104,18 +105,16 @@ namespace nova
     {
         VkGeometryInstanceFlagsKHR vkFlags = 0;
 
-        if (geomFlags >= GeometryInstanceFlags::TriangleCullCounterClockwise)
-        {
+        if (geomFlags >= GeometryInstanceFlags::TriangleCullCounterClockwise) {
             vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
-        }
-        else
-        if (!(geomFlags >= GeometryInstanceFlags::TriangleCullClockwise))
-        {
+
+        } else if (!(geomFlags >= GeometryInstanceFlags::TriangleCullClockwise)) {
             vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
         }
 
-        if (geomFlags >= GeometryInstanceFlags::InstanceForceOpaque)
+        if (geomFlags >= GeometryInstanceFlags::InstanceForceOpaque) {
             vkFlags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+        }
 
         static_cast<VkAccelerationStructureInstanceKHR*>(bufferAddress)[index] = {
             .transform = {
@@ -134,8 +133,9 @@ namespace nova
     static
     void EnsureSizes(HContext ctx, AccelerationStructureBuilder builder)
     {
-        if (!builder->sizeDirty)
+        if (!builder->sizeDirty) {
             return;
+        }
 
         VkAccelerationStructureBuildSizesInfoKHR sizes { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 
@@ -191,12 +191,9 @@ namespace nova
         auto impl = new Impl;
         impl->context = context;
         impl->ownBuffer = !buffer;
-        if (impl->ownBuffer)
-        {
+        if (impl->ownBuffer) {
             impl->buffer = Buffer::Create(context, size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
-        }
-        else
-        {
+        } else {
             impl->buffer = buffer;
         }
 
@@ -220,11 +217,14 @@ namespace nova
 
     void AccelerationStructure::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->pAlloc);
-        if (impl->ownBuffer)
+        if (impl->ownBuffer) {
             impl->buffer.Destroy();
+        }
         
         delete impl;
         impl = nullptr;
@@ -238,8 +238,9 @@ namespace nova
     void CommandList::BuildAccelerationStructure(HAccelerationStructureBuilder builder, HAccelerationStructure structure, HBuffer scratch) const
     {
         bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
-        if (compact)
+        if (compact) {
             vkCmdResetQueryPool(impl->buffer, builder->queryPool, 0, 1);
+        }
 
         vkCmdBuildAccelerationStructuresKHR(
             impl->buffer,
@@ -255,8 +256,7 @@ namespace nova
             }), Temp(builder->ranges.data()));
         
 
-        if (compact)
-        {
+        if (compact) {
             vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .memoryBarrierCount = 1,

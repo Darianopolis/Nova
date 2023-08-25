@@ -4,8 +4,9 @@ namespace nova
 {
     File::File(const char* path, bool write)
     {
-        if (fopen_s(&file, path, write ? "wb" : "rb"))
+        if (fopen_s(&file, path, write ? "wb" : "rb")) {
             NOVA_THROW("Failed to open file: {}", path);
+        }
     }
 
     File::~File()

@@ -18,10 +18,13 @@ namespace nova
 
     void CommandPool::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
-        for (auto& list : impl->lists)
+        for (auto& list : impl->lists) {
             delete list.impl;
+        }
 
         vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->pAlloc);
 
@@ -32,8 +35,7 @@ namespace nova
     CommandList CommandPool::Begin(HCommandState state) const
     {
         CommandList cmd;
-        if (impl->index >= impl->lists.size())
-        {
+        if (impl->index >= impl->lists.size()) {
             cmd = impl->lists.emplace_back(new CommandList::Impl);
 
             cmd->pool = *this;
@@ -44,9 +46,7 @@ namespace nova
                 .commandBufferCount = 1,
             }), &cmd->buffer));
             impl->index++;
-        }
-        else
-        {
+        } else {
             cmd = impl->lists[impl->index++];
         }
 

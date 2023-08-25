@@ -112,8 +112,8 @@ void example_Triangle()
     // Draw
 
     NOVA_CLEANUP(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
+        
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
 

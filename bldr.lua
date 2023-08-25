@@ -18,44 +18,47 @@ if Project "nova" then
 --                               Components
 --------------------------------------------------------------------------------
 
-    local components = { 
-        { 
-            name = "core", 
-            dependencies = { 
-                "ankerl-maps",
-                "glm",
-                "mimalloc",
-            } 
-        },
-        { name = "db", dependencies = { "sqlite3" } },
-        { name = "os" },
-        { 
-            name = "rhi", 
-            dependencies = {
-                "vulkan",
-                "VulkanMemoryAllocator",
-                "glslang",
-                "volk",
-            } 
-        },
-        { 
-            name = "ui",
-            dependencies = {
-                "freetype",
-                "glfw",
-                "imgui",
-                "imgui-glfw",
-                "imgui-vulkan",
-                "imguizmo",
-            }
-        }
+    Include "src"
+
+-------- Core ------------------------------------------------------------------
+
+    Compile "src/nova/core/**"
+    Import { 
+        "ankerl-maps", 
+        "glm", 
+        "mimalloc" 
     }
 
-    Include "src"
-    for _, component in ipairs(components) do
-        Compile { "src/nova/"..(component.name).."/**" }
-        Import(component.dependencies or {})
-    end
+-------- DB --------------------------------------------------------------------
+
+    Compile "src/nova/db/**"
+    Import { "sqlite3" }
+
+-------- OS --------------------------------------------------------------------
+
+    Compile "src/nova/os/**"
+
+-------- RHI -------------------------------------------------------------------
+    
+    Compile "src/nova/rhi/**"
+    Import { 
+        "vulkan", 
+        "VulkanMemoryAllocator", 
+        "glslang", 
+        "volk" 
+    }
+
+-------- UI --------------------------------------------------------------------
+
+    Compile "src/nova/ui/**"
+    Import {
+        "freetype",
+        "glfw",
+        "imgui",
+        "imgui-glfw",
+        "imgui-vulkan",
+        "imguizmo",
+    }
 
 --------------------------------------------------------------------------------
 --                               Examples

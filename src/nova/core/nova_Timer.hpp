@@ -46,14 +46,16 @@ namespace nova
         Timer()
         {
             handle = CreateWaitableTimer(nullptr, true, nullptr);
-            if (!handle)
+            if (!handle) {
                 NOVA_THROW("Timer::Timer - Failed to create win32 timer");
+            }
         }
 
         ~Timer()
         {
-            if (handle)
+            if (handle) {
                 CloseHandle(handle);
+            }
         }
 #endif
 
@@ -69,27 +71,30 @@ namespace nova
         template<typename Rep, typename Period>
         bool Wait(std::chrono::duration<Rep, Period> duration, bool preempt = false)
         {
-            if (duration <= 0ns)
+            if (duration <= 0ns) {
                 return false;
+            }
 
             auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
 
 #ifdef NOVA_PLATFORM_WINDOWS
-            if (preempt)
-            {
-                if (duration < GetMinQuantum())
+            if (preempt) {
+                if (duration < GetMinQuantum()) {
                     return true;
+                }
 
                 nanos -= GetMinQuantum();
             }
 
             LARGE_INTEGER li;
             li.QuadPart = -(nanos.count() / 100);
-            if (!SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false))
+            if (!SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false)) {
                 NOVA_THROW("Timer::Wait - Failed to set win32 timer");
+            }
 
-            if (auto res = WaitForSingleObject(handle, INFINITE); res != WAIT_OBJECT_0)
+            if (auto res = WaitForSingleObject(handle, INFINITE); res != WAIT_OBJECT_0) {
                 NOVA_THROW("Timer::Wait - Failed to wait on win32 timer");
+            }
 #else
             std::this_thread::sleep_for(duration);
 #endif

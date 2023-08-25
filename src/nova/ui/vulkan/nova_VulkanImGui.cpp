@@ -112,8 +112,7 @@ namespace nova
 
         ImGuizmo::BeginFrame();
 
-        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable)
-        {
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiDockNodeFlags dockspaceFlags = 0;
             ImGuiWindowFlags dockspaceWindowFlags = 0;
 
@@ -134,11 +133,11 @@ namespace nova
                 | ImGuiWindowFlags_NoBringToFrontOnFocus
                 | ImGuiWindowFlags_NoNavFocus;
 
-            if (dockMenuBar)
+            if (dockMenuBar) {
                 dockspaceWindowFlags |= ImGuiWindowFlags_MenuBar;
+            }
 
-            if (noDockBg)
-            {
+            if (noDockBg) {
                 // Pass through background
                 dockspaceWindowFlags |= ImGuiWindowFlags_NoBackground;
                 dockspaceFlags |= ImGuiDockNodeFlags_PassthruCentralNode;
@@ -159,13 +158,11 @@ namespace nova
 
     void ImGuiLayer::EndFrame()
     {
-        if (!ended)
-        {
+        if (!ended) {
             ImGui::Render();
             ended = true;
 
-            if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-            {
+            if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
                 auto contextBackup = glfwGetCurrentContext();
                 ImGui::UpdatePlatformWindows();
                 ImGui::RenderPlatformWindowsDefault();

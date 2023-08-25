@@ -14,8 +14,7 @@ void example_Compute()
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200,
-        "Nova - Compute", nullptr, nullptr);
+    auto window = glfwCreateWindow(1920, 1200, "Nova - Compute", nullptr, nullptr);
     NOVA_CLEANUP(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -113,23 +112,16 @@ void example_Compute()
 //                               Main Loop
 // -----------------------------------------------------------------------------
 
-    // auto target = context.CreateTexture(Vec3U(3840, 2160, 0),
-    //     nova::TextureUsage::Storage
-    //     | nova::TextureUsage::ColorAttach,
-    //     nova::Format::BGRA8_UNorm);
-
     constexpr bool useCompute = true;
 
     auto lastTime = std::chrono::steady_clock::now();
     auto frames = 0;
     NOVA_CLEANUP(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         // Debug output statistics
         frames++;
         auto newTime = std::chrono::steady_clock::now();
-        if (newTime - lastTime > 1s)
-        {
+        if (newTime - lastTime > 1s) {
             NOVA_LOG("Frametime = {:.3f} ({} fps)", 1e6 / frames, frames);
             lastTime = std::chrono::steady_clock::now();
             frames = 0;
@@ -153,8 +145,7 @@ void example_Compute()
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 
-        if (useCompute)
-        {
+        if (useCompute) {
             // Transition ready for writing compute output
 
             cmd.Transition(target,
@@ -170,8 +161,7 @@ void example_Compute()
             cmd.SetComputeState(pipelineLayout, computeShader);
             cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
         }
-        else
-        {
+        else {
             cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
             cmd.SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
                 .cullMode = nova::CullMode::None,
@@ -187,6 +177,7 @@ void example_Compute()
         queue.Present({swapchain}, {fence});
 
         // Wait for window events
+        
         glfwPollEvents();
     }
 }

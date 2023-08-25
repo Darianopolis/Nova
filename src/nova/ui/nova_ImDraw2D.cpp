@@ -67,18 +67,16 @@ namespace nova
                     sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
                     sampled.a + box.centerColor.a * (1 - sampled.a));
 
-                if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y)
-                {
+                if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
                     float dist = length(absPos - cornerFocus);
-                    if (dist > box.cornerRadius + 0.5)
+                    if (dist > box.cornerRadius + 0.5) {
                         discard;
+                    }
 
                     outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
                         ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
                         : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
-                }
-                else
-                {
+                } else {
                     outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
                         ? box.borderColor
                         : centerColor;
@@ -111,12 +109,9 @@ namespace nova
     ImTextureID ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
     {
         u32 index;
-        if (textureSlotFreelist.empty())
-        {
+        if (textureSlotFreelist.empty()) {
             index = nextTextureSlot++;
-        }
-        else
-        {
+        } else {
             index = textureSlotFreelist.back();
             textureSlotFreelist.pop_back();
         }
@@ -138,12 +133,14 @@ namespace nova
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
         FT_Library ft;
-        if (auto ec = FT_Init_FreeType(&ft))
+        if (auto ec = FT_Init_FreeType(&ft)) {
             NOVA_THROW("Failed to init freetype - {}", int(ec));
+        }
 
         FT_Face face;
-        if (auto ec = FT_New_Face(ft, file, 0, &face))
+        if (auto ec = FT_New_Face(ft, file, 0, &face)) {
             NOVA_THROW("Failed to load font - {}", int(ec));
+        }
 
         FT_Set_Pixel_Sizes(face, 0, u32(size));
 
@@ -158,8 +155,7 @@ namespace nova
         NOVA_CLEANUP(&) { staging.Destroy(); };
 
         font->glyphs.resize(128);
-        for (u32 c = 0; c < 128; ++c)
-        {
+        for (u32 c = 0; c < 128; ++c) {
             FT_Load_Char(face, c, FT_LOAD_RENDER);
             u32 w = face->glyph->bitmap.width;
             u32 h = face->glyph->bitmap.rows;
@@ -173,12 +169,14 @@ namespace nova
                 face->glyph->bitmap_top,
             };
 
-            if (w == 0 || h == 0)
+            if (w == 0 || h == 0) {
                 continue;
+            }
 
             pixels.resize(w * h);
-            for (u32 i = 0; i < w * h; ++i)
+            for (u32 i = 0; i < w * h; ++i) {
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
+            }
 
             glyph.texture = nova::Texture::Create(context,
                 Vec3(f32(w), f32(h), 0.f),
@@ -205,10 +203,8 @@ namespace nova
 
     ImFont::~ImFont()
     {
-        for (auto& glyph : glyphs)
-        {
-            if (glyph.texture)
-            {
+        for (auto& glyph : glyphs) {
+            if (glyph.texture) {
                 imDraw->UnregisterTexture(glyph.index);
                 glyph.texture.Destroy();
             }
@@ -238,12 +234,10 @@ namespace nova
 
     void ImDraw2D::DrawString(std::string_view str, Vec2 pos, ImFont& font)
     {
-        for (auto c : str)
-        {
+        for (auto c : str) {
             auto& g = font.glyphs[c];
 
             DrawRect(nova::ImRoundRect {
-                // .centerColor = { 0.f, 1.f, 0.f, 0.4f },
                 .centerPos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                 .halfExtent = { g.width / 2.f, g.height / 2.f },
                 .texTint = { 1.f, 1.f, 1.f, 1.f, },
@@ -262,8 +256,7 @@ namespace nova
 
         Vec2 pos = Vec2(0);
 
-        for (auto c : str)
-        {
+        for (auto c : str) {
             auto& g = font.glyphs[c];
             Vec2 centerPos = pos + Vec2(g.width / 2.f, g.height / 2.f) + Vec2(g.offset.x -g.offset.y);
             Vec2 halfExtent = Vec2(g.width / 2.f, g.height / 2.f);
@@ -288,10 +281,8 @@ namespace nova
 
         cmd.BindDescriptorSets(pipelineLayout, 0, {descriptorSet});
 
-        for (auto& command : drawCommands)
-        {
-            switch (command.type)
-            {
+        for (auto& command : drawCommands) {
+            switch (command.type) {
             break;case ImDrawType::RoundRect:
                 cmd.SetGraphicsState(pipelineLayout,
                     {rectVertShader, rectFragShader},

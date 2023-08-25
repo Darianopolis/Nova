@@ -19,7 +19,7 @@ namespace nova
             max.y = std::max(max.y, other.max.y);
         }
 
-        Vec2 Size() const noexcept { return max - min; }
+        Vec2 Size()   const noexcept { return max - min; }
         Vec2 Center() const noexcept { return 0.5f * (max + min); }
 
         float Width()  const noexcept { return max.x - min.x; }

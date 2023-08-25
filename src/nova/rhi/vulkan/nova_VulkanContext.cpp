@@ -9,8 +9,10 @@ namespace nova
         const VkDebugUtilsMessengerCallbackDataEXT* data,
         [[maybe_unused]] void* userData)
     {
-        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
+                || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
             return VK_FALSE;
+        }
 
         NOVA_LOG(R"(
 --------------------------------------------------------------------------------)");
@@ -43,8 +45,7 @@ Validation: {} ({})
 
         ~VulkanFeatureChain()
         {
-            for (auto&[type, feature] : deviceFeatures)
-            {
+            for (auto&[type, feature] : deviceFeatures) {
                 mi_free(feature);
             }
         }
@@ -58,8 +59,7 @@ Validation: {} ({})
         T& Feature(VkStructureType type)
         {
             auto& f = deviceFeatures[type];
-            if (!f) 
-            {
+            if (!f)  {
                 f = static_cast<VkBaseInStructure*>(mi_malloc(sizeof(T)));
                 new(f) T{};
                 NOVA_LOG("Setting type: {} ({}) @ {} ({})", u32(type), i32(type), (void*)f, typeid(T).name());
@@ -73,9 +73,6 @@ Validation: {} ({})
 
         const void* Build()
         {
-            // auto f2 = reinterpret_cast<VkPhysicalDeviceFeatures2*>(deviceFeatures.at(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2));
-            // f2->pNext = pNext;
-            // return f2;
             return pNext;
         }
     };
@@ -86,15 +83,15 @@ Validation: {} ({})
         impl->config = config;
 
         std::vector<const char*> instanceLayers;
-        if (config.debug)
+        if (config.debug) {
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+        }
 
         std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME };
     #ifdef _WIN32
         instanceExtensions.push_back("VK_KHR_win32_surface");
     #endif
-        if (config.debug)
-        {
+        if (config.debug) {
             instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
@@ -146,12 +143,10 @@ Validation: {} ({})
 
         std::vector<VkPhysicalDevice> gpus;
         VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
-        for (auto& gpu : gpus)
-        {
+        for (auto& gpu : gpus) {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(gpu, &properties);
-            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-            {
+            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
                 break;
             }
@@ -165,24 +160,21 @@ Validation: {} ({})
 
         std::array<VkQueueFamilyProperties, 3> properties;
         vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
-        for (u32 i = 0; i < 16; ++i)
-        {
+        for (u32 i = 0; i < 16; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             queue->family = 0;
             impl->graphicQueues.emplace_back(queue);
         }
-        for (u32 i = 0; i < 2; ++i)
-        {
+        for (u32 i = 0; i < 2; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 1;
             impl->transferQueues.emplace_back(queue);
         }
-        for (u32 i = 0; i < 8; ++i)
-        {
+        for (u32 i = 0; i < 8; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
@@ -254,8 +246,7 @@ Validation: {} ({})
                 .graphicsPipelineLibrary = VK_TRUE;
         }
 
-        if (config.meshShaders)
-        {
+        if (config.meshShaders) {
             chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
             auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
@@ -266,8 +257,7 @@ Validation: {} ({})
             f.taskShader = true;
         }
 
-        if (config.descriptorBuffers)
-        {
+        if (config.descriptorBuffers) {
             chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
             auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
@@ -275,8 +265,7 @@ Validation: {} ({})
             db.descriptorBufferPushDescriptors = VK_TRUE;
         }
 
-        if (config.rayTracing)
-        {
+        if (config.rayTracing) {
             chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
             chain.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
             chain.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
@@ -306,17 +295,20 @@ Validation: {} ({})
         auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
         {
             u32 i = 0;
-            for (const auto& ext : chain.extensions)
+            for (const auto& ext : chain.extensions) {
                 deviceExtensions[i++] = ext.c_str();
+            }
         }
 
         auto priorities = NOVA_ALLOC_STACK(float, impl->graphicQueues.size());
-        for (u32 i = 0; i < impl->graphicQueues.size(); ++i)
+        for (u32 i = 0; i < impl->graphicQueues.size(); ++i) {
             priorities[i] = 1.f;
+        }
 
         auto lowPriorities = NOVA_ALLOC_STACK(float, 8);
-        for (u32 i = 0; i < 8; ++i)
+        for (u32 i = 0; i < 8; ++i) {
             lowPriorities[i] = 0.1f;
+        }
 
         VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -355,14 +347,17 @@ Validation: {} ({})
 
         // ---- Shared resources ----
 
-        for (u32 i = 0; i < impl->graphicQueues.size(); ++i)
+        for (u32 i = 0; i < impl->graphicQueues.size(); ++i) {
             vkGetDeviceQueue(impl->device, impl->graphicQueues[i]->family, i, &impl->graphicQueues[i]->handle);
+        }
 
-        for (u32 i = 0; i < impl->transferQueues.size(); ++i)
+        for (u32 i = 0; i < impl->transferQueues.size(); ++i) {
             vkGetDeviceQueue(impl->device, impl->transferQueues[i]->family, i, &impl->transferQueues[i]->handle);
+        }
 
-        for (u32 i = 0; i < impl->computeQueues.size(); ++i)
+        for (u32 i = 0; i < impl->computeQueues.size(); ++i) {
             vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
+        }
 
         VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
@@ -419,13 +414,15 @@ Validation: {} ({})
 
     void Context::Destroy()
     {
-        if (!impl) return;
+        if (!impl) {
+            return;
+        }
         
         WaitIdle();
 
-        for (auto& queue : impl->graphicQueues)  delete queue.impl;
-        for (auto& queue : impl->computeQueues)  delete queue.impl;
-        for (auto& queue : impl->transferQueues) delete queue.impl;
+        for (auto& queue : impl->graphicQueues)  { delete queue.impl; }
+        for (auto& queue : impl->computeQueues)  { delete queue.impl; }
+        for (auto& queue : impl->transferQueues) { delete queue.impl; }
 
         // // Clean out API object registries
         // u32 cleanedUp = 0;
@@ -448,20 +445,21 @@ Validation: {} ({})
         //     NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
 
         // Deleted graphics pipeline library stages
-        for (auto&[key, pipeline] : impl->vertexInputStages)    vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        for (auto&[key, pipeline] : impl->preRasterStages)      vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        for (auto&[key, pipeline] : impl->fragmentShaderStages) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        for (auto&[key, pipeline] : impl->fragmentOutputStages) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        for (auto&[key, pipeline] : impl->graphicsPipelineSets) vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
-        for (auto&[key, pipeline] : impl->computePipelines)     vkDestroyPipeline(impl->device, pipeline, impl->pAlloc);
+        for (auto&[key, pipeline] : impl->vertexInputStages)    { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->preRasterStages)      { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->fragmentShaderStages) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->fragmentOutputStages) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->graphicsPipelineSets) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->computePipelines)     { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
 
         // Destroy context vk objects
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vkDestroyDescriptorPool(impl->device, impl->descriptorPool, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);
         vkDestroyDevice(impl->device, impl->pAlloc);
-        if (impl->debugMessenger)
+        if (impl->debugMessenger) {
             vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
+        }
         vkDestroyInstance(impl->instance, impl->pAlloc);
 
         NOVA_LOG("~Context(Allocations = {})", rhi::stats::AllocationCount.load());

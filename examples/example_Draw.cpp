@@ -142,14 +142,12 @@ void example_Draw()
     auto lastFrame = std::chrono::steady_clock::now();
 
     NOVA_CLEANUP(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window))
-    {
+    while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
 // -----------------------------------------------------------------------------
 
-        if (!skipUpdate)
-        {
+        if (!skipUpdate) {
             auto moveBox = [&](nova::ImRoundRect& box, int left, int right, int up, int down) {
                 float speed = 5.f;
                 if (glfwGetKey(window, left))  { box.centerPos.x -= speed; redraw = true; }
@@ -162,15 +160,13 @@ void example_Draw()
             moveBox(box2, GLFW_KEY_J, GLFW_KEY_L, GLFW_KEY_I, GLFW_KEY_K);
             moveBox(box3, GLFW_KEY_LEFT, GLFW_KEY_RIGHT, GLFW_KEY_UP, GLFW_KEY_DOWN);
         }
-        else
-        {
+        else {
             redraw = true;
         }
 
         skipUpdate = false;
 
-        if (!redraw)
-        {
+        if (!redraw) {
             glfwWaitEvents();
             skipUpdate = true;
         }

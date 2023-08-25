@@ -76,8 +76,7 @@ void example_MultiTarget()
         // Debug output statistics
         frames++;
         auto newTime = std::chrono::steady_clock::now();
-        if (newTime - lastTime > 1s)
-        {
+        if (newTime - lastTime > 1s) {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
                 frames, nova::rhi::stats::AllocationCount.load(), 
                 nova::rhi::stats::NewAllocationCount.exchange(0));
@@ -137,16 +136,14 @@ void example_MultiTarget()
     
     NOVA_CLEANUP(&) { fence.Wait(); };
 
-    for (auto window : windows)
-    {
+    for (auto window : windows) {
         glfwSetWindowUserPointer(window, &update);
         glfwSetWindowSizeCallback(window, [](auto w, int,int) {
             (*static_cast<decltype(update)*>(glfwGetWindowUserPointer(w)))();
         });
     }
 
-    while (!glfwWindowShouldClose(windows[0]) && !glfwWindowShouldClose(windows[1]))
-    {
+    while (!glfwWindowShouldClose(windows[0]) && !glfwWindowShouldClose(windows[1])) {
         update();
         glfwPollEvents();
     }
