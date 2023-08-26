@@ -27,10 +27,6 @@ void example_Compute()
 //                             Nova Initialization
 // -----------------------------------------------------------------------------
 
-    // Create Nova context with ray tracing enabled
-
-    NOVA_TIMEIT_RESET();
-
     auto context = nova::Context::Create({
         .debug = false,
     });
@@ -51,44 +47,26 @@ void example_Compute()
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
+    auto heap = nova::DescriptorHeap::Create(context);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
         state.Destroy();
+        heap.Destroy();
     };
 
-    NOVA_TIMEIT("base-vulkan-objects");
-
-// -----------------------------------------------------------------------------
-//                        Descriptors & Pipeline
-// -----------------------------------------------------------------------------
-
-    // Create descriptor layout to hold one storage image and acceleration structure
-
-    auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
-    }, true);
-    NOVA_CLEANUP(&) { descLayout.Destroy(); };
-
-    // Create a pipeline layout for the above set layout
-
-    auto pipelineLayout = nova::PipelineLayout::Create(context, {}, {descLayout}, nova::BindPoint::Compute);
-    NOVA_CLEANUP(&) { pipelineLayout.Destroy(); };
-
-    // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
+    // Shaders - Compute
 
     auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, {
-        nova::shader::Layout(pipelineLayout),
         nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
             vec2 uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
-            imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
+            imageStore(StorageImage2D<rgba8>[0], ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.5, 1.0));
         )glsl"),
     });
     NOVA_CLEANUP(&) { computeShader.Destroy(); };
 
-    auto rasterPipelineLayout = nova::PipelineLayout::Create(context, {}, {}, nova::BindPoint::Graphics);
-    NOVA_CLEANUP(&) { rasterPipelineLayout.Destroy(); };
+    // Shaders - Raster
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
         nova::shader::Output("uv", nova::ShaderVarType::Vec2),
@@ -118,6 +96,7 @@ void example_Compute()
     auto frames = 0;
     NOVA_CLEANUP(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
+
         // Debug output statistics
         frames++;
         auto newTime = std::chrono::steady_clock::now();
@@ -139,13 +118,14 @@ void example_Compute()
         auto cmd = cmdPool.Begin(state);
 
         cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
-        cmd.SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
+        cmd.SetGraphicsState({vertexShader, fragmentShader}, {
             .cullMode = nova::CullMode::None,
         });
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 
         if (useCompute) {
+
             // Transition ready for writing compute output
 
             cmd.Transition(target,
@@ -154,16 +134,17 @@ void example_Compute()
 
             // Push swapchain image and TLAS descriptors
 
-            cmd.PushStorageTexture(pipelineLayout, 0, 0, target);
+            heap.WriteStorageTexture({ 0, nova::DescriptorType::StorageTexture }, target);
+            cmd.BindDescriptorHeap(nova::BindPoint::Compute, heap);
 
             // Trace rays
 
-            cmd.SetComputeState(pipelineLayout, computeShader);
+            cmd.SetComputeState(computeShader);
             cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
-        }
-        else {
+
+        } else {
             cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
-            cmd.SetGraphicsState(rasterPipelineLayout, {vertexShader, fragmentShader}, {
+            cmd.SetGraphicsState({vertexShader, fragmentShader}, {
                 .cullMode = nova::CullMode::None,
             });
             cmd.Draw(3, 1, 0, 0);
@@ -177,7 +158,7 @@ void example_Compute()
         queue.Present({swapchain}, {fence});
 
         // Wait for window events
-        
+
         glfwPollEvents();
     }
 }

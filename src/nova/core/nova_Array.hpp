@@ -53,7 +53,7 @@ namespace nova
                 mi_free(_large.data);
             }
         }
-        
+
     public:
         void clear() noexcept(noexcept(std::declval<T>().~T()))
         {

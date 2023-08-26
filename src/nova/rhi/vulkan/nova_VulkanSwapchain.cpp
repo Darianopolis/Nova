@@ -34,7 +34,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         for (auto semaphore : impl->semaphores) {
             vkDestroySemaphore(impl->context->device, semaphore, impl->context->pAlloc);
         }

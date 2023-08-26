@@ -41,7 +41,7 @@ namespace nova
     struct Fence::Impl
     {
         Context context = {};
-        
+
         VkSemaphore semaphore = {};
         u64             value = 0;
     };
@@ -49,7 +49,7 @@ namespace nova
     struct CommandPool::Impl
     {
         Context context = {};
-        
+
         Queue queue = {};
 
         VkCommandPool             pool = {};
@@ -60,7 +60,7 @@ namespace nova
     struct CommandState::Impl
     {
         Context context = {};
-        
+
         struct ImageState
         {
             VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -88,7 +88,7 @@ namespace nova
     struct Swapchain::Impl
     {
         Context context = {};
-        
+
         VkSurfaceKHR          surface = {};
         VkSwapchainKHR      swapchain = {};
         VkSurfaceFormatKHR     format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
@@ -103,50 +103,25 @@ namespace nova
         u32                  semaphoreIndex = 0;
     };
 
-    struct PipelineLayout::Impl
+    struct DescriptorHeap::Impl
     {
         Context context = {};
-        
-        UID id = UID::Invalid;
 
-        VkPipelineLayout layout;
+        std::vector<u32> generalFreelist;
+        std::vector<u32> samplerFreelist;
 
-        // TODO: Pipeline layout used in multiple bind points?
-        BindPoint bindPoint = {};
-
-        std::vector<PushConstantRange>     pcRanges;
-        std::vector<DescriptorSetLayout> setLayouts;
-
-        std::vector<VkPushConstantRange> ranges;
-        std::vector<VkDescriptorSetLayout> sets;
-    };
-
-    struct DescriptorSetLayout::Impl
-    {
-        Context context = {};
-        
-        std::vector<DescriptorBinding> bindings = {};
-
-        VkDescriptorSetLayout layout = {};
-        u64                     size = 0;
-        std::vector<u64>     offsets = {};
-    };
-
-    struct DescriptorSet::Impl
-    {
-        DescriptorSetLayout layout;
-        VkDescriptorSet         set;
+        VkDescriptorSet set;
     };
 
     struct Shader::Impl
     {
         Context context = {};
-        
+
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
         ShaderStage     stage = {};
-    
+
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
@@ -154,7 +129,7 @@ namespace nova
     struct Buffer::Impl
     {
         Context context = {};
-        
+
         VkBuffer          buffer = {};
         VmaAllocation allocation = {};
         VkDeviceSize        size = 0ull;
@@ -166,14 +141,14 @@ namespace nova
     struct Sampler::Impl
     {
         Context context = {};
-        
+
         VkSampler sampler;
     };
 
     struct Texture::Impl
     {
         Context context = {};
-        
+
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
@@ -189,7 +164,7 @@ namespace nova
     struct AccelerationStructureBuilder::Impl
     {
         Context context = {};
-        
+
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
@@ -211,7 +186,7 @@ namespace nova
     struct AccelerationStructure::Impl
     {
         Context context = {};
-        
+
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
@@ -223,7 +198,7 @@ namespace nova
     struct RayTracingPipeline::Impl
     {
         Context context = {};
-        
+
         VkPipeline pipeline = {};
         Buffer   sbtBuffer = {};
 
@@ -259,7 +234,6 @@ namespace nova
     struct GraphicsPipelinePreRasterizationStageKey
     {
         std::array<UID, 4> shaders;
-        UID                 layout;
         PolygonMode       polyMode;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
@@ -268,7 +242,6 @@ namespace nova
     struct GraphicsPipelineFragmentShaderStageKey
     {
         UID shader;
-        UID layout;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentShaderStageKey)
     };
@@ -294,7 +267,6 @@ namespace nova
     struct ComputePipelineKey
     {
         UID shader;
-        UID layout;
 
         NOVA_DEFINE_WYHASH_EQUALITY(ComputePipelineKey)
     };
@@ -349,7 +321,9 @@ namespace nova
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
     public:
-        VkDescriptorPool descriptorPool = {};
+        VkDescriptorPool  descriptorPool = {};
+        VkDescriptorSetLayout heapLayout = {};
+        VkPipelineLayout  pipelineLayout = {};
 
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};

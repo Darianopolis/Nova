@@ -34,3 +34,17 @@
 #include <mimalloc.h>
 
 #include <ankerl/unordered_dense.h>
+
+// -----------------------------------------------------------------------------
+
+inline
+void* __cdecl operator new[](size_t size, const char* /* name */, int /* flags */, unsigned /* debugFlags */, const char* /* file */, int /* line */)
+{
+	return ::operator new(size);
+}
+
+inline
+void* __cdecl operator new[](size_t size, size_t align, size_t /* ??? */, const char* /* name */, int /* flags */, unsigned /* debugFlags */, const char* /* file */, int /* line */)
+{
+    return ::operator new(size, std::align_val_t(align));
+}

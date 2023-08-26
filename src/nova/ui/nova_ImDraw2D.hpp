@@ -4,8 +4,6 @@
 
 namespace nova
 {
-    enum class ImTextureID : u32 {};
-
     struct ImBounds2D
     {
         Vec2 min {  INFINITY,  INFINITY };
@@ -34,16 +32,16 @@ namespace nova
         Vec4 centerColor;
         Vec4 borderColor;
 
-        Vec2 centerPos;
+        Vec2  centerPos;
         Vec2 halfExtent;
 
         f32 cornerRadius;
-        f32 borderWidth;
+        f32  borderWidth;
 
-        Vec4 texTint;
-        ImTextureID texIndex;
-        Vec2 texCenterPos;
-        Vec2 texHalfExtent;
+        Vec4              texTint;
+        DescriptorHandle texIndex;
+        Vec2         texCenterPos;
+        Vec2         texHalfExtent;
 
         static constexpr auto Layout = std::array {
             Member("centerColor", nova::ShaderVarType::Vec4),
@@ -78,10 +76,11 @@ namespace nova
 
     struct ImGlyph
     {
-        Texture texture;
-        ImTextureID index;
-        f32 width;
-        f32 height;
+        Texture        texture;
+        DescriptorHandle index;
+
+        f32   width;
+        f32  height;
         f32 advance;
         Vec2 offset;
     };
@@ -121,12 +120,7 @@ namespace nova
 
         Sampler defaultSampler;
 
-        PipelineLayout pipelineLayout;
-
-        DescriptorSetLayout descriptorSetLayout;
-        DescriptorSet             descriptorSet;
-        u32                      nextTextureSlot = 0;
-        std::vector<u32>     textureSlotFreelist = {};
+        DescriptorHeap descriptorHeap;
 
         Shader rectVertShader;
         Shader rectFragShader;
@@ -138,14 +132,14 @@ namespace nova
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        ImDraw2D(Context context);
+        ImDraw2D(HContext, HDescriptorHeap);
         ~ImDraw2D();
 
         Sampler GetDefaultSampler() noexcept;
         const ImBounds2D& GetBounds() const noexcept;
 
-        ImTextureID RegisterTexture(Texture texture, Sampler sampler);
-        void UnregisterTexture(ImTextureID textureSlot);
+        DescriptorHandle RegisterTexture(Texture texture, Sampler sampler);
+        void UnregisterTexture(DescriptorHandle handle);
 
         std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue);
 

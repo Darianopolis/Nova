@@ -6,7 +6,7 @@ namespace nova
     {
         auto impl = new Impl;
         impl->context = context;
-        
+
         VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
@@ -31,9 +31,9 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         vkDestroyQueryPool(impl->context->device, impl->queryPool, impl->context->pAlloc);
-        
+
         delete impl;
         impl = nullptr;
     }
@@ -211,7 +211,7 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
                 .accelerationStructure = impl->structure
             }));
-        
+
         return { impl };
     }
 
@@ -220,12 +220,12 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->pAlloc);
         if (impl->ownBuffer) {
             impl->buffer.Destroy();
         }
-        
+
         delete impl;
         impl = nullptr;
     }
@@ -254,7 +254,7 @@ namespace nova
                 .scratchData = {{ AlignUpPower2(scratch->address,
                     impl->pool->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
             }), Temp(builder->ranges.data()));
-        
+
 
         if (compact) {
             vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {

@@ -9,7 +9,7 @@ namespace nova
         const VkDebugUtilsMessengerCallbackDataEXT* data,
         [[maybe_unused]] void* userData)
     {
-        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
+        if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
                 || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
             return VK_FALSE;
         }
@@ -37,12 +37,6 @@ Validation: {} ({})
         ankerl::unordered_dense::set<std::string> extensions;
         VkBaseInStructure* pNext = nullptr;
 
-        VulkanFeatureChain()
-        {
-            // Feature<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
-            // pNext = nullptr;
-        }
-
         ~VulkanFeatureChain()
         {
             for (auto&[type, feature] : deviceFeatures) {
@@ -59,7 +53,7 @@ Validation: {} ({})
         T& Feature(VkStructureType type)
         {
             auto& f = deviceFeatures[type];
-            if (!f)  {
+            if (!f) {
                 f = static_cast<VkBaseInStructure*>(mi_malloc(sizeof(T)));
                 new(f) T{};
                 NOVA_LOG("Setting type: {} ({}) @ {} ({})", u32(type), i32(type), (void*)f, typeid(T).name());
@@ -195,15 +189,19 @@ Validation: {} ({})
             auto& f2 = chain.Feature<VkPhysicalDeviceFeatures2>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
             f2.features.wideLines = VK_TRUE;
+            f2.features.shaderInt16 = VK_TRUE;
             f2.features.shaderInt64 = VK_TRUE;
             f2.features.fillModeNonSolid = VK_TRUE;
             f2.features.samplerAnisotropy = VK_TRUE;
             f2.features.multiDrawIndirect = VK_TRUE;
             f2.features.independentBlend = VK_TRUE;
+            f2.features.imageCubeArray = VK_TRUE;
 
             auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
             f12.drawIndirectCount = VK_TRUE;
+            f12.shaderInt8 = VK_TRUE;
+            f12.shaderFloat16 = VK_TRUE;
             f12.timelineSemaphore = VK_TRUE;
             f12.scalarBlockLayout = VK_TRUE;
             f12.descriptorIndexing = VK_TRUE;
@@ -244,14 +242,19 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
                 .graphicsPipelineLibrary = VK_TRUE;
+
+            chain.Extension(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
+                .mutableDescriptorType = VK_TRUE;
         }
 
         if (config.meshShaders) {
             chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
             auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
-                
-            f.meshShader = true;            
+
+            f.meshShader = true;
             f.meshShaderQueries = true;
             f.multiviewMeshShader = true;
             f.taskShader = true;
@@ -407,6 +410,85 @@ Validation: {} ({})
             .initialDataSize = 0,
         }), impl->pAlloc, &impl->pipelineCache));
 
+        {
+            NOVA_LOGEXPR(impl->descriptorSizes.combinedImageSamplerDescriptorSize);
+            NOVA_LOGEXPR(impl->descriptorSizes.storageImageDescriptorSize);
+            NOVA_LOGEXPR(impl->descriptorSizes.uniformBufferDescriptorSize);
+            NOVA_LOGEXPR(impl->descriptorSizes.storageBufferDescriptorSize);
+            NOVA_LOGEXPR(impl->descriptorSizes.uniformTexelBufferDescriptorSize);
+            NOVA_LOGEXPR(impl->descriptorSizes.storageTexelBufferDescriptorSize);
+            NOVA_LOG("Max size: {}", std::max({
+                impl->descriptorSizes.combinedImageSamplerDescriptorSize,
+                impl->descriptorSizes.storageImageDescriptorSize,
+                impl->descriptorSizes.uniformBufferDescriptorSize,
+                impl->descriptorSizes.storageBufferDescriptorSize,
+                impl->descriptorSizes.uniformTexelBufferDescriptorSize,
+                impl->descriptorSizes.storageTexelBufferDescriptorSize,
+            }));
+        }
+
+        // TODO: Separate "CBV_SRV_UAV" and Sampler heaps into separate layouts
+        //         with dynamic number of descriptors
+        // TODO: Add acceleration strucvture layout
+        // TODO: Remove combined image samplers entirely
+        //        - Immutable samplers?
+
+        VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
+                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
+                    .mutableDescriptorTypeListCount = 1,
+                    .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
+                        .descriptorTypeCount = 6,
+                        .pDescriptorTypes = std::array {
+                            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                            VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                            VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                        }.data(),
+                    }),
+                }),
+                .bindingCount = 2,
+                .pBindingFlags = std::array<VkDescriptorBindingFlags, 2> {
+                    VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+                    VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+                }.data(),
+            }),
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+            .bindingCount = 2,
+            .pBindings = std::array {
+                VkDescriptorSetLayoutBinding {
+                    .binding = 0,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
+                    .descriptorCount = 1024 * 1024,
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                },
+                VkDescriptorSetLayoutBinding {
+                    .binding = 1,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                    .descriptorCount = 4096,
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                },
+            }.data(),
+        }), impl->pAlloc, &impl->heapLayout));
+
+        VkCall(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &impl->heapLayout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = Temp(VkPushConstantRange {
+                .stageFlags = VK_SHADER_STAGE_ALL,
+                .size = 256,
+            }),
+        }), impl->pAlloc, &impl->pipelineLayout));
+
         NOVA_LOG("Created!");
 
         return { impl };
@@ -417,32 +499,12 @@ Validation: {} ({})
         if (!impl) {
             return;
         }
-        
+
         WaitIdle();
 
         for (auto& queue : impl->graphicQueues)  { delete queue.impl; }
         for (auto& queue : impl->computeQueues)  { delete queue.impl; }
         for (auto& queue : impl->transferQueues) { delete queue.impl; }
-
-        // // Clean out API object registries
-        // u32 cleanedUp = 0;
-        // swapchains.ForEach(          [&](auto handle, auto&) { cleanedUp++; Swapchain_Destroy(handle);            });
-        // fences.ForEach(              [&](auto handle, auto&) { cleanedUp++; Fence_Destroy(handle);                });
-        // commandPools.ForEach(        [&](auto handle, auto&) { cleanedUp++; Commands_DestroyPool(handle);         });
-        // samplers.ForEach(            [&](auto handle, auto&) { cleanedUp++; Sampler_Destroy(handle);              });
-        // textures.ForEach(            [&](auto handle, auto&) { cleanedUp++; Texture_Destroy(handle);              });
-        // pipelineLayouts.ForEach(     [&](auto handle, auto&) { cleanedUp++; Pipelines_DestroyLayout(handle);      });
-        // shaders.ForEach(             [&](auto handle, auto&) { cleanedUp++; Shader_Destroy(handle);               });
-        // descriptorSetLayouts.ForEach([&](auto handle, auto&) { cleanedUp++; Descriptors_DestroySetLayout(handle); });
-
-        // accelerationStructureBuilders.ForEach([&](auto handle, auto&) { cleanedUp++; AccelerationStructures_DestroyBuilder(handle); });
-        // accelerationStructures.ForEach(       [&](auto handle, auto&) { cleanedUp++; AccelerationStructures_Destroy(handle); });
-        // rayTracingPipelines.ForEach(          [&](auto handle, auto&) { cleanedUp++; RayTracing_DestroyPipeline(handle); });
-
-        // buffers.ForEach([&](auto handle, auto&) { cleanedUp++; Buffer_Destroy(handle); });
-
-        // if (cleanedUp)
-        //     NOVA_LOG("Cleaned up {} remaining API objects on shutdown!", cleanedUp);
 
         // Deleted graphics pipeline library stages
         for (auto&[key, pipeline] : impl->vertexInputStages)    { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
@@ -453,6 +515,8 @@ Validation: {} ({})
         for (auto&[key, pipeline] : impl->computePipelines)     { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
 
         // Destroy context vk objects
+        vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
+        vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vkDestroyDescriptorPool(impl->device, impl->descriptorPool, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);

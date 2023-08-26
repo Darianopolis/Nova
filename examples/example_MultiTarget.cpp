@@ -25,7 +25,7 @@ void example_MultiTarget()
     NOVA_CLEANUP(&) { glfwTerminate(); };
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow* windows[] { 
+    GLFWwindow* windows[] {
         glfwCreateWindow(1920, 1200, "Nova - Multi Target #1", nullptr, nullptr),
         glfwCreateWindow(1920, 1200, "Nova - Multi Target #2", nullptr, nullptr),
     };
@@ -48,23 +48,23 @@ void example_MultiTarget()
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
     NOVA_CLEANUP(&) { fence.Destroy(); };
-    nova::CommandPool commandPools[] { 
-        nova::CommandPool::Create(context, queue), 
-        nova::CommandPool::Create(context, queue) 
+    nova::CommandPool commandPools[] {
+        nova::CommandPool::Create(context, queue),
+        nova::CommandPool::Create(context, queue)
     };
-    NOVA_CLEANUP(&) { 
+    NOVA_CLEANUP(&) {
         commandPools[0].Destroy();
         commandPools[1].Destroy();
     };
 
     auto imgui = [&] {
         auto cmd = commandPools[0].Begin(state);
-        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(), 
+        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(),
             windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
 
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
-        
+
         return _imgui;
     }();
 
@@ -78,7 +78,7 @@ void example_MultiTarget()
         auto newTime = std::chrono::steady_clock::now();
         if (newTime - lastTime > 1s) {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
-                frames, nova::rhi::stats::AllocationCount.load(), 
+                frames, nova::rhi::stats::AllocationCount.load(),
                 nova::rhi::stats::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
             NOVA_LOG("submit :: clear     = {:.2f}\n"
@@ -133,7 +133,7 @@ void example_MultiTarget()
 
         waitValues[fif] = fence.GetPendingValue();
     };
-    
+
     NOVA_CLEANUP(&) { fence.Wait(); };
 
     for (auto window : windows) {

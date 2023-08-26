@@ -21,7 +21,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         for (auto& list : impl->lists) {
             delete list.impl;
         }

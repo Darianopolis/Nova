@@ -1,255 +1,255 @@
-#include "example_Main.hpp"
-
-#include <nova/rhi/nova_RHI.hpp>
-
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
-
-void example_RayTracing()
-{
-// -----------------------------------------------------------------------------
-//                             GLFW Initialization
-// -----------------------------------------------------------------------------
-
-    // Initial window setup
-
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200,
-        "Nova - Ray Tracing", nullptr, nullptr);
-    NOVA_CLEANUP(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
-
-    i32 width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-// -----------------------------------------------------------------------------
-//                             Nova Initialization
-// -----------------------------------------------------------------------------
-
-    // Create Nova context with ray tracing enabled
-
-    NOVA_TIMEIT_RESET();
-
-    auto context = nova::Context::Create({
-        .debug = true,
-        .rayTracing = true,
-    });
-    NOVA_CLEANUP(&) { context.Destroy(); };
-
-    // Create surface and swapchain for GLFW window
-
-
-    auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
-        nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
-        nova::PresentMode::Fifo);
-    NOVA_CLEANUP(&) { swapchain.Destroy(); };
-
-    // Create required Nova objects
-
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
-    auto state = nova::CommandState::Create(context);
-    auto builder = nova::AccelerationStructureBuilder::Create(context);
-    NOVA_CLEANUP(&) { 
-        cmdPool.Destroy();
-        fence.Destroy();
-        state.Destroy();
-        builder.Destroy();
-    };
-
-    NOVA_TIMEIT("base-vulkan-objects");
+// #include "example_Main.hpp"
+
+// #include <nova/rhi/nova_RHI.hpp>
+
+// #include <GLFW/glfw3.h>
+// #include <GLFW/glfw3native.h>
+
+// void example_RayTracing()
+// {
+// // -----------------------------------------------------------------------------
+// //                             GLFW Initialization
+// // -----------------------------------------------------------------------------
+
+//     // Initial window setup
+
+//     glfwInit();
+//     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+//     auto window = glfwCreateWindow(1920, 1200,
+//         "Nova - Ray Tracing", nullptr, nullptr);
+//     NOVA_CLEANUP(&) {
+//         glfwDestroyWindow(window);
+//         glfwTerminate();
+//     };
+
+//     i32 width, height;
+//     glfwGetFramebufferSize(window, &width, &height);
+
+// // -----------------------------------------------------------------------------
+// //                             Nova Initialization
+// // -----------------------------------------------------------------------------
+
+//     // Create Nova context with ray tracing enabled
+
+//     NOVA_TIMEIT_RESET();
+
+//     auto context = nova::Context::Create({
+//         .debug = true,
+//         .rayTracing = true,
+//     });
+//     NOVA_CLEANUP(&) { context.Destroy(); };
+
+//     // Create surface and swapchain for GLFW window
+
+
+//     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
+//         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
+//         nova::PresentMode::Fifo);
+//     NOVA_CLEANUP(&) { swapchain.Destroy(); };
+
+//     // Create required Nova objects
+
+//     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+//     auto cmdPool = nova::CommandPool::Create(context, queue);
+//     auto fence = nova::Fence::Create(context);
+//     auto state = nova::CommandState::Create(context);
+//     auto builder = nova::AccelerationStructureBuilder::Create(context);
+//     NOVA_CLEANUP(&) {
+//         cmdPool.Destroy();
+//         fence.Destroy();
+//         state.Destroy();
+//         builder.Destroy();
+//     };
+
+//     NOVA_TIMEIT("base-vulkan-objects");
 
-// -----------------------------------------------------------------------------
-//                        Descriptors & Pipeline
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                        Descriptors & Pipeline
+// // -----------------------------------------------------------------------------
 
-    // Create descriptor layout to hold one storage image and acceleration structure
-
-    auto descLayout = nova::DescriptorSetLayout::Create(context, {
-        nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
-        nova::binding::AccelerationStructure("tlas"),
-    }, true);
-    NOVA_CLEANUP(&) { descLayout.Destroy(); };
-
-    // Create a pipeline layout for the above set layout
-
-    auto pipelineLayout = nova::PipelineLayout::Create(context, {}, {descLayout}, nova::BindPoint::RayTracing);
-    NOVA_CLEANUP(&) { pipelineLayout.Destroy(); };
-
-    // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
-
-    auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, {
-        nova::shader::Layout(pipelineLayout),
-        nova::shader::Fragment(R"glsl(
-            layout(location = 0) rayPayloadEXT uint     payload;
-            layout(location = 0) hitObjectAttributeNV vec3 bary;
-        )glsl"),
-        nova::shader::Kernel(R"glsl(
-            vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-            vec3 dir = vec3(0, 0, -1);
-            hitObjectNV hit;
-            hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+//     // Create descriptor layout to hold one storage image and acceleration structure
+
+//     auto descLayout = nova::DescriptorSetLayout::Create(context, {
+//         nova::binding::StorageTexture("outImage", swapchain.GetFormat()),
+//         nova::binding::AccelerationStructure("tlas"),
+//     }, true);
+//     NOVA_CLEANUP(&) { descLayout.Destroy(); };
+
+//     // Create a pipeline layout for the above set layout
+
+//     auto pipelineLayout = nova::PipelineLayout::Create(context, {}, {descLayout}, nova::BindPoint::RayTracing);
+//     NOVA_CLEANUP(&) { pipelineLayout.Destroy(); };
+
+//     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
+
+//     auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, {
+//         nova::shader::Layout(pipelineLayout),
+//         nova::shader::Fragment(R"glsl(
+//             layout(location = 0) rayPayloadEXT uint     payload;
+//             layout(location = 0) hitObjectAttributeNV vec3 bary;
+//         )glsl"),
+//         nova::shader::Kernel(R"glsl(
+//             vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+//             vec3 dir = vec3(0, 0, -1);
+//             hitObjectNV hit;
+//             hitObjectTraceRayNV(hit, tlas, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
-            vec3 color = vec3(0.1);
-            if (hitObjectIsHitNV(hit))
-            {
-                hitObjectGetAttributesNV(hit, 0);
-                color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
-            }
-            imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
-        )glsl"),
-    });
-    NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
+//             vec3 color = vec3(0.1);
+//             if (hitObjectIsHitNV(hit))
+//             {
+//                 hitObjectGetAttributesNV(hit, 0);
+//                 color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+//             }
+//             imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+//         )glsl"),
+//     });
+//     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
 
-    // Create a ray tracing pipeline with one ray gen shader
+//     // Create a ray tracing pipeline with one ray gen shader
 
-    auto pipeline = nova::RayTracingPipeline::Create(context);
-    NOVA_CLEANUP(&) { pipeline.Destroy(); };
-    pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
+//     auto pipeline = nova::RayTracingPipeline::Create(context);
+//     NOVA_CLEANUP(&) { pipeline.Destroy(); };
+//     pipeline.Update(pipelineLayout, {rayGenShader}, {}, {}, {});
 
-    NOVA_TIMEIT("pipeline");
+//     NOVA_TIMEIT("pipeline");
 
-// -----------------------------------------------------------------------------
-//                              Triangle BLAS
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                              Triangle BLAS
+// // -----------------------------------------------------------------------------
 
-    // Vertex data
+//     // Vertex data
 
-    auto scratch = nova::Buffer::Create(context, 0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
-    NOVA_CLEANUP(&) { scratch.Destroy(); };
+//     auto scratch = nova::Buffer::Create(context, 0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
+//     NOVA_CLEANUP(&) { scratch.Destroy(); };
 
-    auto blas = [&] {
-        auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vec3),
-            nova::BufferUsage::AccelBuild,
-            nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { vertices.Destroy(); };
-        vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
+//     auto blas = [&] {
+//         auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vec3),
+//             nova::BufferUsage::AccelBuild,
+//             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+//         NOVA_CLEANUP(&) { vertices.Destroy(); };
+//         vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
-        // Index data
+//         // Index data
 
-        auto indices = nova::Buffer::Create(context, 3 * sizeof(u32),
-            nova::BufferUsage::AccelBuild,
-            nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { indices.Destroy(); };
-        indices.Set<u32>({ 0u, 1u, 2u });
+//         auto indices = nova::Buffer::Create(context, 3 * sizeof(u32),
+//             nova::BufferUsage::AccelBuild,
+//             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+//         NOVA_CLEANUP(&) { indices.Destroy(); };
+//         indices.Set<u32>({ 0u, 1u, 2u });
 
-        // Configure BLAS build
+//         // Configure BLAS build
 
-        builder.SetTriangles(0,
-            vertices.GetAddress(), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
-            indices.GetAddress(), nova::IndexType::U32, 1);
-        builder.Prepare(nova::AccelerationStructureType::BottomLevel,
-            nova::AccelerationStructureFlags::PreferFastTrace
-            | nova::AccelerationStructureFlags::AllowCompaction, 1);
+//         builder.SetTriangles(0,
+//             vertices.GetAddress(), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
+//             indices.GetAddress(), nova::IndexType::U32, 1);
+//         builder.Prepare(nova::AccelerationStructureType::BottomLevel,
+//             nova::AccelerationStructureFlags::PreferFastTrace
+//             | nova::AccelerationStructureFlags::AllowCompaction, 1);
 
-        // Create BLAS and scratch buffer
+//         // Create BLAS and scratch buffer
 
-        auto uncompactedBlas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
-            nova::AccelerationStructureType::BottomLevel);
-        NOVA_CLEANUP(&) { uncompactedBlas.Destroy(); };
-        scratch.Resize(builder.GetBuildScratchSize());
+//         auto uncompactedBlas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
+//             nova::AccelerationStructureType::BottomLevel);
+//         NOVA_CLEANUP(&) { uncompactedBlas.Destroy(); };
+//         scratch.Resize(builder.GetBuildScratchSize());
 
-        // Build BLAS
+//         // Build BLAS
 
-        auto cmd = cmdPool.Begin(state);
-        cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+//         auto cmd = cmdPool.Begin(state);
+//         cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
+//         queue.Submit({cmd}, {}, {fence});
+//         fence.Wait();
 
-        // Compact BLAS
+//         // Compact BLAS
 
-        auto blas = nova::AccelerationStructure::Create(context, 
-            builder.GetCompactSize(),
-            nova::AccelerationStructureType::BottomLevel);
+//         auto blas = nova::AccelerationStructure::Create(context,
+//             builder.GetCompactSize(),
+//             nova::AccelerationStructureType::BottomLevel);
 
-        cmd = cmdPool.Begin(state);
-        cmd.CompactAccelerationStructure(blas, uncompactedBlas);
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+//         cmd = cmdPool.Begin(state);
+//         cmd.CompactAccelerationStructure(blas, uncompactedBlas);
+//         queue.Submit({cmd}, {}, {fence});
+//         fence.Wait();
 
-        return blas;
-    }();
-    NOVA_CLEANUP(&) { blas.Destroy(); };
-    NOVA_TIMEIT("blas");
+//         return blas;
+//     }();
+//     NOVA_CLEANUP(&) { blas.Destroy(); };
+//     NOVA_TIMEIT("blas");
 
-// -----------------------------------------------------------------------------
-//                                Scene TLAS
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                                Scene TLAS
+// // -----------------------------------------------------------------------------
 
-    // Instance data
+//     // Instance data
 
-    auto instances = nova::Buffer::Create(context, builder.GetInstanceSize(),
-        nova::BufferUsage::AccelBuild,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_CLEANUP(&) { instances.Destroy(); };
+//     auto instances = nova::Buffer::Create(context, builder.GetInstanceSize(),
+//         nova::BufferUsage::AccelBuild,
+//         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+//     NOVA_CLEANUP(&) { instances.Destroy(); };
 
-    // Configure TLAS build
+//     // Configure TLAS build
 
-    builder.SetInstances(0, instances.GetAddress(), 1);
-    builder.Prepare(nova::AccelerationStructureType::TopLevel,
-        nova::AccelerationStructureFlags::PreferFastTrace, 1);
+//     builder.SetInstances(0, instances.GetAddress(), 1);
+//     builder.Prepare(nova::AccelerationStructureType::TopLevel,
+//         nova::AccelerationStructureFlags::PreferFastTrace, 1);
 
-    // Create TLAS and resize scratch buffer
+//     // Create TLAS and resize scratch buffer
 
-    auto tlas = nova::AccelerationStructure::Create(context, 
-        builder.GetBuildSize(),
-        nova::AccelerationStructureType::TopLevel);
-    NOVA_CLEANUP(&) { tlas.Destroy(); };
-    scratch.Resize(builder.GetBuildScratchSize());
+//     auto tlas = nova::AccelerationStructure::Create(context,
+//         builder.GetBuildSize(),
+//         nova::AccelerationStructureType::TopLevel);
+//     NOVA_CLEANUP(&) { tlas.Destroy(); };
+//     scratch.Resize(builder.GetBuildScratchSize());
 
-    NOVA_TIMEIT("tlas-prepare");
+//     NOVA_TIMEIT("tlas-prepare");
 
-// -----------------------------------------------------------------------------
-//                               Main Loop
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// //                               Main Loop
+// // -----------------------------------------------------------------------------
 
-    NOVA_CLEANUP(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window)) {
-        // Wait for previous frame and acquire new swapchain image
+//     NOVA_CLEANUP(&) { fence.Wait(); };
+//     while (!glfwWindowShouldClose(window)) {
+//         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+//         fence.Wait();
+//         queue.Acquire({swapchain}, {fence});
 
-        // Start new command buffer
+//         // Start new command buffer
 
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+//         cmdPool.Reset();
+//         auto cmd = cmdPool.Begin(state);
 
-        // Build scene TLAS
+//         // Build scene TLAS
 
-        builder.WriteInstance(instances.GetMapped(), 0, blas,
-            glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
-            0, 0xFF, 0, {});
-        cmd.BuildAccelerationStructure(builder, tlas, scratch);
+//         builder.WriteInstance(instances.GetMapped(), 0, blas,
+//             glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
+//             0, 0xFF, 0, {});
+//         cmd.BuildAccelerationStructure(builder, tlas, scratch);
 
-        // Transition ready for writing ray trace output
+//         // Transition ready for writing ray trace output
 
-        cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
-        cmd.Transition(swapchain.GetCurrent(),
-            nova::TextureLayout::GeneralImage,
-            nova::PipelineStage::RayTracing);
+//         cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
+//         cmd.Transition(swapchain.GetCurrent(),
+//             nova::TextureLayout::GeneralImage,
+//             nova::PipelineStage::RayTracing);
 
-        // Push swapchain image and TLAS descriptors
+//         // Push swapchain image and TLAS descriptors
 
-        cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
-        cmd.PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
+//         cmd.PushStorageTexture(pipelineLayout, 0, 0, swapchain.GetCurrent());
+//         cmd.PushAccelerationStructure(pipelineLayout, 0, 1, tlas);
 
-        // Trace rays
+//         // Trace rays
 
-        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
+//         cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
 
-        // Submit and present work
+//         // Submit and present work
 
-        cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+//         cmd.Present(swapchain);
+//         queue.Submit({cmd}, {fence}, {fence});
+//         queue.Present({swapchain}, {fence});
 
-        // Wait for window events
+//         // Wait for window events
 
-        glfwWaitEvents();
-    }
-}
+//         glfwWaitEvents();
+//     }
+// }

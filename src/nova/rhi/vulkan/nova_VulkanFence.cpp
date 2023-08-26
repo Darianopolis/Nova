@@ -24,7 +24,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         vkDestroySemaphore(impl->context->device, impl->semaphore, impl->context->pAlloc);
 
         delete impl;

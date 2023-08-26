@@ -2,11 +2,10 @@
 
 namespace nova
 {
-    void CommandList::SetComputeState(HPipelineLayout layout, HShader shader) const
+    void CommandList::SetComputeState(HShader shader) const
     {
         auto key = ComputePipelineKey {};
         key.shader = shader->id;
-        key.layout = layout->id;
 
         auto context = impl->pool->context;
 
@@ -15,7 +14,7 @@ namespace nova
             VkCall(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                 .stage = shader->GetStageInfo(),
-                .layout = layout->layout,
+                .layout = context->pipelineLayout,
                 .basePipelineIndex = -1,
             }), context->pAlloc, &pipeline));
 

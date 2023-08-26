@@ -20,7 +20,7 @@ namespace nova
             u32 decimals = 2 - u32(std::log10(millis));
             return std::format("{:.{}f}ms", millis, decimals);
         }
-        
+
         if (nanos > 1e3) {
             f64 micros = nanos / 1e3;
             u32 decimals = 2 - u32(std::log10(micros));
@@ -58,7 +58,7 @@ namespace nova
             u32 decimals = 2 - std::min(2u, u32(std::log10(terabytes)));
             return std::format("{:.{}f}TiB", terabytes, decimals);
         }
-        
+
         constexpr auto Gigabyte = 1ull << 30;
         if (bytes > Gigabyte) {
             f64 gigabytes = bytes / f64(Gigabyte);

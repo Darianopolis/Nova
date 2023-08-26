@@ -2,10 +2,10 @@
 
 using namespace nova::types;
 
-struct Example 
-{ 
-    const char* name; 
-    void(*fn)(); 
+struct Example
+{
+    const char* name;
+    void(*fn)();
 };
 
 void example_Compute();
@@ -13,6 +13,13 @@ void example_Draw();
 void example_MultiTarget();
 void example_RayTracing();
 void example_Triangle();
+
+
+// inline void example_Compute() {};
+inline void example_Draw() {};
+// inline void example_MultiTarget() {};
+inline void example_RayTracing() {};
+// inline void example_Triangle() {};
 
 static constexpr std::array Examples {
     Example{ "compute", example_Compute     },

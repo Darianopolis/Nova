@@ -10,7 +10,7 @@ namespace nova
         impl->sbtBuffer = nova::Buffer::Create(context, 0,
             BufferUsage::ShaderBindingTable,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
-        
+
         return { impl };
     }
 
@@ -19,7 +19,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         impl->sbtBuffer.Destroy();
         vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
 
@@ -27,7 +27,7 @@ namespace nova
         impl = nullptr;
     }
 
-    void RayTracingPipeline::Update(HPipelineLayout layout,
+    void RayTracingPipeline::Update(
         Span<HShader> rayGenShaders,
         Span<HShader> rayMissShaders,
         Span<HitShaderGroup> rayHitShaderGroup,
@@ -88,7 +88,7 @@ namespace nova
         }
 
         // Create pipeline
-        
+
         if (impl->pipeline) {
             vkDeviceWaitIdle(impl->context->device);
             vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
@@ -106,7 +106,7 @@ namespace nova
                 .groupCount = u32(groups.size()),
                 .pGroups = groups.data(),
                 .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
-                .layout = layout->layout,
+                .layout = impl->context->pipelineLayout,
             }),
             impl->context->pAlloc, &impl->pipeline));
 
@@ -127,8 +127,8 @@ namespace nova
             impl->sbtBuffer.Resize(std::max(256ull, tableSize));
         }
 
-        auto getMapped = [&](u64 offset, u32 i) { 
-            return impl->sbtBuffer.GetMapped() + offset + (i * handleStride); 
+        auto getMapped = [&](u64 offset, u32 i) {
+            return impl->sbtBuffer.GetMapped() + offset + (i * handleStride);
         };
 
         std::vector<u8> handles(groups.size() * handleSize);
@@ -136,8 +136,8 @@ namespace nova
             0, u32(groups.size()),
             u32(handles.size()), handles.data()));
 
-        auto getHandle = [&](u32 i) { 
-            return handles.data() + (i * handleSize); 
+        auto getHandle = [&](u32 i) {
+            return handles.data() + (i * handleSize);
         };
 
         // Gen

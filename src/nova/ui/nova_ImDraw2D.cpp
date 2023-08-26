@@ -8,24 +8,17 @@
 
 namespace nova
 {
-    ImDraw2D::ImDraw2D(Context _context)
+    ImDraw2D::ImDraw2D(HContext _context, HDescriptorHeap _descriptorHeap)
         : context(_context)
+        , descriptorHeap(_descriptorHeap)
     {
         defaultSampler = nova::Sampler::Create(context, Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
-        pipelineLayout = nova::PipelineLayout::Create(context, 
-            {{"pc", {PushConstants::Layout.begin(), PushConstants::Layout.end()}}},
-            {descriptorSetLayout}, nova::BindPoint::Graphics);
-
-        descriptorSetLayout = nova::DescriptorSetLayout::Create(context, {nova::binding::SampledTexture("textures", 65'536)});
-        descriptorSet = nova::DescriptorSet::Create(descriptorSetLayout);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::Layout(pipelineLayout),
-
             nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
             nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
             nova::shader::Fragment(R"glsl(
@@ -37,7 +30,7 @@ namespace nova
                 uint instanceID = gl_VertexIndex / 6;
                 uint vertexID = gl_VertexIndex % 6;
 
-                ImRoundRect box = ImRoundRect_BR(pc.rectInstancesVA)[instanceID];
+                ImRoundRect box = BufferReference<ImRoundRect>(pc.rectInstancesVA).data[instanceID];
                 vec2 delta = deltas[vertexID];
                 outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
@@ -47,14 +40,12 @@ namespace nova
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::Layout(pipelineLayout),
-
             nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
             nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ImRoundRect box = ImRoundRect_BR(pc.rectInstancesVA)[inInstanceID];
+                ImRoundRect box = BufferReference<ImRoundRect>(pc.rectInstancesVA).data[inInstanceID];
 
                 vec2 absPos = abs(inTex);
                 vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
@@ -106,24 +97,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    ImTextureID ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
+    DescriptorHandle ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
     {
-        u32 index;
-        if (textureSlotFreelist.empty()) {
-            index = nextTextureSlot++;
-        } else {
-            index = textureSlotFreelist.back();
-            textureSlotFreelist.pop_back();
-        }
-
-        descriptorSet.WriteSampledTexture(0, texture, sampler, index);
-
-        return ImTextureID(index);
+        auto handle = descriptorHeap.Acquire(nova::DescriptorType::SampledTexture);
+        descriptorHeap.WriteSampledTexture(handle, texture, sampler);
+        return handle;
     }
 
-    void ImDraw2D::UnregisterTexture(ImTextureID textureSlot)
+    void ImDraw2D::UnregisterTexture(DescriptorHandle handle)
     {
-        textureSlotFreelist.push_back(u32(textureSlot));
+        descriptorHeap.Release(handle);
     }
 
 // -----------------------------------------------------------------------------
@@ -271,21 +254,19 @@ namespace nova
 
     void ImDraw2D::Record(CommandList cmd)
     {
-        cmd.PushConstants(pipelineLayout,
-            0, sizeof(PushConstants),
+        cmd.PushConstants(0, sizeof(PushConstants),
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
                 .centerPos = bounds.Center(),
                 .rectInstancesVA = rectBuffer.GetAddress(),
             }));
 
-        cmd.BindDescriptorSets(pipelineLayout, 0, {descriptorSet});
+        cmd.BindDescriptorHeap(nova::BindPoint::Graphics, descriptorHeap);
 
         for (auto& command : drawCommands) {
             switch (command.type) {
             break;case ImDrawType::RoundRect:
-                cmd.SetGraphicsState(pipelineLayout,
-                    {rectVertShader, rectFragShader},
+                cmd.SetGraphicsState({rectVertShader, rectFragShader},
                     { .blendEnable = true });
                 cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }

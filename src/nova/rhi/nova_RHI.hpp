@@ -40,15 +40,13 @@ namespace nova
     };
 
 #define NOVA_DECLARE_API_HANDLE(type) using H##type = ImplHandle<struct type>;
-    
+
     NOVA_DECLARE_API_HANDLE(Context);
     NOVA_DECLARE_API_HANDLE(Buffer);
     NOVA_DECLARE_API_HANDLE(CommandList);
     NOVA_DECLARE_API_HANDLE(CommandPool);
-    NOVA_DECLARE_API_HANDLE(DescriptorSet);
-    NOVA_DECLARE_API_HANDLE(DescriptorSetLayout);
+    NOVA_DECLARE_API_HANDLE(DescriptorHeap);
     NOVA_DECLARE_API_HANDLE(Fence);
-    NOVA_DECLARE_API_HANDLE(PipelineLayout);
     NOVA_DECLARE_API_HANDLE(Queue);
     NOVA_DECLARE_API_HANDLE(CommandState);
     NOVA_DECLARE_API_HANDLE(Sampler);
@@ -220,13 +218,31 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(GeometryInstanceFlags)
 
-    enum class DescriptorType : u32
+    enum class DescriptorType : u8
     {
         SampledTexture,
         StorageTexture,
         Uniform,
         Storage,
         AccelerationStructure,
+        Sampler,
+    };
+
+    struct DescriptorHandle
+    {
+        u32 id   : 24 = 0;
+        u32 type :  8 = 0;
+
+        DescriptorHandle() = default;
+
+        DescriptorHandle(u32 _id, DescriptorType _type)
+            : id(_id)
+            , type(u32(_type))
+        {}
+
+        u32 ToShaderUInt() const {
+            return id;
+        }
     };
 
     enum class CompareOp : u32
@@ -386,7 +402,7 @@ namespace nova
         }
         return 4;
     }
-    
+
 // -----------------------------------------------------------------------------
 
     struct Member
@@ -425,7 +441,7 @@ namespace nova
             std::optional<u32> count;
         };
     }
-    
+
 // -----------------------------------------------------------------------------
 
     using DescriptorBinding = std::variant<
@@ -470,9 +486,10 @@ namespace nova
             Span<Member> members;
         };
 
-        struct Layout
+        struct PushConstants
         {
-            HPipelineLayout layout;
+            std::string     name;
+            Span<Member> members;
         };
 
         struct BufferReference
@@ -513,7 +530,7 @@ namespace nova
 
     using ShaderElement = std::variant<
         shader::Structure,
-        shader::Layout,
+        shader::PushConstants,
         shader::BufferReference,
         shader::Input,
         shader::Output,
@@ -551,7 +568,7 @@ namespace nova
         operator bool() const noexcept { return impl; } \
         Impl* operator->() const noexcept { return impl; }
 #define NOVA_END_API_OBJECT() };
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Context)
@@ -570,7 +587,7 @@ namespace nova
         bool Acquire(Span<HSwapchain>, Span<HFence> signals) const;
         void Present(Span<HSwapchain>, Span<HFence> waits, bool hostWait = false) const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Fence)
@@ -582,7 +599,7 @@ namespace nova
         void Signal(u64 signalValue = ~0ull) const;
         u64  GetPendingValue() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(CommandPool)
@@ -592,7 +609,7 @@ namespace nova
         CommandList Begin(HCommandState) const;
         void Reset() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(CommandState)
@@ -601,17 +618,17 @@ namespace nova
 
         void SetState(HTexture, VkImageLayout, VkPipelineStageFlags2, VkAccessFlags2) const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(CommandList)
         void Present(HSwapchain) const;
 
-        void SetGraphicsState(HPipelineLayout, Span<HShader>, const PipelineState&) const;
-        void PushConstants(HPipelineLayout, u64 offset, u64 size, const void* data) const;
-        
+        void SetGraphicsState(Span<HShader>, const PipelineState&) const;
+        void PushConstants(u64 offset, u64 size, const void* data) const;
+
         void Barrier(PipelineStage src, PipelineStage dst) const;
-        
+
         void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment = {}, HTexture stencilAttachment = {}) const;
         void EndRendering() const;
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
@@ -621,13 +638,13 @@ namespace nova
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
-        void SetComputeState(HPipelineLayout, HShader) const;
+        void SetComputeState(HShader) const;
         void Dispatch(Vec3U groups) const;
 
-        void BindDescriptorSets(HPipelineLayout, u32 firstSet, Span<HDescriptorSet>) const;
-        
-        void PushStorageTexture(HPipelineLayout, u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
-        void PushAccelerationStructure(HPipelineLayout, u32 setIndex, u32 binding, HAccelerationStructure, u32 arrayIndex = 0) const;
+        void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
+
+        void PushStorageTexture(u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
+        void PushAccelerationStructure(u32 setIndex, u32 binding, HAccelerationStructure, u32 arrayIndex = 0) const;
 
         void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
@@ -646,7 +663,7 @@ namespace nova
 
         void TraceRays(HRayTracingPipeline, Vec3U extent, u32 genIndex) const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Swapchain)
@@ -657,31 +674,23 @@ namespace nova
         Vec2U GetExtent() const;
         Format GetFormat() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(PipelineLayout)
-        static PipelineLayout Create(HContext, Span<PushConstantRange>, Span<HDescriptorSetLayout>, BindPoint);
-        void Destroy();
-    NOVA_END_API_OBJECT()
-    
-// -----------------------------------------------------------------------------
-
-    NOVA_BEGIN_API_OBJECT(DescriptorSetLayout)
-        static DescriptorSetLayout Create(HContext, Span<DescriptorBinding>, bool pushDescriptors = false);
-        void Destroy();
-    NOVA_END_API_OBJECT()
-    
-// -----------------------------------------------------------------------------
-
-    NOVA_BEGIN_API_OBJECT(DescriptorSet)
-        static DescriptorSet Create(HDescriptorSetLayout, u64 customSize = 0);
+    NOVA_BEGIN_API_OBJECT(DescriptorHeap)
+        static DescriptorHeap Create(HContext);
         void Destroy();
 
-        void WriteSampledTexture(u32 binding, HTexture, HSampler, u32 arrayIndex = 0) const;
-        void WriteUniformBuffer(u32 binding, HBuffer, u32 arrayIndex = 0) const;
+        DescriptorHandle Acquire(DescriptorType) const;
+        void Release(DescriptorHandle) const;
+
+        void WriteStorageBuffer(DescriptorHandle handle, HBuffer) const;
+        void WriteUniformBuffer(DescriptorHandle handle, HBuffer) const;
+        void WriteSampledTexture(DescriptorHandle handle, HTexture, HSampler) const;
+        void WriteStorageTexture(DescriptorHandle handle, HTexture) const;
+        void WriteAccelerationStructure(DescriptorHandle handle, HAccelerationStructure) const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Shader)
@@ -689,14 +698,14 @@ namespace nova
         static Shader Create(HContext, ShaderStage, Span<ShaderElement> elements);
         void Destroy();
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Sampler)
         static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Texture)
@@ -706,7 +715,7 @@ namespace nova
         Vec3U GetExtent() const;
         Format GetFormat() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(Buffer)
@@ -731,7 +740,7 @@ namespace nova
             std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
         }
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(AccelerationStructureBuilder)
@@ -742,13 +751,13 @@ namespace nova
         void SetTriangles(u32 geometryIndex,
             u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
             u64 indexAddress, IndexType indexFormat, u32 triangleCount) const;
-        
+
         void Prepare(AccelerationStructureType, AccelerationStructureFlags, u32 geometryCount, u32 firstGeometry = 0) const;
 
         u32 GetInstanceSize() const;
-        void WriteInstance(void* bufferAddress, u32 index, 
-            HAccelerationStructure, 
-            const Mat4& transform, 
+        void WriteInstance(void* bufferAddress, u32 index,
+            HAccelerationStructure,
+            const Mat4& transform,
             u32 customIndex, u8 mask,
             u32 sbtOffset, GeometryInstanceFlags flags) const;
 
@@ -757,7 +766,7 @@ namespace nova
         u64 GetUpdateScratchSize() const;
         u64 GetCompactSize() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(AccelerationStructure)
@@ -766,14 +775,14 @@ namespace nova
 
         u64 GetAddress() const;
     NOVA_END_API_OBJECT()
-    
+
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(RayTracingPipeline)
         static RayTracingPipeline Create(HContext);
         void Destroy();
 
-        void Update(HPipelineLayout, 
+        void Update(
             Span<HShader> rayGenShaders,
             Span<HShader> rayMissShaders,
             Span<struct HitShaderGroup> rayhitShaderGroups,

@@ -30,7 +30,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         ResetBuffer(impl->context, *this);
 
         delete impl;

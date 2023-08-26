@@ -191,6 +191,9 @@ namespace nova
             NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
         }
 
+        // TODO: remove shader module creation,
+        //   store spirv and simply pass to pipelines
+
         VkCall(vkCreateShaderModule(shader->context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
@@ -215,20 +218,124 @@ namespace nova
         impl->context = context;
         impl->stage = stage;
 
-        std::string code = R"(#version 460 core
-#extension GL_GOOGLE_include_directive                   : enable
-#extension GL_EXT_scalar_block_layout                    : enable
-#extension GL_EXT_shader_explicit_arithmetic_types_int16 : enable
-#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
-#extension GL_EXT_buffer_reference2                      : enable
-#extension GL_EXT_nonuniform_qualifier                   : enable
-#extension GL_EXT_ray_tracing                            : enable
-#extension GL_EXT_ray_tracing_position_fetch             : enable
-#extension GL_NV_shader_invocation_reorder               : enable
-#extension GL_EXT_fragment_shader_barycentric            : enable
-)";
+        std::string codeStr = "#version 460\n";
+        auto code = std::back_insert_iterator(codeStr);
 
-#define write(...) std::format_to(std::back_insert_iterator(code), __VA_ARGS__)
+        constexpr auto Extensions = std::array {
+            "GL_GOOGLE_include_directive",
+
+            "GL_EXT_scalar_block_layout",
+            "GL_EXT_buffer_reference2",
+            "GL_EXT_nonuniform_qualifier",
+
+            "GL_EXT_shader_explicit_arithmetic_types_int8",
+            "GL_EXT_shader_explicit_arithmetic_types_int16",
+            "GL_EXT_shader_explicit_arithmetic_types_int32",
+            "GL_EXT_shader_explicit_arithmetic_types_int64",
+            "GL_EXT_shader_explicit_arithmetic_types_float16",
+            "GL_EXT_shader_explicit_arithmetic_types_float32",
+            "GL_EXT_shader_explicit_arithmetic_types_float64",
+
+            "GL_EXT_fragment_shader_barycentric",
+
+            "GL_EXT_ray_tracing",
+            "GL_EXT_ray_tracing_position_fetch",
+            "GL_NV_shader_invocation_reorder",
+        };
+
+        for (auto& extension : Extensions) {
+            std::format_to(code, "#extension {} : enable\n", extension);
+        }
+
+        constexpr auto Dimensions = std::array {
+            "1D", "2D", "3D",
+            "1DArray", "2DArray",
+            "Cube", "CubeArray",
+        };
+
+        constexpr auto Formats = std::array {
+            std::pair("rgba32f",        ""),
+            std::pair("rgba16f",        ""),
+            std::pair("rg32f",          ""),
+            std::pair("rg16f",          ""),
+            std::pair("r11f_g11f_b10f", ""),
+            std::pair("r32f",           ""),
+            std::pair("r16f",           ""),
+            std::pair("rgba16",         ""),
+            std::pair("rgb10_a2",       ""),
+            std::pair("rgba8",          ""),
+            std::pair("rg16",           ""),
+            std::pair("rg8",            ""),
+            std::pair("r16",            ""),
+            std::pair("r8",             ""),
+            std::pair("rgba16_snorm",   ""),
+            std::pair("rgba8_snorm",    ""),
+            std::pair("rg16_snorm",     ""),
+            std::pair("rg8_snorm",      ""),
+            std::pair("r16_snorm",      ""),
+            std::pair("r8_snorm",       ""),
+
+            std::pair("rgba32i", "i"),
+            std::pair("rgba16i", "i"),
+            std::pair("rgba8i",  "i"),
+            std::pair("rg32i",   "i"),
+            std::pair("rg16i",   "i"),
+            std::pair("rg8i",    "i"),
+            std::pair("r32i",    "i"),
+            std::pair("r16i",    "i"),
+            std::pair("r8i",     "i"),
+
+            std::pair("rgba32ui",   "u"),
+            std::pair("rgba16ui",   "u"),
+            std::pair("rgb10_a2ui", "u"),
+            std::pair("rgba8ui",    "u"),
+            std::pair("rg32ui",     "u"),
+            std::pair("rg16ui",     "u"),
+            std::pair("rg8ui",      "u"),
+            std::pair("r32ui",      "u"),
+            std::pair("r16ui",      "u"),
+            std::pair("r8ui",       "u"),
+        };
+
+        // TODO: Bind these lazily
+
+        for (auto format : Formats) {
+            for (auto dims : Dimensions) {
+                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} StorageImage{}_{}[];\n",
+                    format.first, format.second, dims, dims, format.first);
+            }
+
+            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer StorageTexelBuffer_{}[];\n",
+                format.first, format.second, format.first);
+        }
+
+        for (auto dims : Dimensions) {
+            std::format_to(code, "layout(set = 0, binding = 0) uniform sampler{0} SampledImage{0}[];\n", dims);
+        }
+
+        for (auto type : { std::pair("", "_float"), std::pair("i", "_int"), std::pair("u", "_uint") }) {
+            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer UniformTexelBuffer{}[];\n",
+                type.first, type.second);
+        }
+
+        thread_local std::string TransformOutput;
+        auto transformGlsl = [](const std::string& glsl) -> std::string& {
+            static std::regex DescriptorFind = [&] {
+                std::string regex = R"(\b(UniformBuffer|StorageBuffer|BufferReference|StorageTexelBuffer)";
+
+                for (auto dims : Dimensions) {
+                    std::format_to(std::back_insert_iterator(regex), "|StorageImage{}", dims);
+                }
+
+                regex += R"()<(\w+)>(?=[\[\(]))";
+
+                return std::regex{ regex };
+            }();
+            static const char* DescriptorReplace{ "$1_$2" };
+            TransformOutput.clear();
+            std::regex_replace(std::back_insert_iterator(TransformOutput), glsl.begin(), glsl.end(), DescriptorFind, DescriptorReplace);
+            return TransformOutput;
+        };
 
         auto typeToString = [](ShaderVarType type) {
             switch (type) {
@@ -261,7 +368,7 @@ namespace nova
             std::unreachable();
         };
 
-        auto getArrayPart = [&](std::optional<u32> count) {
+        auto getArrayPart = [](std::optional<u32> count) {
             return count
                 ? count.value() == shader::ArrayCountUnsized
                     ? "[]"
@@ -271,7 +378,7 @@ namespace nova
 
         u32 structureId = 0;
         auto getAnonStructureName = [&] {
-            return std::format("GeneratedStructure{}_t", ++structureId);
+            return std::format("_{}_", ++structureId);
         };
 
         u32 inputLocation = 0;
@@ -292,90 +399,32 @@ namespace nova
 //                          Structure declaration
 // -----------------------------------------------------------------------------
                 [&](const shader::Structure& structure) {
-                    write("struct {} {{\n", structure.name);
+                    std::format_to(code, "struct {} {{\n", structure.name);
                     for (auto& member : structure.members) {
-                        write("    {} {}{};\n",
+                        std::format_to(code, "    {} {}{};\n",
                             typeToString(member.type), member.name, getArrayPart(member.count));
                     }
-                    write("}};\n");
-                    write("layout(buffer_reference, scalar) buffer {0}_br {{ {0} data[]; }};\n"
-                        "#define {0}_BR(va) {0}_br(va).data\n",
-                        structure.name);
+                    std::format_to(code, "}};\n");
+                    std::format_to(code, "layout(buffer_reference, scalar) buffer BufferReference_{0} {{ {0} data[]; }};\n",          structure.name);
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} UniformBuffer_{0}[];\n", structure.name, getAnonStructureName());
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} StorageBuffer_{0}[];\n",  structure.name, getAnonStructureName());
                 },
 // -----------------------------------------------------------------------------
-//                             Pipeline Layout
+//                              Push Constants
 // -----------------------------------------------------------------------------
-                [&](const shader::Layout& layout) {
-                    auto pipelineLayout = layout.layout;
-
-                    // Push Constants
-
-                    for (auto& pushConstants : pipelineLayout->pcRanges) {
-                        write("layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
-                        for (auto& member : pushConstants.constants) {
-                            write("    {} {}{};\n",
-                                typeToString(member.type), member.name, getArrayPart(member.count));
-                        }
-                        write("}} {};\n", pushConstants.name);
+                [&](const shader::PushConstants& pushConstants) {
+                    std::format_to(code, "layout(push_constant, scalar) uniform {} {{\n", getAnonStructureName());
+                    for (auto& member : pushConstants.members) {
+                        std::format_to(code, "    {} {}{};\n",
+                            typeToString(member.type), member.name, getArrayPart(member.count));
                     }
-
-                    // Descriptor Sets
-
-                    for (u32 setIdx = 0; setIdx < pipelineLayout->sets.size(); ++setIdx) {
-                        auto set = pipelineLayout->setLayouts[setIdx];
-                        for (u32 bindingIdx = 0; bindingIdx < set->bindings.size(); ++bindingIdx) {
-                            auto& binding = set->bindings[bindingIdx];
-
-                            std::visit(Overloads {
-                                [&](const binding::SampledTexture& binding) {
-                                    // TODO: Support 1D/3D
-                                    write("layout(set = {}, binding = {}) uniform sampler2D {}{};\n",
-                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
-                                },
-                                [&](const binding::StorageTexture& binding) {
-                                    // TODO: Support 1D/3D
-                                    const char* formatString;
-                                    const char* imageType;
-                                    switch (binding.format) {
-                                    break;case Format::RGBA8_UNorm:
-                                          case Format::BGRA8_UNorm:
-                                          case Format::RGBA8_SRGB:
-                                          case Format::BGRA8_SRGB:
-                                        formatString = "rgba8";
-                                        imageType = "image2D";
-                                    break;case Format::R32_UInt:
-                                        formatString = "r32ui";
-                                        imageType = "uimage2D";
-                                    break;default:
-                                        NOVA_THROW("Unknown format: {}", u32(binding.format));
-                                    }
-
-                                    write("layout(set = {}, binding = {}, {}) uniform {} {}{};\n",
-                                        setIdx, bindingIdx, formatString, imageType, binding.name, getArrayPart(binding.count));
-                                },
-                                [&](const binding::AccelerationStructure& binding) {
-                                    write("layout(set = {}, binding = {}) uniform accelerationStructureEXT {}{};\n",
-                                        setIdx, bindingIdx, binding.name, getArrayPart(binding.count));
-                                },
-                                [&](const binding::UniformBuffer& binding) {
-                                    write("layout(set = {}, binding = {}) uniform {} {{\n",
-                                        setIdx, bindingIdx, getAnonStructureName());
-                                    for (auto& member : binding.members)
-                                    {
-                                        write("    {} {}{};\n",
-                                            typeToString(member.type), member.name, getArrayPart(member.count));
-                                    }
-                                    write("}} {}{};\n", binding.name, getArrayPart(binding.count));
-                                }
-                            }, binding);
-                        }
-                    }
+                    std::format_to(code, "}} {};\n", pushConstants.name);
                 },
 // -----------------------------------------------------------------------------
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
                 [&](const shader::BufferReference& bufferReference) {
-                    write("layout(buffer_reference, scalar) buffer {0}_br {{ {1} data[]; }};\n"
+                    std::format_to(code, "layout(buffer_reference, scalar) buffer {0}_br {{ {1} data[]; }};\n"
                         "#define {0}_BR(va) {0}_br(va).data\n",
                         bufferReference.name,
                         bufferReference.scalarType
@@ -386,18 +435,18 @@ namespace nova
 //                          Shader Input Variable
 // -----------------------------------------------------------------------------
                 [&](const shader::Input& input) {
-                    write("layout(location = {}) in", inputLocation);
+                    std::format_to(code, "layout(location = {}) in", inputLocation);
                     if (input.flags >= ShaderInputFlags::Flat) {
-                        write(" flat");
+                        std::format_to(code, " flat");
                     }
                     if (input.flags >= ShaderInputFlags::PerVertex) {
-                        write(" pervertexEXT");
+                        std::format_to(code, " pervertexEXT");
                     }
-                    write(" {} {}", typeToString(input.type), input.name);
+                    std::format_to(code, " {} {}", typeToString(input.type), input.name);
                     if (input.flags >= ShaderInputFlags::PerVertex) {
-                        write("[3]"); // TODO: Primitive vertex count?
+                        std::format_to(code, "[3]"); // TODO: Primitive vertex count?
                     }
-                    write(";\n");
+                    std::format_to(code, ";\n");
 
                     inputLocation += getTypeLocationWidth(input.type);
                 },
@@ -405,7 +454,7 @@ namespace nova
 //                          Shader Output Variable
 // -----------------------------------------------------------------------------
                 [&](const shader::Output& output) {
-                    write("layout(location = {}) out {} {};\n",
+                    std::format_to(code, "layout(location = {}) out {} {};\n",
                         outputLocation, typeToString(output.type), output.name);
 
                     outputLocation += getTypeLocationWidth(output.type);
@@ -414,31 +463,31 @@ namespace nova
 //                              GLSL Fragment
 // -----------------------------------------------------------------------------
                 [&](const shader::Fragment& fragment) {
-                    write("{}", fragment.glsl);
+                    std::format_to(code, "{}", transformGlsl(fragment.glsl));
                 },
 // -----------------------------------------------------------------------------
 //                             Compute Kernel
 // -----------------------------------------------------------------------------
                 [&](const shader::ComputeKernel& computeKernel) {
-                    write("layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\nvoid main() {{\n{}\n}}\n",
+                    std::format_to(code, "layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\nvoid main() {{\n{}\n}}\n",
                         computeKernel.workGroups.x, computeKernel.workGroups.y, computeKernel.workGroups.z,
-                        computeKernel.glsl);
+                        transformGlsl(computeKernel.glsl));
                 },
 // -----------------------------------------------------------------------------
 //                                 Kernel
 // -----------------------------------------------------------------------------
                 [&](const shader::Kernel& kernel) {
-                    write("void main() {{\n{}\n}}\n", kernel.glsl);
+                    std::format_to(code, "void main() {{\n{}\n}}\n", transformGlsl(kernel.glsl));
                 },
             }, element);
         }
 
 #undef write
 
-        // NOVA_LOG("Generated shader:\n{}", shader);
+        NOVA_LOG("Generated shader:\n{}", codeStr);
 
         Shader shader{ impl };
-        CompileShader(shader, "generated", code);
+        CompileShader(shader, "generated", codeStr);
         return shader;
     }
 
@@ -447,7 +496,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
 
         delete impl;

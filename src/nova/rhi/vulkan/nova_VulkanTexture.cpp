@@ -6,7 +6,7 @@ namespace nova
     {
         auto impl = new Impl;
         impl->context = context;
-        
+
         VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = GetVulkanFilter(filter),
@@ -32,7 +32,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         vkDestroySampler(impl->context->device, impl->sampler, impl->context->pAlloc);
 
         delete impl;
@@ -157,7 +157,7 @@ namespace nova
         if (!impl) {
             return;
         }
-        
+
         if (impl->view) {
             vkDestroyImageView(impl->context->device, impl->view, impl->context->pAlloc);
         }
@@ -165,7 +165,7 @@ namespace nova
         if (impl->allocation) {
             vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
         }
-        
+
         delete impl;
         impl = nullptr;
     }
