@@ -51,7 +51,7 @@ namespace nova
                 vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
                 vec4 sampled = box.texTint.a > 0
-                    ? box.texTint * texture(textures[nonuniformEXT(box.texIndex)],
+                    ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex)), 0),
                         (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
                 vec4 centerColor = vec4(
@@ -99,8 +99,9 @@ namespace nova
 
     DescriptorHandle ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
     {
+        (void)sampler;// TODO: Handle custom sampler!
         auto handle = descriptorHeap.Acquire(nova::DescriptorType::SampledTexture);
-        descriptorHeap.WriteSampledTexture(handle, texture, sampler);
+        descriptorHeap.WriteSampledTexture(handle, texture);
         return handle;
     }
 

@@ -248,12 +248,20 @@ namespace nova
         }
 
         constexpr auto Dimensions = std::array {
-            "1D", "2D", "3D",
-            "1DArray", "2DArray",
-            "Cube", "CubeArray",
+            "1D",
+            "2D",
+            "3D",
+
+            "1DArray",
+            "2DArray",
+
+            "Cube",
+            "CubeArray",
         };
 
-        constexpr auto Formats = std::array {
+        constexpr auto ImageFormats = std::array {
+
+            // floating-point formats
             std::pair("rgba32f",        ""),
             std::pair("rgba16f",        ""),
             std::pair("rg32f",          ""),
@@ -261,6 +269,8 @@ namespace nova
             std::pair("r11f_g11f_b10f", ""),
             std::pair("r32f",           ""),
             std::pair("r16f",           ""),
+
+            // unsigned-normalized formats
             std::pair("rgba16",         ""),
             std::pair("rgb10_a2",       ""),
             std::pair("rgba8",          ""),
@@ -268,6 +278,8 @@ namespace nova
             std::pair("rg8",            ""),
             std::pair("r16",            ""),
             std::pair("r8",             ""),
+
+            // signed-normalized formats
             std::pair("rgba16_snorm",   ""),
             std::pair("rgba8_snorm",    ""),
             std::pair("rg16_snorm",     ""),
@@ -275,6 +287,7 @@ namespace nova
             std::pair("r16_snorm",      ""),
             std::pair("r8_snorm",       ""),
 
+            // signed-integer formats
             std::pair("rgba32i", "i"),
             std::pair("rgba16i", "i"),
             std::pair("rgba8i",  "i"),
@@ -285,6 +298,7 @@ namespace nova
             std::pair("r16i",    "i"),
             std::pair("r8i",     "i"),
 
+            // unsigned-integer formats
             std::pair("rgba32ui",   "u"),
             std::pair("rgba16ui",   "u"),
             std::pair("rgb10_a2ui", "u"),
@@ -297,44 +311,69 @@ namespace nova
             std::pair("r8ui",       "u"),
         };
 
+        constexpr std::array UniformTexelFormats {
+            std::pair("", "float"),
+            std::pair("i",  "int"),
+            std::pair("u", "uint"),
+        };
+
         // TODO: Bind these lazily
 
-        for (auto format : Formats) {
+        for (auto format : ImageFormats) {
             for (auto dims : Dimensions) {
-                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} StorageImage{}_{}[];\n",
+                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} nova_StorageImage{}_{}[];\n",
                     format.first, format.second, dims, dims, format.first);
             }
 
-            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer StorageTexelBuffer_{}[];\n",
+            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer nova_StorageTexelBuffer_{}[];\n",
                 format.first, format.second, format.first);
         }
 
         for (auto dims : Dimensions) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform sampler{0} SampledImage{0}[];\n", dims);
+            std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0} nova_SampledImage{0}[];\n", dims);
         }
 
-        for (auto type : { std::pair("", "_float"), std::pair("i", "_int"), std::pair("u", "_uint") }) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer UniformTexelBuffer{}[];\n",
+        for (auto type : UniformTexelFormats) {
+            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer nova_UniformTexelBuffer_{}[];\n",
                 type.first, type.second);
         }
 
-        thread_local std::string TransformOutput;
-        auto transformGlsl = [](const std::string& glsl) -> std::string& {
-            static std::regex DescriptorFind = [&] {
-                std::string regex = R"(\b(UniformBuffer|StorageBuffer|BufferReference|StorageTexelBuffer)";
+        // Sampler heap
+        // TODO: This should be a separate set
 
+        std::format_to(code, "layout(set = 0, binding = 1) uniform sampler nova_Sampler[];\n");
+
+        for (auto dims : Dimensions) {
+            std::format_to(code, "#define nova_Sampler{0}(texture, sampler) sampler{0}(nova_SampledImage{0}[texture], nova_Sampler[sampler])\n", dims);
+        }
+
+        std::format_to(code, "layout(set = 1, binding = 0) uniform accelerationStructureEXT nova_AccelerationStructure;\n");
+
+        // Transform GLSL
+
+        thread_local std::string TransformOutputA;
+        thread_local std::string TransformOutputB;
+        auto transformGlsl = [](const std::string& glsl) -> std::string& {
+
+            // Convert "templated" descriptor heap accesses
+            static std::regex DescriptorFind = [&] {
+                std::string regex = R"(\bnova::(UniformBuffer|StorageBuffer|BufferReference|StorageTexelBuffer)";
                 for (auto dims : Dimensions) {
                     std::format_to(std::back_insert_iterator(regex), "|StorageImage{}", dims);
                 }
-
-                regex += R"()<(\w+)>(?=[\[\(]))";
-
-                return std::regex{ regex };
+                return std::regex{ regex += R"()<(\w+)>)" };
             }();
-            static const char* DescriptorReplace{ "$1_$2" };
-            TransformOutput.clear();
-            std::regex_replace(std::back_insert_iterator(TransformOutput), glsl.begin(), glsl.end(), DescriptorFind, DescriptorReplace);
-            return TransformOutput;
+            TransformOutputA.clear();
+            std::regex_replace(std::back_insert_iterator(TransformOutputA), glsl.begin(), glsl.end(),
+                DescriptorFind, "nova_$1_$2");
+
+            // Convert remaining nova:: prefixes
+            TransformOutputB.clear();
+            static std::regex NovaPrefixFind{ R"(\bnova::)" };
+            std::regex_replace(std::back_insert_iterator(TransformOutputB), TransformOutputA.begin(), TransformOutputA.end(),
+                NovaPrefixFind, "nova_");
+
+            return TransformOutputB;
         };
 
         auto typeToString = [](ShaderVarType type) {
@@ -405,9 +444,9 @@ namespace nova
                             typeToString(member.type), member.name, getArrayPart(member.count));
                     }
                     std::format_to(code, "}};\n");
-                    std::format_to(code, "layout(buffer_reference, scalar) buffer BufferReference_{0} {{ {0} data[]; }};\n",          structure.name);
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} UniformBuffer_{0}[];\n", structure.name, getAnonStructureName());
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} StorageBuffer_{0}[];\n",  structure.name, getAnonStructureName());
+                    std::format_to(code, "layout(buffer_reference, scalar) buffer nova_BufferReference_{0} {{ {0} data[]; }};\n",          structure.name);
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} nova_UniformBuffer_{0}[];\n", structure.name, getAnonStructureName());
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} nova_StorageBuffer_{0}[];\n",  structure.name, getAnonStructureName());
                 },
 // -----------------------------------------------------------------------------
 //                              Push Constants
@@ -424,8 +463,7 @@ namespace nova
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
                 [&](const shader::BufferReference& bufferReference) {
-                    std::format_to(code, "layout(buffer_reference, scalar) buffer {0}_br {{ {1} data[]; }};\n"
-                        "#define {0}_BR(va) {0}_br(va).data\n",
+                    std::format_to(code, "layout(buffer_reference, scalar) buffer nova_BufferReference_{0} {{ {1} data[]; }};\n",
                         bufferReference.name,
                         bufferReference.scalarType
                             ? typeToString(bufferReference.scalarType.value())
@@ -481,8 +519,6 @@ namespace nova
                 },
             }, element);
         }
-
-#undef write
 
         NOVA_LOG("Generated shader:\n{}", codeStr);
 

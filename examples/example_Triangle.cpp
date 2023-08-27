@@ -34,7 +34,7 @@ struct Vertex
     };
 };
 
-void example_Triangle()
+NOVA_EXAMPLE(tri)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -106,8 +106,8 @@ void example_Triangle()
         nova::shader::PushConstants("pc", PushConstants::Layout),
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Kernel(R"glsl(
-            Uniforms u = UniformBuffer<Uniforms>[pc.uniformUBO].data[0];
-            Vertex   v = BufferReference<Vertex>(pc.vertexVA).data[gl_VertexIndex];
+            Uniforms u = nova::UniformBuffer<Uniforms>[pc.uniformUBO].data[0];
+            Vertex   v = nova::BufferReference<Vertex>(pc.vertexVA).data[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + u.offset, 1);
         )glsl"),

@@ -71,7 +71,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void DescriptorHeap::WriteStorageBuffer(DescriptorHandle handle, HBuffer buffer) const
+    DescriptorHandle DescriptorHeap::WriteStorageBuffer(DescriptorHandle handle, HBuffer buffer) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -85,9 +85,11 @@ namespace nova
                 .range = VK_WHOLE_SIZE,
             }),
         }), 0, nullptr);
+
+        return handle;
     }
 
-    void DescriptorHeap::WriteUniformBuffer(DescriptorHandle handle, HBuffer buffer) const
+    DescriptorHandle DescriptorHeap::WriteUniformBuffer(DescriptorHandle handle, HBuffer buffer) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -101,9 +103,11 @@ namespace nova
                 .range = VK_WHOLE_SIZE,
             }),
         }), 0, nullptr);
+
+        return handle;
     }
 
-    void DescriptorHeap::WriteSampledTexture(DescriptorHandle handle, HTexture texture, HSampler sampler) const
+    DescriptorHandle DescriptorHeap::WriteSampledTexture(DescriptorHandle handle, HTexture texture) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -111,16 +115,34 @@ namespace nova
             .dstBinding = 0,
             .dstArrayElement = handle.id,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             .pImageInfo = Temp(VkDescriptorImageInfo {
-                .sampler = sampler->sampler,
                 .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             }),
         }), 0, nullptr);
+
+        return handle;
     }
 
-    void DescriptorHeap::WriteStorageTexture(DescriptorHandle handle, HTexture texture) const
+    DescriptorHandle DescriptorHeap::WriteSampler(DescriptorHandle handle, HSampler sampler) const
+    {
+        vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = impl->set,
+            .dstBinding = 1,
+            .dstArrayElement = handle.id,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .pImageInfo = Temp(VkDescriptorImageInfo {
+                .sampler = sampler->sampler,
+            }),
+        }), 0, nullptr);
+
+        return handle;
+    }
+
+    DescriptorHandle DescriptorHeap::WriteStorageTexture(DescriptorHandle handle, HTexture texture) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -134,11 +156,15 @@ namespace nova
                 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
             }),
         }), 0, nullptr);
+
+        return handle;
     }
 
-    void DescriptorHeap::WriteAccelerationStructure(DescriptorHandle handle, HAccelerationStructure accelerationStructure) const
+    void CommandList::BindAccelerationStructure(BindPoint bindPoint, HAccelerationStructure accelerationStructure) const
     {
-        vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+        vkCmdPushDescriptorSetKHR(impl->buffer,
+            GetVulkanPipelineBindPoint(bindPoint),
+            impl->pool->context->pipelineLayout, 1, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
@@ -146,9 +172,9 @@ namespace nova
                     .pAccelerationStructures = &accelerationStructure->structure,
                 }),
                 .dstBinding = 0,
-                .dstArrayElement = handle.id,
+                .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-            }), 0, nullptr);
+            }));
     }
 }

@@ -2,29 +2,16 @@
 
 using namespace nova::types;
 
-struct Example
+struct ExampleListing
 {
     const char* name;
     void(*fn)();
 };
 
-void example_Compute();
-void example_Draw();
-void example_MultiTarget();
-void example_RayTracing();
-void example_Triangle();
+std::vector<ExampleListing>& GetExamples();
+std::monostate RegisterExample(const char* name, void(*fn)());
 
-
-// inline void example_Compute() {};
-inline void example_Draw() {};
-// inline void example_MultiTarget() {};
-inline void example_RayTracing() {};
-// inline void example_Triangle() {};
-
-static constexpr std::array Examples {
-    Example{ "compute", example_Compute     },
-    Example{ "draw",    example_Draw        },
-    Example{ "multi",   example_MultiTarget },
-    Example{ "rt",      example_RayTracing  },
-    Example{ "tri",     example_Triangle    },
-};
+#define NOVA_EXAMPLE(name) \
+    void example_##name(); \
+    static auto example_##name##_state = RegisterExample(#name, example_##name); \
+    void example_##name()

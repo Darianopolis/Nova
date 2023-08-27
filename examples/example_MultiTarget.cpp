@@ -11,7 +11,7 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
-void example_MultiTarget()
+NOVA_EXAMPLE(multi)
 {
     auto context = nova::Context::Create({
         .debug = true,

@@ -643,8 +643,9 @@ namespace nova
 
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
 
-        void PushStorageTexture(u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
-        void PushAccelerationStructure(u32 setIndex, u32 binding, HAccelerationStructure, u32 arrayIndex = 0) const;
+        // void PushStorageTexture(u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
+        // void PushAccelerationStructure(u32 setIndex, u32 binding, HAccelerationStructure, u32 arrayIndex = 0) const;
+        void BindAccelerationStructure(BindPoint, HAccelerationStructure) const;
 
         void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
@@ -684,11 +685,12 @@ namespace nova
         DescriptorHandle Acquire(DescriptorType) const;
         void Release(DescriptorHandle) const;
 
-        void WriteStorageBuffer(DescriptorHandle handle, HBuffer) const;
-        void WriteUniformBuffer(DescriptorHandle handle, HBuffer) const;
-        void WriteSampledTexture(DescriptorHandle handle, HTexture, HSampler) const;
-        void WriteStorageTexture(DescriptorHandle handle, HTexture) const;
-        void WriteAccelerationStructure(DescriptorHandle handle, HAccelerationStructure) const;
+        DescriptorHandle WriteStorageBuffer(DescriptorHandle handle, HBuffer) const;
+        DescriptorHandle WriteUniformBuffer(DescriptorHandle handle, HBuffer) const;
+        DescriptorHandle WriteSampledTexture(DescriptorHandle handle, HTexture) const;
+        DescriptorHandle WriteSampler(DescriptorHandle handle, HSampler) const;
+        DescriptorHandle WriteStorageTexture(DescriptorHandle handle, HTexture) const;
+        DescriptorHandle WriteAccelerationStructure(DescriptorHandle handle, HAccelerationStructure) const;
     NOVA_END_API_OBJECT()
 
 // -----------------------------------------------------------------------------

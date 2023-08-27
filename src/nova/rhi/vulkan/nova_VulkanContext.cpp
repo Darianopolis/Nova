@@ -443,7 +443,8 @@ Validation: {} ({})
                     .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
                         .descriptorTypeCount = 6,
                         .pDescriptorTypes = std::array {
-                            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -478,10 +479,27 @@ Validation: {} ({})
             }.data(),
         }), impl->pAlloc, &impl->heapLayout));
 
+        VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+            .bindingCount = 1,
+            .pBindings = std::array {
+                VkDescriptorSetLayoutBinding {
+                    .binding = 0,
+                    .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                    .descriptorCount = 1,
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                },
+            }.data(),
+        }), impl->pAlloc, &impl->rtLayout));
+
         VkCall(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &impl->heapLayout,
+            .setLayoutCount = 2,
+            .pSetLayouts = std::array {
+                impl->heapLayout,
+                impl->rtLayout,
+            }.data(),
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_ALL,
@@ -516,6 +534,7 @@ Validation: {} ({})
 
         // Destroy context vk objects
         vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
+        vkDestroyDescriptorSetLayout(impl->device, impl->rtLayout, impl->pAlloc);
         vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vkDestroyDescriptorPool(impl->device, impl->descriptorPool, impl->pAlloc);

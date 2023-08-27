@@ -23,9 +23,9 @@ if Project "nova" then
 -------- Core ------------------------------------------------------------------
 
     Compile "src/nova/core/**"
-    Import { 
-        "ankerl-maps", 
-        "glm", 
+    Import {
+        "ankerl-maps",
+        "glm",
         "mimalloc",
         "eastl",
     }
@@ -40,13 +40,13 @@ if Project "nova" then
     Compile "src/nova/os/**"
 
 -------- RHI -------------------------------------------------------------------
-    
+
     Compile "src/nova/rhi/**"
-    Import { 
-        "vulkan", 
-        "VulkanMemoryAllocator", 
-        "glslang", 
-        "volk" 
+    Import {
+        "vulkan",
+        "VulkanMemoryAllocator",
+        "glslang",
+        "volk"
     }
 
 -------- UI --------------------------------------------------------------------
@@ -60,12 +60,14 @@ if Project "nova" then
         "imgui-vulkan",
         "imguizmo",
     }
+end
 
 --------------------------------------------------------------------------------
 --                               Examples
 --------------------------------------------------------------------------------
 
+if Project "nova-examples" then
     Compile "examples/**"
-    Import { "stb" }
+    Import { "stb", "nova" }
     Artifact { "out/example", type = "Console" }
 end

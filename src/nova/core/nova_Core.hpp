@@ -413,9 +413,9 @@ namespace nova
         };
     }
 
-#define NOVA_CLEANUP(...)         ::nova::guards::CleanupGuard        NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
-#define NOVA_CLEANUP_SUCCESS(...) ::nova::guards::CleanupSuccessGuard NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
-#define NOVA_CLEANUP_FAILURE(...) ::nova::guards::CleanupFailureGuard NOVA_CONCAT(cleanup_guard_, __LINE__) = [__VA_ARGS__]
+#define NOVA_CLEANUP(...)         ::nova::guards::CleanupGuard        NOVA_CONCAT(cleanup_on_line_, __LINE__) = [__VA_ARGS__]
+#define NOVA_CLEANUP_SUCCESS(...) ::nova::guards::CleanupSuccessGuard NOVA_CONCAT(cleanup_on_line_, __LINE__) = [__VA_ARGS__]
+#define NOVA_CLEANUP_FAILURE(...) ::nova::guards::CleanupFailureGuard NOVA_CONCAT(cleanup_on_line_, __LINE__) = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 

@@ -105,11 +105,13 @@ namespace nova
             Vec2 invHalfExtent;
             Vec2 centerPos;
             u64 rectInstancesVA;
+            u32 samplerIndex;
 
             static constexpr auto Layout = std::array {
                 Member("invHalfExtent",   nova::ShaderVarType::Vec2),
                 Member("centerPos",       nova::ShaderVarType::Vec2),
                 Member("rectInstancesVA", nova::ShaderVarType::U64),
+                Member("samplerIndex",         nova::ShaderVarType::U32),
             };
         };
 
