@@ -100,6 +100,11 @@ namespace nova
         using Mat3 = glm::mat3;
         using Mat4 = glm::mat4;
 
+        struct Rect2I
+        {
+            Vec2I offset, extent;
+        };
+
         struct Trs
         {
             Vec3 translation = Vec3(0.f);

@@ -14,7 +14,7 @@
 NOVA_EXAMPLE(multi)
 {
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -69,7 +69,7 @@ NOVA_EXAMPLE(multi)
         .heap = heap,
         .sampler = 0,
         .fontTextureID = 1,
-    }, commandPools[0], state, queue, fence);
+    }, state);
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
@@ -119,7 +119,7 @@ NOVA_EXAMPLE(multi)
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0].GetCurrent());
+        imgui.DrawFrame(cmd, swapchains[0].GetCurrent(), fence);
 
         // Present #1
         cmd.Present(swapchains[0]);

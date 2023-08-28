@@ -259,6 +259,11 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
                 .mutableDescriptorType = VK_TRUE;
+
+            chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+                .hostImageCopy = VK_TRUE;
         }
 
         if (config.meshShaders) {

@@ -642,6 +642,8 @@ namespace nova
         void SetComputeState(HShader) const;
         void Dispatch(Vec3U groups) const;
 
+        void SetScissors(Span<Rect2I> scissors) const;
+
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
 
         // void PushStorageTexture(u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
@@ -716,6 +718,10 @@ namespace nova
 
         Vec3U GetExtent() const;
         Format GetFormat() const;
+
+        // TODO: Handle row pitch, etc..
+        void Set(Vec3I offset, Vec3U extent, const void* data, HCommandState state) const;
+        void Transition(TextureLayout layout, HCommandState state) const;
     NOVA_END_API_OBJECT()
 
 // -----------------------------------------------------------------------------

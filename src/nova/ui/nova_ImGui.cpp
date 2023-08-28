@@ -3,8 +3,6 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
 #include <ImGuizmo.h>
 
 namespace nova
@@ -12,24 +10,21 @@ namespace nova
     struct ImGuiPushConstants
     {
         u64 vertexVA;
-        Vec2 dimensions;
+        Vec2 scale;
+        Vec2 offset;
         u32 textureID;
         u32 samplerID;
 
         static constexpr std::array Layout {
             nova::Member("vertexVA",   nova::ShaderVarType::U64),
-            nova::Member("dimensions", nova::ShaderVarType::Vec2),
+            nova::Member("scale", nova::ShaderVarType::Vec2),
+            nova::Member("offset", nova::ShaderVarType::Vec2),
             nova::Member("textureID",  nova::ShaderVarType::U32),
             nova::Member("samplerID",  nova::ShaderVarType::U32),
         };
     };
 
-    ImGuiLayer::ImGuiLayer(
-            const ImGuiConfig& config,
-            CommandPool cmdPool,
-            CommandState cmdState,
-            Queue queue,
-            Fence fence)
+    ImGuiLayer::ImGuiLayer(const ImGuiConfig& config, CommandState cmdState)
         : context(config.context)
         , heap(config.heap)
         , defaultSamplerID(config.sampler)
@@ -37,12 +32,14 @@ namespace nova
     {
         // Create RHI backend
 
-        vertexBuffer = nova::Buffer::Create(context, 100'000 * sizeof(ImDrawVert),
+        vertexBuffer = nova::Buffer::Create(context, 0,
             nova::BufferUsage::Storage,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-        indexBuffer = nova::Buffer::Create(context, 100'000 * sizeof(ImDrawIdx),
+
+        indexBuffer = nova::Buffer::Create(context, 0,
             nova::BufferUsage::Index,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+
         vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
             nova::shader::Structure("ImDrawVert", {
                 nova::Member("pos", nova::ShaderVarType::Vec2),
@@ -56,7 +53,7 @@ namespace nova
                 ImDrawVert v = nova::BufferReference<ImDrawVert>(pc.vertexVA).data[gl_VertexIndex];
                 outUV = v.uv;
                 outColor = unpackUnorm4x8(v.col);
-                gl_Position = vec4((v.pos / pc.dimensions) * 2 - 1, 0, 1);
+                gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
             )glsl"),
         });
 
@@ -108,19 +105,8 @@ namespace nova
             heap.WriteSampledTexture(fontTextureID, fontTexture);
             io.Fonts->SetTexID(GetTextureID(fontTextureID));
 
-            // TODO: Host image copy and avoid staging
-
-            auto staging = nova::Buffer::Create(context, uploadSize,
-                nova::BufferUsage::TransferSrc,
-                nova::BufferFlags::Mapped);
-            NOVA_CLEANUP(&) { staging.Destroy(); };
-            staging.Set(Span(pixels, uploadSize));
-
-            auto cmd = cmdPool.Begin(cmdState);
-            cmd.CopyToTexture(fontTexture, staging);
-            cmd.Transition(fontTexture, nova::TextureLayout::Sampled, nova::PipelineStage::Graphics);
-            queue.Submit({cmd}, {}, {fence});
-            fence.Wait();
+            fontTexture.Set({}, fontTexture.GetExtent(), pixels, cmdState);
+            fontTexture.Transition(nova::TextureLayout::Sampled, cmdState);
         }
 
         ImGui::SetCurrentContext(lastImguiCtx);
@@ -217,7 +203,7 @@ namespace nova
         return ended;
     }
 
-    void ImGuiLayer::DrawFrame(CommandList cmd, Texture texture)
+    void ImGuiLayer::DrawFrame(CommandList cmd, Texture target, Fence fence)
     {
         EndFrame();
 
@@ -230,78 +216,58 @@ namespace nova
             return;
         }
 
-        ImVec2 clipOff = data->DisplayPos; // (0,0) unless using multi-viewports
-        ImVec2 clipScale = data->FramebufferScale;
+        // Ensure buffer sizes
 
-        cmd.BeginRendering({{}, Vec2U(texture.GetExtent())}, {texture});
+        if (vertexBuffer.GetSize() < data->TotalVtxCount * sizeof(ImDrawVert)
+                || indexBuffer.GetSize() < data->TotalIdxCount * sizeof(ImDrawIdx)) {
 
-        constexpr auto ImGuiIndexType = sizeof(ImDrawIdx) == 2
-            ? nova::IndexType::U16
-            : nova::IndexType::U32;
+            // Flush frames to resize (this should only happen a few times in total)
+            fence.Wait();
+            vertexBuffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
+            indexBuffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
+        }
 
-        // Resize buffers
-        vertexBuffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
-        indexBuffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
+        // Set pipeline state
 
+        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
         cmd.SetGraphicsState({ vertexShader, fragmentShader }, {
             .cullMode = nova::CullMode::None,
             .blendEnable = true,
         });
-        cmd.BindIndexBuffer(indexBuffer, ImGuiIndexType);
+        cmd.BindIndexBuffer(indexBuffer, sizeof(ImDrawIdx) == 2 ? nova::IndexType::U16 : nova::IndexType::U32);
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
 
-        // Copy buffer data
+        // Draw vertices
+
+        Vec2 clipOff{ data->DisplayPos.x, data->DisplayPos.y };
+        Vec2 clipScale{ data->FramebufferScale.x, data->FramebufferScale.y };
+
         usz vertexOffset = 0, indexOffset = 0;
         for (i32 i = 0; i < data->CmdListsCount; ++i) {
             auto list = data->CmdLists[i];
 
             vertexBuffer.Set(Span(list->VtxBuffer.Data, list->VtxBuffer.size()), vertexOffset);
-            vertexOffset += list->VtxBuffer.size();
-
             indexBuffer.Set(Span(list->IdxBuffer.Data, list->IdxBuffer.size()), indexOffset);
-            indexOffset += list->IdxBuffer.size();
-        }
-
-        // Draw vertices
-        vertexOffset = indexOffset = 0;
-        for (i32 i = 0; i < data->CmdListsCount; ++i) {
-            auto list = data->CmdLists[i];
 
             for (i32 j = 0; j < list->CmdBuffer.size(); ++j) {
                 const auto& imCmd = list->CmdBuffer[j];
 
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clipMin{ (imCmd.ClipRect.x - clipOff.x) * clipScale.x, (imCmd.ClipRect.y - clipOff.y) * clipScale.y };
-                ImVec2 clipMax{ (imCmd.ClipRect.z - clipOff.x) * clipScale.x, (imCmd.ClipRect.w - clipOff.y) * clipScale.y };
-
-                // Clamp to viewport
-                if (clipMin.x < 0.0f) { clipMin.x = 0.0f; }
-                if (clipMin.y < 0.0f) { clipMin.y = 0.0f; }
-                if (clipMax.x > texture.GetExtent().x) { clipMax.x = f32(texture.GetExtent().x); }
-                if (clipMax.y > texture.GetExtent().y) { clipMax.y = f32(texture.GetExtent().y); }
-                if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
+                auto clipMin = glm::max((Vec2(imCmd.ClipRect.x, imCmd.ClipRect.y) - clipOff) * clipScale, {});
+                auto clipMax = glm::min((Vec2(imCmd.ClipRect.z, imCmd.ClipRect.w) - clipScale), Vec2(target.GetExtent()));
+                if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y) {
                     continue;
+                }
 
-                // TODO: Add RHI command
-                vkCmdSetScissorWithCount(cmd->buffer, 1,
-                    Temp(VkRect2D{
-                        {i32(clipMin.x), i32(clipMin.y)},
-                        {u32(clipMax.x - clipMin.x), u32(clipMax.y - clipMin.y)},
-                    }));
-
-                u32 samplerID = u32(uintptr_t(imCmd.TextureId) >> 32);
-                u32 textureID = u32(uintptr_t(imCmd.TextureId) & UINT32_MAX);
-
+                cmd.SetScissors({{Vec2I(clipMin), Vec2I(clipMax - clipMin)}});
                 cmd.PushConstants(0, sizeof(ImGuiPushConstants), Temp(ImGuiPushConstants {
                     .vertexVA = vertexBuffer.GetAddress(),
-                    .dimensions = Vec2(texture.GetExtent()),
-                    .textureID = textureID,
-                    .samplerID = samplerID,
+                    .scale = 2.f / Vec2(target.GetExtent()),
+                    .offset = Vec2(-1.f),
+                    .textureID = u32(uintptr_t(imCmd.TextureId) & ~0u),
+                    .samplerID = u32(uintptr_t(imCmd.TextureId) >> 32),
                 }));
 
-                cmd.DrawIndexed(
-                    imCmd.ElemCount,
-                    1,
+                cmd.DrawIndexed(imCmd.ElemCount, 1,
                     u32(indexOffset) + imCmd.IdxOffset,
                     u32(vertexOffset) + imCmd.VtxOffset,
                     0);

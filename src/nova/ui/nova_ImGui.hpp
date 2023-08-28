@@ -51,11 +51,7 @@ namespace nova
         bool noDockBg = true;
 
     public:
-        ImGuiLayer(const ImGuiConfig& config,
-            CommandPool cmdPool,
-            CommandState cmdState,
-            Queue queue,
-            Fence fence);
+        ImGuiLayer(const ImGuiConfig& config, CommandState cmdState);
         ~ImGuiLayer();
 
         ImTextureID GetTextureID(DescriptorHandle texture)
@@ -86,6 +82,6 @@ namespace nova
         }
 
         bool HasDrawData();
-        void DrawFrame(CommandList cmd, Texture texture);
+        void DrawFrame(CommandList cmd, Texture target, Fence fence);
     };
 }
