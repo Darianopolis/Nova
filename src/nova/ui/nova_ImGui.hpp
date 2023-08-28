@@ -1,7 +1,8 @@
 #pragma once
 
-#include <nova/core/nova_Core.hpp>
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/core/nova_Core.hpp>
+#include <nova/core/nova_SubAllocation.hpp>
 
 #include <imgui.h>
 #include <GLFW/glfw3.h>
@@ -16,6 +17,13 @@ namespace nova
         Vec2 glyphOffset = Vec2(1.f, 1.67f);
         i32        flags = 0;
         u32   imageCount = 2;
+
+        GLFWwindow* window;
+
+        Context context;
+        DescriptorHeap heap;
+        DescriptorHandle sampler;
+        DescriptorHandle fontTextureID;
     };
 
     struct ImGuiLayer
@@ -25,7 +33,17 @@ namespace nova
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
-        void* descriptorPool; // TODO: Move internal data to impl
+        DescriptorHeap heap;
+
+        DescriptorHandle defaultSamplerID;
+
+        Texture         fontTexture;
+        DescriptorHandle fontTextureID;
+
+        Shader vertexShader;
+        Shader fragmentShader;
+        Buffer vertexBuffer;
+        Buffer indexBuffer;
 
         bool ended = false;
 
@@ -33,11 +51,22 @@ namespace nova
         bool noDockBg = true;
 
     public:
-        ImGuiLayer(Context context,
-            CommandList cmd, Format format, GLFWwindow* window,
-            const ImGuiConfig& config);
-
+        ImGuiLayer(const ImGuiConfig& config,
+            CommandPool cmdPool,
+            CommandState cmdState,
+            Queue queue,
+            Fence fence);
         ~ImGuiLayer();
+
+        ImTextureID GetTextureID(DescriptorHandle texture)
+        {
+            return ImTextureID(u64(defaultSamplerID.ToShaderUInt()) << 32 | texture.ToShaderUInt());
+        }
+
+        ImTextureID GetTextureID(DescriptorHandle texture, DescriptorHandle sampler)
+        {
+            return ImTextureID(u64(sampler.ToShaderUInt()) << 32 | texture.ToShaderUInt());
+        }
 
         using DockspaceWindowFn = void(*)(void*, ImGuiLayer&);
         void BeginFrame_(DockspaceWindowFn fn, void* payload);

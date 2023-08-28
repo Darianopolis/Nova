@@ -44,29 +44,32 @@ NOVA_EXAMPLE(multi)
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto state = nova::CommandState::Create(context);
-    NOVA_CLEANUP(&) { state.Destroy(); };
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
-    NOVA_CLEANUP(&) { fence.Destroy(); };
     nova::CommandPool commandPools[] {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
+    auto heap = nova::DescriptorHeap::Create(context, 2);
+    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_CLEANUP(&) {
+        state.Destroy();
+        fence.Destroy();
         commandPools[0].Destroy();
         commandPools[1].Destroy();
+        heap.Destroy();
+        sampler.Destroy();
     };
 
-    auto imgui = [&] {
-        auto cmd = commandPools[0].Begin(state);
-        auto _imgui = nova::ImGuiLayer(context, cmd, swapchains[0].GetFormat(),
-            windows[0], { .flags = ImGuiConfigFlags_ViewportsEnable });
+    heap.WriteSampler(0, sampler);
 
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
-
-        return _imgui;
-    }();
+    auto imgui = nova::ImGuiLayer({
+        .window = windows[0],
+        .context = context,
+        .heap = heap,
+        .sampler = 0,
+        .fontTextureID = 1,
+    }, commandPools[0], state, queue, fence);
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
