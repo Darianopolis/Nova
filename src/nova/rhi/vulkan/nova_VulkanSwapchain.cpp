@@ -302,7 +302,6 @@ namespace nova
     {
         Transition(swapchain().GetCurrent(),
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_2_NONE,
-            0);
+            VK_PIPELINE_STAGE_2_NONE);
     }
 }

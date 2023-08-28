@@ -32,7 +32,7 @@ namespace nova
         impl = nullptr;
     }
 
-    CommandList CommandPool::Begin(HCommandState state) const
+    CommandList CommandPool::Begin() const
     {
         CommandList cmd;
         if (impl->index >= impl->lists.size()) {
@@ -54,8 +54,6 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->state = state;
-
         return cmd;
     }
 
@@ -66,30 +64,6 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
-
-    CommandState CommandState::Create(HContext context)
-    {
-        auto impl = new Impl;
-        impl->context = context;
-
-        return { impl };
-    }
-
-    void CommandState::Destroy()
-    {
-        delete impl;
-        impl = nullptr;
-    }
-
-    void CommandState::SetState(HTexture texture,
-        VkImageLayout layout, VkPipelineStageFlags2 stages, VkAccessFlags2 access) const
-    {
-        // TODO
-        (void)texture;
-        (void)layout;
-        (void)stages;
-        (void)access;
-    }
 
     void CommandList::Barrier(PipelineStage src, PipelineStage dst) const
     {

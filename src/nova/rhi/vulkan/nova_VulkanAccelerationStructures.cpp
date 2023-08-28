@@ -63,7 +63,7 @@ namespace nova
         EnsureGeometries(*this, geometryIndex);
 
         auto& instances = impl->geometries[geometryIndex];
-        instances.sType =VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+        instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,

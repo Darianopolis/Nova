@@ -113,7 +113,11 @@ namespace nova
                 }.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
-            Temp(VmaAllocationCreateInfo { }),
+            Temp(VmaAllocationCreateInfo {
+                .usage = VMA_MEMORY_USAGE_AUTO,
+                .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                    | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            }),
             &impl->image,
             &impl->allocation,
             nullptr));
@@ -181,12 +185,12 @@ namespace nova
         return impl->format;
     }
 
-    void Texture::Set(Vec3I offset, Vec3U extent, const void* data, HCommandState state) const
+    void Texture::Set(Vec3I offset, Vec3U extent, const void* data) const
     {
         vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
             .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
             .image = impl->image,
-            .oldLayout = state->imageStates[impl->image].layout,
+            .oldLayout = impl->layout,
             .newLayout = VK_IMAGE_LAYOUT_GENERAL,
             .subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
         }));
@@ -205,52 +209,49 @@ namespace nova
             })
         }));
 
-        state->imageStates[impl->image].layout = VK_IMAGE_LAYOUT_GENERAL;
-        state->imageStates[impl->image].stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        impl->layout = VK_IMAGE_LAYOUT_GENERAL;
+        impl->stage = VK_PIPELINE_STAGE_2_HOST_BIT;
     }
 
-    void Texture::Transition(TextureLayout layout, HCommandState state) const
+    void Texture::Transition(TextureLayout layout) const
     {
         vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
             .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
             .image = impl->image,
-            .oldLayout = state->imageStates[impl->image].layout,
+            .oldLayout = impl->layout,
             .newLayout = GetVulkanImageLayout(layout),
             .subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
         }));
 
-        state->imageStates[impl->image].layout = GetVulkanImageLayout(layout);
-        state->imageStates[impl->image].stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        impl->layout = GetVulkanImageLayout(layout);
+        impl->stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
     }
 
 // -----------------------------------------------------------------------------
 
     void CommandList::Transition(HTexture texture,
-        VkImageLayout newLayout, VkPipelineStageFlags2 newStages, VkAccessFlags2 newAccess) const
+        VkImageLayout newLayout, VkPipelineStageFlags2 newStages) const
     {
-        auto& imageState = impl->state->imageStates[texture->image];
-
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
-                .srcStageMask = imageState.stage,
-                .srcAccessMask = imageState.access,
+                .srcStageMask = texture->stage,
+                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
                 .dstStageMask = newStages,
-                .dstAccessMask = newAccess,
+                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
-                .oldLayout = imageState.layout,
+                .oldLayout = texture->layout,
                 .newLayout = newLayout,
                 .image = texture->image,
                 .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
-        imageState.layout = newLayout;
-        imageState.stage = newStages;
-        imageState.access = newAccess;
+        texture->layout = newLayout;
+        texture->stage = newStages;
     }
 
     void CommandList::Transition(HTexture texture, TextureLayout layout, PipelineStage stage) const
@@ -259,12 +260,7 @@ namespace nova
         auto vkLayout = GetVulkanImageLayout(layout);
         auto vkStage = GetVulkanPipelineStage(stage) & queue->stages;
 
-        Transition(texture,
-            vkLayout,
-            vkStage,
-            VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
-
-        auto& imageState = impl->state->imageStates[texture->image];
+        Transition(texture, vkLayout, vkStage);
 
         vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -272,29 +268,26 @@ namespace nova
             .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 
-                .srcStageMask = imageState.stage,
-                .srcAccessMask = imageState.access,
+                .srcStageMask = texture->stage,
+                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
                 .dstStageMask = vkStage,
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
-                .oldLayout = imageState.layout,
+                .oldLayout = texture->layout,
                 .newLayout = vkLayout,
                 .image = texture->image,
                 .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
-        imageState.layout = vkLayout;
-        imageState.stage = vkStage;
-        imageState.access = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+        texture->layout = vkLayout;
+        texture->stage = vkStage;
     }
 
     void CommandList::Clear(HTexture texture, Vec4 color) const
     {
-        Transition(texture,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_PIPELINE_STAGE_2_CLEAR_BIT,
-            VK_ACCESS_TRANSFER_WRITE_BIT);
+        Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_2_CLEAR_BIT);
 
         vkCmdClearColorImage(impl->buffer,
             texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -306,13 +299,13 @@ namespace nova
     void CommandList::CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset) const
     {
         Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+            VK_PIPELINE_STAGE_2_COPY_BIT);
 
         vkCmdCopyBufferToImage2(impl->buffer, Temp(VkCopyBufferToImageInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
             .srcBuffer = src->buffer,
             .dstImage = dst->image,
-            .dstImageLayout = impl->state->imageStates[dst->image].layout,
+            .dstImageLayout = dst->layout,
             .regionCount = 1,
             .pRegions = Temp(VkBufferImageCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
@@ -327,8 +320,7 @@ namespace nova
     {
         Transition(src,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-            VK_ACCESS_2_TRANSFER_READ_BIT);
+            VK_PIPELINE_STAGE_2_TRANSFER_BIT);
         vkCmdCopyImageToBuffer2(impl->buffer, nova::Temp(VkCopyImageToBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
             .srcImage = src->image,
@@ -351,10 +343,7 @@ namespace nova
         }
 
         Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-            VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT);
-
-        auto& imageState = impl->state->imageStates[texture->image];
+            VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
 
         int32_t mipWidth = texture->extent.x;
         int32_t mipHeight = texture->extent.y;
@@ -411,13 +400,13 @@ namespace nova
             }),
         }));
 
-        imageState.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        texture->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     }
 
     void CommandList::BlitImage(HTexture dst, HTexture src, Filter filter) const
     {
-        Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
-        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+        Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT);
+        Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT);
 
         vkCmdBlitImage(impl->buffer,
             src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,

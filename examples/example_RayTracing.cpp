@@ -47,13 +47,11 @@ NOVA_EXAMPLE(rt)
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    auto state = nova::CommandState::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
     auto heap = nova::DescriptorHeap::Create(context, 1);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
-        state.Destroy();
         builder.Destroy();
         heap.Destroy();
     };
@@ -133,7 +131,7 @@ NOVA_EXAMPLE(rt)
 
         // Build BLAS
 
-        auto cmd = cmdPool.Begin(state);
+        auto cmd = cmdPool.Begin();
         cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
@@ -144,7 +142,7 @@ NOVA_EXAMPLE(rt)
             builder.GetCompactSize(),
             nova::AccelerationStructureType::BottomLevel);
 
-        cmd = cmdPool.Begin(state);
+        cmd = cmdPool.Begin();
         cmd.CompactAccelerationStructure(blas, uncompactedBlas);
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
@@ -193,7 +191,7 @@ NOVA_EXAMPLE(rt)
         // Start new command buffer
 
         cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+        auto cmd = cmdPool.Begin();
 
         // Build scene TLAS
 

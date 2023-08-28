@@ -49,12 +49,10 @@ NOVA_EXAMPLE(compute)
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    auto state = nova::CommandState::Create(context);
     auto heap = nova::DescriptorHeap::Create(context, 3);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
-        state.Destroy();
         heap.Destroy();
     };
 
@@ -81,7 +79,7 @@ NOVA_EXAMPLE(compute)
         NOVA_CLEANUP(&) { staging.Destroy(); };
         staging.Set(Span(imageData, 4 * x * y));
 
-        auto cmd = cmdPool.Begin(state);
+        auto cmd = cmdPool.Begin();
         cmd.CopyToTexture(texture, staging);
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
@@ -128,7 +126,7 @@ NOVA_EXAMPLE(compute)
         // Start new command buffer
 
         cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+        auto cmd = cmdPool.Begin();
 
         // Transition ready for writing compute output
 

@@ -344,7 +344,7 @@ namespace nova
         // Viewport + Scissors
 
         {
-            auto size = impl->state->renderingExtent;
+            auto size = impl->renderingExtent;
 
             if (pipelineState.flipVertical) {
                 vkCmdSetViewportWithCount(impl->buffer, 1, nova::Temp(VkViewport {
@@ -400,9 +400,9 @@ namespace nova
                 { preRasterStageShaders.data(), preRasterStageShaderIndex }, pipelineState);
             auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader, pipelineState);
             auto fo = GetGraphicsFragmentOutputStage(context, {
-                    .colorFormats = impl->state->colorAttachmentsFormats,
-                    .depthFormat = impl->state->depthAttachmentFormat,
-                    .stencilFormat = impl->state->stencilAttachmentFormat,
+                    .colorFormats = impl->colorAttachmentsFormats,
+                    .depthFormat = impl->depthAttachmentFormat,
+                    .stencilFormat = impl->stencilAttachmentFormat,
                 }, pipelineState);
 
             auto pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo });

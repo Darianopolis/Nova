@@ -57,32 +57,15 @@ namespace nova
         u32                      index = 0;
     };
 
-    struct CommandState::Impl
+    struct CommandList::Impl
     {
-        Context context = {};
-
-        struct ImageState
-        {
-            VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
-            VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
-            VkAccessFlags2       access = 0;
-
-            u64 version = 0;
-        };
-
-        ankerl::unordered_dense::map<VkImage, ImageState> imageStates;
+        CommandPool       pool = {};
+        VkCommandBuffer buffer = {};
 
         std::vector<Format> colorAttachmentsFormats;
         Format                depthAttachmentFormat = nova::Format::Undefined;
         Format              stencilAttachmentFormat = nova::Format::Undefined;
-        Vec2U                       renderingExtent;
-    };
-
-    struct CommandList::Impl
-    {
-        CommandPool      pool = {};
-        CommandState    state = {};
-        VkCommandBuffer buffer = {};
+        Vec2U                       renderingExtent = {};
     };
 
     struct Swapchain::Impl
@@ -154,6 +137,9 @@ namespace nova
         TextureUsage        usage = {};
         Format             format = Format::Undefined;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
+
+        VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
 
         Vec3U extent = {};
         u32     mips = 0;

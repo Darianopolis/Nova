@@ -57,7 +57,6 @@ if Project "nova" then
         "glfw",
         "imgui",
         "imgui-glfw",
-        "imgui-vulkan",
         "imguizmo",
     }
 end

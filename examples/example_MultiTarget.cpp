@@ -8,13 +8,12 @@
 #include <GLFW/glfw3native.h>
 
 #include <imgui.h>
-#include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
 NOVA_EXAMPLE(multi)
 {
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -43,7 +42,6 @@ NOVA_EXAMPLE(multi)
     };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto state = nova::CommandState::Create(context);
     u64 waitValues[] { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
     nova::CommandPool commandPools[] {
@@ -53,7 +51,6 @@ NOVA_EXAMPLE(multi)
     auto heap = nova::DescriptorHeap::Create(context, 2);
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_CLEANUP(&) {
-        state.Destroy();
         fence.Destroy();
         commandPools[0].Destroy();
         commandPools[1].Destroy();
@@ -69,7 +66,7 @@ NOVA_EXAMPLE(multi)
         .heap = heap,
         .sampler = 0,
         .fontTextureID = 1,
-    }, state);
+    });
 
     u64 frame = 0;
     auto lastTime = std::chrono::steady_clock::now();
@@ -106,12 +103,9 @@ NOVA_EXAMPLE(multi)
         // Acquire new images from swapchains
         queue.Acquire({swapchains[0], swapchains[1]}, {fence});
 
-        // Clear resource state tracking
-        // state.Clear(3);
-
         // Reset command pool and begin new command list
         commandPools[fif].Reset();
-        auto cmd = commandPools[fif].Begin(state);
+        auto cmd = commandPools[fif].Begin();
 
         // Clear screen
         cmd.Clear(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));

@@ -4,15 +4,15 @@ namespace nova
 {
     void CommandList::BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment, HTexture stencilAttachment) const
     {
-        impl->state->colorAttachmentsFormats.resize(colorAttachments.size());
+        impl->colorAttachmentsFormats.resize(colorAttachments.size());
 
         auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
         for (u32 i = 0; i < colorAttachments.size(); ++i) {
             auto texture = colorAttachments[i];
 
             Transition(colorAttachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
+                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+                // VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT);
 
             colorAttachmentInfos[i] = VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -20,10 +20,10 @@ namespace nova
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
 
-            impl->state->colorAttachmentsFormats[i] = colorAttachments[i]->format;
+            impl->colorAttachmentsFormats[i] = colorAttachments[i]->format;
         }
 
-        impl->state->renderingExtent = region.extent;
+        impl->renderingExtent = region.extent;
 
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
@@ -40,8 +40,8 @@ namespace nova
             if (depthAttachment) {
                 Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
+                    // VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
 
                 depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
                 depthInfo.imageView = depthAttachment->view;
@@ -50,15 +50,15 @@ namespace nova
                 info.pDepthAttachment = &depthInfo;
                 info.pStencilAttachment = &depthInfo;
 
-                impl->state->depthAttachmentFormat = depthAttachment->format;
-                impl->state->stencilAttachmentFormat = stencilAttachment->format;
+                impl->depthAttachmentFormat = depthAttachment->format;
+                impl->stencilAttachmentFormat = stencilAttachment->format;
             }
         } else {
             if (depthAttachment) {
                 Transition(depthAttachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
+                    // VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
 
                 depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
                 depthInfo.imageView = depthAttachment->view;
@@ -66,14 +66,14 @@ namespace nova
 
                 info.pDepthAttachment = &depthInfo;
 
-                impl->state->depthAttachmentFormat = depthAttachment->format;
+                impl->depthAttachmentFormat = depthAttachment->format;
             }
 
             if (stencilAttachment) {
                 Transition(stencilAttachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
-                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
+                    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
+                    // VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR);
 
                 stencilInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
                 stencilInfo.imageView = stencilAttachment->view;
@@ -81,7 +81,7 @@ namespace nova
 
                 info.pStencilAttachment = &stencilInfo;
 
-                impl->state->stencilAttachmentFormat = stencilAttachment->format;
+                impl->stencilAttachmentFormat = stencilAttachment->format;
             }
         }
 

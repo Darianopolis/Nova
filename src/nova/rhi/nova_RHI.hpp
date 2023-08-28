@@ -48,7 +48,6 @@ namespace nova
     NOVA_DECLARE_API_HANDLE(DescriptorHeap);
     NOVA_DECLARE_API_HANDLE(Fence);
     NOVA_DECLARE_API_HANDLE(Queue);
-    NOVA_DECLARE_API_HANDLE(CommandState);
     NOVA_DECLARE_API_HANDLE(Sampler);
     NOVA_DECLARE_API_HANDLE(Shader);
     NOVA_DECLARE_API_HANDLE(Swapchain);
@@ -607,17 +606,8 @@ namespace nova
         static CommandPool Create(HContext, HQueue);
         void Destroy();
 
-        CommandList Begin(HCommandState) const;
+        CommandList Begin() const;
         void Reset() const;
-    NOVA_END_API_OBJECT()
-
-// -----------------------------------------------------------------------------
-
-    NOVA_BEGIN_API_OBJECT(CommandState)
-        static CommandState Create(HContext);
-        void Destroy();
-
-        void SetState(HTexture, VkImageLayout, VkPipelineStageFlags2, VkAccessFlags2) const;
     NOVA_END_API_OBJECT()
 
 // -----------------------------------------------------------------------------
@@ -645,16 +635,13 @@ namespace nova
         void SetScissors(Span<Rect2I> scissors) const;
 
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
-
-        // void PushStorageTexture(u32 setIndex, u32 binding, HTexture, u32 arrayIndex = 0) const;
-        // void PushAccelerationStructure(u32 setIndex, u32 binding, HAccelerationStructure, u32 arrayIndex = 0) const;
         void BindAccelerationStructure(BindPoint, HAccelerationStructure) const;
 
         void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
         void Barrier(HBuffer, PipelineStage src, PipelineStage dst) const;
 
-        void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2, VkAccessFlags2) const;
+        void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2) const;
         void Transition(HTexture, TextureLayout, PipelineStage) const;
         void Clear(HTexture, Vec4 color) const;
         void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0) const;
@@ -720,8 +707,8 @@ namespace nova
         Format GetFormat() const;
 
         // TODO: Handle row pitch, etc..
-        void Set(Vec3I offset, Vec3U extent, const void* data, HCommandState state) const;
-        void Transition(TextureLayout layout, HCommandState state) const;
+        void Set(Vec3I offset, Vec3U extent, const void* data) const;
+        void Transition(TextureLayout layout) const;
     NOVA_END_API_OBJECT()
 
 // -----------------------------------------------------------------------------

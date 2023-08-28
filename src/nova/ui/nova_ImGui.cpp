@@ -24,7 +24,7 @@ namespace nova
         };
     };
 
-    ImGuiLayer::ImGuiLayer(const ImGuiConfig& config, CommandState cmdState)
+    ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
         : context(config.context)
         , heap(config.heap)
         , defaultSamplerID(config.sampler)
@@ -105,8 +105,8 @@ namespace nova
             heap.WriteSampledTexture(fontTextureID, fontTexture);
             io.Fonts->SetTexID(GetTextureID(fontTextureID));
 
-            fontTexture.Set({}, fontTexture.GetExtent(), pixels, cmdState);
-            fontTexture.Transition(nova::TextureLayout::Sampled, cmdState);
+            fontTexture.Set({}, fontTexture.GetExtent(), pixels);
+            fontTexture.Transition(nova::TextureLayout::Sampled);
         }
 
         ImGui::SetCurrentContext(lastImguiCtx);

@@ -146,7 +146,7 @@ namespace nova
         DescriptorHandle RegisterTexture(Texture texture, Sampler sampler);
         void UnregisterTexture(DescriptorHandle handle);
 
-        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue);
+        std::unique_ptr<ImFont> LoadFont(const char* file, f32 size);
 
         void Reset();
         void DrawRect(const ImRoundRect& rect);

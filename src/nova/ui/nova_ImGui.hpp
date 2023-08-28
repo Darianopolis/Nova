@@ -51,7 +51,7 @@ namespace nova
         bool noDockBg = true;
 
     public:
-        ImGuiLayer(const ImGuiConfig& config, CommandState cmdState);
+        ImGuiLayer(const ImGuiConfig& config);
         ~ImGuiLayer();
 
         ImTextureID GetTextureID(DescriptorHandle texture)

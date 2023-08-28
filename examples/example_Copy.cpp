@@ -10,11 +10,9 @@ NOVA_EXAMPLE(copy)
     });
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
-    auto cmdState = nova::CommandState::Create(context);
     auto fence = nova::Fence::Create(context);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
-        cmdState.Destroy();
         fence.Destroy();
         context.Destroy();
     };
@@ -33,10 +31,10 @@ NOVA_EXAMPLE(copy)
     };
 
     for (u32 i = 0; i < 10; ++i) {
-        auto cmd = cmdPool.Begin(cmdState);
+        auto cmd = cmdPool.Begin();
 
         for (auto& texture : textures) {
-            cmd.Transition(texture, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
+            cmd.Transition(texture, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
         }
 
         for (u32 j = 0; j < 100; ++j) {

@@ -114,7 +114,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    std::unique_ptr<ImFont> ImDraw2D::LoadFont(const char* file, f32 size, CommandPool cmdPool, CommandState state, Fence fence, Queue queue)
+    std::unique_ptr<ImFont> ImDraw2D::LoadFont(const char* file, f32 size)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -135,10 +135,6 @@ namespace nova
 
         auto font = std::make_unique<ImFont>();
         font->imDraw = this;
-
-        auto staging = nova::Buffer::Create(context, u64(size) * u64(size) * 4,
-            BufferUsage::TransferSrc, BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { staging.Destroy(); };
 
         font->glyphs.resize(128);
         for (u32 c = 0; c < 128; ++c) {
@@ -169,14 +165,8 @@ namespace nova
                 TextureUsage::Sampled,
                 Format::RGBA8_UNorm);
 
-            usz dataSize = w * h * 4;
-            std::memcpy(staging.GetMapped(), pixels.data(), dataSize);
-
-            auto cmd = cmdPool.Begin(state);
-            cmd.CopyToTexture(glyph.texture, staging);
-            cmd.GenerateMips(glyph.texture);
-            queue.Submit({cmd}, {}, {fence});
-            fence.Wait();
+            glyph.texture.Set({}, glyph.texture.GetExtent(), pixels.data());
+            glyph.texture.Transition(nova::TextureLayout::Sampled);
 
             glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }

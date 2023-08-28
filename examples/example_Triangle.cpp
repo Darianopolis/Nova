@@ -58,12 +58,10 @@ NOVA_EXAMPLE(tri)
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    auto state = nova::CommandState::Create(context);
     auto heap = nova::DescriptorHeap::Create(context, 1);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
-        state.Destroy();
         heap.Destroy();
     };
 
@@ -130,7 +128,7 @@ NOVA_EXAMPLE(tri)
         queue.Acquire({swapchain}, {fence});
 
         cmdPool.Reset();
-        auto cmd = cmdPool.Begin(state);
+        auto cmd = cmdPool.Begin();
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
