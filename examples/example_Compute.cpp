@@ -1,23 +1,12 @@
 #include "example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
 #include <stb_image.h>
-
-struct PushConstants {
-    u32 targetID;
-    u32 sourceID;
-    u32 samplerID;
-
-    static constexpr std::array Layout {
-        nova::Member("targetID",  nova::ShaderVarType::U32),
-        nova::Member("sourceID",  nova::ShaderVarType::U32),
-        nova::Member("samplerID", nova::ShaderVarType::U32),
-    };
-};
 
 NOVA_EXAMPLE(compute)
 {
@@ -42,7 +31,7 @@ NOVA_EXAMPLE(compute)
 // -----------------------------------------------------------------------------
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -61,7 +50,7 @@ NOVA_EXAMPLE(compute)
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
-    auto heap = nova::DescriptorHeap::Create(context);
+    auto heap = nova::DescriptorHeap::Create(context, 3);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
@@ -71,11 +60,9 @@ NOVA_EXAMPLE(compute)
 
     // Image
 
-    auto targetID = heap.Acquire(nova::DescriptorType::StorageTexture);
-
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, {}, 16.f);
     NOVA_CLEANUP(&) { sampler.Destroy(); };
-    auto samplerID = heap.WriteSampler(heap.Acquire(nova::DescriptorType::Sampler), sampler);
+    heap.WriteSampler(0, sampler);
 
     nova::Texture texture;
     NOVA_CLEANUP(&) { texture.Destroy(); };
@@ -99,18 +86,17 @@ NOVA_EXAMPLE(compute)
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
     }
-    auto sourceID = heap.WriteSampledTexture(heap.Acquire(nova::DescriptorType::SampledTexture), texture);
+    heap.WriteSampledTexture(1, texture);
 
     // Shaders
 
     auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, {
-        nova::shader::PushConstants("pc", PushConstants::Layout),
         nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), R"glsl(
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
             vec2 uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
 
-            vec3 source = texture(nova::Sampler2D(pc.sourceID, pc.samplerID), uv).xyz;
-            imageStore(nova::StorageImage2D<rgba8>[pc.targetID], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
+            vec3 source = texture(nova::Sampler2D(1, 0), uv).xyz;
+            imageStore(nova::StorageImage2D<rgba8>[2], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
         )glsl"),
     });
     NOVA_CLEANUP(&) { computeShader.Destroy(); };
@@ -152,13 +138,8 @@ NOVA_EXAMPLE(compute)
 
         // Update target descriptor
 
-        heap.WriteStorageTexture(targetID, target);
+        heap.WriteStorageTexture(2, target);
         cmd.BindDescriptorHeap(nova::BindPoint::Compute, heap);
-        cmd.PushConstants(0, sizeof(PushConstants), nova::Temp(PushConstants {
-            .targetID  = targetID.ToShaderUInt(),
-            .sourceID  = sourceID.ToShaderUInt(),
-            .samplerID = samplerID.ToShaderUInt(),
-        }));
 
         // Dispatch
 

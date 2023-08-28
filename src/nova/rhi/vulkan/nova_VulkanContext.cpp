@@ -81,6 +81,8 @@ Validation: {} ({})
             instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
         }
 
+        // instanceLayers.push_back("VK_LAYER_LUNARG_api_dump");
+
         std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME };
     #ifdef _WIN32
         instanceExtensions.push_back("VK_KHR_win32_surface");
@@ -135,6 +137,7 @@ Validation: {} ({})
         if (config.debug)
             VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
+
         std::vector<VkPhysicalDevice> gpus;
         VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
         for (auto& gpu : gpus) {
@@ -142,6 +145,14 @@ Validation: {} ({})
             vkGetPhysicalDeviceProperties2(gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
+
+                impl->maxDescriptors = std::min({
+                    properties.properties.limits.maxDescriptorSetSampledImages,
+                    properties.properties.limits.maxDescriptorSetStorageImages,
+                    properties.properties.limits.maxDescriptorSetUniformBuffers,
+                    properties.properties.limits.maxDescriptorSetStorageBuffers,
+                    properties.properties.limits.maxDescriptorSetSamplers,
+                });
                 break;
             }
         }
@@ -217,6 +228,7 @@ Validation: {} ({})
             f12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
             f12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
             f12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+            f12.descriptorBindingVariableDescriptorCount = VK_TRUE;
 
             auto& f13 = chain.Feature<VkPhysicalDeviceVulkan13Features>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
@@ -375,63 +387,10 @@ Validation: {} ({})
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &impl->vma));
 
-        {
-            // Already rely on a bottomless descriptor pool, so not going to pretend to pass some bogus sizes here.
-            // TODO: Check what platforms have bottomless implementations
-            // TODO: Runtime profile-based amortized constant pool reallocation?
-
-            constexpr u32 MaxDescriptorPerType = 65'536;
-            constexpr auto sizes = std::array {
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER,                MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, MaxDescriptorPerType },
-                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       MaxDescriptorPerType },
-            };
-
-            VkCall(vkCreateDescriptorPool(impl->device, Temp(VkDescriptorPoolCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
-                    | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-                .maxSets = u32(MaxDescriptorPerType * sizes.size()),
-                .poolSizeCount = u32(sizes.size()),
-                .pPoolSizes = sizes.data(),
-            }), impl->pAlloc, &impl->descriptorPool));
-        }
-
         VkCall(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
         }), impl->pAlloc, &impl->pipelineCache));
-
-        {
-            NOVA_LOGEXPR(impl->descriptorSizes.combinedImageSamplerDescriptorSize);
-            NOVA_LOGEXPR(impl->descriptorSizes.storageImageDescriptorSize);
-            NOVA_LOGEXPR(impl->descriptorSizes.uniformBufferDescriptorSize);
-            NOVA_LOGEXPR(impl->descriptorSizes.storageBufferDescriptorSize);
-            NOVA_LOGEXPR(impl->descriptorSizes.uniformTexelBufferDescriptorSize);
-            NOVA_LOGEXPR(impl->descriptorSizes.storageTexelBufferDescriptorSize);
-            NOVA_LOG("Max size: {}", std::max({
-                impl->descriptorSizes.combinedImageSamplerDescriptorSize,
-                impl->descriptorSizes.storageImageDescriptorSize,
-                impl->descriptorSizes.uniformBufferDescriptorSize,
-                impl->descriptorSizes.storageBufferDescriptorSize,
-                impl->descriptorSizes.uniformTexelBufferDescriptorSize,
-                impl->descriptorSizes.storageTexelBufferDescriptorSize,
-            }));
-        }
-
-        // TODO: Separate "CBV_SRV_UAV" and Sampler heaps into separate layouts
-        //         with dynamic number of descriptors
-        // TODO: Add acceleration strucvture layout
-        // TODO: Remove combined image samplers entirely
-        //        - Immutable samplers?
 
         VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
@@ -441,61 +400,56 @@ Validation: {} ({})
                     .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
                     .mutableDescriptorTypeListCount = 1,
                     .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
-                        .descriptorTypeCount = 6,
+                        .descriptorTypeCount = 7,
                         .pDescriptorTypes = std::array {
-                            // VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                             VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                             VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
                             VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                            VK_DESCRIPTOR_TYPE_SAMPLER,
                         }.data(),
                     }),
                 }),
-                .bindingCount = 2,
-                .pBindingFlags = std::array<VkDescriptorBindingFlags, 2> {
+                .bindingCount = 1,
+                .pBindingFlags = std::array<VkDescriptorBindingFlags, 1> {
                     VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
-                    VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
-                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
+                        | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
                 }.data(),
             }),
             .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
-            .bindingCount = 2,
+            .bindingCount = 1,
             .pBindings = std::array {
                 VkDescriptorSetLayoutBinding {
                     .binding = 0,
                     .descriptorType = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
-                    .descriptorCount = 1024 * 1024,
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                },
-                VkDescriptorSetLayoutBinding {
-                    .binding = 1,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-                    .descriptorCount = 4096,
+                    .descriptorCount = impl->maxDescriptors,
                     .stageFlags = VK_SHADER_STAGE_ALL,
                 },
             }.data(),
         }), impl->pAlloc, &impl->heapLayout));
 
-        VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
-            .bindingCount = 1,
-            .pBindings = std::array {
-                VkDescriptorSetLayoutBinding {
-                    .binding = 0,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-                    .descriptorCount = 1,
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                },
-            }.data(),
-        }), impl->pAlloc, &impl->rtLayout));
+        if (impl->config.rayTracing) {
+            VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                .bindingCount = 1,
+                .pBindings = std::array {
+                    VkDescriptorSetLayoutBinding {
+                        .binding = 0,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                        .descriptorCount = 1,
+                        .stageFlags = VK_SHADER_STAGE_ALL,
+                    },
+                }.data(),
+            }), impl->pAlloc, &impl->rtLayout));
+        }
 
         VkCall(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 2,
+            .setLayoutCount = impl->config.rayTracing ? 2u : 1u,
             .pSetLayouts = std::array {
                 impl->heapLayout,
                 impl->rtLayout,
@@ -537,7 +491,6 @@ Validation: {} ({})
         vkDestroyDescriptorSetLayout(impl->device, impl->rtLayout, impl->pAlloc);
         vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
-        vkDestroyDescriptorPool(impl->device, impl->descriptorPool, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);
         vkDestroyDevice(impl->device, impl->pAlloc);
         if (impl->debugMessenger) {

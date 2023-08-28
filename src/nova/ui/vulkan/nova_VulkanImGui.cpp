@@ -23,6 +23,18 @@ namespace nova
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
 
+        constexpr u32 SampledImageDescriptors = 65'536;
+        VkCall(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+                | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+            .maxSets = SampledImageDescriptors,
+            .poolSizeCount = 1,
+            .pPoolSizes = std::array {
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER, SampledImageDescriptors },
+            }.data(),
+        }), context->pAlloc, (VkDescriptorPool*)&descriptorPool));
+
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= config.flags;
         ImGui_ImplGlfw_InitForVulkan(window, true);
@@ -32,7 +44,7 @@ namespace nova
             .Device = context->device,
             .QueueFamily = context->graphicQueues.front()->family,
             .Queue = context->graphicQueues.front()->handle,
-            .DescriptorPool = context->descriptorPool,
+            .DescriptorPool = (VkDescriptorPool)descriptorPool,
             .Subpass = 0,
             .MinImageCount = framesInFlight,
             .ImageCount = framesInFlight,
@@ -61,6 +73,7 @@ namespace nova
         ImGui_ImplGlfw_Shutdown();
         ImGui::SetCurrentContext(lastImguiCtx);
         ImGui::DestroyContext(imguiCtx);
+        vkDestroyDescriptorPool(context->device, (VkDescriptorPool)descriptorPool, context->pAlloc);
     }
 
     void ImGuiLayer::BeginFrame_(DockspaceWindowFn fn, void* payload)
@@ -161,6 +174,7 @@ namespace nova
             }),
         }));
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd->buffer);
+
         vkCmdEndRendering(cmd->buffer);
 
         ImGui::SetCurrentContext(lastImguiCtx);

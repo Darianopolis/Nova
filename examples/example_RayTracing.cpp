@@ -49,7 +49,7 @@ NOVA_EXAMPLE(rt)
     auto fence = nova::Fence::Create(context);
     auto state = nova::CommandState::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
-    auto heap = nova::DescriptorHeap::Create(context);
+    auto heap = nova::DescriptorHeap::Create(context, 1);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
@@ -58,8 +58,6 @@ NOVA_EXAMPLE(rt)
         heap.Destroy();
     };
 
-    auto targetID = heap.Acquire(nova::DescriptorType::StorageTexture);
-
 // -----------------------------------------------------------------------------
 //                        Descriptors & Pipeline
 // -----------------------------------------------------------------------------
@@ -67,7 +65,6 @@ NOVA_EXAMPLE(rt)
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, {
-        nova::shader::PushConstants("pc", {nova::Member("targetID", nova::ShaderVarType::U32)}),
         nova::shader::Fragment(R"glsl(
             layout(location = 0) rayPayloadEXT uint     payload;
             layout(location = 0) hitObjectAttributeNV vec3 bary;
@@ -83,7 +80,7 @@ NOVA_EXAMPLE(rt)
                 hitObjectGetAttributesNV(hit, 0);
                 color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
             }
-            imageStore(nova::StorageImage2D<rgba8>[pc.targetID], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+            imageStore(nova::StorageImage2D<rgba8>[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
         )glsl"),
     });
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
@@ -214,10 +211,9 @@ NOVA_EXAMPLE(rt)
 
         // Push swapchain image and TLAS descriptors
 
-        heap.WriteStorageTexture(targetID, swapchain.GetCurrent());
+        heap.WriteStorageTexture(0, swapchain.GetCurrent());
         cmd.BindDescriptorHeap(nova::BindPoint::RayTracing, heap);
         cmd.BindAccelerationStructure(nova::BindPoint::RayTracing, tlas);
-        cmd.PushConstants(0, sizeof(u32), nova::Temp(targetID.ToShaderUInt()));
 
         // Trace rays
 

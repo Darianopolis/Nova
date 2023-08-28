@@ -2,23 +2,50 @@
 
 namespace nova
 {
-    DescriptorHeap DescriptorHeap::Create(HContext context)
+    DescriptorHeap DescriptorHeap::Create(HContext context, u32 requestedDescriptorCount)
     {
         auto impl = new Impl;
         impl->context = context;
 
+        impl->descriptorCount = std::min(requestedDescriptorCount, context->maxDescriptors);
+
+        VkCall(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
+                .mutableDescriptorTypeListCount = 1,
+                .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
+                    .descriptorTypeCount = 7,
+                    .pDescriptorTypes = std::array {
+                        VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                        VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                        VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                        VK_DESCRIPTOR_TYPE_SAMPLER,
+                    }.data(),
+                }),
+            }),
+            .flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+            .maxSets = u32(impl->descriptorCount),
+            .poolSizeCount = 1,
+            .pPoolSizes = std::array {
+                VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER, impl->descriptorCount },
+            }.data(),
+        }), context->pAlloc, &impl->descriptorPool));
+
         VkCall(vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            .descriptorPool = context->descriptorPool,
+            .pNext = Temp(VkDescriptorSetVariableDescriptorCountAllocateInfo {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
+                .descriptorSetCount = 1,
+                .pDescriptorCounts = Temp(u32(impl->descriptorCount)),
+            }),
+            .descriptorPool = impl->descriptorPool,
             .descriptorSetCount = 1,
             .pSetLayouts = &context->heapLayout,
-        }), &impl->set));
-
-        for (u32 i = 0; i < 1024 * 1024; ++i)
-            impl->generalFreelist.push_back(i);
-
-        for (u32 i = 0; i < 4096; ++i)
-            impl->samplerFreelist.push_back(i);
+        }), &impl->descriptorSet));
 
         return{ impl };
     }
@@ -29,34 +56,15 @@ namespace nova
             return;
         }
 
-        vkFreeDescriptorSets(impl->context->device, impl->context->descriptorPool, 1, &impl->set);
+        vkDestroyDescriptorPool(impl->context->device, impl->descriptorPool, impl->context->pAlloc);
 
         delete impl;
         impl = nullptr;
     }
 
-    DescriptorHandle DescriptorHeap::Acquire(DescriptorType type) const
+    u32 DescriptorHeap::GetMaxDescriptorCount() const
     {
-        auto* list = type == DescriptorType::Sampler
-            ? &impl->samplerFreelist
-            : &impl->generalFreelist;
-
-        if (list->empty()) {
-            NOVA_THROW("No more descriptor slots!");
-        }
-
-        u32 slot = list->back();
-        list->pop_back();
-        return { slot, type };
-    }
-
-    void DescriptorHeap::Release(DescriptorHandle handle) const
-    {
-        auto* list = DescriptorType(handle.type) == DescriptorType::Sampler
-            ? &impl->samplerFreelist
-            : &impl->generalFreelist;
-
-        list->push_back(handle.id);
+        return impl->descriptorCount;
     }
 
 // -----------------------------------------------------------------------------
@@ -65,7 +73,9 @@ namespace nova
     {
         vkCmdBindDescriptorSets(impl->buffer, GetVulkanPipelineBindPoint(bindPoint),
             impl->pool->context->pipelineLayout, 0,
-            1, &heap->set,
+            1, std::array {
+                heap->descriptorSet,
+            }.data(),
             0, nullptr);
     }
 
@@ -75,7 +85,7 @@ namespace nova
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = impl->set,
+            .dstSet = impl->descriptorSet,
             .dstBinding = 0,
             .dstArrayElement = handle.id,
             .descriptorCount = 1,
@@ -93,7 +103,7 @@ namespace nova
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = impl->set,
+            .dstSet = impl->descriptorSet,
             .dstBinding = 0,
             .dstArrayElement = handle.id,
             .descriptorCount = 1,
@@ -111,7 +121,7 @@ namespace nova
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = impl->set,
+            .dstSet = impl->descriptorSet,
             .dstBinding = 0,
             .dstArrayElement = handle.id,
             .descriptorCount = 1,
@@ -125,28 +135,11 @@ namespace nova
         return handle;
     }
 
-    DescriptorHandle DescriptorHeap::WriteSampler(DescriptorHandle handle, HSampler sampler) const
-    {
-        vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = impl->set,
-            .dstBinding = 1,
-            .dstArrayElement = handle.id,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-            .pImageInfo = Temp(VkDescriptorImageInfo {
-                .sampler = sampler->sampler,
-            }),
-        }), 0, nullptr);
-
-        return handle;
-    }
-
     DescriptorHandle DescriptorHeap::WriteStorageTexture(DescriptorHandle handle, HTexture texture) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = impl->set,
+            .dstSet = impl->descriptorSet,
             .dstBinding = 0,
             .dstArrayElement = handle.id,
             .descriptorCount = 1,
@@ -154,6 +147,23 @@ namespace nova
             .pImageInfo = Temp(VkDescriptorImageInfo {
                 .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            }),
+        }), 0, nullptr);
+
+        return handle;
+    }
+
+    DescriptorHandle DescriptorHeap::WriteSampler(DescriptorHandle handle, HSampler sampler) const
+    {
+        vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = impl->descriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = handle.id,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+            .pImageInfo = Temp(VkDescriptorImageInfo {
+                .sampler = sampler->sampler,
             }),
         }), 0, nullptr);
 

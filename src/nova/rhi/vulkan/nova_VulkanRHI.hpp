@@ -107,10 +107,9 @@ namespace nova
     {
         Context context = {};
 
-        std::vector<u32> generalFreelist;
-        std::vector<u32> samplerFreelist;
-
-        VkDescriptorSet set;
+        VkDescriptorPool descriptorPool = {};
+        VkDescriptorSet   descriptorSet = {};
+        u32             descriptorCount = 0;
     };
 
     struct Shader::Impl
@@ -321,10 +320,10 @@ namespace nova
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
     public:
-        VkDescriptorPool  descriptorPool = {};
-        VkDescriptorSetLayout heapLayout = {};
-        VkDescriptorSetLayout   rtLayout = {};
-        VkPipelineLayout  pipelineLayout = {};
+        u32                  maxDescriptors = 0;
+        VkDescriptorSetLayout    heapLayout = {};
+        VkDescriptorSetLayout      rtLayout = {};
+        VkPipelineLayout     pipelineLayout = {};
 
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};

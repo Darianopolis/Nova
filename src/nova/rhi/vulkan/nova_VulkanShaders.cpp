@@ -239,6 +239,7 @@ namespace nova
             "GL_EXT_fragment_shader_barycentric",
 
             "GL_EXT_ray_tracing",
+            "GL_EXT_ray_query",
             "GL_EXT_ray_tracing_position_fetch",
             "GL_NV_shader_invocation_reorder",
         };
@@ -338,16 +339,19 @@ namespace nova
                 type.first, type.second);
         }
 
-        // Sampler heap
-        // TODO: This should be a separate set
+        // Samplers
 
-        std::format_to(code, "layout(set = 0, binding = 1) uniform sampler nova_Sampler[];\n");
+        std::format_to(code, "layout(set = 0, binding = 0) uniform sampler nova_Sampler[];\n");
 
         for (auto dims : Dimensions) {
             std::format_to(code, "#define nova_Sampler{0}(texture, sampler) sampler{0}(nova_SampledImage{0}[texture], nova_Sampler[sampler])\n", dims);
         }
 
-        std::format_to(code, "layout(set = 1, binding = 0) uniform accelerationStructureEXT nova_AccelerationStructure;\n");
+        // Acceleration structure
+
+        if (impl->context->config.rayTracing) {
+            std::format_to(code, "layout(set = 1, binding = 0) uniform accelerationStructureEXT nova_AccelerationStructure;\n");
+        }
 
         // Transform GLSL
 
@@ -520,7 +524,7 @@ namespace nova
             }, element);
         }
 
-        NOVA_LOG("Generated shader:\n{}", codeStr);
+        // NOVA_LOG("Generated shader:\n{}", codeStr);
 
         Shader shader{ impl };
         CompileShader(shader, "generated", codeStr);

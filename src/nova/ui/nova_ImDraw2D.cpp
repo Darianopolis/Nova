@@ -8,14 +8,16 @@
 
 namespace nova
 {
-    ImDraw2D::ImDraw2D(HContext _context, HDescriptorHeap _descriptorHeap)
+    ImDraw2D::ImDraw2D(HContext _context)
         : context(_context)
-        , descriptorHeap(_descriptorHeap)
     {
         defaultSampler = nova::Sampler::Create(context, Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
+
+        descriptorHeap = nova::DescriptorHeap::Create(context, 65'536);
+        descriptorHeap.WriteSampler(0, defaultSampler);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
             nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
@@ -30,7 +32,7 @@ namespace nova
                 uint instanceID = gl_VertexIndex / 6;
                 uint vertexID = gl_VertexIndex % 6;
 
-                ImRoundRect box = BufferReference<ImRoundRect>(pc.rectInstancesVA).data[instanceID];
+                ImRoundRect box = nova::BufferReference<ImRoundRect>(pc.rectInstancesVA).data[instanceID];
                 vec2 delta = deltas[vertexID];
                 outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
@@ -45,13 +47,13 @@ namespace nova
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ImRoundRect box = BufferReference<ImRoundRect>(pc.rectInstancesVA).data[inInstanceID];
+                ImRoundRect box = nova::BufferReference<ImRoundRect>(pc.rectInstancesVA).data[inInstanceID];
 
                 vec2 absPos = abs(inTex);
                 vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
                 vec4 sampled = box.texTint.a > 0
-                    ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex)), 0),
+                    ? box.texTint * texture(nova::Sampler2D(nonuniformEXT(box.texIndex)), 0),
                         (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
                 vec4 centerColor = vec4(
@@ -100,14 +102,14 @@ namespace nova
     DescriptorHandle ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
     {
         (void)sampler;// TODO: Handle custom sampler!
-        auto handle = descriptorHeap.Acquire(nova::DescriptorType::SampledTexture);
+        auto handle = textureSlots.Acquire();
         descriptorHeap.WriteSampledTexture(handle, texture);
         return handle;
     }
 
     void ImDraw2D::UnregisterTexture(DescriptorHandle handle)
     {
-        descriptorHeap.Release(handle);
+        textureSlots.Release(handle.ToShaderUInt());
     }
 
 // -----------------------------------------------------------------------------

@@ -25,8 +25,10 @@ namespace nova
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
+        void* descriptorPool; // TODO: Move internal data to impl
+
         bool ended = false;
-        
+
         bool dockMenuBar = true;
         bool noDockBg = true;
 

@@ -230,14 +230,15 @@ namespace nova
 
     struct DescriptorHandle
     {
-        u32 id   : 24 = 0;
-        u32 type :  8 = 0;
+        // u32 id   : 24 = 0;
+        // u32 type :  8 = 0;
+        u32 id = 0;
 
         DescriptorHandle() = default;
 
-        DescriptorHandle(u32 _id, DescriptorType _type)
+        DescriptorHandle(u32 _id/*, DescriptorType _type*/)
             : id(_id)
-            , type(u32(_type))
+            // , type(u32(_type))
         {}
 
         u32 ToShaderUInt() const {
@@ -679,11 +680,10 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     NOVA_BEGIN_API_OBJECT(DescriptorHeap)
-        static DescriptorHeap Create(HContext);
+        static DescriptorHeap Create(HContext, u32 requestedDescriptorCount);
         void Destroy();
 
-        DescriptorHandle Acquire(DescriptorType) const;
-        void Release(DescriptorHandle) const;
+        u32 GetMaxDescriptorCount() const;
 
         DescriptorHandle WriteStorageBuffer(DescriptorHandle handle, HBuffer) const;
         DescriptorHandle WriteUniformBuffer(DescriptorHandle handle, HBuffer) const;

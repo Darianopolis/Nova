@@ -2,6 +2,8 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
+#include <nova/core/nova_SubAllocation.hpp>
+
 namespace nova
 {
     struct ImBounds2D
@@ -123,6 +125,7 @@ namespace nova
         Sampler defaultSampler;
 
         DescriptorHeap descriptorHeap;
+        IndexFreeList    textureSlots{ 1 }; // 0 is reserved for default sampler
 
         Shader rectVertShader;
         Shader rectFragShader;
@@ -134,7 +137,7 @@ namespace nova
         std::vector<ImDrawCommand> drawCommands;
 
     public:
-        ImDraw2D(HContext, HDescriptorHeap);
+        ImDraw2D(HContext);
         ~ImDraw2D();
 
         Sampler GetDefaultSampler() noexcept;
