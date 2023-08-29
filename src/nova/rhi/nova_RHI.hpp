@@ -625,7 +625,7 @@ namespace nova
         void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
         void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
         void BindIndexBuffer(HBuffer, IndexType, u64 offset = {}) const;
-        void ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset = {}) const;
+        void ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset = {}) const;
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
@@ -643,7 +643,7 @@ namespace nova
 
         void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2) const;
         void Transition(HTexture, TextureLayout, PipelineStage) const;
-        void Clear(HTexture, Vec4 color) const;
+        void ClearColor(HTexture, std::variant<Vec4, Vec4U, Vec4I> value) const;
         void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0) const;
         void CopyFromTexture(HBuffer dst, HTexture src, Rect2D regino) const;
         void GenerateMips(HTexture) const;

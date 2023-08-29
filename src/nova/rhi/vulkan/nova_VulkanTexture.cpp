@@ -192,7 +192,7 @@ namespace nova
             .image = impl->image,
             .oldLayout = impl->layout,
             .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
         }));
 
         vkCopyMemoryToImageEXT(impl->context->device, Temp(VkCopyMemoryToImageInfoEXT {
@@ -220,7 +220,7 @@ namespace nova
             .image = impl->image,
             .oldLayout = impl->layout,
             .newLayout = GetVulkanImageLayout(layout),
-            .subresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
+            .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
         }));
 
         impl->layout = GetVulkanImageLayout(layout);
@@ -246,7 +246,7 @@ namespace nova
                 .oldLayout = texture->layout,
                 .newLayout = newLayout,
                 .image = texture->image,
-                .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
+                .subresourceRange{ texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
@@ -276,7 +276,7 @@ namespace nova
                 .oldLayout = texture->layout,
                 .newLayout = vkLayout,
                 .image = texture->image,
-                .subresourceRange = { texture->aspect, 0, texture->mips, 0, texture->layers },
+                .subresourceRange{ texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
@@ -284,14 +284,18 @@ namespace nova
         texture->stage = vkStage;
     }
 
-    void CommandList::Clear(HTexture texture, Vec4 color) const
+    void CommandList::ClearColor(HTexture texture, std::variant<Vec4, Vec4U, Vec4I> value) const
     {
         Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_CLEAR_BIT);
 
         vkCmdClearColorImage(impl->buffer,
             texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            nova::Temp(VkClearColorValue {{ color.r, color.g, color.b, color.a }}),
+            nova::Temp(std::visit(Overloads {
+                [&](const Vec4&  v) { return VkClearColorValue{ .float32{ v.r, v.g, v.b, v.a }}; },
+                [&](const Vec4U& v) { return VkClearColorValue{  .uint32{ v.r, v.g, v.b, v.a }}; },
+                [&](const Vec4I& v) { return VkClearColorValue{   .int32{ v.r, v.g, v.b, v.a }}; },
+            }, value)),
             1, nova::Temp(VkImageSubresourceRange {
                 VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->mips, 0, texture->layers }));
     }
@@ -310,8 +314,8 @@ namespace nova
             .pRegions = Temp(VkBufferImageCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
                 .bufferOffset = srcOffset,
-                .imageSubresource = { dst->aspect, 0, 0, dst->layers },
-                .imageExtent = { dst->extent.x, dst->extent.y,  1 },
+                .imageSubresource{ dst->aspect, 0, 0, dst->layers },
+                .imageExtent{ dst->extent.x, dst->extent.y,  1 },
             }),
         }));
     }
@@ -329,9 +333,9 @@ namespace nova
             .regionCount = 1,
             .pRegions = nova::Temp(VkBufferImageCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
-                .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                .imageOffset = { region.offset.x, region.offset.y, 0 },
-                .imageExtent = { region.extent.x, region.extent.y, 1 },
+                .imageSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .imageOffset{ region.offset.x, region.offset.y, 0 },
+                .imageExtent{ region.extent.x, region.extent.y, 1 },
             }),
         }));
     }
@@ -371,10 +375,10 @@ namespace nova
                 texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
-                    .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 0, 1 },
-                    .srcOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)mipWidth, (int32_t)mipHeight, 1} },
-                    .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, mip,     0, 1 },
-                    .dstOffsets = { VkOffset3D{}, VkOffset3D{(int32_t)std::max(mipWidth / 2, 1), (int32_t)std::max(mipHeight / 2, 1), 1} },
+                    .srcSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 0, 1 },
+                    .srcOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)mipWidth, (int32_t)mipHeight, 1} },
+                    .dstSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, mip, 0, 1 },
+                    .dstOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)std::max(mipWidth / 2, 1), (int32_t)std::max(mipHeight / 2, 1), 1} },
                 }),
                 VK_FILTER_LINEAR);
 
@@ -396,7 +400,7 @@ namespace nova
                 .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 .image = texture->image,
-                .subresourceRange = { texture->aspect, texture->mips - 1, 1, 0, 1 },
+                .subresourceRange{ texture->aspect, texture->mips - 1, 1, 0, 1 },
             }),
         }));
 
@@ -412,10 +416,10 @@ namespace nova
             src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, nova::Temp(VkImageBlit {
-                .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                .srcOffsets = { VkOffset3D{}, VkOffset3D{i32(src->extent.x), i32(src->extent.y), 1} },
-                .dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                .dstOffsets = { VkOffset3D{}, VkOffset3D{i32(dst->extent.x), i32(dst->extent.y), 1} },
+                .srcSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .srcOffsets{ VkOffset3D{}, VkOffset3D{i32(src->extent.x), i32(src->extent.y), 1} },
+                .dstSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .dstOffsets{ VkOffset3D{}, VkOffset3D{i32(dst->extent.x), i32(dst->extent.y), 1} },
             }),
             GetVulkanFilter(filter));
     }

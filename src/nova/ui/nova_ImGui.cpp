@@ -30,8 +30,6 @@ namespace nova
         , defaultSamplerID(config.sampler)
         , fontTextureID(config.fontTextureID)
     {
-        // Create RHI backend
-
         vertexBuffer = nova::Buffer::Create(context, 0,
             nova::BufferUsage::Storage,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
@@ -125,8 +123,6 @@ namespace nova
         vertexShader.Destroy();
         fragmentShader.Destroy();
         fontTexture.Destroy();
-
-        // heap.Destroy();
     }
 
     void ImGuiLayer::BeginFrame_(DockspaceWindowFn fn, void* payload)
@@ -221,8 +217,9 @@ namespace nova
         if (vertexBuffer.GetSize() < data->TotalVtxCount * sizeof(ImDrawVert)
                 || indexBuffer.GetSize() < data->TotalIdxCount * sizeof(ImDrawIdx)) {
 
-            // Flush frames to resize (this should only happen a few times in total)
+            // Flush frames to resize safely (this should only happen a few times in total)
             fence.Wait();
+
             vertexBuffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
             indexBuffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
         }

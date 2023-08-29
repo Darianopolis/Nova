@@ -1,7 +1,6 @@
 #include "example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -31,7 +30,7 @@ NOVA_EXAMPLE(compute)
 // -----------------------------------------------------------------------------
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -75,16 +74,10 @@ NOVA_EXAMPLE(compute)
             nova::Format::RGBA8_UNorm,
             {});
 
-        auto staging = nova::Buffer::Create(context, 4 * x * y, nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { staging.Destroy(); };
-        staging.Set(Span(imageData, 4 * x * y));
-
-        auto cmd = cmdPool.Begin();
-        cmd.CopyToTexture(texture, staging);
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+        texture.Set({}, texture.GetExtent(), imageData);
+        texture.Transition(nova::TextureLayout::Sampled);
+        heap.WriteSampledTexture(1, texture);
     }
-    heap.WriteSampledTexture(1, texture);
 
     // Shaders
 

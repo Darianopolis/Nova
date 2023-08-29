@@ -13,7 +13,7 @@
 NOVA_EXAMPLE(multi)
 {
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -108,7 +108,7 @@ NOVA_EXAMPLE(multi)
         auto cmd = commandPools[fif].Begin();
 
         // Clear screen
-        cmd.Clear(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd.ClearColor(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
@@ -119,7 +119,7 @@ NOVA_EXAMPLE(multi)
         cmd.Present(swapchains[0]);
 
         // Clear and present #2
-        cmd.Clear(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd.ClearColor(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd.Present(swapchains[1]);
 
         // Submit work

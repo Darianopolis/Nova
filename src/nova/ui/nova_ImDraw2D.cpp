@@ -53,7 +53,7 @@ namespace nova
                 vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
                 vec4 sampled = box.texTint.a > 0
-                    ? box.texTint * texture(nova::Sampler2D(nonuniformEXT(box.texIndex)), 0),
+                    ? box.texTint * texture(nova::Sampler2D(nonuniformEXT(box.texIndex), 0),
                         (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
                 vec4 centerColor = vec4(

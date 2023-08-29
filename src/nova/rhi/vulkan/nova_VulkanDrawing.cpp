@@ -123,13 +123,17 @@ namespace nova
         vkCmdSetScissorWithCount(impl->buffer, u32(scissors.size()), vkScissors);
     }
 
-    void CommandList::ClearColor(u32 attachment, Vec4 color, Vec2U size, Vec2I offset) const
+    void CommandList::ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(
             impl->buffer, 1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .colorAttachment = attachment,
-                .clearValue = {{{ color.r, color.g, color.b, color.a }}},
+                .clearValue = {std::visit(Overloads {
+                    [&](const Vec4&  v) { return VkClearColorValue{ .float32{ v.r, v.g, v.b, v.a }}; },
+                    [&](const Vec4U& v) { return VkClearColorValue{  .uint32{ v.r, v.g, v.b, v.a }}; },
+                    [&](const Vec4I& v) { return VkClearColorValue{   .int32{ v.r, v.g, v.b, v.a }}; },
+                }, value)},
             }),
             1, nova::Temp(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },

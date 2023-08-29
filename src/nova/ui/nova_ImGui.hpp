@@ -16,19 +16,18 @@ namespace nova
         f32     fontSize = 20.f;
         Vec2 glyphOffset = Vec2(1.f, 1.67f);
         i32        flags = 0;
-        u32   imageCount = 2;
 
         GLFWwindow* window;
 
-        Context context;
-        DescriptorHeap heap;
-        DescriptorHandle sampler;
+        Context                context;
+        DescriptorHeap            heap;
+        DescriptorHandle       sampler;
         DescriptorHandle fontTextureID;
     };
 
     struct ImGuiLayer
     {
-        Context context = {};
+        Context context;
 
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
@@ -37,18 +36,19 @@ namespace nova
 
         DescriptorHandle defaultSamplerID;
 
-        Texture         fontTexture;
+        Texture            fontTexture;
         DescriptorHandle fontTextureID;
 
-        Shader vertexShader;
+        Shader   vertexShader;
         Shader fragmentShader;
+
         Buffer vertexBuffer;
-        Buffer indexBuffer;
+        Buffer  indexBuffer;
 
         bool ended = false;
 
         bool dockMenuBar = true;
-        bool noDockBg = true;
+        bool    noDockBg = true;
 
     public:
         ImGuiLayer(const ImGuiConfig& config);
