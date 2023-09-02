@@ -618,6 +618,12 @@ namespace nova
         void SetGraphicsState(Span<HShader>, const PipelineState&) const;
         void PushConstants(u64 offset, u64 size, const void* data) const;
 
+        template<class T>
+        void PushConstants(const T& constants, u64 offset = 0) const
+        {
+            PushConstants(offset, sizeof(constants), &constants);
+        }
+
         void Barrier(PipelineStage src, PipelineStage dst) const;
 
         void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment = {}, HTexture stencilAttachment = {}) const;
@@ -674,12 +680,11 @@ namespace nova
 
         u32 GetMaxDescriptorCount() const;
 
-        DescriptorHandle WriteStorageBuffer(DescriptorHandle handle, HBuffer) const;
-        DescriptorHandle WriteUniformBuffer(DescriptorHandle handle, HBuffer) const;
+        DescriptorHandle WriteStorageBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
+        DescriptorHandle WriteUniformBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
         DescriptorHandle WriteSampledTexture(DescriptorHandle handle, HTexture) const;
         DescriptorHandle WriteSampler(DescriptorHandle handle, HSampler) const;
         DescriptorHandle WriteStorageTexture(DescriptorHandle handle, HTexture) const;
-        DescriptorHandle WriteAccelerationStructure(DescriptorHandle handle, HAccelerationStructure) const;
     NOVA_END_API_OBJECT()
 
 // -----------------------------------------------------------------------------

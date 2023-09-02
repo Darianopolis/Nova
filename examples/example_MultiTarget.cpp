@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
+
 NOVA_EXAMPLE(multi)
 {
     auto context = nova::Context::Create({
@@ -22,9 +23,9 @@ NOVA_EXAMPLE(multi)
 
     glfwInit();
     NOVA_CLEANUP(&) { glfwTerminate(); };
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow* windows[] {
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    auto windows = std::array {
         glfwCreateWindow(1920, 1200, "Nova - Multi Target #1", nullptr, nullptr),
         glfwCreateWindow(1920, 1200, "Nova - Multi Target #2", nullptr, nullptr),
     };
@@ -32,7 +33,8 @@ NOVA_EXAMPLE(multi)
         glfwDestroyWindow(windows[0]);
         glfwDestroyWindow(windows[1]);
     };
-    nova::Swapchain swapchains[] {
+
+    auto swapchains = std::array {
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode),
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode),
     };
@@ -42,14 +44,15 @@ NOVA_EXAMPLE(multi)
     };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    u64 waitValues[] { 0ull, 0ull };
+    auto waitValues = std::array { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
-    nova::CommandPool commandPools[] {
+    auto commandPools = std::array {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
     auto heap = nova::DescriptorHeap::Create(context, 2);
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
+    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
+        nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_CLEANUP(&) {
         fence.Destroy();
         commandPools[0].Destroy();

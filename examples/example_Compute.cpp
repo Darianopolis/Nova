@@ -16,7 +16,7 @@ NOVA_EXAMPLE(compute)
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Nova - Compute", nullptr, nullptr);
+    auto window = glfwCreateWindow(720, 720, "Nova - Compute", nullptr, nullptr);
     NOVA_CLEANUP(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -57,7 +57,7 @@ NOVA_EXAMPLE(compute)
 
     // Image
 
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, {}, 16.f);
+    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
     NOVA_CLEANUP(&) { sampler.Destroy(); };
     heap.WriteSampler(0, sampler);
 

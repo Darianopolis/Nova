@@ -353,7 +353,7 @@ namespace nova
                     ++rhi::stats::AllocationCount;
                     ++rhi::stats::NewAllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-                    NOVA_LOG(" --\n{}", std::stacktrace::current());
+                    std::cout << " --\n" << std::stacktrace::current() << '\n';
                     NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
 #endif
                 }
@@ -372,7 +372,7 @@ namespace nova
                     --rhi::stats::AllocationCount;
 #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
                     NOVA_LOG("Freeing ptr = {}", ptr);
-                    NOVA_LOG("    Allocations - :: {}", AllocationCount.load());
+                    NOVA_LOG("    Allocations - :: {}", rhi::stats::AllocationCount.load());
 #endif
                 }
                 mi_free(ptr);

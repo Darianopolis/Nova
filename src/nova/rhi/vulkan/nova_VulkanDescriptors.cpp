@@ -81,7 +81,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    DescriptorHandle DescriptorHeap::WriteStorageBuffer(DescriptorHandle handle, HBuffer buffer) const
+    DescriptorHandle DescriptorHeap::WriteStorageBuffer(DescriptorHandle handle, HBuffer buffer, u64 size, u64 offset) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -92,14 +92,15 @@ namespace nova
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .pBufferInfo = Temp(VkDescriptorBufferInfo {
                 .buffer = buffer->buffer,
-                .range = VK_WHOLE_SIZE,
+                .offset = offset,
+                .range = size,
             }),
         }), 0, nullptr);
 
         return handle;
     }
 
-    DescriptorHandle DescriptorHeap::WriteUniformBuffer(DescriptorHandle handle, HBuffer buffer) const
+    DescriptorHandle DescriptorHeap::WriteUniformBuffer(DescriptorHandle handle, HBuffer buffer, u64 size, u64 offset) const
     {
         vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -110,7 +111,8 @@ namespace nova
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .pBufferInfo = Temp(VkDescriptorBufferInfo {
                 .buffer = buffer->buffer,
-                .range = VK_WHOLE_SIZE,
+                .offset = offset,
+                .range = size,
             }),
         }), 0, nullptr);
 

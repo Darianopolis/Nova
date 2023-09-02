@@ -104,7 +104,7 @@ NOVA_EXAMPLE(tri)
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Kernel(R"glsl(
             Uniforms u = nova::UniformBuffer<Uniforms>[0].data[0];
-            Vertex   v = nova::BufferReference<Vertex>(pc.vertexVA).data[gl_VertexIndex];
+            Vertex v = nova::BufferReference<Vertex>(pc.vertexVA).data[gl_VertexIndex];
             color = v.color;
             gl_Position = vec4(v.position + u.offset, 1);
         )glsl"),
@@ -133,9 +133,7 @@ NOVA_EXAMPLE(tri)
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.SetGraphicsState({vertexShader, fragmentShader}, {});
-        cmd.PushConstants(0, sizeof(PushConstants), nova::Temp(PushConstants {
-            .vertexVA = vertices.GetAddress(),
-        }));
+        cmd.PushConstants(PushConstants { .vertexVA = vertices.GetAddress() });
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);
         cmd.DrawIndexed(3, 1, 0, 0, 0);

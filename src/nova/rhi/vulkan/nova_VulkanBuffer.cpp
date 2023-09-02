@@ -43,7 +43,8 @@ namespace nova
             return;
         }
 
-        impl->size = std::max(_size, impl->size + (impl->size >> 1));
+        // impl->size = std::max(_size, impl->size + (impl->size >> 1));
+        impl->size = _size;
 
         ResetBuffer(impl->context, *this);
 

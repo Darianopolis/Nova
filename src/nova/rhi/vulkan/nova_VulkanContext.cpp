@@ -56,7 +56,6 @@ Validation: {} ({})
             if (!f) {
                 f = static_cast<VkBaseInStructure*>(mi_malloc(sizeof(T)));
                 new(f) T{};
-                NOVA_LOG("Setting type: {} ({}) @ {} ({})", u32(type), i32(type), (void*)f, typeid(T).name());
                 f->sType = type;
                 f->pNext = pNext;
                 pNext = f;
@@ -143,7 +142,7 @@ Validation: {} ({})
         for (auto& gpu : gpus) {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(gpu, &properties);
-            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            if (properties.properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
 
                 impl->maxDescriptors = std::min({
@@ -317,6 +316,28 @@ Validation: {} ({})
             u32 i = 0;
             for (const auto& ext : chain.extensions) {
                 deviceExtensions[i++] = ext.c_str();
+            }
+        }
+
+        {
+            std::vector<VkExtensionProperties> props;
+            VkQuery(props, vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
+
+            std::unordered_set<std::string_view> supported;
+            for (auto& prop : props) {
+                supported.insert(prop.extensionName);
+            }
+
+            u32 missingCount = 0;
+            for (auto& ext : chain.extensions) {
+                if (!supported.contains(ext)) {
+                    missingCount++;
+                    NOVA_LOG("Missing extension: {}", ext);
+                }
+            }
+
+            if (missingCount) {
+                NOVA_THROW("Missing {} extensions", missingCount);
             }
         }
 
