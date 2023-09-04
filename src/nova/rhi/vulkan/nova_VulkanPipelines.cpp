@@ -379,7 +379,84 @@ namespace nova
         vkCmdSetDepthWriteEnable(impl->buffer, pipelineState.depthWrite);
         vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(pipelineState.depthCompare));
 
-        {
+        if (context->usingShaderObjects) {
+
+            // Blending
+
+            {
+                auto colorAttachmentCount = u32(impl->colorAttachmentsFormats.size());
+                auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
+                auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
+                auto blendEquations = pipelineState.blendEnable
+                    ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
+                    : nullptr;
+
+                for (u32 i = 0; i < colorAttachmentCount; ++i) {
+                    components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                        | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+                    blendEnableBools[i] = pipelineState.blendEnable;
+
+                    if (pipelineState.blendEnable) {
+                        blendEquations[i] = {
+                            .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                            .colorBlendOp = VK_BLEND_OP_ADD,
+                            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                            .alphaBlendOp = VK_BLEND_OP_ADD,
+                        };
+                    }
+                }
+
+                vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
+                vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
+                if (pipelineState.blendEnable) {
+                    vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
+                }
+            }
+
+            // Vertex Input
+
+            vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
+
+            // Polygon mode
+
+            vkCmdSetPolygonModeEXT(impl->buffer, GetVulkanPolygonMode(pipelineState.polyMode));
+
+            // Other state
+
+            vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
+            vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
+            vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
+            vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
+            vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
+
+            // Stencil tests
+
+            vkCmdSetStencilTestEnable(impl->buffer, false);
+            vkCmdSetStencilOp(impl->buffer, VK_STENCIL_FACE_FRONT_AND_BACK,
+                VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_NEVER);
+
+            // Depth (extended)
+
+            vkCmdSetDepthBiasEnable(impl->buffer, false);
+            vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
+
+            // Bind shaders
+
+            {
+                auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, _shaders.size());
+                auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, _shaders.size());
+                for (u32 i = 0; i < _shaders.size(); ++i) {
+                    stageFlags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(_shaders[i]->stage));
+                    shaderObjects[i] = _shaders[i]->shader;
+                }
+
+                vkCmdBindShadersEXT(impl->buffer, u32(_shaders.size()), stageFlags, shaderObjects);
+            }
+
+        } else {
+
             // Separate shaders
 
             Shader fragmentShader = {};

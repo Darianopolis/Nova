@@ -87,24 +87,43 @@ namespace nova
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
         EShLanguage glslangStage;
+        bool generateShaderObject = true;
+        VkShaderStageFlags nextStages = 0;
+
         switch (GetVulkanShaderStage(shader->stage)) {
         break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
+                                                                nextStages = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT
+                                                                    | VK_SHADER_STAGE_GEOMETRY_BIT
+                                                                    | VK_SHADER_STAGE_FRAGMENT_BIT;
         break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
+                                                                nextStages = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
         break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: glslangStage = EShLangTessEvaluation;
+                                                                nextStages = VK_SHADER_STAGE_GEOMETRY_BIT
+                                                                    | VK_SHADER_STAGE_FRAGMENT_BIT;
         break;case VK_SHADER_STAGE_GEOMETRY_BIT:                glslangStage = EShLangGeometry;
+                                                                nextStages = VK_SHADER_STAGE_FRAGMENT_BIT;
         break;case VK_SHADER_STAGE_FRAGMENT_BIT:                glslangStage = EShLangFragment;
         break;case VK_SHADER_STAGE_COMPUTE_BIT:                 glslangStage = EShLangCompute;
         break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              glslangStage = EShLangRayGen;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             glslangStage = EShLangAnyHit;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         glslangStage = EShLangClosestHit;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_MISS_BIT_KHR:                glslangStage = EShLangMiss;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        glslangStage = EShLangIntersect;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            glslangStage = EShLangCallable;
+                                                                generateShaderObject = false;
         break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
 
         break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
         }
+
+        if (!shader->context->usingShaderObjects)
+            generateShaderObject = false;
 
         glslang::TShader glslShader { glslangStage };
         auto resource = GetDefaultResources();
@@ -194,11 +213,35 @@ namespace nova
         // TODO: remove shader module creation,
         //   store spirv and simply pass to pipelines
 
-        VkCall(vkCreateShaderModule(shader->context->device, Temp(VkShaderModuleCreateInfo {
+        auto context = shader->context;
+
+        VkCall(vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
-        }), shader->context->pAlloc, &shader->handle));
+        }), context->pAlloc, &shader->handle));
+
+        if (generateShaderObject) {
+            VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
+                .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
+                .nextStage = nextStages,
+                .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
+                .codeSize = spirv.size() * 4,
+                .pCode = spirv.data(),
+                .pName = "main",
+                .setLayoutCount = context->config.rayTracing ? 2u : 1u,
+                .pSetLayouts = std::array {
+                    context->heapLayout,
+                    context->rtLayout,
+                }.data(),
+                .pushConstantRangeCount = 1,
+                .pPushConstantRanges = Temp(VkPushConstantRange {
+                    .stageFlags = VK_SHADER_STAGE_ALL,
+                    .size = 256,
+                }),
+            }), context->pAlloc, &shader->shader));
+        }
     }
 
     Shader Shader::Create(HContext context, ShaderStage stage, const std::string& filename, const std::string& sourceCode)
@@ -538,6 +581,10 @@ namespace nova
         }
 
         vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
+
+        if (impl->shader) {
+            vkDestroyShaderEXT(impl->context->device, impl->shader, impl->context->pAlloc);
+        }
 
         delete impl;
         impl = nullptr;

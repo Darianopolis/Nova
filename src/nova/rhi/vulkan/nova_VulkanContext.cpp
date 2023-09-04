@@ -142,7 +142,7 @@ Validation: {} ({})
         for (auto& gpu : gpus) {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(gpu, &properties);
-            if (properties.properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
 
                 impl->maxDescriptors = std::min({
@@ -263,6 +263,13 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
                 .hostImageCopy = VK_TRUE;
+
+            // TODO: Enable extension layer if not supported
+            chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
+                .shaderObject = VK_TRUE;
+            impl->usingShaderObjects = true;
         }
 
         if (config.meshShaders) {
@@ -337,7 +344,11 @@ Validation: {} ({})
             }
 
             if (missingCount) {
-                NOVA_THROW("Missing {} extensions", missingCount);
+                NOVA_LOG("Missing {} extension{}.\nPress Enter to close...",
+                    missingCount, missingCount > 1 ? "s" : "");
+                // Log to file to avoid needing this?
+                std::getline(std::cin, *Temp(std::string{}));
+                NOVA_THROW("Missing {} extensions.", missingCount);
             }
         }
 

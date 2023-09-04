@@ -102,6 +102,7 @@ namespace nova
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
+        VkShaderEXT    shader = {};
         ShaderStage     stage = {};
 
     public:
@@ -314,6 +315,8 @@ namespace nova
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};
         std::vector<Queue>  computeQueues = {};
+
+        bool usingShaderObjects = false;
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
