@@ -23,8 +23,6 @@ namespace nova
             impl->colorAttachmentsFormats[i] = colorAttachments[i]->format;
         }
 
-        impl->renderingExtent = region.extent;
-
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
             .renderArea = { { region.offset.x, region.offset.y }, { region.extent.x, region.extent.y } },
@@ -95,11 +93,13 @@ namespace nova
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
     {
+        EnsureGraphicsState();
         vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
     }
 
     void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
     {
+        EnsureGraphicsState();
         vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 

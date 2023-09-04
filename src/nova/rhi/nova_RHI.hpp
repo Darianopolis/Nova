@@ -615,9 +615,6 @@ namespace nova
     NOVA_BEGIN_API_OBJECT(CommandList)
         void Present(HSwapchain) const;
 
-        void SetComputeState(HShader shader) const;
-        void SetGraphicsState(Span<HShader>, const PipelineState&) const;
-
         void ResetGraphicsState() const;
         void SetViewports(Span<Rect2I> rects, bool copyToScissors = false) const;
         void SetScissors(Span<Rect2I> scissors) const;
@@ -625,6 +622,8 @@ namespace nova
         void SetDepthState(bool testEnable, bool writeEnable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;
+
+        void EnsureGraphicsState() const;
 
         void PushConstants(u64 offset, u64 size, const void* data) const;
         template<class T>

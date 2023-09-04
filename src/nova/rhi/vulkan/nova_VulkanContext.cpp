@@ -255,7 +255,7 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
                 .shaderObject = VK_TRUE;
-            impl->usingShaderObjects = true;
+            impl->shaderObjectsSupported = true;
 
             // Graphics Pipeline Libraries + Extended Dynamic State
 

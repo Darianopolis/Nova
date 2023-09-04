@@ -65,10 +65,20 @@ namespace nova
         CommandPool       pool = {};
         VkCommandBuffer buffer = {};
 
+        // Graphics Pipeline Library fallback
+
         std::vector<Format> colorAttachmentsFormats;
         Format                depthAttachmentFormat = nova::Format::Undefined;
         Format              stencilAttachmentFormat = nova::Format::Undefined;
-        Vec2U                       renderingExtent = {};
+
+        PolygonMode polygonMode;
+        Topology       topology;
+
+        std::bitset<8>   blendStates;
+        std::vector<HShader> shaders;
+
+        bool usingShaderObjects = false;
+        bool graphicsStateDirty = false;
     };
 
     struct Swapchain::Impl
@@ -241,7 +251,7 @@ namespace nova
         Format                 depthAttachment;
         Format               stencilAttachment;
 
-        VkBool32 blendEnable;
+        std::bitset<8> blendStates;
 
         NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentOutputStageKey)
     };
@@ -319,7 +329,7 @@ namespace nova
         std::vector<Queue> transferQueues = {};
         std::vector<Queue>  computeQueues = {};
 
-        bool usingShaderObjects = false;
+        bool shaderObjectsSupported = false;
 
     public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
