@@ -245,8 +245,13 @@ namespace nova
         return strBounds;
     }
 
-    void ImDraw2D::Record(CommandList cmd)
+    void ImDraw2D::Record(CommandList cmd, Texture target)
     {
+        cmd.ResetGraphicsState();
+        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
+        cmd.SetViewports({{{}, Vec2I(target.GetExtent())}}, true);
+        cmd.SetBlendState({true});
+
         cmd.PushConstants(0, sizeof(PushConstants),
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
@@ -259,10 +264,11 @@ namespace nova
         for (auto& command : drawCommands) {
             switch (command.type) {
             break;case ImDrawType::RoundRect:
-                cmd.SetGraphicsState({rectVertShader, rectFragShader},
-                    { .blendEnable = true });
+                cmd.BindShaders({rectVertShader, rectFragShader});
                 cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }
+
+        cmd.EndRendering();
     }
 }

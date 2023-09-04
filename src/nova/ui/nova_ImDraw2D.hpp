@@ -154,6 +154,6 @@ namespace nova
 
         ImBounds2D MeasureString(std::string_view str, ImFont& font);
 
-        void Record(CommandList);
+        void Record(CommandList, Texture target);
     };
 }

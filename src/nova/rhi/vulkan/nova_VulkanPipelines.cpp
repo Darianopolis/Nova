@@ -335,7 +335,7 @@ namespace nova
         return pipeline;
     }
 
-    void CommandList::SetGraphicsState(Span<HShader> _shaders, const PipelineState& pipelineState) const
+    void CommandList::SetGraphicsState(Span<HShader> shaders, const PipelineState& pipelineState) const
     {
         auto start = std::chrono::steady_clock::now();
 
@@ -379,90 +379,13 @@ namespace nova
         vkCmdSetDepthWriteEnable(impl->buffer, pipelineState.depthWrite);
         vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(pipelineState.depthCompare));
 
-        if (context->usingShaderObjects) {
-
-            // Blending
-
-            {
-                auto colorAttachmentCount = u32(impl->colorAttachmentsFormats.size());
-                auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, colorAttachmentCount);
-                auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, colorAttachmentCount);
-                auto blendEquations = pipelineState.blendEnable
-                    ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, colorAttachmentCount)
-                    : nullptr;
-
-                for (u32 i = 0; i < colorAttachmentCount; ++i) {
-                    components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
-                        | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-                    blendEnableBools[i] = pipelineState.blendEnable;
-
-                    if (pipelineState.blendEnable) {
-                        blendEquations[i] = {
-                            .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-                            .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                            .colorBlendOp = VK_BLEND_OP_ADD,
-                            .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-                            .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                            .alphaBlendOp = VK_BLEND_OP_ADD,
-                        };
-                    }
-                }
-
-                vkCmdSetColorWriteMaskEXT(impl->buffer, 0, colorAttachmentCount, components);
-                vkCmdSetColorBlendEnableEXT(impl->buffer, 0, colorAttachmentCount, blendEnableBools);
-                if (pipelineState.blendEnable) {
-                    vkCmdSetColorBlendEquationEXT(impl->buffer, 0, colorAttachmentCount, blendEquations);
-                }
-            }
-
-            // Vertex Input
-
-            vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
-
-            // Polygon mode
-
-            vkCmdSetPolygonModeEXT(impl->buffer, GetVulkanPolygonMode(pipelineState.polyMode));
-
-            // Other state
-
-            vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
-            vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
-            vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
-            vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
-            vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
-
-            // Stencil tests
-
-            vkCmdSetStencilTestEnable(impl->buffer, false);
-            vkCmdSetStencilOp(impl->buffer, VK_STENCIL_FACE_FRONT_AND_BACK,
-                VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_NEVER);
-
-            // Depth (extended)
-
-            vkCmdSetDepthBiasEnable(impl->buffer, false);
-            vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
-
-            // Bind shaders
-
-            {
-                auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, _shaders.size());
-                auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, _shaders.size());
-                for (u32 i = 0; i < _shaders.size(); ++i) {
-                    stageFlags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(_shaders[i]->stage));
-                    shaderObjects[i] = _shaders[i]->shader;
-                }
-
-                vkCmdBindShadersEXT(impl->buffer, u32(_shaders.size()), stageFlags, shaderObjects);
-            }
-
-        } else {
-
+        {
             // Separate shaders
 
             Shader fragmentShader = {};
             std::array<Shader, 4> preRasterStageShaders;
             u32 preRasterStageShaderIndex = 0;
-            for (auto& shader : _shaders) {
+            for (auto& shader : shaders) {
                 if (shader->stage == ShaderStage::Fragment) {
                     fragmentShader = shader;
                 } else {
@@ -488,5 +411,141 @@ namespace nova
         }
 
         rhi::stats::TimeSettingGraphicsState += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+    }
+
+    void CommandList::ResetGraphicsState() const
+    {
+        vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
+        vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
+        vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
+        vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
+        vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
+        vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
+
+        // Stencil tests
+
+        vkCmdSetStencilTestEnable(impl->buffer, false);
+        vkCmdSetStencilOp(impl->buffer, VK_STENCIL_FACE_FRONT_AND_BACK,
+            VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_NEVER);
+
+        // Depth (extended)
+
+        vkCmdSetDepthBiasEnable(impl->buffer, false);
+        vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
+
+        SetPolygonState(
+            Topology::Triangles,
+            PolygonMode::Fill,
+            CullMode::None,
+            FrontFace::CounterClockwise,
+            1.f);
+        SetDepthState(false, false, CompareOp::Always);
+    }
+
+    NOVA_NO_INLINE
+    void CommandList::SetViewports(Span<Rect2I> viewports, bool copyToScissors) const
+    {
+        auto vkViewports = NOVA_ALLOC_STACK(VkViewport, viewports.size());
+        for (u32 i = 0; i < viewports.size(); ++i) {
+            vkViewports[i] = VkViewport {
+                .x = f32(viewports[i].offset.x),
+                .y = f32(viewports[i].offset.y),
+                .width = f32(viewports[i].extent.x),
+                .height = f32(viewports[i].extent.y),
+                .minDepth = 0.f,
+                .maxDepth = 1.f
+            };
+        }
+        vkCmdSetViewportWithCount(impl->buffer, u32(viewports.size()), vkViewports);
+
+        if (copyToScissors) {
+            SetScissors(viewports);
+        }
+    }
+
+    NOVA_NO_INLINE
+    void CommandList::SetScissors(Span<Rect2I> scissors) const
+    {
+        auto vkScissors = NOVA_ALLOC_STACK(VkRect2D, scissors.size());
+        for (u32 i = 0; i < scissors.size(); ++i) {
+            auto r = scissors[i];
+            if (r.extent.x < 0) { r.offset.x -= (r.extent.x * -1); }
+            if (r.extent.y < 0) { r.offset.y -= (r.extent.y * -1); }
+            vkScissors[i] = VkRect2D {
+                .offset{     r.offset.x,      r.offset.y  },
+                .extent{ u32(r.extent.x), u32(r.extent.y) },
+            };
+        }
+        vkCmdSetScissorWithCount(impl->buffer, u32(scissors.size()), vkScissors);
+    }
+
+    void CommandList::SetPolygonState(
+        Topology topology,
+        PolygonMode polygonMode,
+        CullMode cullMode,
+        FrontFace frontFace,
+        f32 lineWidth) const
+    {
+        vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(topology));
+        vkCmdSetPolygonModeEXT(impl->buffer, GetVulkanPolygonMode(polygonMode));
+        vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(cullMode));
+        vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(frontFace));
+        vkCmdSetLineWidth(impl->buffer, lineWidth);
+    }
+
+    void CommandList::SetDepthState(bool testEnable, bool writeEnable, CompareOp compareOp) const
+    {
+        vkCmdSetDepthTestEnable(impl->buffer, testEnable);
+        vkCmdSetDepthWriteEnable(impl->buffer, writeEnable);
+        vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(compareOp));
+    }
+
+    NOVA_NO_INLINE
+    void CommandList::SetBlendState(Span<bool> blends) const
+    {
+        auto count = u32(blends.size());
+        bool anyBlend = std::any_of(blends.begin(), blends.end(), [](auto v) { return v; });
+
+        auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, count);
+        auto blendEnableBools = NOVA_ALLOC_STACK(VkBool32, count);
+        auto blendEquations = anyBlend
+            ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, count)
+            : nullptr;
+
+        for (u32 i = 0; i < count; ++i) {
+            components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            blendEnableBools[i] = blends[i];
+
+            if (blends[i]) {
+                blendEquations[i] = {
+                    .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                    .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                    .colorBlendOp = VK_BLEND_OP_ADD,
+                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                    .alphaBlendOp = VK_BLEND_OP_ADD,
+                };
+            }
+        }
+
+        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
+        vkCmdSetColorBlendEnableEXT(impl->buffer, 0, count, blendEnableBools);
+        if (anyBlend) {
+            vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blendEquations);
+        }
+    }
+
+    NOVA_NO_INLINE
+    void CommandList::BindShaders(Span<HShader> shaders) const
+    {
+        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
+        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
+        for (u32 i = 0; i < shaders.size(); ++i) {
+            stageFlags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));
+            shaderObjects[i] = shaders[i]->shader;
+        }
+
+        vkCmdBindShadersEXT(impl->buffer, u32(shaders.size()), stageFlags, shaderObjects);
     }
 }

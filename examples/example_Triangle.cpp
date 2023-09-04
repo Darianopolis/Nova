@@ -132,7 +132,12 @@ NOVA_EXAMPLE(tri)
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
-        cmd.SetGraphicsState({vertexShader, fragmentShader}, {});
+
+        cmd.ResetGraphicsState();
+        cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
+        cmd.SetBlendState({false});
+        cmd.BindShaders({vertexShader, fragmentShader});
+
         cmd.PushConstants(PushConstants { .vertexVA = vertices.GetAddress() });
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);

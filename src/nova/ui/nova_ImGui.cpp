@@ -227,16 +227,16 @@ namespace nova
         // Set pipeline state
 
         cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
-        cmd.SetGraphicsState({ vertexShader, fragmentShader }, {
-            .cullMode = nova::CullMode::None,
-            .blendEnable = true,
-        });
+        cmd.ResetGraphicsState();
+        cmd.SetViewports({{{}, Vec2I(target.GetExtent())}});
+        cmd.SetBlendState({true});
+        cmd.BindShaders({vertexShader, fragmentShader});
         cmd.BindIndexBuffer(indexBuffer, sizeof(ImDrawIdx) == 2 ? nova::IndexType::U16 : nova::IndexType::U32);
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
 
         // Draw vertices
 
-        Vec2 clipOff{ data->DisplayPos.x, data->DisplayPos.y };
+        Vec2 clipOffset{ data->DisplayPos.x, data->DisplayPos.y };
         Vec2 clipScale{ data->FramebufferScale.x, data->FramebufferScale.y };
 
         usz vertexOffset = 0, indexOffset = 0;
@@ -249,7 +249,7 @@ namespace nova
             for (i32 j = 0; j < list->CmdBuffer.size(); ++j) {
                 const auto& imCmd = list->CmdBuffer[j];
 
-                auto clipMin = glm::max((Vec2(imCmd.ClipRect.x, imCmd.ClipRect.y) - clipOff) * clipScale, {});
+                auto clipMin = glm::max((Vec2(imCmd.ClipRect.x, imCmd.ClipRect.y) - clipOffset) * clipScale, {});
                 auto clipMax = glm::min((Vec2(imCmd.ClipRect.z, imCmd.ClipRect.w) - clipScale), Vec2(target.GetExtent()));
                 if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y) {
                     continue;

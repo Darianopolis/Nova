@@ -235,10 +235,29 @@ Validation: {} ({})
             f13.dynamicRendering = VK_TRUE;
             f13.synchronization2 = VK_TRUE;
 
-            chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
-                .fragmentShaderBarycentric = VK_TRUE;
+            // Mutable Descriptor Type
+
+            chain.Extension(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
+                .mutableDescriptorType = VK_TRUE;
+
+            // Host Image Copy
+
+            chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+                .hostImageCopy = VK_TRUE;
+
+            // Shader Objects
+
+            chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
+                .shaderObject = VK_TRUE;
+            impl->usingShaderObjects = true;
+
+            // Graphics Pipeline Libraries + Extended Dynamic State
 
             chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT)
@@ -254,22 +273,12 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
                 .graphicsPipelineLibrary = VK_TRUE;
 
-            chain.Extension(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
-                .mutableDescriptorType = VK_TRUE;
+            // Fragment Shader Barycentrics
 
-            chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
-                .hostImageCopy = VK_TRUE;
-
-            // TODO: Enable extension layer if not supported
-            chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
-                .shaderObject = VK_TRUE;
-            impl->usingShaderObjects = true;
+            chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
+                .fragmentShaderBarycentric = VK_TRUE;
         }
 
         if (config.meshShaders) {

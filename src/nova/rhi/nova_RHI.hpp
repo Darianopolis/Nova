@@ -615,9 +615,18 @@ namespace nova
     NOVA_BEGIN_API_OBJECT(CommandList)
         void Present(HSwapchain) const;
 
+        void SetComputeState(HShader shader) const;
         void SetGraphicsState(Span<HShader>, const PipelineState&) const;
-        void PushConstants(u64 offset, u64 size, const void* data) const;
 
+        void ResetGraphicsState() const;
+        void SetViewports(Span<Rect2I> rects, bool copyToScissors = false) const;
+        void SetScissors(Span<Rect2I> scissors) const;
+        void SetPolygonState(Topology, PolygonMode, CullMode, FrontFace, f32 lineWidth) const;
+        void SetDepthState(bool testEnable, bool writeEnable, CompareOp) const;
+        void SetBlendState(Span<bool> blends) const;
+        void BindShaders(Span<HShader>) const;
+
+        void PushConstants(u64 offset, u64 size, const void* data) const;
         template<class T>
         void PushConstants(const T& constants, u64 offset = 0) const
         {
@@ -635,10 +644,7 @@ namespace nova
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
-        void SetComputeState(HShader) const;
         void Dispatch(Vec3U groups) const;
-
-        void SetScissors(Span<Rect2I> scissors) const;
 
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
         void BindAccelerationStructure(BindPoint, HAccelerationStructure) const;

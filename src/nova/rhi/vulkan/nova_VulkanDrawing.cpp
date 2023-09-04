@@ -108,21 +108,6 @@ namespace nova
         vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
     }
 
-    NOVA_NO_INLINE
-    void CommandList::SetScissors(Span<Rect2I> scissors) const
-    {
-        auto vkScissors = NOVA_ALLOC_STACK(VkRect2D, scissors.size());
-
-        for (u32 i = 0; i < scissors.size(); ++i) {
-            vkScissors[i] = {
-                {    scissors[i].offset.x,      scissors[i].offset.y },
-                {u32(scissors[i].extent.x), u32(scissors[i].extent.y)},
-            };
-        }
-
-        vkCmdSetScissorWithCount(impl->buffer, u32(scissors.size()), vkScissors);
-    }
-
     void CommandList::ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset) const
     {
         vkCmdClearAttachments(

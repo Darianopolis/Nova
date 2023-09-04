@@ -134,7 +134,7 @@ NOVA_EXAMPLE(compute)
 
         // Dispatch
 
-        cmd.SetComputeState(computeShader);
+        cmd.BindShaders({computeShader});
         cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
 
         // Submit and present work
