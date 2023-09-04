@@ -215,14 +215,14 @@ namespace nova
 
         auto context = shader->context;
 
-        VkCall(vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
+        vkh::Check(vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = spirv.data(),
         }), context->pAlloc, &shader->handle));
 
         if (generateShaderObject) {
-            VkCall(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
+            vkh::Check(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
                 .nextStage = nextStages,

@@ -8,7 +8,7 @@ namespace nova
         impl->context = context;
         impl->queue = queue;
 
-        VkCall(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
+        vkh::Check(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = queue->family,
         }), context->pAlloc, &impl->pool));
@@ -39,7 +39,7 @@ namespace nova
             cmd = impl->lists.emplace_back(new CommandList::Impl);
 
             cmd->pool = *this;
-            VkCall(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
+            vkh::Check(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = impl->pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -50,7 +50,7 @@ namespace nova
             cmd = impl->lists[impl->index++];
         }
 
-        VkCall(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
+        vkh::Check(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
@@ -60,7 +60,7 @@ namespace nova
     void CommandPool::Reset() const
     {
         impl->index = 0;
-        VkCall(vkResetCommandPool(impl->context->device, impl->pool, 0));
+        vkh::Check(vkResetCommandPool(impl->context->device, impl->pool, 0));
     }
 
 // -----------------------------------------------------------------------------

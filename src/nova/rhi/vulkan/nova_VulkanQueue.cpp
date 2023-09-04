@@ -32,7 +32,7 @@ namespace nova
                 .commandBuffer = cmd->buffer,
             };
 
-            VkCall(vkEndCommandBuffer(cmd->buffer));
+            vkh::Check(vkEndCommandBuffer(cmd->buffer));
         }
 
         auto waitInfos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
@@ -58,7 +58,7 @@ namespace nova
         }
 
         auto start = std::chrono::steady_clock::now();
-        VkCall(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+        vkh::Check(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
             .pWaitSemaphoreInfos = waitInfos,

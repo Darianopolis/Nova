@@ -7,7 +7,7 @@ namespace nova
         auto impl = new Impl;
         impl->context = context;
 
-        VkCall(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
+        vkh::Check(vkCreateSampler(context->device, Temp(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = GetVulkanFilter(filter),
             .minFilter = GetVulkanFilter(filter),
@@ -93,7 +93,7 @@ namespace nova
 
         // ---- Create image -----
 
-        VkCall(vmaCreateImage(context->vma,
+        vkh::Check(vmaCreateImage(context->vma,
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
@@ -145,7 +145,7 @@ namespace nova
         // ---- Make view -----
 
         if (makeView) {
-            VkCall(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
+            vkh::Check(vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = impl->image,
                 .viewType = viewType,

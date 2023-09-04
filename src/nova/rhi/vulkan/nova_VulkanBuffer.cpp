@@ -64,7 +64,7 @@ namespace nova
             vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
-        VkCall(vmaCreateBuffer(
+        vkh::Check(vmaCreateBuffer(
             impl->context->vma,
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

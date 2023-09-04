@@ -7,7 +7,7 @@ namespace nova
         auto impl = new Impl;
         impl->context = context;
 
-        VkCall(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
+        vkh::Check(vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
@@ -180,7 +180,7 @@ namespace nova
     u64 AccelerationStructureBuilder::GetCompactSize() const
     {
         VkDeviceSize size;
-        VkCall(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
+        vkh::Check(vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
         return size;
     }
 
@@ -197,7 +197,7 @@ namespace nova
             impl->buffer = buffer;
         }
 
-        VkCall(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
+        vkh::Check(vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = impl->buffer->buffer,
             .offset = offset,

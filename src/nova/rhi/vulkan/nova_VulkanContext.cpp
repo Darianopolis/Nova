@@ -118,7 +118,7 @@ Validation: {} ({})
             .pEnabledValidationFeatures = validationFeaturesEnabled.data(),
         };
 
-        VkCall(vkCreateInstance(Temp(VkInstanceCreateInfo {
+        vkh::Check(vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext = config.debug ? &validationFeatures : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
@@ -134,11 +134,11 @@ Validation: {} ({})
         volkLoadInstanceOnly(impl->instance);
 
         if (config.debug)
-            VkCall(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
+            vkh::Check(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
 
         std::vector<VkPhysicalDevice> gpus;
-        VkQuery(gpus, vkEnumeratePhysicalDevices, impl->instance);
+        vkh::Enumerate(gpus, vkEnumeratePhysicalDevices, impl->instance);
         for (auto& gpu : gpus) {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             vkGetPhysicalDeviceProperties2(gpu, &properties);
@@ -156,7 +156,7 @@ Validation: {} ({})
             }
         }
         // u32 gpuCount = 1;
-        // VkCall(vkEnumeratePhysicalDevices(impl->instance, &gpuCount, &impl->gpu));
+        // vkh::Check(vkEnumeratePhysicalDevices(impl->instance, &gpuCount, &impl->gpu));
         // if (gpuCount == 0)
         //     NOVA_THROW("No physical devices found!");
 
@@ -337,7 +337,7 @@ Validation: {} ({})
 
         {
             std::vector<VkExtensionProperties> props;
-            VkQuery(props, vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
+            vkh::Enumerate(props, vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
 
             std::unordered_set<std::string_view> supported;
             for (auto& prop : props) {
@@ -371,7 +371,7 @@ Validation: {} ({})
             lowPriorities[i] = 0.1f;
         }
 
-        VkCall(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
+        vkh::Check(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
             .queueCreateInfoCount = 3,
@@ -420,7 +420,7 @@ Validation: {} ({})
             vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
         }
 
-        VkCall(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
+        vkh::Check(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = impl->gpu,
             .device = impl->device,
@@ -433,12 +433,12 @@ Validation: {} ({})
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &impl->vma));
 
-        VkCall(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
+        vkh::Check(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
         }), impl->pAlloc, &impl->pipelineCache));
 
-        VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+        vkh::Check(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -478,7 +478,7 @@ Validation: {} ({})
         }), impl->pAlloc, &impl->heapLayout));
 
         if (impl->config.rayTracing) {
-            VkCall(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+            vkh::Check(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
                 .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
                 .bindingCount = 1,
@@ -493,7 +493,7 @@ Validation: {} ({})
             }), impl->pAlloc, &impl->rtLayout));
         }
 
-        VkCall(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
+        vkh::Check(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = impl->config.rayTracing ? 2u : 1u,
             .pSetLayouts = std::array {

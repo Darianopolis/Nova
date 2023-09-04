@@ -6,21 +6,24 @@
 
 namespace nova
 {
-    inline
-    void VkCall(VkResult res)
+    namespace vkh
     {
-        if (res != VK_SUCCESS) {
-            NOVA_THROW("Error: {}", int(res));
+        inline
+        void Check(VkResult res)
+        {
+            if (res != VK_SUCCESS) {
+                NOVA_THROW("Error: {}", int(res));
+            }
         }
-    }
 
-    template<typename Container, typename Fn, typename ... Args>
-    void VkQuery(Container&& container, Fn&& fn, Args&& ... args)
-    {
-        u32 count;
-        fn(std::forward<Args>(args)..., &count, nullptr);
-        container.resize(count);
-        fn(std::forward<Args>(args)..., &count, container.data());
+        template<typename Container, typename Fn, typename ... Args>
+        void Enumerate(Container&& container, Fn&& fn, Args&& ... args)
+        {
+            u32 count;
+            fn(std::forward<Args>(args)..., &count, nullptr);
+            container.resize(count);
+            fn(std::forward<Args>(args)..., &count, container.data());
+        }
     }
 
 // -----------------------------------------------------------------------------

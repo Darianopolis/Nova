@@ -48,7 +48,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
@@ -110,7 +110,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -165,7 +165,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -257,7 +257,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -314,7 +314,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            VkCall(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineLibraryCreateInfoKHR {

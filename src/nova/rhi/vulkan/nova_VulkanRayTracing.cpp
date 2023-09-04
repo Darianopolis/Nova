@@ -94,7 +94,7 @@ namespace nova
             vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
         }
 
-        VkCall(vkCreateRayTracingPipelinesKHR(impl->context->device,
+        vkh::Check(vkCreateRayTracingPipelinesKHR(impl->context->device,
             0, nullptr,//context->pipelineCache,
             1, Temp(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -132,7 +132,7 @@ namespace nova
         };
 
         std::vector<u8> handles(groups.size() * handleSize);
-        VkCall(vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
+        vkh::Check(vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
             0, u32(groups.size()),
             u32(handles.size()), handles.data()));
 

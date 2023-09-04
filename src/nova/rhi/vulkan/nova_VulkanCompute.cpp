@@ -11,7 +11,7 @@ namespace nova
 
         auto pipeline = context->computePipelines[key];
         if (!pipeline) {
-            VkCall(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
+            vkh::Check(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                 .stage = shader->GetStageInfo(),
                 .layout = context->pipelineLayout,

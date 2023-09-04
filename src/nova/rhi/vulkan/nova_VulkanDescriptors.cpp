@@ -9,7 +9,7 @@ namespace nova
 
         impl->descriptorCount = std::min(requestedDescriptorCount, context->maxDescriptors);
 
-        VkCall(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
+        vkh::Check(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
@@ -35,7 +35,7 @@ namespace nova
             }.data(),
         }), context->pAlloc, &impl->descriptorPool));
 
-        VkCall(vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
+        vkh::Check(vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
             .pNext = Temp(VkDescriptorSetVariableDescriptorCountAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
