@@ -52,7 +52,7 @@ namespace nova
             signalInfos[i] = {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                 .semaphore = signal->semaphore,
-                .value = signal().Advance(),
+                .value = signal.Unwrap().Advance(),
                 .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
             };
         }

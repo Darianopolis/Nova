@@ -137,7 +137,7 @@ namespace nova
                         texture->context = impl->context;
 
                         texture->usage = swapchain->usage;
-                        texture->format = swapchain().GetFormat();
+                        texture->format = swapchain.Unwrap().GetFormat();
                         texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                         texture->extent = Vec3(swapchain->extent.width, swapchain->extent.height, 1);
                         texture->mips = 1;
@@ -191,7 +191,7 @@ namespace nova
                 signalInfos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = signal->semaphore,
-                    .value = signals[i]().Advance(),
+                    .value = signals[i].Unwrap().Advance(),
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
@@ -300,7 +300,7 @@ namespace nova
 
     void CommandList::Present(HSwapchain swapchain) const
     {
-        Transition(swapchain().GetCurrent(),
+        Transition(swapchain.Unwrap().GetCurrent(),
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_PIPELINE_STAGE_2_NONE);
     }

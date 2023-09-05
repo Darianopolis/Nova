@@ -32,7 +32,8 @@ namespace nova
         Invalid = 0,
     };
 
-    struct Queue::Impl
+    template<>
+    struct Handle<Queue>::Impl
     {
         Context context = {};
 
@@ -41,7 +42,8 @@ namespace nova
         VkPipelineStageFlags2 stages = {};
     };
 
-    struct Fence::Impl
+    template<>
+    struct Handle<Fence>::Impl
     {
         Context context = {};
 
@@ -49,7 +51,8 @@ namespace nova
         u64             value = 0;
     };
 
-    struct CommandPool::Impl
+    template<>
+    struct Handle<CommandPool>::Impl
     {
         Context context = {};
 
@@ -60,7 +63,8 @@ namespace nova
         u32                      index = 0;
     };
 
-    struct CommandList::Impl
+    template<>
+    struct Handle<CommandList>::Impl
     {
         CommandPool       pool = {};
         VkCommandBuffer buffer = {};
@@ -83,7 +87,8 @@ namespace nova
         void EnsureGraphicsState();
     };
 
-    struct Swapchain::Impl
+    template<>
+    struct Handle<Swapchain>::Impl
     {
         Context context = {};
 
@@ -101,7 +106,8 @@ namespace nova
         u32                  semaphoreIndex = 0;
     };
 
-    struct DescriptorHeap::Impl
+    template<>
+    struct Handle<DescriptorHeap>::Impl
     {
         Context context = {};
 
@@ -110,7 +116,8 @@ namespace nova
         u32             descriptorCount = 0;
     };
 
-    struct Shader::Impl
+    template<>
+    struct Handle<Shader>::Impl
     {
         Context context = {};
 
@@ -124,7 +131,8 @@ namespace nova
         VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 
-    struct Buffer::Impl
+    template<>
+    struct Handle<Buffer>::Impl
     {
         Context context = {};
 
@@ -136,14 +144,16 @@ namespace nova
         BufferUsage        usage = {};
     };
 
-    struct Sampler::Impl
+    template<>
+    struct Handle<Sampler>::Impl
     {
         Context context = {};
 
         VkSampler sampler;
     };
 
-    struct Texture::Impl
+    template<>
+    struct Handle<Texture>::Impl
     {
         Context context = {};
 
@@ -162,7 +172,8 @@ namespace nova
         u32   layers = 0;
     };
 
-    struct AccelerationStructureBuilder::Impl
+    template<>
+    struct Handle<AccelerationStructureBuilder>::Impl
     {
         Context context = {};
 
@@ -184,7 +195,8 @@ namespace nova
         VkQueryPool queryPool = {};
     };
 
-    struct AccelerationStructure::Impl
+    template<>
+    struct Handle<AccelerationStructure>::Impl
     {
         Context context = {};
 
@@ -196,7 +208,8 @@ namespace nova
         bool ownBuffer;
     };
 
-    struct RayTracingPipeline::Impl
+    template<>
+    struct Handle<RayTracingPipeline>::Impl
     {
         Context context = {};
 
@@ -310,7 +323,8 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Context::Impl
+    template<>
+    struct Handle<Context>::Impl
     {
         ContextConfig config = {};
 

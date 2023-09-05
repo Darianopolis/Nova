@@ -22,7 +22,7 @@ namespace nova
         }
 
         vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
-        buffer.impl->buffer = nullptr;
+        buffer->buffer = nullptr;
     }
 
     void Buffer::Destroy()

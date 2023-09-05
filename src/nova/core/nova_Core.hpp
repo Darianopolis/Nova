@@ -432,6 +432,27 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<typename T>
+    struct Handle
+    {
+        struct Impl;
+
+    protected:
+        Impl* impl = {};
+
+    public:
+        Handle() = default;
+        Handle(Impl* _impl): impl(_impl) {};
+
+        operator T() const noexcept { return T(impl); }
+        T   Unwrap() const noexcept { return T(impl); }
+
+        operator   bool() const noexcept { return impl; }
+        auto operator->() const noexcept { return impl; }
+    };
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_DEFAULT_MOVE_DECL(type)                   \
     type(type&& other) noexcept;                       \
     type& operator=(type&& other)                      \

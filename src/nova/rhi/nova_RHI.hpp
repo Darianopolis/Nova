@@ -23,40 +23,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    template<typename T>
-    class ImplHandle
-    {
-        void* impl = {};
-
-    public:
-        ImplHandle() = default;
-        ImplHandle(T t): impl(t.impl) {}
-
-        operator bool() const noexcept { return impl; }
-
-             operator T() const noexcept { return T(static_cast<decltype(T::impl)>(impl)); }
-           T operator()() const noexcept { return T(static_cast<decltype(T::impl)>(impl)); }
-        auto operator->() const noexcept { return  (static_cast<decltype(T::impl)>(impl)) ; }
-    };
-
-#define NOVA_DECLARE_API_HANDLE(type) using H##type = ImplHandle<struct type>;
-
-    NOVA_DECLARE_API_HANDLE(Context);
-    NOVA_DECLARE_API_HANDLE(Buffer);
-    NOVA_DECLARE_API_HANDLE(CommandList);
-    NOVA_DECLARE_API_HANDLE(CommandPool);
-    NOVA_DECLARE_API_HANDLE(DescriptorHeap);
-    NOVA_DECLARE_API_HANDLE(Fence);
-    NOVA_DECLARE_API_HANDLE(Queue);
-    NOVA_DECLARE_API_HANDLE(Sampler);
-    NOVA_DECLARE_API_HANDLE(Shader);
-    NOVA_DECLARE_API_HANDLE(Swapchain);
-    NOVA_DECLARE_API_HANDLE(Texture);
-    NOVA_DECLARE_API_HANDLE(AccelerationStructure);
-    NOVA_DECLARE_API_HANDLE(AccelerationStructureBuilder);
-    NOVA_DECLARE_API_HANDLE(RayTracingPipeline);
-
-#undef NOVA_DECLARE_API_HANDLE
+    using HContext = Handle<struct Context>;
+    using HBuffer = Handle<struct Buffer>;
+    using HCommandList = Handle<struct CommandList>;
+    using HCommandPool = Handle<struct CommandPool>;
+    using HDescriptorHeap = Handle<struct DescriptorHeap>;
+    using HFence = Handle<struct Fence>;
+    using HQueue = Handle<struct Queue>;
+    using HSampler = Handle<struct Sampler>;
+    using HShader = Handle<struct Shader>;
+    using HSwapchain = Handle<struct Swapchain>;
+    using HTexture = Handle<struct Texture>;
+    using HAccelerationStructure = Handle<struct AccelerationStructure>;
+    using HAccelerationStructureBuilder = Handle<struct AccelerationStructureBuilder>;
+    using HRayTracingPipeline = Handle<struct RayTracingPipeline>;
 
 // -----------------------------------------------------------------------------
 
@@ -561,36 +541,33 @@ namespace nova
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#define NOVA_BEGIN_API_OBJECT(type, ...) \
-    struct type { \
-        struct Impl; \
-        Impl* impl = {}; \
-        operator bool() const noexcept { return impl; } \
-        Impl* operator->() const noexcept { return impl; }
-#define NOVA_END_API_OBJECT() };
-
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Context)
+    struct Context : Handle<Context>
+    {
         static Context Create(const struct ContextConfig&);
         void Destroy();
 
         void WaitIdle() const;
         const ContextConfig& GetConfig() const;
         Queue GetQueue(QueueFlags, u32 index) const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Queue)
+    struct Queue : Handle<Queue>
+    {
+        friend Context;
+
         void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals) const;
         bool Acquire(Span<HSwapchain>, Span<HFence> signals) const;
         void Present(Span<HSwapchain>, Span<HFence> waits, bool hostWait = false) const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Fence)
+    struct Fence : Handle<Fence>
+    {
         static Fence Create(HContext);
         void Destroy();
 
@@ -598,21 +575,25 @@ namespace nova
         u64  Advance() const;
         void Signal(u64 signalValue = ~0ull) const;
         u64  GetPendingValue() const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(CommandPool)
+    struct CommandPool : Handle<CommandPool>
+    {
         static CommandPool Create(HContext, HQueue);
         void Destroy();
 
         CommandList Begin() const;
         void Reset() const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(CommandList)
+    struct CommandList : Handle<CommandList>
+    {
+        friend CommandPool;
+
         void Present(HSwapchain) const;
 
         void ResetGraphicsState() const;
@@ -662,22 +643,24 @@ namespace nova
         void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const;
 
         void TraceRays(HRayTracingPipeline, Vec3U extent, u32 genIndex) const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Swapchain)
+    struct Swapchain : Handle<Swapchain>
+    {
         static Swapchain Create(HContext, void* window, TextureUsage, PresentMode);
         void Destroy();
 
         Texture GetCurrent() const;
         Vec2U GetExtent() const;
         Format GetFormat() const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(DescriptorHeap)
+    struct DescriptorHeap : Handle<DescriptorHeap>
+    {
         static DescriptorHeap Create(HContext, u32 requestedDescriptorCount);
         void Destroy();
 
@@ -688,26 +671,29 @@ namespace nova
         DescriptorHandle WriteSampledTexture(DescriptorHandle handle, HTexture) const;
         DescriptorHandle WriteSampler(DescriptorHandle handle, HSampler) const;
         DescriptorHandle WriteStorageTexture(DescriptorHandle handle, HTexture) const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Shader)
+    struct Shader : Handle<Shader>
+    {
         static Shader Create(HContext, ShaderStage, const std::string& filename, const std::string& code);
         static Shader Create(HContext, ShaderStage, Span<ShaderElement> elements);
         void Destroy();
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Sampler)
+    struct Sampler : Handle<Sampler>
+    {
         static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Texture)
+    struct Texture : Handle<Texture>
+    {
         static Texture Create(HContext, Vec3U size, TextureUsage, Format, TextureFlags = {});
         void Destroy();
 
@@ -717,11 +703,12 @@ namespace nova
         // TODO: Handle row pitch, etc..
         void Set(Vec3I offset, Vec3U extent, const void* data) const;
         void Transition(TextureLayout layout) const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(Buffer)
+    struct Buffer : Handle<Buffer>
+    {
         static Buffer Create(HContext, u64 size, BufferUsage, BufferFlags = {});
         void Destroy();
 
@@ -742,11 +729,12 @@ namespace nova
             T* dst = reinterpret_cast<T*>(GetMapped() + offset) + index;
             std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
         }
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(AccelerationStructureBuilder)
+    struct AccelerationStructureBuilder : Handle<AccelerationStructureBuilder>
+    {
         static AccelerationStructureBuilder Create(HContext);
         void Destroy();
 
@@ -768,20 +756,22 @@ namespace nova
         u64 GetBuildScratchSize() const;
         u64 GetUpdateScratchSize() const;
         u64 GetCompactSize() const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(AccelerationStructure)
+    struct AccelerationStructure : Handle<AccelerationStructure>
+    {
         static AccelerationStructure Create(HContext, u64 size, AccelerationStructureType, HBuffer = {}, u64 offset = 0);
         void Destroy();
 
         u64 GetAddress() const;
-    NOVA_END_API_OBJECT()
+    };
 
 // -----------------------------------------------------------------------------
 
-    NOVA_BEGIN_API_OBJECT(RayTracingPipeline)
+    struct RayTracingPipeline : Handle<RayTracingPipeline>
+    {
         static RayTracingPipeline Create(HContext);
         void Destroy();
 
@@ -790,7 +780,7 @@ namespace nova
             Span<HShader> rayMissShaders,
             Span<struct HitShaderGroup> rayhitShaderGroups,
             Span<HShader> callableShaders) const;
-    NOVA_END_API_OBJECT()
+    };
 
 #undef NOVA_BEGIN_API_OBJECT
 #undef NOVA_END_API_OBJECT

@@ -126,7 +126,7 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbtOffset,
             .flags = vkFlags,
-            .accelerationStructureReference = structure().GetAddress(),
+            .accelerationStructureReference = structure.Unwrap().GetAddress(),
         };
     }
 

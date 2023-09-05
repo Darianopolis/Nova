@@ -186,7 +186,6 @@ Validation: {} ({})
             impl->computeQueues.emplace_back(queue);
         }
         NOVA_LOGEXPR(impl->graphicQueues.size());
-        NOVA_LOGEXPR(impl->graphicQueues.front().impl);
 
         VulkanFeatureChain chain;
 
