@@ -91,18 +91,6 @@ namespace nova
         vkCmdEndRendering(impl->buffer);
     }
 
-    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
-    {
-        impl->EnsureGraphicsState();
-        vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
-    }
-
-    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
-    {
-        impl->EnsureGraphicsState();
-        vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
-    }
-
     void CommandList::BindIndexBuffer(HBuffer indexBuffer, IndexType indexType, u64 offset) const
     {
         vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
@@ -153,5 +141,71 @@ namespace nova
                 .baseArrayLayer = 0,
                 .layerCount = 1,
             }));
+    }
+
+// -----------------------------------------------------------------------------
+//                                  Draw
+// -----------------------------------------------------------------------------
+
+    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
+    }
+
+    void CommandList::DrawIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawIndirect(impl->buffer, buffer->buffer, offset, count, stride);
+    }
+
+    void CommandList::DrawIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawIndirectCount(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
+    }
+
+// -----------------------------------------------------------------------------
+//                              Draw Indexed
+// -----------------------------------------------------------------------------
+
+    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
+    }
+
+    void CommandList::DrawIndexedIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawIndexedIndirect(impl->buffer, buffer->buffer, offset, count, stride);
+    }
+
+    void CommandList::DrawIndexedIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawIndexedIndirectCount(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
+    }
+
+// -----------------------------------------------------------------------------
+//                             Draw Mesh Tasks
+// -----------------------------------------------------------------------------
+
+    void CommandList::DrawMeshTasks(Vec3U groups) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawMeshTasksEXT(impl->buffer, groups.x, groups.y, groups.z);
+    }
+
+    void CommandList::DrawMeshTasksIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawMeshTasksIndirectEXT(impl->buffer, buffer->buffer, offset, count, stride);
+    }
+
+    void CommandList::DrawMeshTasksIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    {
+        impl->EnsureGraphicsState();
+        vkCmdDrawMeshTasksIndirectCountEXT(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
     }
 }

@@ -26,12 +26,8 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto windows = std::array {
-        glfwCreateWindow(1920, 1200, "Nova - Multi Target #1", nullptr, nullptr),
-        glfwCreateWindow(1920, 1200, "Nova - Multi Target #2", nullptr, nullptr),
-    };
-    NOVA_CLEANUP(&) {
-        glfwDestroyWindow(windows[0]);
-        glfwDestroyWindow(windows[1]);
+        glfwCreateWindow(1920, 1200, "Nova - Multi Present #1", nullptr, nullptr),
+        glfwCreateWindow(1920, 1200, "Nova - Multi Present #2", nullptr, nullptr),
     };
 
     auto swapchains = std::array {

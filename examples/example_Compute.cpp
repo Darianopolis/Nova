@@ -17,10 +17,7 @@ NOVA_EXAMPLE(Compute, "compute")
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(720, 720, "Nova - Compute", nullptr, nullptr);
-    NOVA_CLEANUP(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
+    NOVA_CLEANUP(&) { glfwTerminate(); };
 
     i32 width, height;
     glfwGetFramebufferSize(window, &width, &height);

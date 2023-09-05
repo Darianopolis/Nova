@@ -185,54 +185,78 @@ Validation: {} ({})
             queue->family = 2;
             impl->computeQueues.emplace_back(queue);
         }
-        NOVA_LOGEXPR(impl->graphicQueues.size());
 
         VulkanFeatureChain chain;
 
         // TODO: Allow for optional features
 
         {
+            // Swapchains
+
             chain.Extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 
-            auto& f2 = chain.Feature<VkPhysicalDeviceFeatures2>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
-            f2.features.wideLines = VK_TRUE;
-            f2.features.shaderInt16 = VK_TRUE;
-            f2.features.shaderInt64 = VK_TRUE;
-            f2.features.fillModeNonSolid = VK_TRUE;
-            f2.features.samplerAnisotropy = VK_TRUE;
-            f2.features.multiDrawIndirect = VK_TRUE;
-            f2.features.independentBlend = VK_TRUE;
-            f2.features.imageCubeArray = VK_TRUE;
+            // Core Features
 
-            auto& f12 = chain.Feature<VkPhysicalDeviceVulkan12Features>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
-            f12.drawIndirectCount = VK_TRUE;
-            f12.shaderInt8 = VK_TRUE;
-            f12.shaderFloat16 = VK_TRUE;
-            f12.timelineSemaphore = VK_TRUE;
-            f12.scalarBlockLayout = VK_TRUE;
-            f12.descriptorIndexing = VK_TRUE;
-            f12.samplerFilterMinmax = VK_TRUE;
-            f12.bufferDeviceAddress = VK_TRUE;
-            f12.imagelessFramebuffer = VK_TRUE;
-            f12.runtimeDescriptorArray = VK_TRUE;
-            f12.descriptorBindingPartiallyBound = VK_TRUE;
-            f12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-            f12.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-            f12.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
-            f12.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
-            f12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-            f12.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
-            f12.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
-            f12.descriptorBindingVariableDescriptorCount = VK_TRUE;
+            {
+                auto& f = chain.Feature<VkPhysicalDeviceFeatures2>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+                f.features.wideLines = VK_TRUE;
+                f.features.shaderInt16 = VK_TRUE;
+                f.features.shaderInt64 = VK_TRUE;
+                f.features.fillModeNonSolid = VK_TRUE;
+                f.features.samplerAnisotropy = VK_TRUE;
+                f.features.multiDrawIndirect = VK_TRUE;
+                f.features.independentBlend = VK_TRUE;
+                f.features.imageCubeArray = VK_TRUE;
+            }
 
-            auto& f13 = chain.Feature<VkPhysicalDeviceVulkan13Features>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
-            f13.maintenance4 = VK_TRUE;
-            f13.dynamicRendering = VK_TRUE;
-            f13.synchronization2 = VK_TRUE;
+            // Vulkan 1.2
+
+            {
+                auto& f = chain.Feature<VkPhysicalDeviceVulkan12Features>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
+                f.drawIndirectCount = VK_TRUE;
+                f.shaderInt8 = VK_TRUE;
+                f.shaderFloat16 = VK_TRUE;
+                f.timelineSemaphore = VK_TRUE;
+                f.scalarBlockLayout = VK_TRUE;
+                f.descriptorIndexing = VK_TRUE;
+                f.samplerFilterMinmax = VK_TRUE;
+                f.bufferDeviceAddress = VK_TRUE;
+                f.imagelessFramebuffer = VK_TRUE;
+                f.runtimeDescriptorArray = VK_TRUE;
+                f.descriptorBindingPartiallyBound = VK_TRUE;
+                f.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+                f.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+                f.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
+                f.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
+                f.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+                f.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+                f.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+                f.descriptorBindingVariableDescriptorCount = VK_TRUE;
+            }
+
+            // Vulkan 1.3
+
+            {
+                auto& f = chain.Feature<VkPhysicalDeviceVulkan13Features>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+                f.maintenance4 = VK_TRUE;
+                f.dynamicRendering = VK_TRUE;
+                f.synchronization2 = VK_TRUE;
+            }
+
+            // Mesh Shaders
+
+            {
+                chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+                auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
+                f.meshShader = true;
+                f.meshShaderQueries = true;
+                f.multiviewMeshShader = true;
+                f.taskShader = true;
+            }
 
             // Mutable Descriptor Type
 
@@ -240,6 +264,10 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
                 .mutableDescriptorType = VK_TRUE;
+
+            // Push Descriptors
+
+            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 
             // Host Image Copy
 
@@ -278,17 +306,6 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
-        }
-
-        if (config.meshShaders) {
-            chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
-            auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
-
-            f.meshShader = true;
-            f.meshShaderQueries = true;
-            f.multiviewMeshShader = true;
-            f.taskShader = true;
         }
 
         if (config.descriptorBuffers) {
@@ -505,8 +522,6 @@ Validation: {} ({})
                 .size = 128,
             }),
         }), impl->pAlloc, &impl->pipelineLayout));
-
-        NOVA_LOG("Created!");
 
         return { impl };
     }

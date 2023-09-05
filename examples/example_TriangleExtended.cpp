@@ -38,11 +38,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle", nullptr, nullptr);
-    NOVA_CLEANUP(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
+    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Extended", nullptr, nullptr);
+    NOVA_CLEANUP(&) { glfwTerminate(); };
 
     auto context = nova::Context::Create({
         .debug = true,

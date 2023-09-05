@@ -13,12 +13,8 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
 
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200,
-        "Nova - Ray Tracing", nullptr, nullptr);
-    NOVA_CLEANUP(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
+    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Ray Traced", nullptr, nullptr);
+    NOVA_CLEANUP(&) { glfwTerminate(); };
 
     i32 width, height;
     glfwGetFramebufferSize(window, &width, &height);

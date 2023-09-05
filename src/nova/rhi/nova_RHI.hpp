@@ -154,6 +154,8 @@ namespace nova
         ClosestHit   = 1 << 8,
         Miss         = 1 << 9,
         Intersection = 1 << 10,
+        Task         = 1 << 11,
+        Mesh         = 1 << 12,
     };
     NOVA_DECORATE_FLAG_ENUM(ShaderStage)
 
@@ -532,7 +534,6 @@ namespace nova
     struct ContextConfig
     {
         bool             debug = false;
-        bool       meshShaders = false;
         bool        rayTracing = false;
         bool descriptorBuffers = false;
     };
@@ -615,14 +616,25 @@ namespace nova
 
         void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment = {}, HTexture stencilAttachment = {}) const;
         void EndRendering() const;
-        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
-        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
         void BindIndexBuffer(HBuffer, IndexType, u64 offset = {}) const;
         void ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset = {}) const;
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
+        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
+        void DrawIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
+        void DrawIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+
+        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
+        void DrawIndexedIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
+        void DrawIndexedIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+
+        void DrawMeshTasks(Vec3U groups) const;
+        void DrawMeshTasksIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
+        void DrawMeshTasksIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+
         void Dispatch(Vec3U groups) const;
+        void DispatchIndirect(HBuffer buffer, u64 offset) const;
 
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
         void BindAccelerationStructure(BindPoint, HAccelerationStructure) const;

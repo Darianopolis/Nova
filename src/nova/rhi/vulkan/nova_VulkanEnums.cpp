@@ -143,6 +143,8 @@ namespace nova
         if (in >= ShaderStage::ClosestHit)   { out |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR; }
         if (in >= ShaderStage::Miss)         { out |= VK_SHADER_STAGE_MISS_BIT_KHR; }
         if (in >= ShaderStage::Intersection) { out |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR; }
+        if (in >= ShaderStage::Task)         { out |= VK_SHADER_STAGE_TASK_BIT_EXT; }
+        if (in >= ShaderStage::Mesh)         { out |= VK_SHADER_STAGE_MESH_BIT_EXT; }
 
         return out;
     }

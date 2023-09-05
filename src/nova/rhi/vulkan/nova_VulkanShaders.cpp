@@ -117,7 +117,9 @@ namespace nova
         break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            glslangStage = EShLangCallable;
                                                                 generateShaderObject = false;
         break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
+                                                                nextStages = VK_SHADER_STAGE_MESH_BIT_EXT;
         break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
+                                                                nextStages = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
         }
@@ -264,31 +266,38 @@ namespace nova
         std::string codeStr = "#version 460\n";
         auto code = std::back_insert_iterator(codeStr);
 
-        constexpr auto Extensions = std::array {
-            "GL_GOOGLE_include_directive",
+        constexpr auto Extensions = std::to_array<std::pair<const char*, VkShaderStageFlags>>({
+            std::pair("GL_GOOGLE_include_directive", VK_SHADER_STAGE_ALL),
 
-            "GL_EXT_scalar_block_layout",
-            "GL_EXT_buffer_reference2",
-            "GL_EXT_nonuniform_qualifier",
+            std::pair("GL_EXT_scalar_block_layout", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_buffer_reference2", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_nonuniform_qualifier", VK_SHADER_STAGE_ALL),
 
-            "GL_EXT_shader_explicit_arithmetic_types_int8",
-            "GL_EXT_shader_explicit_arithmetic_types_int16",
-            "GL_EXT_shader_explicit_arithmetic_types_int32",
-            "GL_EXT_shader_explicit_arithmetic_types_int64",
-            "GL_EXT_shader_explicit_arithmetic_types_float16",
-            "GL_EXT_shader_explicit_arithmetic_types_float32",
-            "GL_EXT_shader_explicit_arithmetic_types_float64",
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_int8", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_int16", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_int32", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_int64", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_float16", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_float32", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_shader_explicit_arithmetic_types_float64", VK_SHADER_STAGE_ALL),
 
-            "GL_EXT_fragment_shader_barycentric",
+            std::pair("GL_EXT_fragment_shader_barycentric", VK_SHADER_STAGE_FRAGMENT_BIT),
 
-            "GL_EXT_ray_tracing",
-            "GL_EXT_ray_query",
-            "GL_EXT_ray_tracing_position_fetch",
-            "GL_NV_shader_invocation_reorder",
-        };
+            std::pair("GL_EXT_mesh_shader", VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT),
 
-        for (auto& extension : Extensions) {
-            std::format_to(code, "#extension {} : enable\n", extension);
+            std::pair("GL_EXT_ray_tracing", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_ray_query", VK_SHADER_STAGE_ALL),
+            std::pair("GL_EXT_ray_tracing_position_fetch", VK_SHADER_STAGE_ALL),
+            std::pair("GL_NV_shader_invocation_reorder", VK_SHADER_STAGE_ALL),
+        });
+
+        {
+            auto vkStage = GetVulkanShaderStage(stage);
+            for (auto& extension : Extensions) {
+                if (vkStage & extension.second) {
+                    std::format_to(code, "#extension {} : enable\n", extension.first);
+                }
+            }
         }
 
         constexpr auto Dimensions = std::array {

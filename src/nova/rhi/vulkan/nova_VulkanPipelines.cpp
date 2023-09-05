@@ -559,13 +559,29 @@ namespace nova
             return;
         }
 
-        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, shaders.size());
-        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, shaders.size());
+        u32 count = u32(shaders.size());
+        constexpr u32 MaxExtraSlots = 2;
+
+        auto stageFlags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, count + MaxExtraSlots);
+        auto shaderObjects = NOVA_ALLOC_STACK(VkShaderEXT, count + MaxExtraSlots);
+
         for (u32 i = 0; i < shaders.size(); ++i) {
             stageFlags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));
             shaderObjects[i] = shaders[i]->shader;
+
+            if (shaders[i]->stage == nova::ShaderStage::Mesh) {
+                stageFlags[count] = VK_SHADER_STAGE_VERTEX_BIT;
+                shaderObjects[count++] = VK_NULL_HANDLE;
+
+            } else if (shaders[i]->stage == nova::ShaderStage::Vertex) {
+                stageFlags[count] = VK_SHADER_STAGE_MESH_BIT_EXT;
+                shaderObjects[count++] = VK_NULL_HANDLE;
+
+                stageFlags[count] = VK_SHADER_STAGE_TASK_BIT_EXT;
+                shaderObjects[count++] = VK_NULL_HANDLE;
+            }
         }
 
-        vkCmdBindShadersEXT(impl->buffer, u32(shaders.size()), stageFlags, shaderObjects);
+        vkCmdBindShadersEXT(impl->buffer, count, stageFlags, shaderObjects);
     }
 }

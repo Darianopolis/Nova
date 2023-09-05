@@ -6,4 +6,9 @@ namespace nova
     {
         vkCmdDispatch(impl->buffer, groups.x, groups.y, groups.z);
     }
+
+    void CommandList::DispatchIndirect(HBuffer buffer, u64 offset) const
+    {
+        vkCmdDispatchIndirect(impl->buffer, buffer->buffer, offset);
+    }
 }
