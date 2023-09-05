@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-NOVA_EXAMPLE(rt)
+NOVA_EXAMPLE(RayTracing, "tri-raytraced")
 {
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization

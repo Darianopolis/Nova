@@ -7,7 +7,7 @@
 
 #include <stb_image.h>
 
-NOVA_EXAMPLE(compute)
+NOVA_EXAMPLE(Compute, "compute")
 {
 
 // -----------------------------------------------------------------------------

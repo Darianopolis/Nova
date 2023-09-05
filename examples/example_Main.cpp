@@ -14,6 +14,12 @@ std::monostate RegisterExample(const char* name, void(*fn)())
 
 int main(int argc, char* argv[])
 {
+    std::sort(GetExamples().begin(), GetExamples().end(), [](const auto& l, const auto& r) {
+        return std::lexicographical_compare(
+            l.name, l.name + strlen(l.name),
+            r.name, r.name + strlen(r.name));
+    });
+
     if (argc > 1) {
         for (auto& example : GetExamples()) {
             if (!strcmp(example.name, argv[1])) {

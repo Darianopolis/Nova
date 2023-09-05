@@ -3,7 +3,7 @@
 
 #include "example_Main.hpp"
 
-NOVA_EXAMPLE(copy)
+NOVA_EXAMPLE(Copy, "copy")
 {
     auto context = nova::Context::Create({
         .debug = false,

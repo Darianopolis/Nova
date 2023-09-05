@@ -11,7 +11,7 @@
 #include <backends/imgui_impl_glfw.h>
 
 
-NOVA_EXAMPLE(multi)
+NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
     auto context = nova::Context::Create({
         .debug = false,

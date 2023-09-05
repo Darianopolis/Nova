@@ -34,7 +34,7 @@ struct Vertex
     };
 };
 
-NOVA_EXAMPLE(tri)
+NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

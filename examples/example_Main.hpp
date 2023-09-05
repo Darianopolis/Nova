@@ -11,7 +11,7 @@ struct ExampleListing
 std::vector<ExampleListing>& GetExamples();
 std::monostate RegisterExample(const char* name, void(*fn)());
 
-#define NOVA_EXAMPLE(name) \
+#define NOVA_EXAMPLE(name, strName) \
     void example_##name(); \
-    static auto example_##name##_state = RegisterExample(#name, example_##name); \
+    static auto example_##name##_state = RegisterExample(strName, example_##name); \
     void example_##name()
