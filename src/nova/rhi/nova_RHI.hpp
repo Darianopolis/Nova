@@ -623,8 +623,6 @@ namespace nova
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;
 
-        void EnsureGraphicsState() const;
-
         void PushConstants(u64 offset, u64 size, const void* data) const;
         template<class T>
         void PushConstants(const T& constants, u64 offset = 0) const

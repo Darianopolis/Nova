@@ -503,7 +503,7 @@ Validation: {} ({})
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_ALL,
-                .size = 256,
+                .size = 128,
             }),
         }), impl->pAlloc, &impl->pipelineLayout));
 

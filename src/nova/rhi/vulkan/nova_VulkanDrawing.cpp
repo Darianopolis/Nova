@@ -93,13 +93,13 @@ namespace nova
 
     void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
     {
-        EnsureGraphicsState();
+        impl->EnsureGraphicsState();
         vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
     }
 
     void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
     {
-        EnsureGraphicsState();
+        impl->EnsureGraphicsState();
         vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
     }
 

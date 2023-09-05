@@ -20,6 +20,14 @@ namespace nova
         VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
         VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
         VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+
+        VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE,
+        VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE,
+        VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE,
+        VK_DYNAMIC_STATE_STENCIL_OP,
+        VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
+        VK_DYNAMIC_STATE_DEPTH_BOUNDS,
     };
 
     static
@@ -84,10 +92,7 @@ namespace nova
     }
 
     static
-    VkPipeline GetGraphicsPreRasterizationStage(
-        Context         context,
-        Span<Shader>    shaders,
-        PolygonMode polygonMode)
+    VkPipeline GetGraphicsPreRasterizationStage(Context context, Span<Shader> shaders, PolygonMode polygonMode)
     {
         auto key = GraphicsPipelinePreRasterizationStageKey {};
 
@@ -179,9 +184,6 @@ namespace nova
                     }),
                     .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-                        .depthTestEnable = true,
-                        .minDepthBounds = 0.f,
-                        .maxDepthBounds = 1.f,
                     }),
                     .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -202,10 +204,7 @@ namespace nova
     }
 
     static
-    VkPipeline GetGraphicsFragmentOutputStage(
-        CommandList                   impl,
-        Context                    context,
-        RenderingDescription renderingDesc)
+    VkPipeline GetGraphicsFragmentOutputStage(CommandList::Impl* impl, Context context, RenderingDescription renderingDesc)
     {
         auto key = GraphicsPipelineFragmentOutputStageKey {};
 
@@ -296,9 +295,7 @@ namespace nova
     }
 
     static
-    VkPipeline GetGraphicsPipelineLibrarySet(
-        Context            context,
-        Span<VkPipeline> libraries)
+    VkPipeline GetGraphicsPipelineLibrarySet(Context context, Span<VkPipeline> libraries)
     {
         auto key = GraphicsPipelineLibrarySetKey {};
         std::memcpy(key.stages.data(), libraries.data(), libraries.size() * sizeof(VkPipeline));
@@ -329,26 +326,21 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 
-    void CommandList::EnsureGraphicsState() const
+    void CommandList::Impl::EnsureGraphicsState()
     {
-        if (!impl->graphicsStateDirty || impl->usingShaderObjects) {
+        if (!graphicsStateDirty || usingShaderObjects) {
             return;
         }
 
-        impl->graphicsStateDirty = false;
+        graphicsStateDirty = false;
 
         // Separate shaders
 
         Shader fragmentShader = {};
         std::array<Shader, 4> preRasterStageShaders;
         u32 preRasterStageShaderIndex = 0;
-        for (auto& shader : impl->shaders) {
+        for (auto& shader : shaders) {
             if (shader->stage == ShaderStage::Fragment) {
                 fragmentShader = shader;
             } else {
@@ -358,28 +350,25 @@ namespace nova
 
         // Request pipeline
 
-        auto context = impl->pool->context;
+        auto context = pool->context;
 
-        auto vi = GetGraphicsVertexInputStage(context, impl->topology);
-        auto pr = GetGraphicsPreRasterizationStage(impl->pool->context,
-            { preRasterStageShaders.data(), preRasterStageShaderIndex }, impl->polygonMode);
+        auto vi = GetGraphicsVertexInputStage(context, topology);
+        auto pr = GetGraphicsPreRasterizationStage(pool->context,
+            { preRasterStageShaders.data(), preRasterStageShaderIndex }, polygonMode);
         auto fs = GetGraphicsFragmentShaderStage(context, fragmentShader);
-        auto fo = GetGraphicsFragmentOutputStage(*this, context, {
-                .colorFormats = impl->colorAttachmentsFormats,
-                .depthFormat = impl->depthAttachmentFormat,
-                .stencilFormat = impl->stencilAttachmentFormat,
+        auto fo = GetGraphicsFragmentOutputStage(this, context, {
+                .colorFormats = colorAttachmentsFormats,
+                .depthFormat = depthAttachmentFormat,
+                .stencilFormat = stencilAttachmentFormat,
             });
 
         auto pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo });
 
-        vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+//                            Shader Object API
 // -----------------------------------------------------------------------------
 
     void CommandList::ResetGraphicsState() const
@@ -388,11 +377,11 @@ namespace nova
             vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
             vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
             vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
+            vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
         }
 
         vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
         vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
-        vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
 
         // Stencil tests
 
@@ -403,6 +392,7 @@ namespace nova
         // Depth (extended)
 
         vkCmdSetDepthBiasEnable(impl->buffer, false);
+        vkCmdSetDepthBoundsTestEnable(impl->buffer, false);
         vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
 
         SetPolygonState(
@@ -441,8 +431,8 @@ namespace nova
         auto vkScissors = NOVA_ALLOC_STACK(VkRect2D, scissors.size());
         for (u32 i = 0; i < scissors.size(); ++i) {
             auto r = scissors[i];
-            if (r.extent.x < 0) { r.offset.x -= (r.extent.x * -1); }
-            if (r.extent.y < 0) { r.offset.y -= (r.extent.y * -1); }
+            if (r.extent.x < 0) { r.offset.x -= (r.extent.x *= -1); }
+            if (r.extent.y < 0) { r.offset.y -= (r.extent.y *= -1); }
             vkScissors[i] = VkRect2D {
                 .offset{     r.offset.x,      r.offset.y  },
                 .extent{ u32(r.extent.x), u32(r.extent.y) },
@@ -513,11 +503,20 @@ namespace nova
                     .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
                     .alphaBlendOp = VK_BLEND_OP_ADD,
                 };
+            } else if (anyBlend) {
+                blendEquations[i] = {
+                    .srcColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+                    .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+                    .colorBlendOp = VK_BLEND_OP_ADD,
+                    .srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                    .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                    .alphaBlendOp = VK_BLEND_OP_ADD,
+                };
             }
         }
 
-        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
         vkCmdSetColorBlendEnableEXT(impl->buffer, 0, count, blendEnableBools);
+        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
         if (anyBlend) {
             vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blendEquations);
         }

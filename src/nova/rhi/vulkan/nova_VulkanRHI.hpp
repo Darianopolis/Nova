@@ -79,6 +79,8 @@ namespace nova
 
         bool usingShaderObjects = false;
         bool graphicsStateDirty = false;
+
+        void EnsureGraphicsState();
     };
 
     struct Swapchain::Impl
