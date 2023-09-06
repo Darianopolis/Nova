@@ -48,7 +48,7 @@ namespace nova
             nova::shader::Output("outUV",    nova::ShaderVarType::Vec2),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Kernel(R"glsl(
-                ImDrawVert v = nova::BufferReference<ImDrawVert>(pc.vertexVA).data[gl_VertexIndex];
+                ImDrawVert v = ImDrawVert(pc.vertexVA)[gl_VertexIndex];
                 outUV = v.uv;
                 outColor = unpackUnorm4x8(v.col);
                 gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);

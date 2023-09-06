@@ -413,7 +413,7 @@ namespace nova
 
             // Convert "templated" descriptor heap accesses
             static std::regex DescriptorFind = [&] {
-                std::string regex = R"(\bnova::(UniformBuffer|StorageBuffer|BufferReference|StorageTexelBuffer)";
+                std::string regex = R"(\bnova::(UniformBuffer|StorageBuffer|Ref|StorageTexelBuffer)";
                 for (auto dims : Dimensions) {
                     std::format_to(std::back_insert_iterator(regex), "|StorageImage{}", dims);
                 }
@@ -500,9 +500,12 @@ namespace nova
                             typeToString(member.type), member.name, getArrayPart(member.count));
                     }
                     std::format_to(code, "}};\n");
-                    std::format_to(code, "layout(buffer_reference, scalar) buffer nova_BufferReference_{0} {{ {0} data[]; }};\n",          structure.name);
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} nova_UniformBuffer_{0}[];\n", structure.name, getAnonStructureName());
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} nova_StorageBuffer_{0}[];\n",  structure.name, getAnonStructureName());
+
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} nova_UniformBuffer_{0}_array[];\n", structure.name, getAnonStructureName());
+                    std::format_to(code, "#define nova_UniformBuffer_{0}(id) nova_UniformBuffer_{0}_array[id].data\n", structure.name);
+
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} nova_StorageBuffer_{0}_array[];\n",  structure.name, getAnonStructureName());
+                    std::format_to(code, "#define nova_StorageBuffer_{0}(id) nova_StorageBuffer_{0}_array[id].data\n", structure.name);
                 },
 // -----------------------------------------------------------------------------
 //                              Push Constants
@@ -519,11 +522,13 @@ namespace nova
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
                 [&](const shader::BufferReference& bufferReference) {
-                    std::format_to(code, "layout(buffer_reference, scalar) buffer nova_BufferReference_{0} {{ {1} data[]; }};\n",
-                        bufferReference.name,
-                        bufferReference.scalarType
-                            ? typeToString(bufferReference.scalarType.value())
-                            : bufferReference.name);
+                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = 4) buffer {0} {{\n",
+                        bufferReference.name);
+                    for (auto& member : bufferReference.members) {
+                        std::format_to(code, "    {} {}{};\n",
+                            typeToString(member.type), member.name, getArrayPart(member.count));
+                    }
+                    std::format_to(code, "}};\n");
                 },
 // -----------------------------------------------------------------------------
 //                          Shader Input Variable

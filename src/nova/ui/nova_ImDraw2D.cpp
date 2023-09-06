@@ -41,13 +41,13 @@ namespace nova
         });
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
-            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::BufferReference("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
             nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ImRoundRect box = nova::BufferReference<ImRoundRect>(pc.rectInstancesVA).data[inInstanceID];
+                ImRoundRect box = ImRoundRect(pc.rectInstancesVA)[inInstanceID];
 
                 vec2 absPos = abs(inTex);
                 vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);

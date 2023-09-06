@@ -477,7 +477,7 @@ namespace nova
         struct BufferReference
         {
             std::string name;
-            std::optional<ShaderVarType> scalarType = std::nullopt;
+            Span<Member> members;
         };
 
         struct Input

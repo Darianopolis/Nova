@@ -25,7 +25,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-meshshader")
 
     auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, {
         nova::shader::Kernel(R"glsl(
-            EmitMeshTasksEXT(3, 1, 1);
+            EmitMeshTasksEXT(1, 1, 1);
         )glsl")
     });
 
@@ -38,12 +38,9 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-meshshader")
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
         )glsl"),
         nova::shader::ComputeKernel(Vec3U(1), R"glsl(
-            uint gid = gl_GlobalInvocationID.x;
-
             SetMeshOutputsEXT(3, 1);
             for (int i = 0; i < 3; ++i) {
-                gl_MeshVerticesEXT[i].gl_Position = vec4(
-                    positions[i] + vec2((gid - 1.f) / 3.f), gid / 3.f, 1);
+                gl_MeshVerticesEXT[i].gl_Position = vec4(positions[i], 0, 1);
                 outColors[i] = colors[i];
             }
 	        gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
