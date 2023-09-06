@@ -201,6 +201,16 @@ namespace nova
                     { -dx, -dy, -dz, 1.f }
                 };
             }
+
+            friend
+            Trs operator*(const Trs& lhs, const Trs& rhs)
+            {
+                return {
+                    .translation = lhs.translation + lhs.scale.x * (lhs.rotation * rhs.translation),
+                    .rotation = lhs.rotation * rhs.rotation,
+                    .scale = lhs.scale * rhs.scale,
+                };
+            }
         };
 
         struct Rect2D

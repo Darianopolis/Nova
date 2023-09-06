@@ -50,7 +50,7 @@ namespace nova
             cmd = impl->lists[impl->index++];
         }
 
-        cmd->usingShaderObjects = impl->context->shaderObjectsSupported;
+        cmd->usingShaderObjects = impl->context->shaderObjects;
 
         vkh::Check(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,

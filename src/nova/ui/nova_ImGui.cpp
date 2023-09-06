@@ -39,7 +39,7 @@ namespace nova
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
         vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-            nova::shader::Structure("ImDrawVert", {
+            nova::shader::BufferReference("ImDrawVert", {
                 nova::Member("pos", nova::ShaderVarType::Vec2),
                 nova::Member("uv",  nova::ShaderVarType::Vec2),
                 nova::Member("col", nova::ShaderVarType::U32),

@@ -124,7 +124,7 @@ namespace nova
         break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
         }
 
-        if (!shader->context->shaderObjectsSupported)
+        if (!shader->context->shaderObjects)
             generateShaderObject = false;
 
         glslang::TShader glslShader { glslangStage };

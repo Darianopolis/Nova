@@ -535,7 +535,7 @@ namespace nova
     {
         bool             debug = false;
         bool        rayTracing = false;
-        bool descriptorBuffers = false;
+        // bool descriptorBuffers = false;
     };
 
 // -----------------------------------------------------------------------------
@@ -604,6 +604,12 @@ namespace nova
         void SetDepthState(bool testEnable, bool writeEnable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;
+
+        void WriteStorageBuffer(DescriptorHeap, DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
+        void WriteUniformBuffer(DescriptorHeap, DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
+        void WriteSampledTexture(DescriptorHeap, DescriptorHandle handle, HTexture) const;
+        void WriteSampler(DescriptorHeap, DescriptorHandle handle, HSampler) const;
+        void WriteStorageTexture(DescriptorHeap, DescriptorHandle handle, HTexture) const;
 
         void PushConstants(u64 offset, u64 size, const void* data) const;
         template<class T>
@@ -678,11 +684,11 @@ namespace nova
 
         u32 GetMaxDescriptorCount() const;
 
-        DescriptorHandle WriteStorageBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        DescriptorHandle WriteUniformBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        DescriptorHandle WriteSampledTexture(DescriptorHandle handle, HTexture) const;
-        DescriptorHandle WriteSampler(DescriptorHandle handle, HSampler) const;
-        DescriptorHandle WriteStorageTexture(DescriptorHandle handle, HTexture) const;
+        void WriteStorageBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
+        void WriteUniformBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
+        void WriteSampledTexture(DescriptorHandle handle, HTexture) const;
+        void WriteSampler(DescriptorHandle handle, HSampler) const;
+        void WriteStorageTexture(DescriptorHandle handle, HTexture) const;
     };
 
 // -----------------------------------------------------------------------------

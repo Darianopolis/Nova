@@ -95,10 +95,10 @@ namespace nova
         }
 
         vkh::Check(vkCreateRayTracingPipelinesKHR(impl->context->device,
-            0, nullptr,//context->pipelineCache,
+            0, impl->context->pipelineCache,
             1, Temp(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-                .flags = impl->context->config.descriptorBuffers
+                .flags = impl->context->descriptorBuffers
                     ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                     : VkPipelineCreateFlags(0),
                 .stageCount = u32(stages.size()),

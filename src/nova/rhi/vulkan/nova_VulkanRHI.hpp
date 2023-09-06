@@ -113,6 +113,7 @@ namespace nova
 
         VkDescriptorPool descriptorPool = {};
         VkDescriptorSet   descriptorSet = {};
+        Buffer         descriptorBuffer = {};
         u32             descriptorCount = 0;
     };
 
@@ -322,6 +323,8 @@ namespace nova
     VkImageLayout GetVulkanImageLayout(TextureLayout layout);
 
 // -----------------------------------------------------------------------------
+//                                 Context
+// -----------------------------------------------------------------------------
 
     template<>
     struct Handle<Context>::Impl
@@ -335,19 +338,23 @@ namespace nova
 
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
-    public:
-        u32                  maxDescriptors = 0;
-        VkDescriptorSetLayout    heapLayout = {};
-        VkDescriptorSetLayout      rtLayout = {};
-        VkPipelineLayout     pipelineLayout = {};
+        VkDescriptorSetLayout heapLayout = {};
+        VkDescriptorSetLayout   rtLayout = {};
+        VkPipelineLayout  pipelineLayout = {};
 
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};
         std::vector<Queue>  computeQueues = {};
 
-        bool shaderObjectsSupported = false;
+// -----------------------------------------------------------------------------
+//                              Device Properties
+// -----------------------------------------------------------------------------
 
-    public:
+        bool        shaderObjects = false;
+        bool    descriptorBuffers = false;
+        u32        maxDescriptors = 0;
+        u32 mutableDescriptorSize = 0;
+
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
         };
@@ -362,7 +369,10 @@ namespace nova
             .pNext = &accelStructureProperties,
         };
 
-    public:
+// -----------------------------------------------------------------------------
+//                             Pipeline caches
+// -----------------------------------------------------------------------------
+
         std::atomic_uint64_t nextUID = 1;
         UID GetUID() noexcept { return UID(nextUID++); };
 
@@ -371,12 +381,13 @@ namespace nova
         ankerl::unordered_dense::map<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
         ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
         ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
-
-        ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline> computePipelines;
-
+        ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline>                         computePipelines;
         VkPipelineCache pipelineCache = {};
 
-    public:
+// -----------------------------------------------------------------------------
+//                           Allocation Tracking
+// -----------------------------------------------------------------------------
+
         VkAllocationCallbacks alloc = {
             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
                 void* ptr = mi_malloc_aligned(size, align);

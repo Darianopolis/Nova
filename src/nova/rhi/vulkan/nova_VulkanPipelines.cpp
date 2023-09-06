@@ -64,7 +64,7 @@ namespace nova
                         }),
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT,
                     }),
-                    .flags = context->config.descriptorBuffers
+                    .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
                     .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
@@ -123,7 +123,7 @@ namespace nova
                             .flags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT,
                         }),
                     }),
-                    .flags = context->config.descriptorBuffers
+                    .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
                     .stageCount = u32(shaders.size()),
@@ -173,7 +173,7 @@ namespace nova
                             .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT,
                         }),
                     }),
-                    .flags = context->config.descriptorBuffers
+                    .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
                     .stageCount = 1,
@@ -263,7 +263,7 @@ namespace nova
                         .depthAttachmentFormat = GetVulkanFormat(renderingDesc.depthFormat),
                         .stencilAttachmentFormat = GetVulkanFormat(renderingDesc.stencilFormat),
                     }),
-                    .flags = context->config.descriptorBuffers
+                    .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
                     .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
@@ -312,6 +312,9 @@ namespace nova
                         .libraryCount = u32(libraries.size()),
                         .pLibraries = libraries.data(),
                     }),
+                    .flags = context->descriptorBuffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
                     .layout = context->pipelineLayout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));

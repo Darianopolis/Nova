@@ -276,6 +276,7 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
                 .hostImageCopy = VK_TRUE;
 
+#if 0
             // Shader Objects
 
             chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
@@ -283,6 +284,16 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
                 .shaderObject = VK_TRUE;
             impl->shaderObjectsSupported = true;
+#endif
+
+            // Descriptor Buffers
+
+            chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
+            db.descriptorBuffer = VK_TRUE;
+            db.descriptorBufferPushDescriptors = VK_TRUE;
+            impl->descriptorBuffers = true;
 
             // Graphics Pipeline Libraries + Extended Dynamic State
 
@@ -306,14 +317,6 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
-        }
-
-        if (config.descriptorBuffers) {
-            chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
-            db.descriptorBuffer = VK_TRUE;
-            db.descriptorBufferPushDescriptors = VK_TRUE;
         }
 
         if (config.rayTracing) {
@@ -476,12 +479,15 @@ Validation: {} ({})
                 }),
                 .bindingCount = 1,
                 .pBindingFlags = std::array<VkDescriptorBindingFlags, 1> {
-                    VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+                    VkDescriptorSetLayoutCreateFlags(impl->descriptorBuffers
+                            ? 0 : VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT)
                         | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
                         | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
                 }.data(),
             }),
-            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+            .flags = VkDescriptorSetLayoutCreateFlags(impl->descriptorBuffers
+                ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                : VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT),
             .bindingCount = 1,
             .pBindings = std::array {
                 VkDescriptorSetLayoutBinding {
@@ -493,10 +499,19 @@ Validation: {} ({})
             }.data(),
         }), impl->pAlloc, &impl->heapLayout));
 
+        if (impl->descriptorBuffers) {
+            VkDeviceSize maxSize;
+            vkGetDescriptorSetLayoutSizeEXT(impl->device, impl->heapLayout, &maxSize);
+            NOVA_LOGEXPR(maxSize);
+            impl->mutableDescriptorSize = u32(maxSize / impl->maxDescriptors);
+            NOVA_LOGEXPR(impl->mutableDescriptorSize);
+        }
+
         if (impl->config.rayTracing) {
             vkh::Check(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR
+                    | VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
                 .bindingCount = 1,
                 .pBindings = std::array {
                     VkDescriptorSetLayoutBinding {

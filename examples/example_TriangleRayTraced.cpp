@@ -205,7 +205,7 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
 
         // Push swapchain image and TLAS descriptors
 
-        heap.WriteStorageTexture(0, swapchain.GetCurrent());
+        cmd.WriteStorageTexture(heap, 0, swapchain.GetCurrent());
         cmd.BindDescriptorHeap(nova::BindPoint::RayTracing, heap);
         cmd.BindAccelerationStructure(nova::BindPoint::RayTracing, tlas);
 
