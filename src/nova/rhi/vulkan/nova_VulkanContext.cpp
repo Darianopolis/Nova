@@ -28,7 +28,9 @@ Validation: {} ({})
             data->messageIdNumber,
             data->pMessage);
 
-        return VK_FALSE;
+        std::terminate();
+
+        // return VK_FALSE;
     }
 
     struct VulkanFeatureChain

@@ -100,9 +100,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
         nova::shader::PushConstants("pc", PushConstants::Layout),
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Kernel(R"glsl(
-            Uniforms u = nova::UniformBuffer<Uniforms>(0)[0];
+            Uniforms u = Uniforms<uniform>(0)[0];
             Vertex v = Vertex(pc.vertexVA)[gl_VertexIndex];
-            color = v.color;
             gl_Position = vec4(v.position + u.offset, 1);
         )glsl"),
     });

@@ -27,7 +27,7 @@ NOVA_EXAMPLE(Compute, "compute")
 // -----------------------------------------------------------------------------
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -83,8 +83,8 @@ NOVA_EXAMPLE(Compute, "compute")
             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
             vec2 uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
 
-            vec3 source = texture(nova::Sampler2D(1, 0), uv).xyz;
-            imageStore(nova::StorageImage2D<rgba8>[2], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
+            vec3 source = texture(Sampler2D(1, 0), uv).xyz;
+            imageStore(StorageImage2D<rgba8>[2], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
         )glsl"),
     });
     NOVA_CLEANUP(&) { computeShader.Destroy(); };

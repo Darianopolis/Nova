@@ -257,6 +257,17 @@ namespace nova
         return shader;
     }
 
+    // Compiles a shader from shader elements applying binding generation
+    //
+    // StorageImage2D<format>[id]  - storage image descriptor
+    // SampledImage2D[id]          - sampled image descriptor
+    // Sampler[id]                 - sampler descriptor
+    // Sampler2D(texture, sampler) - image + sampler
+    //
+    // Foo<uniform>(id)  - uniform buffer descriptor
+    // Foo<buffer>(id)   - storage buffer descriptor
+    // Foo<ref>(address) - buffer reference
+    //
     Shader Shader::Create(HContext context, ShaderStage stage, Span<ShaderElement> elements)
     {
         auto impl = new Impl;
@@ -374,62 +385,49 @@ namespace nova
 
         for (auto format : ImageFormats) {
             for (auto dims : Dimensions) {
-                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} nova_StorageImage{}_{}[];\n",
+                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} StorageImage{}_{}[];\n",
                     format.first, format.second, dims, dims, format.first);
             }
 
-            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer nova_StorageTexelBuffer_{}[];\n",
+            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer StorageTexelBuffer_{}[];\n",
                 format.first, format.second, format.first);
         }
 
         for (auto dims : Dimensions) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0} nova_SampledImage{0}[];\n", dims);
+            std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0} SampledImage{0}[];\n", dims);
         }
 
         for (auto type : UniformTexelFormats) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer nova_UniformTexelBuffer_{}[];\n",
+            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer UniformTexelBuffer_{}[];\n",
                 type.first, type.second);
         }
 
         // Samplers
 
-        std::format_to(code, "layout(set = 0, binding = 0) uniform sampler nova_Sampler[];\n");
+        std::format_to(code, "layout(set = 0, binding = 0) uniform sampler Sampler[];\n");
 
         for (auto dims : Dimensions) {
-            std::format_to(code, "#define nova_Sampler{0}(texture, sampler) sampler{0}(nova_SampledImage{0}[texture], nova_Sampler[sampler])\n", dims);
+            std::format_to(code, "#define Sampler{0}(texture, sampler) sampler{0}(SampledImage{0}[texture], Sampler[sampler])\n", dims);
         }
 
         // Acceleration structure
 
         if (impl->context->config.rayTracing) {
-            std::format_to(code, "layout(set = 1, binding = 0) uniform accelerationStructureEXT nova_AccelerationStructure;\n");
+            std::format_to(code, "layout(set = 1, binding = 0) uniform accelerationStructureEXT AccelerationStructure;\n");
         }
 
         // Transform GLSL
 
-        thread_local std::string TransformOutputA;
-        thread_local std::string TransformOutputB;
+        thread_local std::string TransformOutput;
         auto transformGlsl = [](const std::string& glsl) -> std::string& {
 
             // Convert "templated" descriptor heap accesses
-            static std::regex DescriptorFind = [&] {
-                std::string regex = R"(\bnova::(UniformBuffer|StorageBuffer|Ref|StorageTexelBuffer)";
-                for (auto dims : Dimensions) {
-                    std::format_to(std::back_insert_iterator(regex), "|StorageImage{}", dims);
-                }
-                return std::regex{ regex += R"()<(\w+)>)" };
-            }();
-            TransformOutputA.clear();
-            std::regex_replace(std::back_insert_iterator(TransformOutputA), glsl.begin(), glsl.end(),
-                DescriptorFind, "nova_$1_$2");
+            static std::regex DescriptorFind{ R"((\w+)<(\w+)>)" };
+            TransformOutput.clear();
+            std::regex_replace(std::back_insert_iterator(TransformOutput), glsl.begin(), glsl.end(),
+                DescriptorFind, "$1_$2");
 
-            // Convert remaining nova:: prefixes
-            TransformOutputB.clear();
-            static std::regex NovaPrefixFind{ R"(\bnova::)" };
-            std::regex_replace(std::back_insert_iterator(TransformOutputB), TransformOutputA.begin(), TransformOutputA.end(),
-                NovaPrefixFind, "nova_");
-
-            return TransformOutputB;
+            return TransformOutput;
         };
 
         auto typeToString = [](ShaderVarType type) {
@@ -494,6 +492,13 @@ namespace nova
 //                          Structure declaration
 // -----------------------------------------------------------------------------
                 [&](const shader::Structure& structure) {
+                    u32 align = 1;
+                    for (auto& member : structure.members) {
+                        align = std::max(align, GetShaderVarTypeAlign(member.type));
+                    }
+
+                    // Structure definition
+
                     std::format_to(code, "struct {} {{\n", structure.name);
                     for (auto& member : structure.members) {
                         std::format_to(code, "    {} {}{};\n",
@@ -501,11 +506,26 @@ namespace nova
                     }
                     std::format_to(code, "}};\n");
 
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} nova_UniformBuffer_{0}_array[];\n", structure.name, getAnonStructureName());
-                    std::format_to(code, "#define nova_UniformBuffer_{0}(id) nova_UniformBuffer_{0}_array[id].data\n", structure.name);
+                    // Structure Buffer reference
 
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} nova_StorageBuffer_{0}_array[];\n",  structure.name, getAnonStructureName());
-                    std::format_to(code, "#define nova_StorageBuffer_{0}(id) nova_StorageBuffer_{0}_array[id].data\n", structure.name);
+                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {0}) buffer {1}_ref_ {{ {1} data[]; }};\n",
+                        align, structure.name);
+                    std::format_to(code, "#define {0}_ref(id) {0}_ref_[id].data\n",
+                        structure.name);
+
+                    // Uniform Buffer
+
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} {0}_uniform_[];\n",
+                        structure.name, getAnonStructureName());
+                    std::format_to(code, "#define {0}_uniform(id) {0}_uniform_[id].data\n",
+                        structure.name);
+
+                    // Storage Buffer
+
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} {0}_buffer_[];\n",
+                        structure.name, getAnonStructureName());
+                    std::format_to(code, "#define {0}_buffer(id) {0}_buffer_[id].data\n",
+                        structure.name);
                 },
 // -----------------------------------------------------------------------------
 //                              Push Constants
@@ -522,8 +542,13 @@ namespace nova
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
                 [&](const shader::BufferReference& bufferReference) {
-                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = 4) buffer {0} {{\n",
-                        bufferReference.name);
+                    u32 align = 1;
+                    for (auto& member : bufferReference.members) {
+                        align = std::max(align, GetShaderVarTypeAlign(member.type));
+                    }
+
+                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {}) buffer {} {{\n",
+                        align, bufferReference.name);
                     for (auto& member : bufferReference.members) {
                         std::format_to(code, "    {} {}{};\n",
                             typeToString(member.type), member.name, getArrayPart(member.count));
@@ -581,7 +606,7 @@ namespace nova
             }, element);
         }
 
-        // NOVA_LOG("Generated shader:\n{}", codeStr);
+        NOVA_LOG("Generated shader:\n{}", codeStr);
 
         Shader shader{ impl };
         CompileShader(shader, "generated", codeStr);

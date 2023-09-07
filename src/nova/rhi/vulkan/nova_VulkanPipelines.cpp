@@ -542,6 +542,9 @@ namespace nova
                 if (!pipeline) {
                     vkh::Check(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                        .flags = context->descriptorBuffers
+                                ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                                : VkPipelineCreateFlags(0),
                         .stage = shaders[0]->GetStageInfo(),
                         .layout = context->pipelineLayout,
                         .basePipelineIndex = -1,

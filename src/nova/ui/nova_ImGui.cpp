@@ -61,7 +61,7 @@ namespace nova
             nova::shader::Input("inColor",   nova::ShaderVarType::Vec4),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Kernel(R"glsl(
-                outColor = inColor * texture(nova::Sampler2D(pc.textureID, pc.samplerID), inUV);
+                outColor = inColor * texture(Sampler2D(pc.textureID, pc.samplerID), inUV);
             )glsl"),
         });
 
