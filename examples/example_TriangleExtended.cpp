@@ -96,13 +96,14 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
         nova::shader::Structure("Uniforms", Uniforms::Layout),
-        nova::shader::BufferReference("Vertex", Vertex::Layout),
+        nova::shader::Structure("Vertex", Vertex::Layout),
         nova::shader::PushConstants("pc", PushConstants::Layout),
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Kernel(R"glsl(
-            Uniforms u = Uniforms<uniform>(0)[0];
-            Vertex v = Vertex(pc.vertexVA)[gl_VertexIndex];
-            gl_Position = vec4(v.position + u.offset, 1);
+            Uniforms u = Uniforms_ub(0)[0];
+            Vertex_br v = Vertex_br(pc.vertexVA)[gl_VertexIndex];
+            color = v.get.color;
+            gl_Position = vec4(v.get.position + u.offset, 1);
         )glsl"),
     });
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };

@@ -290,12 +290,14 @@ Validation: {} ({})
 
             // Descriptor Buffers
 
-            chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-            auto& db = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
-            db.descriptorBuffer = VK_TRUE;
-            db.descriptorBufferPushDescriptors = VK_TRUE;
-            impl->descriptorBuffers = true;
+            {
+                chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+                auto& f = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
+                f.descriptorBuffer = VK_TRUE;
+                f.descriptorBufferPushDescriptors = VK_TRUE;
+                impl->descriptorBuffers = true;
+            }
 
             // Graphics Pipeline Libraries + Extended Dynamic State
 
@@ -319,6 +321,17 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
+
+            // Fragment Shader Interlock
+
+            {
+                chain.Extension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
+                auto& f = chain.Feature<VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT);
+                f.fragmentShaderPixelInterlock = VK_TRUE;
+                f.fragmentShaderSampleInterlock = VK_TRUE;
+                f.fragmentShaderShadingRateInterlock = VK_TRUE;
+            }
         }
 
         if (config.rayTracing) {

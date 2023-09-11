@@ -74,7 +74,7 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
                 hitObjectGetAttributesNV(hit, 0);
                 color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
             }
-            imageStore(StorageImage2D<rgba8>[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+            imageStore(StorageImage2D_rgba8[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
         )glsl"),
     });
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };

@@ -418,16 +418,18 @@ namespace nova
 
         // Transform GLSL
 
-        thread_local std::string TransformOutput;
-        auto transformGlsl = [](const std::string& glsl) -> std::string& {
+        // thread_local std::string TransformOutput;
+        auto transformGlsl = [](const std::string& glsl) -> const std::string& {
 
-            // Convert "templated" descriptor heap accesses
-            static std::regex DescriptorFind{ R"((\w+)<(\w+)>)" };
-            TransformOutput.clear();
-            std::regex_replace(std::back_insert_iterator(TransformOutput), glsl.begin(), glsl.end(),
-                DescriptorFind, "$1_$2");
+            // // Convert "templated" descriptor heap accesses
+            // static std::regex DescriptorFind{ R"((\w+)<(\w+)>)" };
+            // TransformOutput.clear();
+            // std::regex_replace(std::back_insert_iterator(TransformOutput), glsl.begin(), glsl.end(),
+            //     DescriptorFind, "$1_$2");
 
-            return TransformOutput;
+            // return TransformOutput;
+
+            return glsl;
         };
 
         auto typeToString = [](ShaderVarType type) {
@@ -508,24 +510,17 @@ namespace nova
 
                     // Structure Buffer reference
 
-                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {0}) buffer {1}_ref_ {{ {1} data[]; }};\n",
-                        align, structure.name);
-                    std::format_to(code, "#define {0}_ref(id) {0}_ref_[id].data\n",
-                        structure.name);
+                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {0}) buffer {1}_br  {{ {1} get; }};\n", align, structure.name);
 
                     // Uniform Buffer
 
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} {0}_uniform_[];\n",
-                        structure.name, getAnonStructureName());
-                    std::format_to(code, "#define {0}_uniform(id) {0}_uniform_[id].data\n",
-                        structure.name);
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) uniform {1} {{ {0} data[]; }} {0}_ub_[];\n", structure.name, getAnonStructureName());
+                    std::format_to(code, "#define {0}_ub(id) {0}_ub_[id].data\n", structure.name);
 
                     // Storage Buffer
 
-                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} {0}_buffer_[];\n",
-                        structure.name, getAnonStructureName());
-                    std::format_to(code, "#define {0}_buffer(id) {0}_buffer_[id].data\n",
-                        structure.name);
+                    std::format_to(code, "layout(set = 0, binding = 0, scalar) buffer {1} {{ {0} data[]; }} {0}_sb_[];\n", structure.name, getAnonStructureName());
+                    std::format_to(code, "#define {0}_sb(id) {0}_sb_[id].data\n", structure.name);
                 },
 // -----------------------------------------------------------------------------
 //                              Push Constants
@@ -542,18 +537,19 @@ namespace nova
 //                            Buffer Reference
 // -----------------------------------------------------------------------------
                 [&](const shader::BufferReference& bufferReference) {
-                    u32 align = 1;
-                    for (auto& member : bufferReference.members) {
-                        align = std::max(align, GetShaderVarTypeAlign(member.type));
-                    }
+                    (void)bufferReference;
+                    // u32 align = 1;
+                    // for (auto& member : bufferReference.members) {
+                    //     align = std::max(align, GetShaderVarTypeAlign(member.type));
+                    // }
 
-                    std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {}) buffer {} {{\n",
-                        align, bufferReference.name);
-                    for (auto& member : bufferReference.members) {
-                        std::format_to(code, "    {} {}{};\n",
-                            typeToString(member.type), member.name, getArrayPart(member.count));
-                    }
-                    std::format_to(code, "}};\n");
+                    // std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = {}) buffer {} {{\n",
+                    //     align, bufferReference.name);
+                    // for (auto& member : bufferReference.members) {
+                    //     std::format_to(code, "    {} {}{};\n",
+                    //         typeToString(member.type), member.name, getArrayPart(member.count));
+                    // }
+                    // std::format_to(code, "}};\n");
                 },
 // -----------------------------------------------------------------------------
 //                          Shader Input Variable

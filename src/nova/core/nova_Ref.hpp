@@ -228,6 +228,12 @@ namespace nova::types
             return Ref<T2>(dynamic_cast<T2*>(value));
         }
 
+        template<typename T2>
+        bool IsA() const
+        {
+            return dynamic_cast<T2*>(value);
+        }
+
 // -----------------------------------------------------------------------------
 //                                Accessors
 // -----------------------------------------------------------------------------

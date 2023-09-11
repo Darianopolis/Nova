@@ -1,0 +1,374 @@
+// #include <nova/rhi/nova_RHI.hpp>
+
+// namespace nova
+// {
+//     namespace sl
+//     {
+//         struct NamedType
+//         {
+//             std::string_view name;
+//         };
+
+//         struct UniformBuffer
+//         {
+//             std::string_view name;
+//         };
+
+//         struct StorageBuffer
+//         {
+//             std::string_view name;
+//         };
+
+//         struct BufferReference
+//         {
+//             std::string_view name;
+//         };
+
+//         struct StorageImage
+//         {
+//             u32 dimensions;
+//             Format format;
+//         };
+
+//         struct SampledImage
+//         {
+//             u32 dimensions;
+//         };
+
+//         using Type = std::variant<
+//             ShaderVarType,
+//             NamedType,
+//             UniformBuffer,
+//             StorageBuffer,
+//             BufferReference,
+//             StorageImage,
+//             SampledImage
+//         >;
+
+//         struct Member
+//         {
+//             std::string_view name;
+//             Type type;
+//         };
+
+//         struct Structure
+//         {
+//             std::string_view name;
+//             Span<Member> members;
+//         };
+
+//         struct PushConstants
+//         {
+//             std::string_view name;
+//             Span<Member> members;
+//         };
+
+//         using Element = std::variant<
+//             Structure,
+//             PushConstants
+//         >;
+
+//         namespace parser
+//         {
+//             struct Identifier
+//             {
+//                 std::string_view name;
+//             };
+
+//             struct StringLiteral
+//             {
+//                 std::string_view value;
+//             };
+
+//             struct NumericLiteral
+//             {
+//                 std::string_view value;
+//             };
+
+//             enum class Symbol
+//             {
+//                 Hash,
+//                 AngleOpen,
+//                 AngleClose,
+//                 ParenOpen,
+//                 ParenClose,
+//                 BracketOpen,
+//                 BracketClose,
+//                 BraceOpen,
+//                 BraceClose,
+//                 EqualSingle,
+//                 Plus,
+//                 Comma,
+//                 Semicolon,
+//                 Asterisk,
+//                 Dot,
+//                 Caret,
+//             };
+
+//             using Token = std::variant<
+//                 Symbol,
+//                 Identifier,
+//                 NumericLiteral
+//             >;
+
+//             inline
+//             std::vector<Token> Tokenize(std::string_view source)
+//             {
+//                 std::vector<Token> tokens;
+
+//                 usz i = 0;
+
+//                 usz identifierStart = 0;
+//                 bool inIdentifier = false;
+//                 auto endIdentifer = [&] {
+//                     if (inIdentifier) {
+//                         // No more identifier symbols, end
+//                         inIdentifier = false;
+//                         NOVA_LOG("Identifier: {}", source.substr(identifierStart, i - identifierStart));
+//                         tokens.push_back(Identifier(source.substr(identifierStart, i - identifierStart)));
+//                     }
+//                 };
+
+//                 for (; i < source.size(); ++i) {
+//                     char c = source[i];
+//                     switch (c)
+//                     {
+//                     break;case ' ':
+//                           case '\t':
+//                           case '\n':
+//                           case '\r':
+//                         endIdentifer();
+
+//                     break;case '#': endIdentifer(); tokens.push_back(Symbol::Hash);         NOVA_LOG("    Symbol: #");
+//                     break;case '<': endIdentifer(); tokens.push_back(Symbol::AngleOpen);    NOVA_LOG("    Symbol: <");
+//                     break;case '>': endIdentifer(); tokens.push_back(Symbol::AngleClose);   NOVA_LOG("    Symbol: >");
+//                     break;case '(': endIdentifer(); tokens.push_back(Symbol::ParenOpen);    NOVA_LOG("    Symbol: (");
+//                     break;case ')': endIdentifer(); tokens.push_back(Symbol::ParenClose);   NOVA_LOG("    Symbol: )");
+//                     break;case '[': endIdentifer(); tokens.push_back(Symbol::BracketOpen);  NOVA_LOG("    Symbol: [");
+//                     break;case ']': endIdentifer(); tokens.push_back(Symbol::BracketClose); NOVA_LOG("    Symbol: ]");
+//                     break;case '{': endIdentifer(); tokens.push_back(Symbol::BraceOpen);    NOVA_LOG("    Symbol: {{");
+//                     break;case '}': endIdentifer(); tokens.push_back(Symbol::BraceClose);   NOVA_LOG("    Symbol: }}");
+//                     break;case '=': endIdentifer(); tokens.push_back(Symbol::EqualSingle);  NOVA_LOG("    Symbol: =");
+//                     break;case '+': endIdentifer(); tokens.push_back(Symbol::Plus);         NOVA_LOG("    Symbol: +");
+//                     break;case ',': endIdentifer(); tokens.push_back(Symbol::Comma);        NOVA_LOG("    Symbol: ,");
+//                     break;case ';': endIdentifer(); tokens.push_back(Symbol::Semicolon);    NOVA_LOG("    Symbol: ;");
+//                     break;case '*': endIdentifer(); tokens.push_back(Symbol::Asterisk);     NOVA_LOG("    Symbol: *");
+//                     break;case '.': endIdentifer(); tokens.push_back(Symbol::Dot);          NOVA_LOG("    Symbol: .");
+//                     break;case '^': endIdentifer(); tokens.push_back(Symbol::Caret);        NOVA_LOG("    Symbol: ^");
+
+//                     break;default:
+//                         if (!inIdentifier) {
+//                             inIdentifier = true;
+//                             identifierStart = i;
+//                         }
+//                     }
+
+//                 }
+
+//                 return tokens;
+//             }
+
+//             inline
+//             std::string Remap(Span<sl::Element> elements, Span<Token> tokens)
+//             {
+
+//             }
+//         }
+
+//         inline
+//         void Test()
+//         {
+//             auto tokens = parser::Tokenize(R"glsl(
+//                 void main()
+//                 {
+//                     Uniforms^ u = pc.uniforms;
+//                     Vertex^ v = pc.vertices[gl_VertexIndex];
+//                     gl_Position = vec4(v.position + u.offset, 1);
+//                 }
+//             )glsl");
+
+//             auto res = parser::Remap({
+//                 Structure("Uniforms", {
+//                     Member("offset", ShaderVarType::Vec3),
+//                 }),
+//                 Structure("Vertex", {
+//                     Member("position", ShaderVarType::Vec3),
+//                     Member("color", ShaderVarType::Vec3),
+//                 }),
+//                 PushConstants("pc", {
+//                     Member("vertices", BufferReference("Vertex")),
+//                     Member("uniforms", UniformBuffer("Uniforms")),
+//                 }),
+//             }, tokens);
+
+//             std::optional<Structure> t = std::nullopt;
+
+//             [[maybe_unused]] auto expected = R"glsl(
+//                 struct Uniforms
+//                 {
+//                     vec3 offset;
+//                 }
+//                 layout(set = 0, binding = 0, scalar) uniform Uniforms_uniform_t { Uniforms data[]; } Uniforms_uniform;
+
+//                 struct Vertex
+//                 {
+//                     vec3 position;
+//                     vec3 color;
+//                 };
+//                 layout(buffer_reference, scalar, buffer_reference_align = 4) buffer Vertex_reference { Vertex data[]; };
+
+//                 layout(push_constant, scalar) uniform {
+//                     uint64_t vertices;
+//                     uint uniforms;
+//                 } pc;
+
+//                 void main()
+//                 {
+//                     uint u = pc.uniforms;
+//                     Vertex_reference v = Vertex_reference(pc.vertices)[gl_VertexIndex];
+//                     gl_Position = vec4(v.data.position + Uniforms_uniform[u].data.offset, 1);
+//                 }
+//             )glsl";
+//         }
+//     }
+// }
+
+// /*
+// struct Uniforms {
+// 	vec3 offset
+// }
+
+// struct Vertex {
+// 	vec3 position
+// 	vec3 color
+// }
+
+// push_constants pc {
+// 	BufferReference<readonly Vertex> vertices
+// 	UniformBuffer<readonly Uniforms> uniforms
+// }
+
+// -------------------------------------------------------------------------------
+
+// void main() {
+// 	Uniforms^ u = pc.uniforms;
+// 	Vertex^ v = pc.vertices[gl_VertexIndex];
+// 	gl_Position = vec4(v.position + u.offset, 1);
+// }
+
+// void
+// main
+// (
+// )
+// {
+// Uniforms
+// ^
+// u
+// =
+// pc
+// .
+// uniforms
+// ;
+// Vertex
+// ^
+// v
+// =
+// pc
+// .
+// vertices
+// [
+// gl_VertexIndex
+// ]
+// ;
+// gl_Position
+// =
+// vec4
+// (
+// v
+// .
+// position
+// +
+// u
+// .
+// offset
+// ,
+// 1
+// )
+// ;
+// }
+
+// -------------------------------------------------------------------------------
+
+// void main() {
+// 	uvec2 u = pc.uniforms;
+// 	Vertex_readonly_buffer_reference v = pc.vertices[gl_VertexIndex];
+// 	gl_Position = vec4(v.data.position + Uniforms_readonly_uniform_buffer[u.x].data[u.y].offset, 1);
+// }
+
+// ------------------------------------------
+
+// Uniforms^		uvec2
+// u.			Uniforms_readonly_uniform_buffer[u.x].data[u.y].
+// u[x].			Uniforms_readonly_uniform_buffer[u.x].data[u.y + x].
+// u[x]			uvec2(u.x, u.y + x)
+// Vertex^			Vertex_readonly_buffer_reference
+// v[x].			v[x].data.
+// v.			v.data.
+
+// ------------------------------------------
+
+// 		void
+// 		main
+// 		(
+// 		)
+// 		{
+// Uniforms			uvec2
+// ^
+// 		u
+// 		=
+// 		pc
+// 		.
+// 		uniforms
+// 		;
+// Vertex				Vertex_readonly_buffer_reference
+// ^
+// 		v
+// 		=
+// 		pc
+// 		.
+// 		vertices
+// 		[
+// 		gl_VertexIndex
+// 		]
+// 		;
+// 		gl_Position
+// 		=
+// 		vec4
+// 		(
+// v				v
+// .				.
+// 				data
+// 				.
+// 		position
+// 		+
+// u				Uniforms_readonly_uniform_buffer
+// .				[
+// 				u
+// 				.
+// 				x
+// 				]
+// 				.
+// 				data
+// 				[
+// 				u
+// 				.
+// 				y
+// 				]
+// 				.
+// 		offset
+// 		,
+// 		1
+// 		)
+// 		;
+// 		}
+// */

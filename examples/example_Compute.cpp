@@ -84,7 +84,7 @@ NOVA_EXAMPLE(Compute, "compute")
             vec2 uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
 
             vec3 source = texture(Sampler2D(1, 0), uv).xyz;
-            imageStore(StorageImage2D<rgba8>[2], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
+            imageStore(StorageImage2D_rgba8[2], ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));
         )glsl"),
     });
     NOVA_CLEANUP(&) { computeShader.Destroy(); };
