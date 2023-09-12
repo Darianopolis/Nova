@@ -234,6 +234,14 @@
             return new AstAssign{{AstNodeType::Assign}, expr, value};
         }
 
+        if (Match({TokenType::QuestionMark})) {
+            auto thenExpr = Assignment();
+            Consume(TokenType::Colon, "Expect ':' in conditional expression");
+            auto elseExpr = Assignment();
+
+            return new AstCondExpr{{AstNodeType::CondExpr}, expr, thenExpr, elseExpr};
+        }
+
         return expr;
     }
 
@@ -241,7 +249,7 @@
     {
         auto expr = And();
 
-        while (Match({TokenType::Or})) {
+        while (Match({TokenType::PipePipe})) {
             auto op = Previous();
             auto right = And();
             expr = new AstLogical{{AstNodeType::Logical}, op, expr, right};
@@ -253,7 +261,7 @@
     {
         auto expr = Equality();
 
-        while (Match({TokenType::And})) {
+        while (Match({TokenType::AmpersandAmpersand})) {
             auto op = Previous();
             auto right = Equality();
             expr = new AstLogical{{AstNodeType::Logical}, op, expr, right};

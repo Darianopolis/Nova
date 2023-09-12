@@ -60,7 +60,7 @@ fun main()\
         LeftBrace, RightBrace,
         LeftBracket, RightBracket,
 
-        Comma, Dot, Colon,
+        Comma, Dot, Colon, QuestionMark,
         Plus, Minus, Star,
         Caret, Semicolon,
 
@@ -75,7 +75,7 @@ fun main()\
 
         Identifier, String, Number,
 
-        And, Else, False, For, If, Or, Nil,
+        Else, False, For, If, Nil,
         Return, True, While, Void, Fun, Var, Ref,
 
         Eof
@@ -156,7 +156,7 @@ fun main()\
     enum class AstNodeType
     {
         Function, VarDecl, If, Return, While, Block, Variable,
-        Assign, Get, Logical, Binary, Unary, Call, Literal
+        Assign, Get, Logical, Binary, Unary, Call, Literal, CondExpr
     };
 
     struct AstNode { AstNodeType nodeType; AstNode* next = nullptr; };
@@ -175,6 +175,7 @@ fun main()\
     struct AstUnary    : AstNode { Token* op; AstNode* right; };
     struct AstCall     : AstNode { AstNode* callee; Token* paren; AstNodeList arguments; };
     struct AstLiteral  : AstNode { Token* token; };
+    struct AstCondExpr : AstNode { AstNode* cond; AstNode* thenExpr; AstNode* elseExpr; };
 
     template<typename Fn>
     void VisitNode(Fn&& fn, AstNode* expr)
@@ -196,6 +197,7 @@ fun main()\
         break;case AstNodeType::Unary:    fn(static_cast<AstUnary*>(expr));
         break;case AstNodeType::Call:     fn(static_cast<AstCall*>(expr));
         break;case AstNodeType::Literal:  fn(static_cast<AstLiteral*>(expr));
+        break;case AstNodeType::CondExpr: fn(static_cast<AstCondExpr*>(expr));
         }
     }
 

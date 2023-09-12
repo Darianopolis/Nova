@@ -17,6 +17,7 @@ namespace nova
         case TokenType::Comma: return "Comma";
         case TokenType::Dot: return "Dot";
         case TokenType::Colon: return "Colon";
+        case TokenType::QuestionMark: return "QuestionMark";
         case TokenType::Plus: return "Plus";
         case TokenType::Minus: return "Minus";
         case TokenType::Star: return "Star";
@@ -38,12 +39,10 @@ namespace nova
         case TokenType::Identifier: return "Identifier";
         case TokenType::String: return "String";
         case TokenType::Number: return "Number";
-        case TokenType::And: return "And";
         case TokenType::Else: return "Else";
         case TokenType::False: return "False";
         case TokenType::For: return "For";
         case TokenType::If: return "If";
-        case TokenType::Or: return "Or";
         case TokenType::Nil: return "Nil";
         case TokenType::Return: return "Return";
         case TokenType::True: return "True";

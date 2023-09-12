@@ -135,11 +135,122 @@ NOVA_EXAMPLE(Lang, "lang")
                 [&](nova::AstLiteral* node) {
                     INDENTED(0, ":literal {}\n", node->token->lexeme);
                 },
+                [&](nova::AstCondExpr* node) {
+                    INDENTED(0, ":condexpr\n");
+                    self(node->cond, depth + 1);
+                    self(node->thenExpr, depth + 1);
+                    self(node->elseExpr, depth + 1);
+                }
             }, _node);
         };
 
         for (auto* cur = parser.nodes.head; cur; cur = cur->next) {
             writeAst(cur, 0);
         }
+
+        auto emitGlsl = [&](this auto& self, nova::AstNode* _node) -> void {
+            nova::VisitNode(nova::Overloads {
+                [&](nova::AstFunction* node) {
+                    std::cout << (node->type ? node->type->lexeme : "void");
+                    std::cout << " " << node->name->lexeme << "(";
+                    for (auto* cur = node->parameters.head; cur; cur = cur->next) {
+                        self(cur);
+                        if (cur->next) {
+                            std::cout << ",";
+                        }
+                    }
+                    std::cout << ")";
+                    self(node->body);
+                },
+                [&](nova::AstVarDecl* node) {
+                    std::cout << node->type->lexeme;;
+                    std::cout << " " << node->name->lexeme;
+                    if (node->initializer) {
+                        std::cout << "=";
+                        self(node->initializer);
+                    }
+                },
+                [&](nova::AstIf* node) {
+                    std::cout << "if(";
+                    self(node->cond);
+                    std::cout << ")";
+                    self(node->thenBranch);
+                    if (node->elseBranch) {
+                        std::cout << " else ";
+                        self(node->elseBranch);
+                    }
+                },
+                [&](nova::AstReturn* node) {
+                    std::cout << "return ";
+                    self(node->value);
+                },
+                [&](nova::AstWhile* node) {
+                    std::cout << "while(";
+                    self(node->condition);
+                    std::cout << ")";
+                    self(node->body);
+                },
+                [&](nova::AstBlock* node) {
+                    std::cout << "{";
+                    for (auto cur = node->statements.head; cur; cur = cur->next) {
+                        self(cur);
+                        std::cout << ";\n";
+                    }
+                    std::cout << "}";
+                },
+                [&](nova::AstVariable* node) {
+                    std::cout << node->name->lexeme;
+                },
+                [&](nova::AstAssign* node) {
+                    self(node->variable);
+                    std::cout << "=";
+                    self(node->value);
+                },
+                [&](nova::AstGet* node) {
+                    self(node->object);
+                    std::cout << "." << node->name->lexeme;
+                },
+                [&](nova::AstLogical* node) {
+                    self(node->left);
+                    std::cout << node->op->lexeme;
+                    self(node->right);
+                },
+                [&](nova::AstBinary* node) {
+                    self(node->left);
+                    std::cout << node->op->lexeme;
+                    self(node->right);
+                },
+                [&](nova::AstUnary* node) {
+                    std::cout << node->op->lexeme;
+                    self(node->right);
+                },
+                [&](nova::AstCall* node) {
+                    self(node->callee);
+                    std::cout << "(";
+                    for (auto cur = node->arguments.head; cur; cur = cur->next) {
+                        self(cur);
+                        if (cur->next) {
+                            std::cout << ",";
+                        }
+                    }
+                    std::cout << ")";
+                },
+                [&](nova::AstLiteral* node) {
+                    std::cout << node->token->lexeme;
+                },
+                [&](nova::AstCondExpr* node) {
+                    self(node->cond);
+                    std::cout << "\n?";
+                    self(node->thenExpr);
+                    std::cout << "\n:";
+                    self(node->elseExpr);
+                }
+            }, _node);
+        };
+
+        for (auto* cur = parser.nodes.head; cur; cur = cur->next) {
+            emitGlsl(cur);
+        }
+        std::cout << "\n";
     }
 }
