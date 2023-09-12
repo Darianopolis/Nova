@@ -164,8 +164,46 @@
 
     AstNode* Parser::ForStatement()
     {
-        scanner->compiler->Error(Previous(), "for loops not implemented.");
-        throw ParseError();
+        auto leftParen = Consume(TokenType::LeftParen, "Expect '(' after 'for'.");
+
+        AstNode* initializer;
+        if (Match({TokenType::Semicolon})) {
+            initializer = nullptr;
+        } else if (Match({TokenType::Var, TokenType::Ref})) {
+            initializer = VarDeclaration();
+        } else {
+            initializer = ExpressionStatement();
+        }
+        Consume(TokenType::Semicolon, "Expect ';' after loop initialization");
+
+        auto condition = Check(TokenType::Semicolon) ? nullptr : Expression();
+        Consume(TokenType::Semicolon, "Expect ';' after loop condition");
+
+        auto increment = Check(TokenType::RightParen) ? nullptr : Expression();
+        Consume(TokenType::RightParen, "Expect ')' after for clauses");
+
+        auto body = Statement();
+
+        if (increment) {
+            AstNodeListBuilder builder;
+            builder.Append(body);
+            builder.Append(increment);
+            body = new AstBlock{{AstNodeType::Block}, builder.ToList()};
+        }
+
+        if (!condition) {
+            condition = new AstLiteral{{AstNodeType::Literal}, new Token{TokenType::True, leftParen->line, "true"}};
+        }
+        body = new AstWhile{{AstNodeType::While}, condition, body};
+
+        if (initializer) {
+            AstNodeListBuilder builder;
+            builder.Append(initializer);
+            builder.Append(body);
+            body = new AstBlock{{AstNodeType::Block}, builder.ToList()};
+        }
+
+        return body;
     }
 
     AstNode* Parser::IfStatement()

@@ -163,7 +163,11 @@ NOVA_EXAMPLE(Lang, "lang")
                     self(node->body);
                 },
                 [&](nova::AstVarDecl* node) {
-                    std::cout << node->type->lexeme;;
+                    if (node->type) {
+                        std::cout << node->type->lexeme;
+                    } else {
+                        std::cout << "auto";
+                    }
                     std::cout << " " << node->name->lexeme;
                     if (node->initializer) {
                         std::cout << "=";

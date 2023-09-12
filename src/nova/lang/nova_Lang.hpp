@@ -10,7 +10,7 @@ namespace nova
 fun main()\
 {\
     ref u: Uniforms = pc.uniforms;\
-    ref v: Vertex v = pc.vertices[gl_VertexIndex];\
+    ref v: Vertex = pc.vertices[gl_VertexIndex];\
     color = v.color;\
     gl_Position = vec4(v.position + u.offset, 1);\
 }
