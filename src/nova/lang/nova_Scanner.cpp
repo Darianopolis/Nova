@@ -60,7 +60,7 @@ namespace nova
             ScanToken();
         }
 
-        tokens.emplace_back(TokenType::Eof, "", line);
+        tokens.emplace_back(TokenType::Eof, line, "");
     }
 
     void Scanner::ScanToken()
@@ -117,7 +117,7 @@ namespace nova
 
     void Scanner::AddToken(TokenType type)
     {
-        tokens.emplace_back(type, source.substr(start, current - start), line);
+        tokens.emplace_back(type, line, source.substr(start, current - start));
     }
 
     char Scanner::Advance()
@@ -160,8 +160,8 @@ namespace nova
 
         Advance();
 
-        tokens.emplace_back(TokenType::String,
-            source.substr(start + 1, current - start - 1), line);
+        tokens.emplace_back(TokenType::String, line,
+            source.substr(start + 1, current - start - 1));
     }
 
     void Scanner::Number()

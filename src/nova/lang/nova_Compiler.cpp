@@ -7,12 +7,12 @@ namespace nova
         Report(line, "", message);
     }
 
-    void Compiler::Error(const Token& token, std::string_view message)
+    void Compiler::Error(Token* token, std::string_view message)
     {
-        if (token.type == TokenType::Eof) {
-            Report(token.line, " at end", message);
+        if (token->type == TokenType::Eof) {
+            Report(token->line, " at end", message);
         } else {
-            Report(token.line, std::format(" at '{}'", token.lexeme), message);
+            Report(token->line, std::format(" at '{}'", token->lexeme), message);
         }
     }
 

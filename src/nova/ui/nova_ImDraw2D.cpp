@@ -20,7 +20,7 @@ namespace nova
         descriptorHeap.WriteSampler(0, defaultSampler);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
-            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::BufferReference("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
             nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
             nova::shader::Fragment(R"glsl(
@@ -32,46 +32,46 @@ namespace nova
                 uint instanceID = gl_VertexIndex / 6;
                 uint vertexID = gl_VertexIndex % 6;
 
-                ImRoundRect_br box = ImRoundRect_br(pc.rectInstancesVA)[instanceID];
+                ImRoundRect box = ImRoundRect(pc.rectInstancesVA)[instanceID];
                 vec2 delta = deltas[vertexID];
-                outTex = delta * box.get.get.halfExtent;
+                outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
-                gl_Position = vec4(((delta * box.get.get.halfExtent) + box.get.get.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
+                gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
             )glsl"),
         });
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
-            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::BufferReference("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
             nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ImRoundRect_br box = ImRoundRect_br(pc.rectInstancesVA)[inInstanceID];
+                ImRoundRect box = ImRoundRect(pc.rectInstancesVA)[inInstanceID];
 
                 vec2 absPos = abs(inTex);
-                vec2 cornerFocus = box.get.halfExtent - vec2(box.get.cornerRadius);
+                vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
-                vec4 sampled = box.get.texTint.a > 0
-                    ? box.get.texTint * texture(Sampler2D(nonuniformEXT(box.get.texIndex), 0),
-                        (inTex / box.get.halfExtent) * box.get.texHalfExtent + box.get.texCenterPos)
+                vec4 sampled = box.texTint.a > 0
+                    ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),
+                        (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
                 vec4 centerColor = vec4(
-                    sampled.rgb * sampled.a + box.get.centerColor.rgb * (1 - sampled.a),
-                    sampled.a + box.get.centerColor.a * (1 - sampled.a));
+                    sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
+                    sampled.a + box.centerColor.a * (1 - sampled.a));
 
                 if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
                     float dist = length(absPos - cornerFocus);
-                    if (dist > box.get.cornerRadius + 0.5) {
+                    if (dist > box.cornerRadius + 0.5) {
                         discard;
                     }
 
-                    outColor = (dist > box.get.cornerRadius - box.get.borderWidth + 0.5)
-                        ? vec4(box.get.borderColor.rgb, box.get.borderColor.a * (1 - max(0, dist - (box.get.cornerRadius - 0.5))))
-                        : mix(centerColor, box.get.borderColor, max(0, dist - (box.get.cornerRadius - box.get.borderWidth - 0.5)));
+                    outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
+                        ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
+                        : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
                 } else {
-                    outColor = (absPos.x > box.get.halfExtent.x - box.get.borderWidth || absPos.y > box.get.halfExtent.y - box.get.borderWidth)
-                        ? box.get.borderColor
+                    outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
+                        ? box.borderColor
                         : centerColor;
                 }
             )glsl"),

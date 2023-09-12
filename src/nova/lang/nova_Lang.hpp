@@ -7,46 +7,54 @@ namespace nova
 {
     /*
 
-fun main(): void {
-    ref u: Uniforms = pc.uniforms;
-    ref v: Vertex v = pc.vertices[gl_VertexIndex];
-    color = v.color;
-    gl_Position = vec4(v.position + u.offset, 1);
+fun main()\
+{\
+    ref u: Uniforms = pc.uniforms;\
+    ref v: Vertex v = pc.vertices[gl_VertexIndex];\
+    color = v.color;\
+    gl_Position = vec4(v.position + u.offset, 1);\
 }
 
-ref box: ImRoundRect = pc.rects[inInstanceID];
-
-var absPos: vec2 = abs(inTex);
-var cornerFocus: vec2 = box.halfExtent - vec2(box.cornerRadius);
-
-var sampled: vec4 = box.texTint.a > 0
-    ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),
-        (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
-    : vec4(0);
-var centerColor: vec4 = vec4(
-    sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
-    sampled.a + box.centerColor.a * (1 - sampled.a));
-
-if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
-    var dist: float = length(absPos - cornerFocus);
-    if (dist > box.cornerRadius + 0.5) {
-        discard;
-    }
-
-    outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
-        ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
-        : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
-} else {
-    outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
-        ? box.borderColor
-        : centerColor;
+fun main()\
+{\
+    ref box: ImRoundRect = pc.rects[inInstanceID];\
+\
+    var absPos: vec2 = abs(inTex);\
+    var cornerFocus: vec2 = box.halfExtent - vec2(box.cornerRadius);\
+\
+    var sampled: vec4 = box.texTint.a > 0\
+        ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),\
+            (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)\
+        : vec4(0);\
+    var centerColor: vec4 = vec4(\
+        sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),\
+        sampled.a + box.centerColor.a * (1 - sampled.a));\
+\
+    if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {\
+        var dist: float = length(absPos - cornerFocus);\
+        if (dist > box.cornerRadius + 0.5) {\
+            discard;\
+        }\
+\
+        outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)\
+            ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))\
+            : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));\
+    } else {\
+        outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)\
+            ? box.borderColor\
+            : centerColor;\
+    }\
 }
 
     */
 
+// -----------------------------------------------------------------------------
+//                                  Tokens
+// -----------------------------------------------------------------------------
+
     enum class TokenType
     {
-        Invalid,
+        None,
 
         LeftParen, RightParen,
         LeftBrace, RightBrace,
@@ -77,23 +85,26 @@ if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
 
     struct Token
     {
-        TokenType          type = TokenType::Invalid;
+        TokenType          type;
+        i32                line;
         std::string_view lexeme;
-        i32                line = 0;
+
+        Token(TokenType _type, i32 _line, std::string_view _lexeme)
+            : type(_type)
+            , line(_line)
+            , lexeme(_lexeme)
+        {}
     };
 
-    struct Compiler
-    {
-        bool hadError = false;
+    struct Compiler;
 
-        void Error(i32 line, std::string_view message);
-        void Error(const Token& token, std::string_view message);
-        void Report(i32 line, std::string_view where, std::string_view message);
-    };
+// -----------------------------------------------------------------------------
+//                                 Scanner
+// -----------------------------------------------------------------------------
 
     struct Scanner
     {
-        Compiler* compiler;
+        Compiler* compiler = nullptr;
 
         std::string_view   source;
         std::vector<Token> tokens;
@@ -119,36 +130,57 @@ if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
         void Identifier();
     };
 
-    enum class AstNodeType
-    {
-        Invalid,
+// -----------------------------------------------------------------------------
+//                           Abstract Syntax Tree
+// -----------------------------------------------------------------------------
 
-        Function, VarDecl, If, Return, While, Block, Variable,
-        Assign, Get, Set, Logical, Binary, Unary, Call, Literal
+    struct AstNode;
+
+    struct AstNodeList
+    {
+        AstNode* head = nullptr;
     };
 
-    struct AstNode { AstNodeType type; };
-    struct AstFunction : AstNode { Token name; std::optional<Token> type; std::vector<AstNode*> parameters; AstNode* body; };
-    struct AstVarDecl  : AstNode { Token name; std::optional<Token> type; AstNode* initializer; };
+    struct AstNodeListBuilder
+    {
+        AstNode* head = nullptr;
+        AstNode* tail = nullptr;
+
+        AstNodeListBuilder() = default;
+        AstNodeListBuilder(AstNodeList list);
+
+        void Append(AstNode* toAppend);
+        AstNodeList ToList() const;
+    };
+
+    enum class AstNodeType
+    {
+        Function, VarDecl, If, Return, While, Block, Variable,
+        Assign, Get, Logical, Binary, Unary, Call, Literal
+    };
+
+    struct AstNode { AstNodeType nodeType; AstNode* next = nullptr; };
+
+    struct AstFunction : AstNode { Token* name; Token* type; AstNodeList parameters; AstNode* body; };
+    struct AstVarDecl  : AstNode { Token* name; Token* type; AstNode* initializer; };
     struct AstIf       : AstNode { AstNode* cond; AstNode* thenBranch; AstNode* elseBranch; };
-    struct AstReturn   : AstNode { Token keyword; AstNode* value; };
+    struct AstReturn   : AstNode { Token* keyword; AstNode* value; };
     struct AstWhile    : AstNode { AstNode* condition; AstNode* body; };
-    struct AstBlock    : AstNode { std::vector<AstNode*> statements; };
-    struct AstVariable : AstNode { Token name; };
-    struct AstAssign   : AstNode { Token name; AstNode* value; };
-    struct AstGet      : AstNode { AstNode* object; Token name; };
-    struct AstSet      : AstNode { AstNode* object; Token name; AstNode* value; };
-    struct AstLogical  : AstNode { Token op; AstNode* left; AstNode* right; };
-    struct AstBinary   : AstNode { Token op; AstNode* left; AstNode* right; };
-    struct AstUnary    : AstNode { Token op; AstNode* right; };
-    struct AstCall     : AstNode { AstNode* callee; Token paren; std::vector<AstNode*> arguments; };
-    struct AstLiteral  : AstNode { Token token; };
+    struct AstBlock    : AstNode { AstNodeList statements; };
+    struct AstVariable : AstNode { Token* name; };
+    struct AstAssign   : AstNode { AstNode* variable; AstNode* value; };
+    struct AstGet      : AstNode { AstNode* object; Token* name; };
+    struct AstLogical  : AstNode { Token* op; AstNode* left; AstNode* right; };
+    struct AstBinary   : AstNode { Token* op; AstNode* left; AstNode* right; };
+    struct AstUnary    : AstNode { Token* op; AstNode* right; };
+    struct AstCall     : AstNode { AstNode* callee; Token* paren; AstNodeList arguments; };
+    struct AstLiteral  : AstNode { Token* token; };
 
     template<typename Fn>
     void VisitNode(Fn&& fn, AstNode* expr)
     {
         if (!expr) return;
-        switch (expr->type)
+        switch (expr->nodeType)
         {
         break;case AstNodeType::Function: fn(static_cast<AstFunction*>(expr));
         break;case AstNodeType::VarDecl:  fn(static_cast<AstVarDecl*>(expr));
@@ -159,7 +191,6 @@ if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
         break;case AstNodeType::Variable: fn(static_cast<AstVariable*>(expr));
         break;case AstNodeType::Assign:   fn(static_cast<AstAssign*>(expr));
         break;case AstNodeType::Get:      fn(static_cast<AstGet*>(expr));
-        break;case AstNodeType::Set:      fn(static_cast<AstSet*>(expr));
         break;case AstNodeType::Logical:  fn(static_cast<AstLogical*>(expr));
         break;case AstNodeType::Binary:   fn(static_cast<AstBinary*>(expr));
         break;case AstNodeType::Unary:    fn(static_cast<AstUnary*>(expr));
@@ -168,23 +199,26 @@ if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
         }
     }
 
+// -----------------------------------------------------------------------------
+//                                  Parser
+// -----------------------------------------------------------------------------
+
     struct ParseError : std::exception {};
 
     struct Parser
     {
-        Scanner* scanner;
-        i32 current = 0;
-
-        std::vector<AstNode*> nodes;
+        Scanner*  scanner = nullptr;
+        i32       current = 0;
+        AstNodeList nodes;
 
         bool Match(Span<TokenType> types);
         bool Check(TokenType type);
-        Token& Advance();
+        Token* Advance();
         bool IsAtEnd();
-        Token& Peek();
-        Token& Previous();
-        Token& Consume(TokenType type, std::string_view message);
-        ParseError Error(const Token& token, std::string_view message);
+        Token* Peek();
+        Token* Previous();
+        Token* Consume(TokenType type, std::string_view message);
+        ParseError Error(Token* token, std::string_view message);
         void Synchronize();
 
         void Parse();
@@ -210,7 +244,20 @@ if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
         AstNode* Factor();
         AstNode* Unary();
         AstNode* Call();
-        AstNode* FinishCall(AstNode* callee);
+        AstNode* FinishCall(AstNode* callee, TokenType closingToken);
         AstNode* Primary();
+    };
+
+// -----------------------------------------------------------------------------
+//                                 Compiler
+// -----------------------------------------------------------------------------
+
+    struct Compiler
+    {
+        bool hadError = false;
+
+        void Error(i32 line, std::string_view message);
+        void Error(Token* token, std::string_view message);
+        void Report(i32 line, std::string_view where, std::string_view message);
     };
 }

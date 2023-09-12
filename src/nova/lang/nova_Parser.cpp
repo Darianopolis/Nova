@@ -1,6 +1,6 @@
 #include "nova_Lang.hpp"
 
-namespace nova
+ namespace nova
 {
     bool Parser::Match(Span<TokenType> types)
     {
@@ -17,10 +17,10 @@ namespace nova
     bool Parser::Check(TokenType type)
     {
         if (IsAtEnd()) return false;
-        return Peek().type == type;
+        return Peek()->type == type;
     }
 
-    Token& Parser::Advance()
+    Token* Parser::Advance()
     {
         if (!IsAtEnd()) current++;
         return Previous();
@@ -28,27 +28,27 @@ namespace nova
 
     bool Parser::IsAtEnd()
     {
-        return Peek().type == TokenType::Eof;
+        return Peek()->type == TokenType::Eof;
     }
 
-    Token& Parser::Peek()
+    Token* Parser::Peek()
     {
-        return scanner->tokens[current];
+        return &scanner->tokens[current];
     }
 
-    Token& Parser::Previous()
+    Token* Parser::Previous()
     {
-        return scanner->tokens[current - 1];
+        return &scanner->tokens[current - 1];
     }
 
-    Token& Parser::Consume(TokenType type, std::string_view message)
+    Token* Parser::Consume(TokenType type, std::string_view message)
     {
         if (Check(type)) return Advance();
 
         throw Error(Peek(), message);
     }
 
-    ParseError Parser::Error(const Token& token, std::string_view message)
+    ParseError Parser::Error(Token* token, std::string_view message)
     {
         scanner->compiler->Error(token, message);
         return ParseError();
@@ -59,9 +59,9 @@ namespace nova
         Advance();
 
         while (!IsAtEnd()) {
-            if (Previous().type == TokenType::Semicolon) return;
+            if (Previous()->type == TokenType::Semicolon) return;
 
-            switch (Peek().type)
+            switch (Peek()->type)
             {
             break;case TokenType::If:
                   case TokenType::Return:
@@ -74,14 +74,15 @@ namespace nova
 
     void Parser::Parse()
     {
+        AstNodeListBuilder list;
         try {
             while (!IsAtEnd()) {
-                nodes.emplace_back(Declaration());
+                list.Append(Declaration());
             }
         } catch (ParseError) {
             NOVA_LOG("Parse completed with errors");
-            nodes.clear();
         }
+        nodes = list.ToList();
     }
 
 // -----------------------------------------------------------------------------
@@ -90,7 +91,11 @@ namespace nova
     {
         try {
             if (Match({TokenType::Fun})) return Function();
-            if (Match({TokenType::Var, TokenType::Ref})) return VarDeclaration();
+            if (Match({TokenType::Var, TokenType::Ref})) {
+                auto node = VarDeclaration();
+                Consume(TokenType::Semicolon, "Expect ';' after variable declaration.");
+                return node;
+            }
 
             return Statement();
         } catch (ParseError) {
@@ -107,19 +112,19 @@ namespace nova
 
     AstNode* Parser::Function()
     {
-        auto& name = Consume(TokenType::Identifier, "Expect function name.");
+        auto name = Consume(TokenType::Identifier, "Expect function name.");
 
         Consume(TokenType::LeftParen, "Expect '(' after function name.");
-        auto parameters = std::vector<AstNode*>();
+        AstNodeListBuilder parameters;
         if (!Check(TokenType::RightParen)) {
             do {
-                parameters.emplace_back(VarDeclaration());
+                parameters.Append(VarDeclaration());
             } while (Match({TokenType::Comma}));
         }
 
         Consume(TokenType::RightParen, "Expect ')' after parameters");
 
-        std::optional<Token> type;
+        Token* type = nullptr;
         if (Match({TokenType::Colon}) && !Match({TokenType::Void})) {
             type = Consume(TokenType::Identifier, "Expect identifier after explicit function return type declaration.");
         }
@@ -127,14 +132,14 @@ namespace nova
         Consume(TokenType::LeftBrace, "Expect '{' before function body.");
         auto body = Block();
 
-        return new AstFunction{AstNodeType::Function, name, type, std::move(parameters), body};
+        return new AstFunction{{AstNodeType::Function}, name, type, parameters.ToList(), body};
     }
 
     AstNode* Parser::VarDeclaration()
     {
-        auto& name = Consume(TokenType::Identifier, "Expect variable name.");
+        auto name = Consume(TokenType::Identifier, "Expect variable name.");
 
-        std::optional<Token> type;
+        Token* type = nullptr;
         if (Match({TokenType::Colon})) {
             type = Consume(TokenType::Identifier, "Expect identifier after explicit type declaration.");
         }
@@ -143,7 +148,7 @@ namespace nova
             ? Expression()
             : nullptr;
 
-        return new AstVarDecl{AstNodeType::VarDecl, name, type, initializer};
+        return new AstVarDecl{{AstNodeType::VarDecl}, name, type, initializer};
     }
 
     AstNode* Parser::Statement()
@@ -174,7 +179,7 @@ namespace nova
             ? Statement()
             : nullptr;
 
-        return new AstIf{AstNodeType::If, condition, thenBranch, elseBranch};
+        return new AstIf{{AstNodeType::If}, condition, thenBranch, elseBranch};
     }
 
     AstNode* Parser::ReturnStatement()
@@ -182,7 +187,7 @@ namespace nova
         auto keyword = Previous();
         auto value = Check(TokenType::Semicolon) ? nullptr : Expression();
         Consume(TokenType::Semicolon, "Expect ';' after return statement.");
-        return new AstReturn{AstNodeType::Return, keyword, value};
+        return new AstReturn{{AstNodeType::Return}, keyword, value};
     }
 
     AstNode* Parser::WhileStatement()
@@ -192,19 +197,19 @@ namespace nova
         Consume(TokenType::RightParen, "Expect ')' after condition.");
         auto body = Statement();
 
-        return new AstWhile{AstNodeType::While, condition, body};
+        return new AstWhile{{AstNodeType::While}, condition, body};
     }
 
     AstNode* Parser::Block()
     {
-        auto statements = std::vector<AstNode*>();
+        AstNodeListBuilder statements;
 
         while (!Check(TokenType::RightBrace) && !IsAtEnd()) {
-            statements.push_back(Declaration());
+            statements.Append(Declaration());
         }
 
         Consume(TokenType::RightBrace, "Expect '}' after block.");
-        return new AstBlock{AstNodeType::Block, std::move(statements)};
+        return new AstBlock{{AstNodeType::Block}, statements.ToList()};
     }
 
     AstNode* Parser::ExpressionStatement()
@@ -224,19 +229,9 @@ namespace nova
         auto expr = Or();
 
         if (Match({TokenType::Equal})) {
-            auto equals = Previous();
             auto value = Assignment();
 
-            if (expr->type == AstNodeType::Variable) {
-                auto variable = static_cast<AstVariable*>(expr);
-                auto name = variable->name;
-                return new AstAssign{AstNodeType::Assign, name, value};
-            } else if (expr->type == AstNodeType::Set) {
-                auto get = static_cast<AstGet*>(expr);
-                return new AstSet{AstNodeType::Set, get->object, get->name, value};
-            }
-
-            Error(equals, "Invalid assignment target.");
+            return new AstAssign{{AstNodeType::Assign}, expr, value};
         }
 
         return expr;
@@ -249,7 +244,7 @@ namespace nova
         while (Match({TokenType::Or})) {
             auto op = Previous();
             auto right = And();
-            expr = new AstLogical{AstNodeType::Logical, op, expr, right};
+            expr = new AstLogical{{AstNodeType::Logical}, op, expr, right};
         }
         return expr;
     }
@@ -261,7 +256,7 @@ namespace nova
         while (Match({TokenType::And})) {
             auto op = Previous();
             auto right = Equality();
-            expr = new AstLogical{AstNodeType::Logical, op, expr, right};
+            expr = new AstLogical{{AstNodeType::Logical}, op, expr, right};
         }
 
         return expr;
@@ -274,7 +269,7 @@ namespace nova
         while (Match({TokenType::BangEqual, TokenType::EqualEqual})) {
             auto op = Previous();
             auto right = Comparison();
-            expr = new AstBinary{AstNodeType::Binary, op, expr, right};
+            expr = new AstBinary{{AstNodeType::Binary}, op, expr, right};
         }
 
         return expr;
@@ -288,7 +283,7 @@ namespace nova
                 TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual})) {
             auto op = Previous();
             auto right = Term();
-            expr = new AstBinary{AstNodeType::Binary, op, expr, right};
+            expr = new AstBinary{{AstNodeType::Binary}, op, expr, right};
         }
 
         return expr;
@@ -301,7 +296,7 @@ namespace nova
         while (Match({TokenType::Minus, TokenType::Plus})) {
             auto op = Previous();
             auto right = Factor();
-            expr = new AstBinary{AstNodeType::Binary, op, expr, right};
+            expr = new AstBinary{{AstNodeType::Binary}, op, expr, right};
         }
 
         return expr;
@@ -314,7 +309,7 @@ namespace nova
         while (Match({TokenType::Slash, TokenType::Star})) {
             auto op = Previous();
             auto right = Unary();
-            expr = new AstBinary{AstNodeType::Binary, op, expr, right};
+            expr = new AstBinary{{AstNodeType::Binary}, op, expr, right};
         }
 
         return expr;
@@ -325,7 +320,7 @@ namespace nova
         if (Match({TokenType::Bang, TokenType::Minus})) {
             auto op = Previous();
             auto right = Unary();
-            return new AstUnary{AstNodeType::Unary, op, right};
+            return new AstUnary{{AstNodeType::Unary}, op, right};
         }
 
         return Call();
@@ -337,10 +332,12 @@ namespace nova
 
         for (;;) {
             if (Match({TokenType::LeftParen})) {
-                expr = FinishCall(expr);
+                expr = FinishCall(expr, TokenType::RightParen);
+            } else if (Match({TokenType::LeftBracket})) {
+                expr = FinishCall(expr, TokenType::RightBracket);
             } else if (Match({TokenType::Dot})) {
                 auto name = Consume(TokenType::Identifier, "Expect property name after '.'.");
-                expr = new AstGet{AstNodeType::Get, expr, name};
+                expr = new AstGet{{AstNodeType::Get}, expr, name};
             } else {
                 break;
             }
@@ -349,28 +346,30 @@ namespace nova
         return expr;
     }
 
-    AstNode* Parser::FinishCall(AstNode* callee)
+    AstNode* Parser::FinishCall(AstNode* callee, TokenType closingToken)
     {
-        auto arguments = std::vector<AstNode*>();
-        if (!Check(TokenType::RightParen)) {
+        AstNodeListBuilder arguments;
+        if (!Check(closingToken)) {
             do {
-                arguments.push_back(Expression());
+                arguments.Append(Expression());
             } while (Match({TokenType::Comma}));
         }
 
-        auto paren = Consume(TokenType::RightParen, "Expect ')' after arguments.");
+        auto paren = Consume(closingToken, closingToken == TokenType::RightParen
+            ? "Expect ')' after arguments." : "Expect ']' after arguments.");
 
-        return new AstCall{AstNodeType::Call, callee, paren, std::move(arguments)};
+        return new AstCall{{AstNodeType::Call}, callee, paren, arguments.ToList()};
     }
 
     AstNode* Parser::Primary()
     {
-        if (Match({
-            TokenType::False, TokenType::True,
-            TokenType::Nil, TokenType::Identifier,
-            TokenType::Number, TokenType::String
-        })) {
-            return new AstLiteral{AstNodeType::Literal, Previous()};
+        if (Match({ TokenType::False, TokenType::True,
+                TokenType::Nil,  TokenType::Number, TokenType::String })) {
+            return new AstLiteral{{AstNodeType::Literal}, Previous()};
+        }
+
+        if (Match({TokenType::Identifier})) {
+            return new AstVariable{{AstNodeType::Variable}, Previous()};
         }
 
         if (Match({TokenType::LeftParen})) {

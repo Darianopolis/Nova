@@ -210,6 +210,7 @@ Validation: {} ({})
                 f.features.multiDrawIndirect = VK_TRUE;
                 f.features.independentBlend = VK_TRUE;
                 f.features.imageCubeArray = VK_TRUE;
+                f.features.drawIndirectFirstInstance = VK_TRUE;
             }
 
             // Vulkan 1.2

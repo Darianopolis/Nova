@@ -25,6 +25,8 @@ NOVA_EXAMPLE(Lang, "lang")
             }
         }
 
+        compiler.hadError = false;
+
         nova::Scanner scanner;
         scanner.compiler = &compiler;
         scanner.source = source;
@@ -47,6 +49,97 @@ NOVA_EXAMPLE(Lang, "lang")
         parser.scanner = &scanner;
 
         parser.Parse();
-        NOVA_LOG("Parsed");
+
+        auto indent = [](i32 depth) {
+            for (i32 i = 0; i < depth; ++i) {
+                std::cout << "  ";
+            }
+        };
+
+#define INDENTED(offset, fmt, ...)do{\
+            indent(depth + offset);std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__);}while(0)
+
+        auto writeAst = [&](this auto& self, nova::AstNode* _node, i32 depth) -> void {
+            nova::VisitNode(nova::Overloads {
+                [&](nova::AstFunction* node) {
+                    INDENTED(0, ":fun {}\n", node->name->lexeme);
+                    for (auto* cur = node->parameters.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                    self(node->body, depth + 1);
+                },
+                [&](nova::AstVarDecl* node) {
+                    INDENTED(0, ":decl\n");
+                    INDENTED(1, "{}", node->name->lexeme);
+                    if (node->type) {
+                        std::cout << std::format(": {}", node->type->lexeme);
+                    }
+                    std::cout << "\n";
+                    self(node->initializer, depth + 1);
+                },
+                [&](nova::AstIf* node) {
+                    INDENTED(0, ":if\n");
+                    self(node->cond, depth + 1);
+                    self(node->thenBranch, depth + 1);
+                    self(node->elseBranch, depth + 1);
+                },
+                [&](nova::AstReturn* node) {
+                    INDENTED(0, ":return\n");
+                    self(node->value, depth + 1);
+                },
+                [&](nova::AstWhile* node) {
+                    INDENTED(0, ":while\n");
+                    self(node->condition, depth + 1);
+                    self(node->body, depth + 1);
+                },
+                [&](nova::AstBlock* node) {
+                    INDENTED(0, ":block\n");
+                    for (auto cur = node->statements.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                },
+                [&](nova::AstVariable* node) {
+                    INDENTED(0, ":varexpr {}\n", node->name->lexeme);
+                },
+                [&](nova::AstAssign* node) {
+                    INDENTED(0, ":assign\n");
+                    self(node->variable, depth + 1);
+                    self(node->value, depth + 1);
+                },
+                [&](nova::AstGet* node) {
+                    INDENTED(0, ":get\n");
+                    self(node->object, depth + 1);
+                    INDENTED(1, "{}\n", node->name->lexeme);
+                },
+                [&](nova::AstLogical* node) {
+                    INDENTED(0, ":logical {}\n", node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstBinary* node) {
+                    INDENTED(0, ":binary {}\n", node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstUnary* node) {
+                    INDENTED(0, ":unary {}\n", node->op->lexeme);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstCall* node) {
+                    INDENTED(0, ":call\n");
+                    self(node->callee, depth + 1);
+                    for (auto cur = node->arguments.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                },
+                [&](nova::AstLiteral* node) {
+                    INDENTED(0, ":literal {}\n", node->token->lexeme);
+                },
+            }, _node);
+        };
+
+        for (auto* cur = parser.nodes.head; cur; cur = cur->next) {
+            writeAst(cur, 0);
+        }
     }
 }

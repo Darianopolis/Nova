@@ -6,7 +6,8 @@ namespace nova
     {
         switch (type)
         {
-        case TokenType::Invalid: return "Invalid";
+        case TokenType::None: return "None";
+
         case TokenType::LeftParen: return "LeftParen";
         case TokenType::RightParen: return "RightParen";
         case TokenType::LeftBrace: return "LeftBrace";
@@ -51,9 +52,40 @@ namespace nova
         case TokenType::Fun: return "Fun";
         case TokenType::Var: return "Var";
         case TokenType::Ref: return "Ref";
+
         case TokenType::Eof: return "Eof";
         }
 
         std::unreachable();
+    }
+
+// -----------------------------------------------------------------------------
+
+    AstNodeListBuilder::AstNodeListBuilder(AstNodeList list)
+        : head(list.head)
+        , tail(list.head)
+    {
+        if (!tail) return;
+
+        while (tail->next) {
+            tail = tail->next;
+        }
+    }
+
+    void AstNodeListBuilder::Append(AstNode* toAppend)
+    {
+        if (!toAppend) return;
+
+        if (!head) {
+            head = tail = toAppend;
+        } else {
+            tail->next = toAppend;
+            tail = tail->next;
+        }
+    }
+
+    AstNodeList AstNodeListBuilder::ToList() const
+    {
+        return{ head };
     }
 }

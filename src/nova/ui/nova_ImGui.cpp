@@ -39,7 +39,7 @@ namespace nova
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
         vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-            nova::shader::Structure("ImDrawVert", {
+            nova::shader::BufferReference("ImDrawVert", {
                 nova::Member("pos", nova::ShaderVarType::Vec2),
                 nova::Member("uv",  nova::ShaderVarType::Vec2),
                 nova::Member("col", nova::ShaderVarType::U32),
@@ -48,10 +48,10 @@ namespace nova
             nova::shader::Output("outUV",    nova::ShaderVarType::Vec2),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Kernel(R"glsl(
-                ImDrawVert_br v = ImDrawVert_br(pc.vertexVA)[gl_VertexIndex];
-                outUV = v.get.uv;
-                outColor = unpackUnorm4x8(v.get.col);
-                gl_Position = vec4((v.get.pos * pc.scale) + pc.offset, 0, 1);
+                ImDrawVert v = ImDrawVert(pc.vertexVA)[gl_VertexIndex];
+                outUV = v.uv;
+                outColor = unpackUnorm4x8(v.col);
+                gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
             )glsl"),
         });
 
