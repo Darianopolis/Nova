@@ -64,17 +64,29 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
             layout(location = 0) hitObjectAttributeNV vec3 bary;
         )glsl"),
         nova::shader::Kernel(R"glsl(
-            vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-            vec3 dir = vec3(0, 0, -1);
-            hitObjectNV hit;
+            // vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+            // vec3 dir = vec3(0, 0, -1);
+            // hitObjectNV hit;
+            // hitObjectTraceRayNV(hit, AccelerationStructure, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+
+            // vec3 color = vec3(0.1);
+            // if (hitObjectIsHitNV(hit)) {
+            //     hitObjectGetAttributesNV(hit, 0);
+            //     color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+            // }
+            // imageStore(StorageImage2D<rgba8>[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+
+            var pos: vec3 = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+            var dir: vec3 = vec3(0, 0, -1);
+            var hit: hitObjectNV;
             hitObjectTraceRayNV(hit, AccelerationStructure, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
-            vec3 color = vec3(0.1);
+            var color: vec3 = vec3(0.1);
             if (hitObjectIsHitNV(hit)) {
                 hitObjectGetAttributesNV(hit, 0);
                 color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
             }
-            imageStore(StorageImage2D<rgba8>[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+            imageStore(StorageImage2D.rgba8[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
         )glsl"),
     });
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };

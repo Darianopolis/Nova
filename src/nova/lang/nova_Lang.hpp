@@ -7,10 +7,18 @@ namespace nova
 {
     /*
 
-fun main()\
+fn main()\
 {\
     ref u: Uniforms = pc.uniforms;\
     ref v: Vertex = pc.vertices[gl_VertexIndex];\
+    color = v.color;\
+    gl_Position = vec4(v.position + u.offset, 1);\
+}
+
+fn main()\
+{\
+    ref u = pc.uniforms;\
+    ref v = pc.vertices[gl_VertexIndex];\
     color = v.color;\
     gl_Position = vec4(v.position + u.offset, 1);\
 }
@@ -177,28 +185,30 @@ fun main()\
     struct AstLiteral  : AstNode { Token* token; };
     struct AstCondExpr : AstNode { AstNode* cond; AstNode* thenExpr; AstNode* elseExpr; };
 
-    template<typename Fn>
-    void VisitNode(Fn&& fn, AstNode* expr)
+    template<typename Ret = void, typename Fn>
+    Ret VisitNode(Fn&& fn, AstNode* expr)
     {
-        if (!expr) return;
+        if (!expr) return Ret();
         switch (expr->nodeType)
         {
-        break;case AstNodeType::Function: fn(static_cast<AstFunction*>(expr));
-        break;case AstNodeType::VarDecl:  fn(static_cast<AstVarDecl*>(expr));
-        break;case AstNodeType::If:       fn(static_cast<AstIf*>(expr));
-        break;case AstNodeType::Return:   fn(static_cast<AstReturn*>(expr));
-        break;case AstNodeType::While:    fn(static_cast<AstWhile*>(expr));
-        break;case AstNodeType::Block:    fn(static_cast<AstBlock*>(expr));
-        break;case AstNodeType::Variable: fn(static_cast<AstVariable*>(expr));
-        break;case AstNodeType::Assign:   fn(static_cast<AstAssign*>(expr));
-        break;case AstNodeType::Get:      fn(static_cast<AstGet*>(expr));
-        break;case AstNodeType::Logical:  fn(static_cast<AstLogical*>(expr));
-        break;case AstNodeType::Binary:   fn(static_cast<AstBinary*>(expr));
-        break;case AstNodeType::Unary:    fn(static_cast<AstUnary*>(expr));
-        break;case AstNodeType::Call:     fn(static_cast<AstCall*>(expr));
-        break;case AstNodeType::Literal:  fn(static_cast<AstLiteral*>(expr));
-        break;case AstNodeType::CondExpr: fn(static_cast<AstCondExpr*>(expr));
+        break;case AstNodeType::Function: return fn(static_cast<AstFunction*>(expr));
+        break;case AstNodeType::VarDecl:  return fn(static_cast<AstVarDecl*>(expr));
+        break;case AstNodeType::If:       return fn(static_cast<AstIf*>(expr));
+        break;case AstNodeType::Return:   return fn(static_cast<AstReturn*>(expr));
+        break;case AstNodeType::While:    return fn(static_cast<AstWhile*>(expr));
+        break;case AstNodeType::Block:    return fn(static_cast<AstBlock*>(expr));
+        break;case AstNodeType::Variable: return fn(static_cast<AstVariable*>(expr));
+        break;case AstNodeType::Assign:   return fn(static_cast<AstAssign*>(expr));
+        break;case AstNodeType::Get:      return fn(static_cast<AstGet*>(expr));
+        break;case AstNodeType::Logical:  return fn(static_cast<AstLogical*>(expr));
+        break;case AstNodeType::Binary:   return fn(static_cast<AstBinary*>(expr));
+        break;case AstNodeType::Unary:    return fn(static_cast<AstUnary*>(expr));
+        break;case AstNodeType::Call:     return fn(static_cast<AstCall*>(expr));
+        break;case AstNodeType::Literal:  return fn(static_cast<AstLiteral*>(expr));
+        break;case AstNodeType::CondExpr: return fn(static_cast<AstCondExpr*>(expr));
         }
+
+        NOVA_THROW("Invalid node type");
     }
 
 // -----------------------------------------------------------------------------
@@ -248,6 +258,52 @@ fun main()\
         AstNode* Call();
         AstNode* FinishCall(AstNode* callee, TokenType closingToken);
         AstNode* Primary();
+    };
+
+// -----------------------------------------------------------------------------
+//                                 Compiler
+// -----------------------------------------------------------------------------
+
+    struct Type;
+
+    struct Struct
+    {
+        ankerl::unordered_dense::map<std::string_view, Type*> members;
+    };
+
+    struct Type
+    {
+        std::string_view name = "";
+        bool       registered = false;
+        Struct*     structure = nullptr;
+    };
+
+    struct Resolver
+    {
+        Parser* parser;
+
+        Type** currentFnType = nullptr;
+
+        std::vector<ankerl::unordered_dense::map<std::string_view, Type*>> scopes;
+        ankerl::unordered_dense::map<AstNode*, Type*>                   exprTypes;
+
+        Resolver();
+
+        void RegisterType(Type* type);
+        void RegisterGlobal(std::string_view name, Type* type);
+
+        Type* FindType(std::string_view name);
+        Type* RecordAstType(AstNode* node, Type* type);
+
+        void BeginScope();
+        void EndScope();
+
+        void Declare(Token* name);
+        void Define(Token* name, Type* type);
+
+        Type* ResolveLocal(Token* name);
+
+        void Resolve();
     };
 
 // -----------------------------------------------------------------------------

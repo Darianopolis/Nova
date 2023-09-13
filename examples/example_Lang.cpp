@@ -1,6 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/lang/nova_Lang.hpp>
+#include <nova/lang/backends/nova_Glsl.hpp>
 
 NOVA_EXAMPLE(Lang, "lang")
 {
@@ -27,6 +28,8 @@ NOVA_EXAMPLE(Lang, "lang")
 
         compiler.hadError = false;
 
+        NOVA_LOG("======== Tokens ========");
+
         nova::Scanner scanner;
         scanner.compiler = &compiler;
         scanner.source = source;
@@ -44,6 +47,8 @@ NOVA_EXAMPLE(Lang, "lang")
 
             lastLine = token.line;
         }
+
+        NOVA_LOG("======== AST ========");
 
         nova::Parser parser;
         parser.scanner = &scanner;
@@ -148,113 +153,133 @@ NOVA_EXAMPLE(Lang, "lang")
             writeAst(cur, 0);
         }
 
-        auto emitGlsl = [&](this auto& self, nova::AstNode* _node) -> void {
+        NOVA_LOG("======== TYPES ========");
+
+        nova::Resolver resolver;
+        resolver.parser = &parser;
+
+        resolver.RegisterGlobal("gl_Position",    resolver.FindType("vec4"));
+        resolver.RegisterGlobal("gl_VertexIndex", resolver.FindType("uint"));
+        auto pc = resolver.FindType("PushConstants");
+        pc->structure = new nova::Struct;
+        pc->structure->members.insert({ "uniforms", resolver.FindType("Uniforms") });
+        pc->structure->members.insert({ "vertices", resolver.FindType("Vertex") });
+        // auto uniformsUniformBufferHandle = resolver.FindType("Uniforms_readonly_uniform_buffer");
+        auto uniforms = resolver.FindType("Uniforms");
+        uniforms->structure = new nova::Struct;
+        uniforms->structure->members.insert({ "offset", resolver.FindType("vec3") });
+        auto vertices = resolver.FindType("Vertex");
+        vertices->structure = new nova::Struct;
+        vertices->structure->members.insert({ "position", resolver.FindType("vec3") });
+        vertices->structure->members.insert({ "color",    resolver.FindType("vec3") });
+        resolver.RegisterType(pc);
+        resolver.RegisterGlobal("pc", pc);
+        resolver.RegisterGlobal("color", resolver.FindType("vec3"));
+
+        resolver.Resolve();
+
+        auto getTypeName = [&](nova::AstNode* node) {
+            if (!resolver.exprTypes.contains(node)) {
+                return std::string_view("N/A");
+            }
+            return resolver.exprTypes.at(node)->name;
+        };
+
+        auto printTypes = [&](this auto& self, nova::AstNode* _node, i32 depth) -> void {
             nova::VisitNode(nova::Overloads {
                 [&](nova::AstFunction* node) {
-                    std::cout << (node->type ? node->type->lexeme : "void");
-                    std::cout << " " << node->name->lexeme << "(";
+                    INDENTED(0, ":fun<{}> {}\n", getTypeName(node), node->name->lexeme);
                     for (auto* cur = node->parameters.head; cur; cur = cur->next) {
-                        self(cur);
-                        if (cur->next) {
-                            std::cout << ",";
-                        }
+                        self(cur, depth + 1);
                     }
-                    std::cout << ")";
-                    self(node->body);
+                    self(node->body, depth + 1);
                 },
                 [&](nova::AstVarDecl* node) {
+                    INDENTED(0, ":decl<{}>\n", getTypeName(node));
+                    INDENTED(1, "{}", node->name->lexeme);
                     if (node->type) {
-                        std::cout << node->type->lexeme;
-                    } else {
-                        std::cout << "auto";
+                        std::cout << std::format(": {}", node->type->lexeme);
                     }
-                    std::cout << " " << node->name->lexeme;
-                    if (node->initializer) {
-                        std::cout << "=";
-                        self(node->initializer);
-                    }
+                    std::cout << "\n";
+                    self(node->initializer, depth + 1);
                 },
                 [&](nova::AstIf* node) {
-                    std::cout << "if(";
-                    self(node->cond);
-                    std::cout << ")";
-                    self(node->thenBranch);
-                    if (node->elseBranch) {
-                        std::cout << " else ";
-                        self(node->elseBranch);
-                    }
+                    INDENTED(0, ":if\n");
+                    self(node->cond, depth + 1);
+                    self(node->thenBranch, depth + 1);
+                    self(node->elseBranch, depth + 1);
                 },
                 [&](nova::AstReturn* node) {
-                    std::cout << "return ";
-                    self(node->value);
+                    INDENTED(0, ":return<{}>\n", getTypeName(node));
+                    self(node->value, depth + 1);
                 },
                 [&](nova::AstWhile* node) {
-                    std::cout << "while(";
-                    self(node->condition);
-                    std::cout << ")";
-                    self(node->body);
+                    INDENTED(0, ":while\n");
+                    self(node->condition, depth + 1);
+                    self(node->body, depth + 1);
                 },
                 [&](nova::AstBlock* node) {
-                    std::cout << "{";
+                    INDENTED(0, ":block\n");
                     for (auto cur = node->statements.head; cur; cur = cur->next) {
-                        self(cur);
-                        std::cout << ";\n";
+                        self(cur, depth + 1);
                     }
-                    std::cout << "}";
                 },
                 [&](nova::AstVariable* node) {
-                    std::cout << node->name->lexeme;
+                    INDENTED(0, ":varexpr<{}> {}\n", getTypeName(node), node->name->lexeme);
                 },
                 [&](nova::AstAssign* node) {
-                    self(node->variable);
-                    std::cout << "=";
-                    self(node->value);
+                    INDENTED(0, ":assign<{}>\n", getTypeName(node));
+                    self(node->variable, depth + 1);
+                    self(node->value, depth + 1);
                 },
                 [&](nova::AstGet* node) {
-                    self(node->object);
-                    std::cout << "." << node->name->lexeme;
+                    INDENTED(0, ":get\n");
+                    self(node->object, depth + 1);
+                    INDENTED(1, "{}\n", node->name->lexeme);
                 },
                 [&](nova::AstLogical* node) {
-                    self(node->left);
-                    std::cout << node->op->lexeme;
-                    self(node->right);
+                    INDENTED(0, ":logical<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
                 },
                 [&](nova::AstBinary* node) {
-                    self(node->left);
-                    std::cout << node->op->lexeme;
-                    self(node->right);
+                    INDENTED(0, ":binary<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
                 },
                 [&](nova::AstUnary* node) {
-                    std::cout << node->op->lexeme;
-                    self(node->right);
+                    INDENTED(0, ":unary<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->right, depth + 1);
                 },
                 [&](nova::AstCall* node) {
-                    self(node->callee);
-                    std::cout << "(";
+                    INDENTED(0, ":call<{}>\n", getTypeName(node));
+                    self(node->callee, depth + 1);
                     for (auto cur = node->arguments.head; cur; cur = cur->next) {
-                        self(cur);
-                        if (cur->next) {
-                            std::cout << ",";
-                        }
+                        self(cur, depth + 1);
                     }
-                    std::cout << ")";
                 },
                 [&](nova::AstLiteral* node) {
-                    std::cout << node->token->lexeme;
+                    INDENTED(0, ":literal<{}> {}\n", getTypeName(node), node->token->lexeme);
                 },
                 [&](nova::AstCondExpr* node) {
-                    self(node->cond);
-                    std::cout << "\n?";
-                    self(node->thenExpr);
-                    std::cout << "\n:";
-                    self(node->elseExpr);
+                    INDENTED(0, ":condexpr<{}>\n", getTypeName(node));
+                    self(node->cond, depth + 1);
+                    self(node->thenExpr, depth + 1);
+                    self(node->elseExpr, depth + 1);
                 }
             }, _node);
         };
 
         for (auto* cur = parser.nodes.head; cur; cur = cur->next) {
-            emitGlsl(cur);
+            printTypes(cur, 0);
         }
-        std::cout << "\n";
+
+        NOVA_LOG("======== GLSL ========");
+
+        nova::GlslGenerator gen;
+        gen.parser = &parser;
+        gen.resolver = &resolver;
+        gen.Generate(std::cout);
+        std::cout << '\n';
     }
 }

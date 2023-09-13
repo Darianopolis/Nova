@@ -16,7 +16,7 @@ namespace nova
             keywords.insert({ "void",   TokenType::Void   });
             keywords.insert({ "var",    TokenType::Var    });
             keywords.insert({ "ref",    TokenType::Ref    });
-            keywords.insert({ "fun",    TokenType::Fun    });
+            keywords.insert({ "fn",     TokenType::Fun    });
 
             return keywords;
         }();
