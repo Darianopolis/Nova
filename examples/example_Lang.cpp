@@ -1,7 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/lang/nova_Lang.hpp>
-#include <nova/lang/backends/nova_Glsl.hpp>
+#include <nova/lang/backends/nova_VulkanGlslBackend.hpp>
 
 NOVA_EXAMPLE(Lang, "lang")
 {
@@ -155,7 +155,7 @@ NOVA_EXAMPLE(Lang, "lang")
 
         NOVA_LOG("======== TYPES ========");
 
-        nova::Resolver resolver;
+        nova::VulkanGlslBackend resolver;
         resolver.parser = &parser;
 
         resolver.RegisterGlobal("gl_Position",    resolver.FindType("vec4"));
@@ -276,10 +276,7 @@ NOVA_EXAMPLE(Lang, "lang")
 
         NOVA_LOG("======== GLSL ========");
 
-        nova::GlslGenerator gen;
-        gen.parser = &parser;
-        gen.resolver = &resolver;
-        gen.Generate(std::cout);
+        resolver.Generate(std::cout);
         std::cout << '\n';
     }
 }

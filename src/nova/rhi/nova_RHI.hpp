@@ -211,15 +211,12 @@ namespace nova
 
     struct DescriptorHandle
     {
-        // u32 id   : 24 = 0;
-        // u32 type :  8 = 0;
         u32 id = 0;
 
         DescriptorHandle() = default;
 
-        DescriptorHandle(u32 _id/*, DescriptorType _type*/)
+        DescriptorHandle(u32 _id)
             : id(_id)
-            // , type(u32(_type))
         {}
 
         u32 ToShaderUInt() const {
@@ -533,16 +530,9 @@ namespace nova
 
     struct ContextConfig
     {
-        bool             debug = false;
-        bool        rayTracing = false;
-        // bool descriptorBuffers = false;
+        bool      debug = false;
+        bool rayTracing = false;
     };
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
 
     struct Context : Handle<Context>
     {

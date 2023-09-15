@@ -278,34 +278,6 @@ fun main()\
         Struct*     structure = nullptr;
     };
 
-    struct Resolver
-    {
-        Parser* parser;
-
-        Type** currentFnType = nullptr;
-
-        std::vector<ankerl::unordered_dense::map<std::string_view, Type*>> scopes;
-        ankerl::unordered_dense::map<AstNode*, Type*>                   exprTypes;
-
-        Resolver();
-
-        void RegisterType(Type* type);
-        void RegisterGlobal(std::string_view name, Type* type);
-
-        Type* FindType(std::string_view name);
-        Type* RecordAstType(AstNode* node, Type* type);
-
-        void BeginScope();
-        void EndScope();
-
-        void Declare(Token* name);
-        void Define(Token* name, Type* type);
-
-        Type* ResolveLocal(Token* name);
-
-        void Resolve();
-    };
-
 // -----------------------------------------------------------------------------
 //                                 Compiler
 // -----------------------------------------------------------------------------
