@@ -155,34 +155,67 @@ NOVA_EXAMPLE(Lang, "lang")
 
         NOVA_LOG("======== TYPES ========");
 
-        nova::VulkanGlslBackend resolver;
-        resolver.parser = &parser;
+        nova::VulkanGlslBackend backend;
+        backend.parser = &parser;
 
-        resolver.RegisterGlobal("gl_Position",    resolver.FindType("vec4"));
-        resolver.RegisterGlobal("gl_VertexIndex", resolver.FindType("uint"));
-        auto pc = resolver.FindType("PushConstants");
+        backend.RegisterGlobal("gl_Position",    backend.FindType("vec4"));
+        backend.RegisterGlobal("gl_VertexIndex", backend.FindType("uint"));
+
+        auto pc = backend.FindType("PushConstants");
         pc->structure = new nova::Struct;
-        pc->structure->members.insert({ "uniforms", resolver.FindType("Uniforms") });
-        pc->structure->members.insert({ "vertices", resolver.FindType("Vertex") });
-        // auto uniformsUniformBufferHandle = resolver.FindType("Uniforms_readonly_uniform_buffer");
-        auto uniforms = resolver.FindType("Uniforms");
-        uniforms->structure = new nova::Struct;
-        uniforms->structure->members.insert({ "offset", resolver.FindType("vec3") });
-        auto vertices = resolver.FindType("Vertex");
-        vertices->structure = new nova::Struct;
-        vertices->structure->members.insert({ "position", resolver.FindType("vec3") });
-        vertices->structure->members.insert({ "color",    resolver.FindType("vec3") });
-        resolver.RegisterType(pc);
-        resolver.RegisterGlobal("pc", pc);
-        resolver.RegisterGlobal("color", resolver.FindType("vec3"));
+        pc->structure->members.insert({ "uniforms", backend.FindType("Uniforms_readonly_uniform_buffer")      });
+        pc->structure->members.insert({ "vertices", backend.FindType("Vertex_readonly_buffer_reference")      });
+        pc->structure->members.insert({ "rects",    backend.FindType("ImRoundRect_readonly_buffer_reference") });
 
-        resolver.Resolve();
+        auto uniforms = backend.FindType("Uniforms");
+        uniforms->structure = new nova::Struct;
+        uniforms->structure->members.insert({ "offset", backend.FindType("vec3") });
+
+        auto vertices = backend.FindType("Vertex");
+        vertices->structure = new nova::Struct;
+        vertices->structure->members.insert({ "position", backend.FindType("vec3") });
+        vertices->structure->members.insert({ "color",    backend.FindType("vec3") });
+
+        auto rect = backend.FindType("ImRoundRect");
+        rect->structure = new nova::Struct;
+        rect->structure->members.insert({ "centerColor",   backend.FindType("vec4")  });
+        rect->structure->members.insert({ "borderColor",   backend.FindType("vec4")  });
+        rect->structure->members.insert({ "centerPos",     backend.FindType("vec2")  });
+        rect->structure->members.insert({ "halfExtent",    backend.FindType("vec2")  });
+        rect->structure->members.insert({ "cornerRadius",  backend.FindType("float") });
+        rect->structure->members.insert({ "borderWidth",   backend.FindType("float") });
+        rect->structure->members.insert({ "texTint",       backend.FindType("vec4")  });
+        rect->structure->members.insert({ "texIndex",      backend.FindType("uint")  }); // image
+        rect->structure->members.insert({ "texCenterPos",  backend.FindType("vec2")  });
+        rect->structure->members.insert({ "texHalfExtent", backend.FindType("vec2")  });
+
+        backend.RegisterType(pc);
+        backend.RegisterGlobal("pc", pc);
+        backend.RegisterGlobal("color", backend.FindType("vec3"));
+
+        backend.RegisterAccessor({
+            .name = "Uniforms_readonly_uniform_buffer",
+            .element = uniforms,
+            .type = nova::VulkanGlslBackend::AccessorType::UniformBuffer,
+        });
+        backend.RegisterAccessor({
+            .name = "Vertex_readonly_buffer_reference",
+            .element = vertices,
+            .type = nova::VulkanGlslBackend::AccessorType::BufferReference,
+        });
+        backend.RegisterAccessor({
+            .name = "ImRoundRect_readonly_buffer_reference",
+            .element = rect,
+            .type = nova::VulkanGlslBackend::AccessorType::BufferReference,
+        });
+
+        backend.Resolve();
 
         auto getTypeName = [&](nova::AstNode* node) {
-            if (!resolver.exprTypes.contains(node)) {
+            if (!backend.exprTypes.contains(node)) {
                 return std::string_view("N/A");
             }
-            return resolver.exprTypes.at(node)->name;
+            return backend.exprTypes.at(node)->name;
         };
 
         auto printTypes = [&](this auto& self, nova::AstNode* _node, i32 depth) -> void {
@@ -233,7 +266,7 @@ NOVA_EXAMPLE(Lang, "lang")
                     self(node->value, depth + 1);
                 },
                 [&](nova::AstGet* node) {
-                    INDENTED(0, ":get\n");
+                    INDENTED(0, ":get<{}>\n", getTypeName(node));
                     self(node->object, depth + 1);
                     INDENTED(1, "{}\n", node->name->lexeme);
                 },
@@ -276,7 +309,7 @@ NOVA_EXAMPLE(Lang, "lang")
 
         NOVA_LOG("======== GLSL ========");
 
-        resolver.Generate(std::cout);
+        backend.Generate(std::cout);
         std::cout << '\n';
     }
 }

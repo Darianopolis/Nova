@@ -13,6 +13,12 @@ namespace nova
         RegisterType(new Type{"function"});
     }
 
+    void VulkanGlslBackend::RegisterAccessor(Accessor accessor)
+    {
+        auto key = std::string_view(accessor.name);
+        accessors.insert({ key, std::move(accessor) });
+    }
+
     void VulkanGlslBackend::RegisterType(Type* type)
     {
         scopes.front().insert({ type->name, type });
@@ -86,9 +92,9 @@ namespace nova
 
     void VulkanGlslBackend::Resolve()
     {
-        auto resolveTypes = [&](this auto& self, nova::AstNode* _node) -> Type* {
-            return nova::VisitNode<Type*>(nova::Overloads {
-                [&](nova::AstFunction* node) {
+        auto resolveTypes = [&](this auto& self, AstNode* _node) -> Type* {
+            return VisitNode<Type*>(Overloads {
+                [&](AstFunction* node) {
                     auto enclosing = currentFnType;
                     Type* type = FindType("nil");
                     currentFnType = &type;
@@ -112,7 +118,7 @@ namespace nova
                     NOVA_LOG("Defined fn - {} -> ", node->name->lexeme, scopes.back()[node->name->lexeme]->name);
                     return RecordAstType(node, *currentFnType);
                 },
-                [&](nova::AstVarDecl* node) {
+                [&](AstVarDecl* node) {
                     Type* type = nullptr;
                     if (node->initializer) {
                         type = self(node->initializer);
@@ -124,13 +130,13 @@ namespace nova
                     Define(node->name, type);
                     return RecordAstType(node, type);
                 },
-                [&](nova::AstIf* node) {
+                [&](AstIf* node) {
                     self(node->cond);
                     self(node->thenBranch);
                     self(node->elseBranch);
                     return FindType("nil");
                 },
-                [&](nova::AstReturn* node) {
+                [&](AstReturn* node) {
                     if (!currentFnType) {
                         parser->scanner->compiler->Error(node->keyword, "Can't return outside of function.");
                     }
@@ -143,35 +149,33 @@ namespace nova
 
                     return RecordAstType(node, type);
                 },
-                [&](nova::AstWhile* node) {
+                [&](AstWhile* node) {
                     self(node->condition);
                     self(node->body);
 
                     return FindType("nil");
                 },
-                [&](nova::AstBlock* node) {
+                [&](AstBlock* node) {
                     for (auto cur = node->statements.head; cur; cur = cur->next) {
                         self(cur);
                     }
 
                     return RecordAstType(node, FindType("nil"));
                 },
-                [&](nova::AstVariable* node) {
+                [&](AstVariable* node) {
                     // TODO: Handle global and lexical scope
                     return RecordAstType(node, ResolveLocal(node->name));
                 },
-                [&](nova::AstAssign* node) {
+                [&](AstAssign* node) {
+                    NOVA_LOGEXPR(i32(node->nodeType));
                     self(node->value);
-                    return RecordAstType(node, self(node->variable));
+                    auto type = RecordAstType(node, self(node->variable));
+                    return type;
                 },
-                [&](nova::AstGet* node) {
+                [&](AstGet* node) {
                     auto type = self(node->object);
-                    NOVA_LOGEXPR(type);
-                    NOVA_LOGEXPR(type->structure);
-                    NOVA_LOGEXPR(node->name->lexeme);
-                    for (auto&[key, t] : type->structure->members) {
-                        NOVA_LOGEXPR(t);
-                        NOVA_LOGEXPR(t->name);
+                    if (accessors.contains(type->name)) {
+                        type = accessors.at(type->name).element;
                     }
                     if (type && type->structure
                             && type->structure->members.contains(node->name->lexeme)) {
@@ -179,29 +183,29 @@ namespace nova
                     }
                     return RecordAstType(node, FindType("nil"));
                 },
-                [&](nova::AstLogical* node) {
+                [&](AstLogical* node) {
                     // Assume both sides are equivalently typed
                     auto type = self(node->left);
                     self(node->right);
                     return RecordAstType(node, type);
                 },
-                [&](nova::AstBinary* node) {
+                [&](AstBinary* node) {
                     // Assume both sides are equivalently typed
                     auto type = self(node->left);
                     self(node->right);
                     return RecordAstType(node, type);
                 },
-                [&](nova::AstUnary* node) {
+                [&](AstUnary* node) {
                     return self(node->right);
                 },
-                [&](nova::AstCall* node) {
+                [&](AstCall* node) {
                     auto type = self(node->callee);
                     for (auto cur = node->arguments.head; cur; cur = cur->next) {
                         self(cur);
                     }
                     return RecordAstType(node, type);
                 },
-                [&](nova::AstLiteral* node) {
+                [&](AstLiteral* node) {
                     auto type = FindType("nil");
 
                     switch (node->token->type)
@@ -224,7 +228,7 @@ namespace nova
                     RecordAstType(node, type);
                     return type;
                 },
-                [&](nova::AstCondExpr* node) {
+                [&](AstCondExpr* node) {
                     self(node->cond);
 
                     // Always use then branch for type for now
@@ -242,11 +246,35 @@ namespace nova
         }
     }
 
+    template<class Recurse>
+    void EmitAccess(VulkanGlslBackend& backend, std::ostream& out, AstNode* node, Recurse& recurse)
+    {
+        auto type = backend.exprTypes.at(node)->name;
+        if (backend.accessors.contains(type)) {
+            auto& accessor = backend.accessors.at(type);
+            switch (accessor.type)
+            {
+            break;case VulkanGlslBackend::AccessorType::BufferReference:
+                recurse(node);
+                out << ".get";
+            break;case VulkanGlslBackend::AccessorType::StorageBuffer:
+                  case VulkanGlslBackend::AccessorType::UniformBuffer:
+                out << type << "[";
+                recurse(node);
+                out << ".x].data[";
+                recurse(node);
+                out << ".y]";
+            }
+        } else {
+            recurse(node);
+        }
+    }
+
     void VulkanGlslBackend::Generate(std::ostream& out)
     {
-        auto emitGlsl = [&](this auto& self, nova::AstNode* _node) -> void {
-            nova::VisitNode(nova::Overloads {
-                [&](nova::AstFunction* node) {
+        auto emitGlsl = [&](this auto& self, AstNode* _node) -> void {
+            VisitNode(Overloads {
+                [&](AstFunction* node) {
                     out << (node->type ? node->type->lexeme : "void");
                     out << " " << node->name->lexeme << "(";
                     for (auto* cur = node->parameters.head; cur; cur = cur->next) {
@@ -258,27 +286,32 @@ namespace nova
                     out << ")";
                     self(node->body);
                 },
-                [&](nova::AstVarDecl* node) {
-                    // if (node->type) {
-                    //     out << node->type->lexeme;
-                    // } else {
-                    //     out << "auto";
-                    // }
+                [&](AstVarDecl* node) {
                     auto type = exprTypes.at(node)->name;
-                    if (type == "Uniforms") {
-                        out << "uvec2";
-                    } else if (type == "Vertex") {
-                        out << type << "_readonly_buffer_reference";
+                    if (accessors.contains(type)) {
+                        auto& accessor = accessors.at(type);
+                        switch (accessor.type)
+                        {
+                        break;case AccessorType::BufferReference:
+                            out << accessor.name;
+                        break;case AccessorType::StorageBuffer:
+                              case AccessorType::UniformBuffer:
+                            out << "uvec2";
+                        }
                     } else {
                         out << type;
                     }
                     out << " " << node->name->lexeme;
                     if (node->initializer) {
                         out << "=";
-                        self(node->initializer);
+                        if (!accessors.contains(type)) {
+                            EmitAccess(*this, out, node->initializer, self);
+                        } else {
+                            self(node->initializer);
+                        }
                     }
                 },
-                [&](nova::AstIf* node) {
+                [&](AstIf* node) {
                     out << "if(";
                     self(node->cond);
                     out << ")";
@@ -288,17 +321,17 @@ namespace nova
                         self(node->elseBranch);
                     }
                 },
-                [&](nova::AstReturn* node) {
+                [&](AstReturn* node) {
                     out << "return ";
                     self(node->value);
                 },
-                [&](nova::AstWhile* node) {
+                [&](AstWhile* node) {
                     out << "while(";
                     self(node->condition);
                     out << ")";
                     self(node->body);
                 },
-                [&](nova::AstBlock* node) {
+                [&](AstBlock* node) {
                     out << "{";
                     for (auto cur = node->statements.head; cur; cur = cur->next) {
                         self(cur);
@@ -306,60 +339,68 @@ namespace nova
                     }
                     out << "}";
                 },
-                [&](nova::AstVariable* node) {
+                [&](AstVariable* node) {
                     out << node->name->lexeme;
                 },
-                [&](nova::AstAssign* node) {
-                    self(node->variable);
-                    out << "=";
-                    self(node->value);
-                },
-                [&](nova::AstGet* node) {
-                    // self(node->object);
-                    auto type = exprTypes.at(node->object)->name;
-                    if (type == "Uniforms") {
-                        out << "Uniforms_readonly_uniform_buffer[";
-                        self(node->object);
-                        out << ".x].data[";
-                        self(node->object);
-                        out << ".y]";
-                    } else if (type == "Vertex") {
-                        self(node->object);
-                        out << ".get";
+                [&](AstAssign* node) {
+                    auto lhsHasAccessor = accessors.contains(exprTypes.at(node->variable)->name);
+                    auto rhsHasAccessor = accessors.contains(exprTypes.at(node->value)->name);
+                    if (lhsHasAccessor == rhsHasAccessor) {
+                        self(node->variable);
+                        out << "=";
+                        self(node->value);
                     } else {
-                        self(node->object);
+                        EmitAccess(*this, out, node->variable, self);
+                        out << "=";
+                        EmitAccess(*this, out, node->value, self);
                     }
+                },
+                [&](AstGet* node) {
+                    auto type = exprTypes.at(node->object)->name;
+                    EmitAccess(*this, out, node->object, self);
                     out << "." << node->name->lexeme;
                 },
-                [&](nova::AstLogical* node) {
+                [&](AstLogical* node) {
                     self(node->left);
                     out << node->op->lexeme;
                     self(node->right);
                 },
-                [&](nova::AstBinary* node) {
+                [&](AstBinary* node) {
                     self(node->left);
                     out << node->op->lexeme;
                     self(node->right);
                 },
-                [&](nova::AstUnary* node) {
+                [&](AstUnary* node) {
                     out << node->op->lexeme;
                     self(node->right);
                 },
-                [&](nova::AstCall* node) {
+                [&](AstCall* node) {
+                    bool isVecAccessor = accessors.contains(exprTypes.at(node->callee)->name);
+                    if (isVecAccessor) {
+                        out << "(";
+                    }
                     self(node->callee);
-                    out << "(";
+                    if (isVecAccessor) {
+                        out << "+vec2(0,";
+                    } else {
+                        out << (node->paren->type == TokenType::RightParen ? "(" : "[");
+                    }
                     for (auto cur = node->arguments.head; cur; cur = cur->next) {
                         self(cur);
                         if (cur->next) {
                             out << ",";
                         }
                     }
-                    out << ")";
+                    if (isVecAccessor) {
+                        out << "))";
+                    } else {
+                        out << (node->paren->type == TokenType::RightParen ? ")" : "]");
+                    }
                 },
-                [&](nova::AstLiteral* node) {
+                [&](AstLiteral* node) {
                     out << node->token->lexeme;
                 },
-                [&](nova::AstCondExpr* node) {
+                [&](AstCondExpr* node) {
                     self(node->cond);
                     out << "\n?";
                     self(node->thenExpr);

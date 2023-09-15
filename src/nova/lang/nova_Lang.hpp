@@ -25,7 +25,7 @@ fn main()\
 
 fun main()\
 {\
-    ref box: ImRoundRect = pc.rects[inInstanceID];\
+    ref box = pc.rects[inInstanceID];\
 \
     var absPos: vec2 = abs(inTex);\
     var cornerFocus: vec2 = box.halfExtent - vec2(box.cornerRadius);\
