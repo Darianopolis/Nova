@@ -7,10 +7,12 @@
 
 struct PushConstants
 {
-    u64 vertexVA;
+    Vec2U uniforms;
+    u64   vertices;
 
     static constexpr std::array Layout {
-        nova::Member("vertexVA",   nova::ShaderVarType::U64),
+        nova::Member("uniforms", nova::UniformBufferType("Uniforms", true)),
+        nova::Member("vertices", nova::BufferReferenceType("Vertex", true)),
     };
 };
 
@@ -96,14 +98,16 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
         nova::shader::Structure("Uniforms", Uniforms::Layout),
-        nova::shader::BufferReference("Vertex", Vertex::Layout),
+        nova::shader::Structure("Vertex", Vertex::Layout),
         nova::shader::PushConstants("pc", PushConstants::Layout),
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Kernel(R"glsl(
-            Uniforms u = UniformBuffer<Uniforms>(0)[0];
-            Vertex v = Vertex(pc.vertexVA)[gl_VertexIndex];
-            color = v.color;
-            gl_Position = vec4(v.position + u.offset, 1);
+        nova::shader::Fragment(R"glsl(
+            fn main() {
+                ref u = pc.uniforms;
+                ref v = pc.vertices[gl_VertexIndex];
+                color = v.color;
+                gl_Position = vec4(v.position + u.offset, 1);
+            }
         )glsl"),
     });
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };
@@ -111,8 +115,10 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
-        nova::shader::Kernel(R"glsl(
-            fragColor = vec4(inColor, 1);
+        nova::shader::Fragment(R"glsl(
+            fn main() {
+                fragColor = vec4(inColor, 1);
+            }
         )glsl"),
     });
     NOVA_CLEANUP(&) { fragmentShader.Destroy(); };
@@ -135,7 +141,10 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
         cmd.SetBlendState({false});
         cmd.BindShaders({vertexShader, fragmentShader});
 
-        cmd.PushConstants(PushConstants { .vertexVA = vertices.GetAddress() });
+        cmd.PushConstants(PushConstants {
+            .uniforms = Vec2U(0, 0),
+            .vertices = vertices.GetAddress()
+        });
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);
         cmd.DrawIndexed(3, 1, 0, 0, 0);

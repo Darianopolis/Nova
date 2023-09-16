@@ -16,9 +16,9 @@ namespace nova
         u32 samplerID;
 
         static constexpr std::array Layout {
-            nova::Member("vertexVA",   nova::ShaderVarType::U64),
-            nova::Member("scale", nova::ShaderVarType::Vec2),
-            nova::Member("offset", nova::ShaderVarType::Vec2),
+            nova::Member("vertices",   nova::BufferReferenceType("ImDrawVert", true)),
+            nova::Member("scale",      nova::ShaderVarType::Vec2),
+            nova::Member("offset",     nova::ShaderVarType::Vec2),
             nova::Member("textureID",  nova::ShaderVarType::U32),
             nova::Member("samplerID",  nova::ShaderVarType::U32),
         };
@@ -39,7 +39,7 @@ namespace nova
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
         vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-            nova::shader::BufferReference("ImDrawVert", {
+            nova::shader::Structure("ImDrawVert", {
                 nova::Member("pos", nova::ShaderVarType::Vec2),
                 nova::Member("uv",  nova::ShaderVarType::Vec2),
                 nova::Member("col", nova::ShaderVarType::U32),
@@ -48,7 +48,7 @@ namespace nova
             nova::shader::Output("outUV",    nova::ShaderVarType::Vec2),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Kernel(R"glsl(
-                ImDrawVert v = ImDrawVert(pc.vertexVA)[gl_VertexIndex];
+                ref v = pc.vertices[gl_VertexIndex];
                 outUV = v.uv;
                 outColor = unpackUnorm4x8(v.col);
                 gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);

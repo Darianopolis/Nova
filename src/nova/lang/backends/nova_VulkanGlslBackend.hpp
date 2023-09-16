@@ -13,7 +13,7 @@ namespace nova
         std::vector<ankerl::unordered_dense::map<std::string_view, Type*>> scopes;
         ankerl::unordered_dense::map<AstNode*, Type*>                   exprTypes;
 
-        enum class AccessorType
+        enum class AccessorMode
         {
             BufferReference,
             UniformBuffer,
@@ -22,17 +22,20 @@ namespace nova
 
         struct Accessor
         {
-            std::string    name;
             Type*       element;
-            AccessorType   type;
+            AccessorMode   mode;
+            bool       readonly;
+
+            std::string    name;
+            Type*  accessorType;
         };
 
-        ankerl::unordered_dense::map<std::string_view, Accessor> accessors;
+        ankerl::unordered_dense::map<std::string_view, Accessor*> accessors;
 
     public:
         VulkanGlslBackend();
 
-        void RegisterAccessor(Accessor accessor);
+        Accessor* RegisterAccessor(Type* element, AccessorMode mode, bool readonly);
 
         void RegisterType(Type* type);
         void RegisterGlobal(std::string_view name, Type* type);
@@ -49,6 +52,7 @@ namespace nova
         Type* ResolveLocal(Token* name);
 
         void Resolve();
+        void PrintAst();
 
         void Generate(std::ostream& out);
     };

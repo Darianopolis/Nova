@@ -20,7 +20,7 @@ namespace nova
         descriptorHeap.WriteSampler(0, defaultSampler);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
-            nova::shader::BufferReference("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
             nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
             nova::shader::Fragment(R"glsl(
@@ -32,7 +32,7 @@ namespace nova
                 uint instanceID = gl_VertexIndex / 6;
                 uint vertexID = gl_VertexIndex % 6;
 
-                ImRoundRect box = ImRoundRect(pc.rectInstancesVA)[instanceID];
+                ref box = pc.rects[instanceID];
                 vec2 delta = deltas[vertexID];
                 outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
@@ -41,27 +41,27 @@ namespace nova
         });
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
-            nova::shader::BufferReference("ImRoundRect", ImRoundRect::Layout),
+            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
             nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
             nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ImRoundRect box = ImRoundRect(pc.rectInstancesVA)[inInstanceID];
+                ref box = pc.rects[inInstanceID];
 
-                vec2 absPos = abs(inTex);
-                vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
+                var absPos: vec2 = abs(inTex);
+                var cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
-                vec4 sampled = box.texTint.a > 0
+                var sampled: vec4 = box.texTint.a > 0
                     ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),
                         (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
-                vec4 centerColor = vec4(
+                var centerColor = vec4(
                     sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
                     sampled.a + box.centerColor.a * (1 - sampled.a));
 
                 if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
-                    float dist = length(absPos - cornerFocus);
+                    var dist: float = length(absPos - cornerFocus);
                     if (dist > box.cornerRadius + 0.5) {
                         discard;
                     }
@@ -256,7 +256,7 @@ namespace nova
             Temp(PushConstants {
                 .invHalfExtent = 2.f / bounds.Size(),
                 .centerPos = bounds.Center(),
-                .rectInstancesVA = rectBuffer.GetAddress(),
+                .rects = rectBuffer.GetAddress(),
             }));
 
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, descriptorHeap);

@@ -229,6 +229,8 @@ Validation: {} ({})
                 f.imagelessFramebuffer = VK_TRUE;
                 f.runtimeDescriptorArray = VK_TRUE;
                 f.descriptorBindingPartiallyBound = VK_TRUE;
+                f.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+                f.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
                 f.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
                 f.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
                 f.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;

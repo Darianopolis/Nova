@@ -13,10 +13,43 @@ namespace nova
         RegisterType(new Type{"function"});
     }
 
-    void VulkanGlslBackend::RegisterAccessor(Accessor accessor)
+    VulkanGlslBackend::Accessor* VulkanGlslBackend::RegisterAccessor(Type* element, AccessorMode mode, bool readonly)
     {
-        auto key = std::string_view(accessor.name);
-        accessors.insert({ key, std::move(accessor) });
+        const char* suffix;
+        switch (mode)
+        {
+        break;case AccessorMode::BufferReference:
+            suffix = "buffer_reference";
+        break;case AccessorMode::UniformBuffer:
+            suffix = "uniform_buffer";
+        break;case AccessorMode::StorageBuffer:
+            suffix = "storage_buffer";
+        break;default:
+            std::unreachable();
+        }
+
+        auto name = std::format("{}{}_{}",
+                element->name,
+                readonly ? "_readonly" : "",
+                suffix);
+
+        if (accessors.contains(name)) {
+            return accessors.at(name);
+        }
+
+        auto accessor = new Accessor {
+            .element = element,
+            .mode = mode,
+            .readonly = readonly,
+            .name = std::move(name),
+        };
+
+        accessor->accessorType = FindType(accessor->name);
+
+        auto key = std::string_view(accessor->name);
+        accessors.insert({ key, accessor });
+
+        return accessor;
     }
 
     void VulkanGlslBackend::RegisterType(Type* type)
@@ -175,7 +208,7 @@ namespace nova
                 [&](AstGet* node) {
                     auto type = self(node->object);
                     if (accessors.contains(type->name)) {
-                        type = accessors.at(type->name).element;
+                        type = accessors.at(type->name)->element;
                     }
                     if (type && type->structure
                             && type->structure->members.contains(node->name->lexeme)) {
@@ -246,19 +279,127 @@ namespace nova
         }
     }
 
+    void VulkanGlslBackend::PrintAst()
+    {
+        auto indent = [](i32 depth) {
+            for (i32 i = 0; i < depth; ++i) {
+                std::cout << "  ";
+            }
+        };
+
+#define INDENTED(offset, fmt, ...)do{\
+            indent(depth + offset);std::cout << std::format(fmt __VA_OPT__(,) __VA_ARGS__);}while(0)
+
+        auto getTypeName = [&](nova::AstNode* node) {
+            if (!exprTypes.contains(node)) {
+                return std::string_view("N/A");
+            }
+            return exprTypes.at(node)->name;
+        };
+
+        auto printTypes = [&](this auto& self, nova::AstNode* _node, i32 depth) -> void {
+            nova::VisitNode(nova::Overloads {
+                [&](nova::AstFunction* node) {
+                    INDENTED(0, ":fun<{}> {}\n", getTypeName(node), node->name->lexeme);
+                    for (auto* cur = node->parameters.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                    self(node->body, depth + 1);
+                },
+                [&](nova::AstVarDecl* node) {
+                    INDENTED(0, ":decl<{}>\n", getTypeName(node));
+                    INDENTED(1, "{}", node->name->lexeme);
+                    if (node->type) {
+                        std::cout << std::format(": {}", node->type->lexeme);
+                    }
+                    std::cout << "\n";
+                    self(node->initializer, depth + 1);
+                },
+                [&](nova::AstIf* node) {
+                    INDENTED(0, ":if\n");
+                    self(node->cond, depth + 1);
+                    self(node->thenBranch, depth + 1);
+                    self(node->elseBranch, depth + 1);
+                },
+                [&](nova::AstReturn* node) {
+                    INDENTED(0, ":return<{}>\n", getTypeName(node));
+                    self(node->value, depth + 1);
+                },
+                [&](nova::AstWhile* node) {
+                    INDENTED(0, ":while\n");
+                    self(node->condition, depth + 1);
+                    self(node->body, depth + 1);
+                },
+                [&](nova::AstBlock* node) {
+                    INDENTED(0, ":block\n");
+                    for (auto cur = node->statements.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                },
+                [&](nova::AstVariable* node) {
+                    INDENTED(0, ":varexpr<{}> {}\n", getTypeName(node), node->name->lexeme);
+                },
+                [&](nova::AstAssign* node) {
+                    INDENTED(0, ":assign<{}>\n", getTypeName(node));
+                    self(node->variable, depth + 1);
+                    self(node->value, depth + 1);
+                },
+                [&](nova::AstGet* node) {
+                    INDENTED(0, ":get<{}>\n", getTypeName(node));
+                    self(node->object, depth + 1);
+                    INDENTED(1, "{}\n", node->name->lexeme);
+                },
+                [&](nova::AstLogical* node) {
+                    INDENTED(0, ":logical<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstBinary* node) {
+                    INDENTED(0, ":binary<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->left, depth + 1);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstUnary* node) {
+                    INDENTED(0, ":unary<{}> {}\n", getTypeName(node), node->op->lexeme);
+                    self(node->right, depth + 1);
+                },
+                [&](nova::AstCall* node) {
+                    INDENTED(0, ":call<{}>\n", getTypeName(node));
+                    self(node->callee, depth + 1);
+                    for (auto cur = node->arguments.head; cur; cur = cur->next) {
+                        self(cur, depth + 1);
+                    }
+                },
+                [&](nova::AstLiteral* node) {
+                    INDENTED(0, ":literal<{}> {}\n", getTypeName(node), node->token->lexeme);
+                },
+                [&](nova::AstCondExpr* node) {
+                    INDENTED(0, ":condexpr<{}>\n", getTypeName(node));
+                    self(node->cond, depth + 1);
+                    self(node->thenExpr, depth + 1);
+                    self(node->elseExpr, depth + 1);
+                }
+            }, _node);
+        };
+
+        for (auto* cur = parser->nodes.head; cur; cur = cur->next) {
+            printTypes(cur, 0);
+        }
+    }
+
     template<class Recurse>
     void EmitAccess(VulkanGlslBackend& backend, std::ostream& out, AstNode* node, Recurse& recurse)
     {
         auto type = backend.exprTypes.at(node)->name;
         if (backend.accessors.contains(type)) {
             auto& accessor = backend.accessors.at(type);
-            switch (accessor.type)
+            switch (accessor->mode)
             {
-            break;case VulkanGlslBackend::AccessorType::BufferReference:
+            break;case VulkanGlslBackend::AccessorMode::BufferReference:
                 recurse(node);
                 out << ".get";
-            break;case VulkanGlslBackend::AccessorType::StorageBuffer:
-                  case VulkanGlslBackend::AccessorType::UniformBuffer:
+            break;case VulkanGlslBackend::AccessorMode::StorageBuffer:
+                  case VulkanGlslBackend::AccessorMode::UniformBuffer:
                 out << type << "[";
                 recurse(node);
                 out << ".x].data[";
@@ -272,6 +413,9 @@ namespace nova
 
     void VulkanGlslBackend::Generate(std::ostream& out)
     {
+        Mat4 M;
+        Vec4 V;
+        auto a = M * V;
         auto emitGlsl = [&](this auto& self, AstNode* _node) -> void {
             VisitNode(Overloads {
                 [&](AstFunction* node) {
@@ -289,13 +433,13 @@ namespace nova
                 [&](AstVarDecl* node) {
                     auto type = exprTypes.at(node)->name;
                     if (accessors.contains(type)) {
-                        auto& accessor = accessors.at(type);
-                        switch (accessor.type)
+                        auto* accessor = accessors.at(type);
+                        switch (accessor->mode)
                         {
-                        break;case AccessorType::BufferReference:
-                            out << accessor.name;
-                        break;case AccessorType::StorageBuffer:
-                              case AccessorType::UniformBuffer:
+                        break;case AccessorMode::BufferReference:
+                            out << accessor->name;
+                        break;case AccessorMode::StorageBuffer:
+                              case AccessorMode::UniformBuffer:
                             out << "uvec2";
                         }
                     } else {
@@ -375,13 +519,18 @@ namespace nova
                     self(node->right);
                 },
                 [&](AstCall* node) {
-                    bool isVecAccessor = accessors.contains(exprTypes.at(node->callee)->name);
+                    auto calleeName = exprTypes.at(node->callee)->name;
+                    bool isVecAccessor = accessors.contains(calleeName);
+                    if (isVecAccessor
+                            && accessors.at(calleeName)->mode == AccessorMode::BufferReference) {
+                        isVecAccessor = false;
+                    }
                     if (isVecAccessor) {
                         out << "(";
                     }
                     self(node->callee);
                     if (isVecAccessor) {
-                        out << "+vec2(0,";
+                        out << "+uvec2(0,";
                     } else {
                         out << (node->paren->type == TokenType::RightParen ? "(" : "[");
                     }

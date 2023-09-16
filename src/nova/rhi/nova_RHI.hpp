@@ -384,63 +384,87 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct UniformBufferType
+    {
+        std::string_view element;
+        bool            readonly;
+    };
+
+    struct StorageBufferType
+    {
+        std::string_view element;
+        bool            readonly;
+    };
+
+    struct BufferReferenceType
+    {
+        std::string_view element;
+        bool            readonly;
+    };
+
+    using ShaderType = std::variant<
+        ShaderVarType,
+        UniformBufferType,
+        StorageBufferType,
+        BufferReferenceType>;
+
     struct Member
     {
         std::string_view    name;
-        ShaderVarType       type;
+        ShaderType          type;
         std::optional<u32> count = std::nullopt;
     };
 
-    namespace binding
-    {
-        struct SampledTexture
-        {
-            std::string         name;
-            std::optional<u32> count;
-        };
+    // namespace binding
+    // {
+    //     struct SampledTexture
+    //     {
+    //         std::string         name;
+    //         std::optional<u32> count;
+    //     };
 
-        struct StorageTexture
-        {
-            std::string         name;
-            Format            format;
-            std::optional<u32> count;
-        };
+    //     struct StorageTexture
+    //     {
+    //         std::string         name;
+    //         Format            format;
+    //         std::optional<u32> count;
+    //     };
 
-        struct UniformBuffer
-        {
-            std::string            name;
-            std::vector<Member> members;
-            bool                dynamic = false;
-            std::optional<u32>    count;
-        };
+    //     struct UniformBuffer
+    //     {
+    //         std::string            name;
+    //         std::vector<Member> members;
+    //         bool                dynamic = false;
+    //         std::optional<u32>    count;
+    //     };
 
-        struct AccelerationStructure
-        {
-            std::string         name;
-            std::optional<u32> count;
-        };
-    }
+    //     struct AccelerationStructure
+    //     {
+    //         std::string         name;
+    //         std::optional<u32> count;
+    //     };
+    // }
 
 // -----------------------------------------------------------------------------
 
-    using DescriptorBinding = std::variant<
-        binding::SampledTexture,
-        binding::StorageTexture,
-        binding::AccelerationStructure,
-        binding::UniformBuffer>;
+    // using DescriptorBinding = std::variant<
+    //     binding::SampledTexture,
+    //     binding::StorageTexture,
+    //     binding::AccelerationStructure,
+    //     binding::UniformBuffer>;
 
-    struct DescriptorSetBindingOffset
-    {
-        u32 buffer;
-        u64 offset = {};
-    };
+    // struct DescriptorSetBindingOffset
+    // {
+    //     u32 buffer;
+    //     u64 offset = {};
+    // };
 
-    struct PushConstantRange
-    {
-        std::string              name;
-        std::vector<Member> constants;
-        u32                    offset = 0;
-    };
+    // struct PushConstantRange
+    // {
+    //     std::string              name;
+    //     std::vector<Member> constants;
+    //     u32                    offset = 0;
+    // };
 
 // -----------------------------------------------------------------------------
 
@@ -471,23 +495,23 @@ namespace nova
             Span<Member> members;
         };
 
-        struct BufferReference
-        {
-            std::string name;
-            Span<Member> members;
-        };
+        // struct BufferReference
+        // {
+        //     std::string name;
+        //     Span<Member> members;
+        // };
 
         struct Input
         {
             std::string       name;
-            ShaderVarType     type;
+            ShaderType        type;
             ShaderInputFlags flags = {};
         };
 
         struct Output
         {
             std::string   name;
-            ShaderVarType type;
+            ShaderType    type;
         };
 
         struct Fragment
@@ -510,7 +534,6 @@ namespace nova
     using ShaderElement = std::variant<
         shader::Structure,
         shader::PushConstants,
-        shader::BufferReference,
         shader::Input,
         shader::Output,
         shader::Fragment,

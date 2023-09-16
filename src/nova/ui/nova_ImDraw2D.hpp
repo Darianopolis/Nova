@@ -104,15 +104,15 @@ namespace nova
     {
         struct PushConstants
         {
-            Vec2 invHalfExtent;
-            Vec2 centerPos;
-            u64 rectInstancesVA;
-            u32 samplerIndex;
+            Vec2  invHalfExtent;
+            Vec2      centerPos;
+            u64           rects;
+            u32    samplerIndex;
 
             static constexpr auto Layout = std::array {
                 Member("invHalfExtent",   nova::ShaderVarType::Vec2),
                 Member("centerPos",       nova::ShaderVarType::Vec2),
-                Member("rectInstancesVA", nova::ShaderVarType::U64),
+                Member("rects",           nova::BufferReferenceType("ImRoundRect", true)),
                 Member("samplerIndex",         nova::ShaderVarType::U32),
             };
         };

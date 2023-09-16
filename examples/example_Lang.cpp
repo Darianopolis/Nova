@@ -161,12 +161,6 @@ NOVA_EXAMPLE(Lang, "lang")
         backend.RegisterGlobal("gl_Position",    backend.FindType("vec4"));
         backend.RegisterGlobal("gl_VertexIndex", backend.FindType("uint"));
 
-        auto pc = backend.FindType("PushConstants");
-        pc->structure = new nova::Struct;
-        pc->structure->members.insert({ "uniforms", backend.FindType("Uniforms_readonly_uniform_buffer")      });
-        pc->structure->members.insert({ "vertices", backend.FindType("Vertex_readonly_buffer_reference")      });
-        pc->structure->members.insert({ "rects",    backend.FindType("ImRoundRect_readonly_buffer_reference") });
-
         auto uniforms = backend.FindType("Uniforms");
         uniforms->structure = new nova::Struct;
         uniforms->structure->members.insert({ "offset", backend.FindType("vec3") });
@@ -189,25 +183,19 @@ NOVA_EXAMPLE(Lang, "lang")
         rect->structure->members.insert({ "texCenterPos",  backend.FindType("vec2")  });
         rect->structure->members.insert({ "texHalfExtent", backend.FindType("vec2")  });
 
+        auto uniformAccessor = backend.RegisterAccessor(uniforms, nova::VulkanGlslBackend::AccessorMode::UniformBuffer,   true);
+        auto vertexAccessor  = backend.RegisterAccessor(vertices, nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
+        auto rectAccessor    = backend.RegisterAccessor(rect,     nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
+
+        auto pc = backend.FindType("PushConstants");
+        pc->structure = new nova::Struct;
+        pc->structure->members.insert({ "uniforms", uniformAccessor->accessorType });
+        pc->structure->members.insert({ "vertices", vertexAccessor->accessorType  });
+        pc->structure->members.insert({ "rects",    rectAccessor->accessorType    });
+
         backend.RegisterType(pc);
         backend.RegisterGlobal("pc", pc);
         backend.RegisterGlobal("color", backend.FindType("vec3"));
-
-        backend.RegisterAccessor({
-            .name = "Uniforms_readonly_uniform_buffer",
-            .element = uniforms,
-            .type = nova::VulkanGlslBackend::AccessorType::UniformBuffer,
-        });
-        backend.RegisterAccessor({
-            .name = "Vertex_readonly_buffer_reference",
-            .element = vertices,
-            .type = nova::VulkanGlslBackend::AccessorType::BufferReference,
-        });
-        backend.RegisterAccessor({
-            .name = "ImRoundRect_readonly_buffer_reference",
-            .element = rect,
-            .type = nova::VulkanGlslBackend::AccessorType::BufferReference,
-        });
 
         backend.Resolve();
 

@@ -6,7 +6,6 @@
 namespace nova
 {
     /*
-
 fn main()\
 {\
     ref u: Uniforms = pc.uniforms;\
