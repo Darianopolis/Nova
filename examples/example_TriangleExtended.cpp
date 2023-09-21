@@ -96,7 +96,39 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 
     // Shaders
 
-    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
+    [[maybe_unused]] auto generatedShaderCode = R"glsl(
+#version 460
+// -- Extension --
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_buffer_reference2 : enable
+// -- Uniforms --
+struct Uniforms {
+    vec3 offset;
+};
+layout(set = 0, binding = 0, scalar) readonly uniform _2_ { Uniforms data[1024]; } Uniforms_readonly_uniform_buffer[];
+// -- Vertices --
+struct Vertex {
+    vec3 position;
+    vec3 color;
+};
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex_readonly_buffer_reference { Vertex get; };
+// -- PushConstants --
+layout(push_constant, scalar) uniform _10_ {
+    uvec2 uniforms;
+    Vertex_readonly_buffer_reference vertices;
+} pc;
+// -- Outputs --
+layout(location = 0) out vec3 color;
+// -- Entry --
+void main() {
+    uvec2 u = pc.uniforms;
+    Vertex_readonly_buffer_reference v = pc.vertices[gl_VertexIndex];
+    color = v.get.color;
+    gl_Position = vec4(v.get.position + Uniforms_readonly_uniform_buffer[u.x].data[u.y].offset,1);
+}
+    )glsl";
+
+    auto vertexShader = nova::Shader::Create2(context, nova::ShaderStage::Vertex, {
         nova::shader::Structure("Uniforms", Uniforms::Layout),
         nova::shader::Structure("Vertex", Vertex::Layout),
         nova::shader::PushConstants("pc", PushConstants::Layout),
@@ -112,7 +144,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
     });
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };
 
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
+    auto fragmentShader = nova::Shader::Create2(context, nova::ShaderStage::Fragment, {
         nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
         nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Fragment(R"glsl(

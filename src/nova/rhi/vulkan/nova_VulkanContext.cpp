@@ -35,7 +35,7 @@ Validation: {} ({})
 
     struct VulkanFeatureChain
     {
-        ankerl::unordered_dense::map<VkStructureType, VkBaseInStructure*> deviceFeatures;
+        HashMap<VkStructureType, VkBaseInStructure*> deviceFeatures;
         ankerl::unordered_dense::set<std::string> extensions;
         VkBaseInStructure* pNext = nullptr;
 

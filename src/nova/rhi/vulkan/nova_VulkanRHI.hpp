@@ -231,14 +231,6 @@ namespace nova
         return std::memcmp(this, &other, sizeof(type)) == 0; \
     }
 
-#define NOVA_DEFINE_WYHASH_FOR(type)                          \
-    template<> struct ankerl::unordered_dense::hash<type> {   \
-        using is_avalanching = void;                          \
-        uint64_t operator()(const type& key) const noexcept { \
-            return detail::wyhash::hash(&key, sizeof(key));   \
-        }                                                     \
-    }
-
     struct GraphicsPipelineVertexInputStageKey
     {
         Topology topology;
@@ -287,6 +279,14 @@ namespace nova
     };
 }
 
+#define NOVA_DEFINE_WYHASH_FOR(type)                          \
+    template<> struct ankerl::unordered_dense::hash<type> {   \
+        using is_avalanching = void;                          \
+        uint64_t operator()(const type& key) const noexcept { \
+            return detail::wyhash::hash(&key, sizeof(key));   \
+        }                                                     \
+    }
+
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineVertexInputStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
 NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
@@ -296,6 +296,21 @@ NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
 
 namespace nova
 {
+
+// #define NOVA_DEFINE_WYHASH_FOR(type)                                \
+//     template<> struct Hash<type> {                                  \
+//         using is_avalanching = void;                                \
+//         uint64_t operator()(const type& key) const noexcept {       \
+//             return ankerl::unordered_dense::detail::wyhash::hash(&key, sizeof(key)); \
+//         }                                                           \
+//     }
+
+//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineVertexInputStageKey);
+//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelinePreRasterizationStageKey);
+//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineFragmentShaderStageKey);
+//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineFragmentOutputStageKey);
+//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineLibrarySetKey);
+//     NOVA_DEFINE_WYHASH_FOR(ComputePipelineKey);
 
 // -----------------------------------------------------------------------------
 
@@ -376,12 +391,12 @@ namespace nova
         std::atomic_uint64_t nextUID = 1;
         UID GetUID() noexcept { return UID(nextUID++); };
 
-        ankerl::unordered_dense::map<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
-        ankerl::unordered_dense::map<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
-        ankerl::unordered_dense::map<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
-        ankerl::unordered_dense::map<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
-        ankerl::unordered_dense::map<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
-        ankerl::unordered_dense::map<ComputePipelineKey, VkPipeline>                         computePipelines;
+        HashMap<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
+        HashMap<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
+        HashMap<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
+        HashMap<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
+        HashMap<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
+        HashMap<ComputePipelineKey, VkPipeline>                         computePipelines;
         VkPipelineCache pipelineCache = {};
 
 // -----------------------------------------------------------------------------

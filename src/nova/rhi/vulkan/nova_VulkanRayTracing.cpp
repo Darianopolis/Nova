@@ -35,7 +35,7 @@ namespace nova
     {
         // Convert to stages and groups
 
-        ankerl::unordered_dense::map<VkShaderModule, u32> stageIndices;
+        HashMap<VkShaderModule, u32> stageIndices;
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         std::vector<u32> rayGenIndices, rayMissIndices, rayHitIndices, rayCallIndices;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;

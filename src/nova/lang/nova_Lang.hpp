@@ -267,7 +267,7 @@ fun main()\
 
     struct Struct
     {
-        ankerl::unordered_dense::map<std::string_view, Type*> members;
+        HashMap<std::string_view, Type*> members;
     };
 
     struct Type

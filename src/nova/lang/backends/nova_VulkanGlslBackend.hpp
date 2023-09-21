@@ -10,8 +10,8 @@ namespace nova
 
         Type** currentFnType = nullptr;
 
-        std::vector<ankerl::unordered_dense::map<std::string_view, Type*>> scopes;
-        ankerl::unordered_dense::map<AstNode*, Type*>                   exprTypes;
+        std::vector<HashMap<std::string_view, Type*>> scopes;
+        HashMap<AstNode*, Type*>                   exprTypes;
 
         enum class AccessorMode
         {
@@ -26,11 +26,11 @@ namespace nova
             AccessorMode   mode;
             bool       readonly;
 
-            std::string    name;
-            Type*  accessorType;
+            std::string   name;
+            Type* accessorType;
         };
 
-        ankerl::unordered_dense::map<std::string_view, Accessor*> accessors;
+        HashMap<std::string_view, Accessor*> accessors;
 
     public:
         VulkanGlslBackend();

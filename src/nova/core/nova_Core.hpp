@@ -262,6 +262,27 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<typename K, typename V>
+    using HashMap = ankerl::unordered_dense::map<K, V>;
+
+    // template<typename K>
+    // struct Hash;
+
+// }
+//     template<typename K>
+//     struct ankerl::unordered_dense::hash<K>
+//     {
+//         using K::is_avalanching;
+//         uint64_t operator()(const K& key) const noexcept {
+//             return nova::Hash<K>{}(key);
+//         }
+//     };
+
+// namespace nova
+// {
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_CONCAT_INTERNAL(a, b) a##b
 #define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
 

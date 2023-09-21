@@ -415,57 +415,6 @@ namespace nova
         std::optional<u32> count = std::nullopt;
     };
 
-    // namespace binding
-    // {
-    //     struct SampledTexture
-    //     {
-    //         std::string         name;
-    //         std::optional<u32> count;
-    //     };
-
-    //     struct StorageTexture
-    //     {
-    //         std::string         name;
-    //         Format            format;
-    //         std::optional<u32> count;
-    //     };
-
-    //     struct UniformBuffer
-    //     {
-    //         std::string            name;
-    //         std::vector<Member> members;
-    //         bool                dynamic = false;
-    //         std::optional<u32>    count;
-    //     };
-
-    //     struct AccelerationStructure
-    //     {
-    //         std::string         name;
-    //         std::optional<u32> count;
-    //     };
-    // }
-
-// -----------------------------------------------------------------------------
-
-    // using DescriptorBinding = std::variant<
-    //     binding::SampledTexture,
-    //     binding::StorageTexture,
-    //     binding::AccelerationStructure,
-    //     binding::UniformBuffer>;
-
-    // struct DescriptorSetBindingOffset
-    // {
-    //     u32 buffer;
-    //     u64 offset = {};
-    // };
-
-    // struct PushConstantRange
-    // {
-    //     std::string              name;
-    //     std::vector<Member> constants;
-    //     u32                    offset = 0;
-    // };
-
 // -----------------------------------------------------------------------------
 
     enum class ShaderInputFlags
@@ -495,11 +444,11 @@ namespace nova
             Span<Member> members;
         };
 
-        // struct BufferReference
-        // {
-        //     std::string name;
-        //     Span<Member> members;
-        // };
+        struct BufferReference
+        {
+            std::string name;
+            Span<Member> members;
+        };
 
         struct Input
         {
@@ -534,6 +483,7 @@ namespace nova
     using ShaderElement = std::variant<
         shader::Structure,
         shader::PushConstants,
+        shader::BufferReference,
         shader::Input,
         shader::Output,
         shader::Fragment,
@@ -710,6 +660,7 @@ namespace nova
     {
         static Shader Create(HContext, ShaderStage, const std::string& filename, const std::string& code);
         static Shader Create(HContext, ShaderStage, Span<ShaderElement> elements);
+        static Shader Create2(HContext, ShaderStage, Span<ShaderElement> elements);
         void Destroy();
     };
 

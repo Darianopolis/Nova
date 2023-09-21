@@ -9,9 +9,9 @@ namespace nova
 {
     struct ImGuiPushConstants
     {
-        u64 vertexVA;
-        Vec2 scale;
-        Vec2 offset;
+        u64  vertices;
+        Vec2    scale;
+        Vec2   offset;
         u32 textureID;
         u32 samplerID;
 
@@ -38,30 +38,37 @@ namespace nova
             nova::BufferUsage::Index,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
-        vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
-            nova::shader::Structure("ImDrawVert", {
-                nova::Member("pos", nova::ShaderVarType::Vec2),
-                nova::Member("uv",  nova::ShaderVarType::Vec2),
-                nova::Member("col", nova::ShaderVarType::U32),
-            }),
+        std::array ImDrawVertLayout {
+            nova::Member("pos", nova::ShaderVarType::Vec2),
+            nova::Member("uv",  nova::ShaderVarType::Vec2),
+            nova::Member("col", nova::ShaderVarType::U32),
+        };
+
+        vertexShader = nova::Shader::Create2(context, nova::ShaderStage::Vertex, {
+            nova::shader::Structure("ImDrawVert", ImDrawVertLayout),
             nova::shader::PushConstants("pc", ImGuiPushConstants::Layout),
             nova::shader::Output("outUV",    nova::ShaderVarType::Vec2),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
-            nova::shader::Kernel(R"glsl(
-                ref v = pc.vertices[gl_VertexIndex];
-                outUV = v.uv;
-                outColor = unpackUnorm4x8(v.col);
-                gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
+            nova::shader::Fragment(R"glsl(
+                fn main() {
+                    ref v = pc.vertices[gl_VertexIndex];
+                    outUV = v.uv;
+                    outColor = unpackUnorm4x8(v.col);
+                    gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
+                }
             )glsl"),
         });
 
-        fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
+        fragmentShader = nova::Shader::Create2(context, nova::ShaderStage::Fragment, {
+            nova::shader::Structure("ImDrawVert", ImDrawVertLayout),
             nova::shader::PushConstants("pc", ImGuiPushConstants::Layout),
             nova::shader::Input("inUV",      nova::ShaderVarType::Vec2),
             nova::shader::Input("inColor",   nova::ShaderVarType::Vec4),
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
-            nova::shader::Kernel(R"glsl(
-                outColor = inColor * texture(Sampler2D(pc.textureID, pc.samplerID), inUV);
+            nova::shader::Fragment(R"glsl(
+                fn main() {
+                    outColor = inColor * texture(Sampler2D(pc.textureID, pc.samplerID), inUV);
+                }
             )glsl"),
         });
 
@@ -257,7 +264,7 @@ namespace nova
 
                 cmd.SetScissors({{Vec2I(clipMin), Vec2I(clipMax - clipMin)}});
                 cmd.PushConstants(0, sizeof(ImGuiPushConstants), Temp(ImGuiPushConstants {
-                    .vertexVA = vertexBuffer.GetAddress(),
+                    .vertices = vertexBuffer.GetAddress(),
                     .scale = 2.f / Vec2(target.GetExtent()),
                     .offset = Vec2(-1.f),
                     .textureID = u32(uintptr_t(imCmd.TextureId) & ~0u),
