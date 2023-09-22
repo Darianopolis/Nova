@@ -133,8 +133,8 @@ void main()
         nova::shader::ComputeKernel(Vec3U(16u, 16u, 1u), ""),
         nova::shader::Fragment(R"glsl(
             fn main() {
-                let pos: ivec2 = ivec2(gl_GlobalInvocationID.xy);
-                let uv: vec2 = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
+                let pos = ivec2(gl_GlobalInvocationID.xy);
+                let uv = vec2(pos) / (vec2(gl_NumWorkGroups.xy) * vec2(gl_WorkGroupSize.xy));
 
                 let source: vec3 = texture(pc.sampled, uv).xyz;
                 imageStore(pc.target, ivec2(gl_GlobalInvocationID.xy), vec4(source, 1.0));

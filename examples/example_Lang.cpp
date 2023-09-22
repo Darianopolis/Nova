@@ -183,9 +183,9 @@ NOVA_EXAMPLE(Lang, "lang")
         rect->structure->members.insert({ "texCenterPos",  backend.FindType("vec2")  });
         rect->structure->members.insert({ "texHalfExtent", backend.FindType("vec2")  });
 
-        auto uniformAccessor = backend.RegisterAccessor(uniforms, nova::VulkanGlslBackend::AccessorMode::UniformBuffer,   true);
-        auto vertexAccessor  = backend.RegisterAccessor(vertices, nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
-        auto rectAccessor    = backend.RegisterAccessor(rect,     nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
+        auto uniformAccessor = backend.RegisterBufferAccessor(uniforms, nova::VulkanGlslBackend::AccessorMode::UniformBuffer,   true);
+        auto vertexAccessor  = backend.RegisterBufferAccessor(vertices, nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
+        auto rectAccessor    = backend.RegisterBufferAccessor(rect,     nova::VulkanGlslBackend::AccessorMode::BufferReference, true);
 
         auto pc = backend.FindType("PushConstants");
         pc->structure = new nova::Struct;

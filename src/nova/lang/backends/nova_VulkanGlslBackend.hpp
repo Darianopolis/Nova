@@ -6,12 +6,6 @@ namespace nova
 {
     struct VulkanGlslBackend
     {
-        Parser* parser = nullptr;
-
-        Type** currentFnType = nullptr;
-
-        std::vector<HashMap<std::string_view, Type*>> scopes;
-        HashMap<AstNode*, Type*>                   exprTypes;
 
         enum class AccessorMode
         {
@@ -22,7 +16,7 @@ namespace nova
             StorageImage,
         };
 
-        struct Accessor
+        struct BufferAccessor
         {
             Type*     element;
             AccessorMode mode;
@@ -31,8 +25,6 @@ namespace nova
             std::string   name;
             Type* accessorType;
         };
-
-        HashMap<std::string_view, Accessor*> accessors;
 
         struct ImageAccessor
         {
@@ -44,12 +36,21 @@ namespace nova
             Type* accessorType;
         };
 
-        HashMap<std::string_view, ImageAccessor*> imageAccessors;
+    public:
+        Parser* parser = nullptr;
+
+        Type** currentFnType = nullptr;
+
+        std::vector<HashMap<std::string_view, Type*>> scopes;
+        HashMap<AstNode*, Type*>                   exprTypes;
+
+        HashMap<std::string_view, BufferAccessor*> bufferAccessors;
+        HashMap<std::string_view, ImageAccessor*>   imageAccessors;
 
     public:
         VulkanGlslBackend();
 
-        Accessor* RegisterAccessor(Type* element, AccessorMode mode, bool readonly);
+        BufferAccessor* RegisterBufferAccessor(Type* element, AccessorMode mode, bool readonly);
         ImageAccessor* RegisterImageAccessor(std::string_view format, i32 dims, AccessorMode mode);
 
         void RegisterType(Type* type);

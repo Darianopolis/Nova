@@ -5,12 +5,6 @@ namespace nova
     VulkanGlslBackend::VulkanGlslBackend()
     {
         scopes.emplace_back();
-        RegisterType(new Type{"nil"});
-        RegisterType(new Type{"bool"});
-        RegisterType(new Type{"float"});
-        RegisterType(new Type{"int"});
-        RegisterType(new Type{"string"});
-        RegisterType(new Type{"function"});
     }
 
     VulkanGlslBackend::ImageAccessor* VulkanGlslBackend::RegisterImageAccessor(std::string_view format, i32 dims, AccessorMode mode)
@@ -26,7 +20,7 @@ namespace nova
 
         auto name = std::format("{}{}D{}{}", prefix, dims, format.empty() ? "" : "_", format);
 
-        if (accessors.contains(name)) {
+        if (bufferAccessors.contains(name)) {
             return imageAccessors.at(name);
         }
 
@@ -45,7 +39,7 @@ namespace nova
         return accessor;
     }
 
-    VulkanGlslBackend::Accessor* VulkanGlslBackend::RegisterAccessor(Type* element, AccessorMode mode, bool readonly)
+    VulkanGlslBackend::BufferAccessor* VulkanGlslBackend::RegisterBufferAccessor(Type* element, AccessorMode mode, bool readonly)
     {
         const char* suffix;
         switch (mode)
@@ -65,11 +59,11 @@ namespace nova
                 readonly ? "_readonly" : "",
                 suffix);
 
-        if (accessors.contains(name)) {
-            return accessors.at(name);
+        if (bufferAccessors.contains(name)) {
+            return bufferAccessors.at(name);
         }
 
-        auto accessor = new Accessor {
+        auto accessor = new BufferAccessor {
             .element = element,
             .mode = mode,
             .readonly = readonly,
@@ -79,7 +73,7 @@ namespace nova
         accessor->accessorType = FindType(accessor->name);
 
         auto key = std::string_view(accessor->name);
-        accessors.insert({ key, accessor });
+        bufferAccessors.insert({ key, accessor });
 
         return accessor;
     }
@@ -239,8 +233,8 @@ namespace nova
                 },
                 [&](AstGet* node) {
                     auto type = self(node->object);
-                    if (accessors.contains(type->name)) {
-                        auto elemType = accessors.at(type->name)->element;
+                    if (bufferAccessors.contains(type->name)) {
+                        auto elemType = bufferAccessors.at(type->name)->element;
                         if (elemType) {
                             type = elemType;
                         }
@@ -426,8 +420,8 @@ namespace nova
     void EmitAccess(VulkanGlslBackend& backend, std::ostream& out, AstNode* node, Recurse& recurse)
     {
         auto type = backend.exprTypes.at(node)->name;
-        if (backend.accessors.contains(type)) {
-            auto& accessor = backend.accessors.at(type);
+        if (backend.bufferAccessors.contains(type)) {
+            auto& accessor = backend.bufferAccessors.at(type);
             switch (accessor->mode)
             {
             break;case VulkanGlslBackend::AccessorMode::BufferReference:
@@ -464,8 +458,8 @@ namespace nova
                 },
                 [&](AstVarDecl* node) {
                     auto type = exprTypes.at(node)->name;
-                    if (accessors.contains(type)) {
-                        auto* accessor = accessors.at(type);
+                    if (bufferAccessors.contains(type)) {
+                        auto* accessor = bufferAccessors.at(type);
                         switch (accessor->mode)
                         {
                         break;case AccessorMode::BufferReference:
@@ -482,7 +476,7 @@ namespace nova
                     out << " " << node->name->lexeme;
                     if (node->initializer) {
                         out << " = ";
-                        if (!accessors.contains(type)) {
+                        if (!bufferAccessors.contains(type)) {
                             EmitAccess(*this, out, node->initializer, self);
                         } else {
                             self(node->initializer);
@@ -521,8 +515,8 @@ namespace nova
                     out << node->name->lexeme;
                 },
                 [&](AstAssign* node) {
-                    auto lhsHasAccessor = accessors.contains(exprTypes.at(node->variable)->name);
-                    auto rhsHasAccessor = accessors.contains(exprTypes.at(node->value)->name);
+                    auto lhsHasAccessor = bufferAccessors.contains(exprTypes.at(node->variable)->name);
+                    auto rhsHasAccessor = bufferAccessors.contains(exprTypes.at(node->value)->name);
                     if (lhsHasAccessor == rhsHasAccessor) {
                         self(node->variable);
                         out << " = ";
@@ -560,9 +554,9 @@ namespace nova
                 },
                 [&](AstCall* node) {
                     auto calleeName = exprTypes.at(node->callee)->name;
-                    bool isVecAccessor = accessors.contains(calleeName);
+                    bool isVecAccessor = bufferAccessors.contains(calleeName);
                     if (isVecAccessor
-                            && accessors.at(calleeName)->mode == AccessorMode::BufferReference) {
+                            && bufferAccessors.at(calleeName)->mode == AccessorMode::BufferReference) {
                         isVecAccessor = false;
                     }
 

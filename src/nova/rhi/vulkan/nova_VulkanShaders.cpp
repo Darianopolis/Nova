@@ -492,6 +492,25 @@ namespace nova
         nova::VulkanGlslBackend backend;
         backend.parser = &parser;
 
+        for (auto& type : {
+             "vec2",  "vec3",  "vec4",
+            "ivec2", "ivec3", "ivec4",
+            "uvec2", "uvec3", "uvec4",
+
+            "uint16_t", "int16_t",
+            "uint",     "int",
+            "uint64_t", "int64_t",
+
+            "mat2", "mat3", "mat4",
+            "mat4x3", "mat3x4",
+
+            "float", "double",
+
+            "bool",
+        }) {
+            backend.FindType(type);
+        }
+
         backend.RegisterGlobal("gl_Position",           backend.FindType("vec4"));
         backend.RegisterGlobal("gl_VertexIndex",        backend.FindType("uint"));
         backend.RegisterGlobal("gl_GlobalInvocationID", backend.FindType("uvec2"));
@@ -503,7 +522,7 @@ namespace nova
 
             std::visit(Overloads {
                 [&](const BufferReferenceType& br) {
-                    auto accessor = backend.RegisterAccessor(
+                    auto accessor = backend.RegisterBufferAccessor(
                         backend.FindType(br.element),
                         VulkanGlslBackend::AccessorMode::BufferReference,
                         br.readonly);
@@ -511,7 +530,7 @@ namespace nova
                 },
                 [&](const UniformBufferType& ub) {
                     NOVA_LOG("  IS UNIFORM BUFFER");
-                    auto accessor = backend.RegisterAccessor(
+                    auto accessor = backend.RegisterBufferAccessor(
                         backend.FindType(ub.element),
                         VulkanGlslBackend::AccessorMode::UniformBuffer,
                         ub.readonly);
@@ -519,7 +538,7 @@ namespace nova
                 },
                 [&](const StorageBufferType& sb) {
                     NOVA_LOG("  IS STORAGE BUFFER");
-                    auto accessor = backend.RegisterAccessor(
+                    auto accessor = backend.RegisterBufferAccessor(
                         backend.FindType(sb.element),
                         VulkanGlslBackend::AccessorMode::StorageBuffer,
                         sb.readonly);
