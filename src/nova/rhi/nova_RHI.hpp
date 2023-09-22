@@ -402,11 +402,24 @@ namespace nova
         bool            readonly;
     };
 
+    struct SampledImageType
+    {
+        i32 dims;
+    };
+
+    struct StorageImageType
+    {
+        Format format;
+        i32      dims;
+    };
+
     using ShaderType = std::variant<
         ShaderVarType,
         UniformBufferType,
         StorageBufferType,
-        BufferReferenceType>;
+        BufferReferenceType,
+        SampledImageType,
+        StorageImageType>;
 
     struct Member
     {

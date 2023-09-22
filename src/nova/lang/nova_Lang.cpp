@@ -49,8 +49,7 @@ namespace nova
         case TokenType::While: return "While";
         case TokenType::Void: return "Void";
         case TokenType::Fun: return "Fun";
-        case TokenType::Var: return "Var";
-        case TokenType::Ref: return "Ref";
+        case TokenType::Let: return "Let";
 
         case TokenType::Eof: return "Eof";
         }

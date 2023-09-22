@@ -51,7 +51,7 @@ namespace nova
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Fragment(R"glsl(
                 fn main() {
-                    ref v = pc.vertices[gl_VertexIndex];
+                    let v = pc.vertices[gl_VertexIndex];
                     outUV = v.uv;
                     outColor = unpackUnorm4x8(v.col);
                     gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);

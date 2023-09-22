@@ -411,6 +411,63 @@ namespace nova
         return codeStr;
     }
 
+    static
+    std::string_view ShaderVarTypeToString(ShaderVarType type)
+    {
+        switch (type) {
+        break;case ShaderVarType::Mat2: return "mat2";
+        break;case ShaderVarType::Mat3: return "mat3";
+        break;case ShaderVarType::Mat4: return "mat4";
+
+        break;case ShaderVarType::Mat4x3: return "mat4x3";
+        break;case ShaderVarType::Mat3x4: return "mat3x4";
+
+        break;case ShaderVarType::Vec2: return "vec2";
+        break;case ShaderVarType::Vec3: return "vec3";
+        break;case ShaderVarType::Vec4: return "vec4";
+
+        break;case ShaderVarType::Vec2U: return "uvec2";
+        break;case ShaderVarType::Vec3U: return "uvec3";
+        break;case ShaderVarType::Vec4U: return "uvec4";
+
+        break;case ShaderVarType::U32: return "uint";
+        break;case ShaderVarType::U64: return "uint64_t";
+
+        break;case ShaderVarType::I16: return "int16_t";
+        break;case ShaderVarType::I32: return "int";
+        break;case ShaderVarType::I64: return "int64_t";
+
+        break;case ShaderVarType::F32: return "float";
+        break;case ShaderVarType::F64: return "double";
+        }
+
+        std::unreachable();
+    };
+
+    static
+    std::string_view FormatToGlsl(Format format)
+    {
+        switch (format) {
+        break;case Format::RGBA8_UNorm:   return "rgba8";
+        break;case Format::RGBA8_SRGB:    return "rgba8";
+        break;case Format::RGBA16_SFloat: return "rgba16f";
+        break;case Format::RGBA32_SFloat: return "rgba32f";
+        break;case Format::BGRA8_UNorm:   return "rgba8";
+        break;case Format::BGRA8_SRGB:    return "rgba8";
+        break;case Format::RGB32_SFloat:  return "rgb32f";
+        break;case Format::R8_UNorm:      return "r8";
+        break;case Format::R32_SFloat:    return "r32f";
+        break;case Format::R8_UInt:       return "r8ui";
+        break;case Format::R16_UInt:      return "r16ui";
+        break;case Format::R32_UInt:      return "r32ui";
+        break;case Format::D24_UNorm:     ;
+        break;case Format::S8_D24_UNorm:  ;
+        break;case Format::D32_SFloat:    ;
+        }
+
+        NOVA_THROW("Unknown Format: {}", u32(format));
+    }
+
 // -----------------------------------------------------------------------------
 //
 // -----------------------------------------------------------------------------
@@ -424,37 +481,6 @@ namespace nova
         std::string codeStr = ShaderPreamble(context, stage);
         auto code = std::back_insert_iterator(codeStr);
 
-        auto shaderVarTypeToString = [](ShaderVarType type) {
-            switch (type) {
-            break;case ShaderVarType::Mat2: return "mat2";
-            break;case ShaderVarType::Mat3: return "mat3";
-            break;case ShaderVarType::Mat4: return "mat4";
-
-            break;case ShaderVarType::Mat4x3: return "mat4x3";
-            break;case ShaderVarType::Mat3x4: return "mat3x4";
-
-            break;case ShaderVarType::Vec2: return "vec2";
-            break;case ShaderVarType::Vec3: return "vec3";
-            break;case ShaderVarType::Vec4: return "vec4";
-
-            break;case ShaderVarType::Vec2U: return "uvec2";
-            break;case ShaderVarType::Vec3U: return "uvec3";
-            break;case ShaderVarType::Vec4U: return "uvec4";
-
-            break;case ShaderVarType::U32: return "uint";
-            break;case ShaderVarType::U64: return "uint64_t";
-
-            break;case ShaderVarType::I16: return "int16_t";
-            break;case ShaderVarType::I32: return "int";
-            break;case ShaderVarType::I64: return "int64_t";
-
-            break;case ShaderVarType::F32: return "float";
-            break;case ShaderVarType::F64: return "double";
-            }
-
-            std::unreachable();
-        };
-
         nova::Compiler compiler;
 
         nova::Scanner scanner;
@@ -466,8 +492,11 @@ namespace nova
         nova::VulkanGlslBackend backend;
         backend.parser = &parser;
 
-        backend.RegisterGlobal("gl_Position",    backend.FindType("vec4"));
-        backend.RegisterGlobal("gl_VertexIndex", backend.FindType("uint"));
+        backend.RegisterGlobal("gl_Position",           backend.FindType("vec4"));
+        backend.RegisterGlobal("gl_VertexIndex",        backend.FindType("uint"));
+        backend.RegisterGlobal("gl_GlobalInvocationID", backend.FindType("uvec2"));
+        backend.RegisterGlobal("gl_NumWorkGroups",      backend.FindType("uvec2"));
+        backend.RegisterGlobal("gl_WorkGroupSize",      backend.FindType("uvec2"));
 
         auto getType = [&](const ShaderType& shaderType) {
             Type* type = nullptr;
@@ -496,8 +525,20 @@ namespace nova
                         sb.readonly);
                     type = accessor->accessorType;
                 },
+                [&](const SampledImageType& t) {
+                    NOVA_LOG("  IS SAMPLED IMAGE");
+                    auto accessor = backend.RegisterImageAccessor("", t.dims,
+                        VulkanGlslBackend::AccessorMode::SampledImage);
+                    type = accessor->accessorType;
+                },
+                [&](const StorageImageType& t) {
+                    NOVA_LOG("  IS STORAGE IMAGE");
+                    auto accessor = backend.RegisterImageAccessor(FormatToGlsl(t.format), t.dims,
+                        VulkanGlslBackend::AccessorMode::StorageImage);
+                    type = accessor->accessorType;
+                },
                 [&](const ShaderVarType& varType) {
-                    type = backend.FindType(shaderVarTypeToString(varType));
+                    type = backend.FindType(ShaderVarTypeToString(varType));
                 },
                 [&](const auto&) {
                     NOVA_THROW("Unknown type");
@@ -511,7 +552,9 @@ namespace nova
         auto getTypeString = [&](const ShaderType& shaderType) {
             auto type = getType(shaderType);
             if (std::holds_alternative<StorageBufferType>(shaderType)
-                    || std::holds_alternative<UniformBufferType>(shaderType)) {
+                    || std::holds_alternative<UniformBufferType>(shaderType)
+                    || std::holds_alternative<SampledImageType>(shaderType)
+                    || std::holds_alternative<StorageImageType>(shaderType)) {
                 return "uvec2"sv;
             }
 
@@ -609,7 +652,7 @@ namespace nova
                     if (input.flags >= ShaderInputFlags::PerVertex) {
                         std::format_to(code, " pervertexEXT");
                     }
-                    std::format_to(code, " {} {}", shaderVarTypeToString(type), input.name);
+                    std::format_to(code, " {} {}", ShaderVarTypeToString(type), input.name);
                     if (input.flags >= ShaderInputFlags::PerVertex) {
                         std::format_to(code, "[3]"); // TODO: Primitive vertex count?
                     }
@@ -625,13 +668,17 @@ namespace nova
                     auto type = std::get<ShaderVarType>(output.type);
 
                     std::format_to(code, "layout(location = {}) out {} {};\n",
-                        outputLocation, shaderVarTypeToString(type), output.name);
+                        outputLocation, ShaderVarTypeToString(type), output.name);
 
                     outputLocation += getTypeLocationWidth(type);
                 },
                 [&](const shader::Fragment& fragment) {
                     fragments.append(fragment.glsl);
                     fragments.push_back('\n');
+                },
+                [&](const shader::ComputeKernel& computeKernel) {
+                    std::format_to(code, "layout(local_size_x = {}, local_size_y = {}, local_size_z = {}) in;\n",
+                        computeKernel.workGroups.x, computeKernel.workGroups.y, computeKernel.workGroups.z);
                 },
                 [&](const auto&) {
                     NOVA_THROW("Unknown element - {}", element.index());
@@ -685,37 +732,6 @@ namespace nova
             return TransformOutput;
         };
 
-        auto typeToString = [](ShaderVarType type) {
-            switch (type) {
-            break;case ShaderVarType::Mat2: return "mat2";
-            break;case ShaderVarType::Mat3: return "mat3";
-            break;case ShaderVarType::Mat4: return "mat4";
-
-            break;case ShaderVarType::Mat4x3: return "mat4x3";
-            break;case ShaderVarType::Mat3x4: return "mat3x4";
-
-            break;case ShaderVarType::Vec2: return "vec2";
-            break;case ShaderVarType::Vec3: return "vec3";
-            break;case ShaderVarType::Vec4: return "vec4";
-
-            break;case ShaderVarType::Vec2U: return "uvec2";
-            break;case ShaderVarType::Vec3U: return "uvec3";
-            break;case ShaderVarType::Vec4U: return "uvec4";
-
-            break;case ShaderVarType::U32: return "uint";
-            break;case ShaderVarType::U64: return "uint64_t";
-
-            break;case ShaderVarType::I16: return "int16_t";
-            break;case ShaderVarType::I32: return "int";
-            break;case ShaderVarType::I64: return "int64_t";
-
-            break;case ShaderVarType::F32: return "float";
-            break;case ShaderVarType::F64: return "double";
-            }
-
-            std::unreachable();
-        };
-
         auto getArrayPart = [](std::optional<u32> count) {
             return count
                 ? count.value() == shader::ArrayCountUnsized
@@ -757,7 +773,7 @@ namespace nova
                     std::format_to(code, "struct {} {{\n", structure.name);
                     for (auto& member : structure.members) {
                         std::format_to(code, "    {} {}{};\n",
-                            typeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
+                            ShaderVarTypeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
                     }
                     std::format_to(code, "}};\n");
 
@@ -783,7 +799,7 @@ namespace nova
                     for (auto& member : pushConstants.members) {
                         NOVA_LOGEXPR(member.type.index());
                         std::format_to(code, "    {} {}{};\n",
-                            typeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
+                            ShaderVarTypeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
                     }
                     std::format_to(code, "}} {};\n", pushConstants.name);
                 },
@@ -800,7 +816,7 @@ namespace nova
                         align, bufferReference.name);
                     for (auto& member : bufferReference.members) {
                         std::format_to(code, "    {} {}{};\n",
-                            typeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
+                            ShaderVarTypeToString(std::get<ShaderVarType>(member.type)), member.name, getArrayPart(member.count));
                     }
                     std::format_to(code, "}};\n");
                 },
@@ -815,7 +831,7 @@ namespace nova
                     if (input.flags >= ShaderInputFlags::PerVertex) {
                         std::format_to(code, " pervertexEXT");
                     }
-                    std::format_to(code, " {} {}", typeToString(std::get<ShaderVarType>(input.type)), input.name);
+                    std::format_to(code, " {} {}", ShaderVarTypeToString(std::get<ShaderVarType>(input.type)), input.name);
                     if (input.flags >= ShaderInputFlags::PerVertex) {
                         std::format_to(code, "[3]"); // TODO: Primitive vertex count?
                     }
@@ -828,7 +844,7 @@ namespace nova
 // -----------------------------------------------------------------------------
                 [&](const shader::Output& output) {
                     std::format_to(code, "layout(location = {}) out {} {};\n",
-                        outputLocation, typeToString(std::get<ShaderVarType>(output.type)), output.name);
+                        outputLocation, ShaderVarTypeToString(std::get<ShaderVarType>(output.type)), output.name);
 
                     outputLocation += getTypeLocationWidth(std::get<ShaderVarType>(output.type));
                 },

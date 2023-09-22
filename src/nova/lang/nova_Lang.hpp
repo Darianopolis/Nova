@@ -8,37 +8,37 @@ namespace nova
     /*
 fn main()\
 {\
-    ref u: Uniforms = pc.uniforms;\
-    ref v: Vertex = pc.vertices[gl_VertexIndex];\
+    let u: Uniforms = pc.uniforms;\
+    let v: Vertex = pc.vertices[gl_VertexIndex];\
     color = v.color;\
     gl_Position = vec4(v.position + u.offset, 1);\
 }
 
 fn main()\
 {\
-    ref u = pc.uniforms;\
-    ref v = pc.vertices[gl_VertexIndex];\
+    let u = pc.uniforms;\
+    let v = pc.vertices[gl_VertexIndex];\
     color = v.color;\
     gl_Position = vec4(v.position + u.offset, 1);\
 }
 
 fun main()\
 {\
-    ref box = pc.rects[inInstanceID];\
+    let box = pc.rects[inInstanceID];\
 \
-    var absPos: vec2 = abs(inTex);\
-    var cornerFocus: vec2 = box.halfExtent - vec2(box.cornerRadius);\
+    let absPos: vec2 = abs(inTex);\
+    let cornerFocus: vec2 = box.halfExtent - vec2(box.cornerRadius);\
 \
-    var sampled: vec4 = box.texTint.a > 0\
+    let sampled: vec4 = box.texTint.a > 0\
         ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),\
             (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)\
         : vec4(0);\
-    var centerColor: vec4 = vec4(\
+    let centerColor: vec4 = vec4(\
         sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),\
         sampled.a + box.centerColor.a * (1 - sampled.a));\
 \
     if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {\
-        var dist: float = length(absPos - cornerFocus);\
+        let dist: float = length(absPos - cornerFocus);\
         if (dist > box.cornerRadius + 0.5) {\
             discard;\
         }\
@@ -83,7 +83,7 @@ fun main()\
         Identifier, String, Number,
 
         Else, False, For, If, Nil,
-        Return, True, While, Void, Fun, Var, Ref,
+        Return, True, While, Void, Fun, Let,
 
         Eof
     };

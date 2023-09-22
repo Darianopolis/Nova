@@ -18,13 +18,15 @@ namespace nova
             BufferReference,
             UniformBuffer,
             StorageBuffer,
+            SampledImage,
+            StorageImage,
         };
 
         struct Accessor
         {
-            Type*       element;
-            AccessorMode   mode;
-            bool       readonly;
+            Type*     element;
+            AccessorMode mode;
+            bool     readonly;
 
             std::string   name;
             Type* accessorType;
@@ -32,10 +34,23 @@ namespace nova
 
         HashMap<std::string_view, Accessor*> accessors;
 
+        struct ImageAccessor
+        {
+            std::string_view format;
+            i32                dims;
+            AccessorMode       mode;
+
+            std::string   name;
+            Type* accessorType;
+        };
+
+        HashMap<std::string_view, ImageAccessor*> imageAccessors;
+
     public:
         VulkanGlslBackend();
 
         Accessor* RegisterAccessor(Type* element, AccessorMode mode, bool readonly);
+        ImageAccessor* RegisterImageAccessor(std::string_view format, i32 dims, AccessorMode mode);
 
         void RegisterType(Type* type);
         void RegisterGlobal(std::string_view name, Type* type);

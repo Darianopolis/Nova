@@ -29,11 +29,11 @@ namespace nova
                     vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
             )glsl"),
             nova::shader::Kernel(R"glsl(
-                uint instanceID = gl_VertexIndex / 6;
-                uint vertexID = gl_VertexIndex % 6;
+                let instanceID: uint = gl_VertexIndex / 6;
+                let vertexID: uint = gl_VertexIndex % 6;
 
-                ref box = pc.rects[instanceID];
-                vec2 delta = deltas[vertexID];
+                let box = pc.rects[instanceID];
+                let delta = deltas[vertexID];
                 outTex = delta * box.halfExtent;
                 outInstanceID = instanceID;
                 gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
@@ -47,21 +47,21 @@ namespace nova
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
 
             nova::shader::Kernel(R"glsl(
-                ref box = pc.rects[inInstanceID];
+                let box = pc.rects[inInstanceID];
 
-                var absPos: vec2 = abs(inTex);
-                var cornerFocus = box.halfExtent - vec2(box.cornerRadius);
+                let absPos: vec2 = abs(inTex);
+                let cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
-                var sampled: vec4 = box.texTint.a > 0
+                let sampled: vec4 = box.texTint.a > 0
                     ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),
                         (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                     : vec4(0);
-                var centerColor = vec4(
+                let centerColor = vec4(
                     sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
                     sampled.a + box.centerColor.a * (1 - sampled.a));
 
                 if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
-                    var dist: float = length(absPos - cornerFocus);
+                    let dist: float = length(absPos - cornerFocus);
                     if (dist > box.cornerRadius + 0.5) {
                         discard;
                     }

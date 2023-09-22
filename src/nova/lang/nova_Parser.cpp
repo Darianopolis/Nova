@@ -91,7 +91,7 @@
     {
         try {
             if (Match({TokenType::Fun})) return Function();
-            if (Match({TokenType::Var, TokenType::Ref})) {
+            if (Match({TokenType::Let})) {
                 auto node = VarDeclaration();
                 Consume(TokenType::Semicolon, "Expect ';' after variable declaration.");
                 return node;
@@ -169,7 +169,7 @@
         AstNode* initializer;
         if (Match({TokenType::Semicolon})) {
             initializer = nullptr;
-        } else if (Match({TokenType::Var, TokenType::Ref})) {
+        } else if (Match({TokenType::Let})) {
             initializer = VarDeclaration();
         } else {
             initializer = ExpressionStatement();

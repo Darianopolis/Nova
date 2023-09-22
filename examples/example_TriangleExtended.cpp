@@ -98,27 +98,33 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 
     [[maybe_unused]] auto generatedShaderCode = R"glsl(
 #version 460
-// -- Extension --
+
+// -- Extensions --
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_buffer_reference2 : enable
+
 // -- Uniforms --
 struct Uniforms {
     vec3 offset;
 };
 layout(set = 0, binding = 0, scalar) readonly uniform _2_ { Uniforms data[1024]; } Uniforms_readonly_uniform_buffer[];
+
 // -- Vertices --
 struct Vertex {
     vec3 position;
     vec3 color;
 };
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex_readonly_buffer_reference { Vertex get; };
+
 // -- PushConstants --
 layout(push_constant, scalar) uniform _10_ {
     uvec2 uniforms;
     Vertex_readonly_buffer_reference vertices;
 } pc;
+
 // -- Outputs --
 layout(location = 0) out vec3 color;
+
 // -- Entry --
 void main() {
     uvec2 u = pc.uniforms;
@@ -135,8 +141,8 @@ void main() {
         nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Fragment(R"glsl(
             fn main() {
-                ref u = pc.uniforms;
-                ref v = pc.vertices[gl_VertexIndex];
+                let u = pc.uniforms;
+                let v = pc.vertices[gl_VertexIndex];
                 color = v.color;
                 gl_Position = vec4(v.position + u.offset, 1);
             }

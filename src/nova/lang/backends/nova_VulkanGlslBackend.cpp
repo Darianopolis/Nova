@@ -13,6 +13,38 @@ namespace nova
         RegisterType(new Type{"function"});
     }
 
+    VulkanGlslBackend::ImageAccessor* VulkanGlslBackend::RegisterImageAccessor(std::string_view format, i32 dims, AccessorMode mode)
+    {
+        const char* prefix;
+        switch (mode)
+        {
+        break;case AccessorMode::SampledImage:
+            prefix = "SampledImage";
+        break;case AccessorMode::StorageImage:
+            prefix = "StorageImage";
+        }
+
+        auto name = std::format("{}{}D{}{}", prefix, dims, format.empty() ? "" : "_", format);
+
+        if (accessors.contains(name)) {
+            return imageAccessors.at(name);
+        }
+
+        auto accessor = new ImageAccessor {
+            .format = format,
+            .dims = dims,
+            .mode = mode,
+            .name = std::move(name),
+        };
+
+        accessor->accessorType = FindType(accessor->name);
+
+        auto key = std::string_view(accessor->name);
+        imageAccessors.insert({ key, accessor });
+
+        return accessor;
+    }
+
     VulkanGlslBackend::Accessor* VulkanGlslBackend::RegisterAccessor(Type* element, AccessorMode mode, bool readonly)
     {
         const char* suffix;
@@ -208,7 +240,10 @@ namespace nova
                 [&](AstGet* node) {
                     auto type = self(node->object);
                     if (accessors.contains(type->name)) {
-                        type = accessors.at(type->name)->element;
+                        auto elemType = accessors.at(type->name)->element;
+                        if (elemType) {
+                            type = elemType;
+                        }
                     }
                     if (type && type->structure
                             && type->structure->members.contains(node->name->lexeme)) {
@@ -413,9 +448,6 @@ namespace nova
 
     void VulkanGlslBackend::Generate(std::ostream& out)
     {
-        Mat4 M;
-        Vec4 V;
-        auto a = M * V;
         auto emitGlsl = [&](this auto& self, AstNode* _node) -> void {
             VisitNode(Overloads {
                 [&](AstFunction* node) {
@@ -424,7 +456,7 @@ namespace nova
                     for (auto* cur = node->parameters.head; cur; cur = cur->next) {
                         self(cur);
                         if (cur->next) {
-                            out << ",";
+                            out << ", ";
                         }
                     }
                     out << ")";
@@ -442,12 +474,14 @@ namespace nova
                               case AccessorMode::UniformBuffer:
                             out << "uvec2";
                         }
+                    } else if (imageAccessors.contains(type)) {
+                        out << "uvec2";
                     } else {
                         out << type;
                     }
                     out << " " << node->name->lexeme;
                     if (node->initializer) {
-                        out << "=";
+                        out << " = ";
                         if (!accessors.contains(type)) {
                             EmitAccess(*this, out, node->initializer, self);
                         } else {
@@ -456,7 +490,7 @@ namespace nova
                     }
                 },
                 [&](AstIf* node) {
-                    out << "if(";
+                    out << "if (";
                     self(node->cond);
                     out << ")";
                     self(node->thenBranch);
@@ -470,7 +504,7 @@ namespace nova
                     self(node->value);
                 },
                 [&](AstWhile* node) {
-                    out << "while(";
+                    out << "while (";
                     self(node->condition);
                     out << ")";
                     self(node->body);
@@ -491,11 +525,11 @@ namespace nova
                     auto rhsHasAccessor = accessors.contains(exprTypes.at(node->value)->name);
                     if (lhsHasAccessor == rhsHasAccessor) {
                         self(node->variable);
-                        out << "=";
+                        out << " = ";
                         self(node->value);
                     } else {
                         EmitAccess(*this, out, node->variable, self);
-                        out << "=";
+                        out << " = ";
                         EmitAccess(*this, out, node->value, self);
                     }
                 },
@@ -505,18 +539,24 @@ namespace nova
                     out << "." << node->name->lexeme;
                 },
                 [&](AstLogical* node) {
+                    out << "((";
                     self(node->left);
-                    out << node->op->lexeme;
+                    out << ") " << node->op->lexeme << " (";
                     self(node->right);
+                    out << "))";
                 },
                 [&](AstBinary* node) {
+                    out << "((";
                     self(node->left);
-                    out << node->op->lexeme;
+                    out << ") " << node->op->lexeme << " (";
                     self(node->right);
+                    out << "))";
                 },
                 [&](AstUnary* node) {
+                    out << "(";
                     out << node->op->lexeme;
                     self(node->right);
+                    out << ")";
                 },
                 [&](AstCall* node) {
                     auto calleeName = exprTypes.at(node->callee)->name;
@@ -525,21 +565,45 @@ namespace nova
                             && accessors.at(calleeName)->mode == AccessorMode::BufferReference) {
                         isVecAccessor = false;
                     }
+
                     if (isVecAccessor) {
                         out << "(";
                     }
                     self(node->callee);
                     if (isVecAccessor) {
-                        out << "+uvec2(0,";
+                        out << " + uvec2(0, ";
                     } else {
                         out << (node->paren->type == TokenType::RightParen ? "(" : "[");
                     }
+
                     for (auto cur = node->arguments.head; cur; cur = cur->next) {
-                        self(cur);
+                        auto curType = exprTypes.at(cur)->name;
+
+                        if (imageAccessors.contains(curType)) {
+                            // Unpack texture descriptor when passed as arguments
+                            // TODO: Make sample/load/store operations member functions
+                            //   of images
+                            auto a = imageAccessors.at(curType);
+                            if (a->mode == AccessorMode::SampledImage) {
+                                out << "sampler" << a->dims << "D(" << a->name << "[";
+                                self(cur);
+                                out << ".x], Sampler[";
+                                self(cur);
+                                out << ".y])";
+                            } else if (a->mode == AccessorMode::StorageImage) {
+                                out << a->name << "[";
+                                self(cur);
+                                out << ".x]";
+                            }
+                        } else {
+                            self(cur);
+                        }
+
                         if (cur->next) {
-                            out << ",";
+                            out << ", ";
                         }
                     }
+
                     if (isVecAccessor) {
                         out << "))";
                     } else {
@@ -550,11 +614,13 @@ namespace nova
                     out << node->token->lexeme;
                 },
                 [&](AstCondExpr* node) {
+                    out << "(";
                     self(node->cond);
-                    out << "\n?";
+                    out << "\n ? (";
                     self(node->thenExpr);
-                    out << "\n:";
+                    out << ")\n : (";
                     self(node->elseExpr);
+                    out << "))";
                 }
             }, _node);
         };
