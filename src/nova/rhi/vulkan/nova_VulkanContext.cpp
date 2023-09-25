@@ -367,6 +367,7 @@ Validation: {} ({})
         auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
         {
             u32 i = 0;
+
             for (const auto& ext : chain.extensions) {
                 deviceExtensions[i++] = ext.c_str();
             }
@@ -552,7 +553,7 @@ Validation: {} ({})
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_ALL,
-                .size = 128,
+                .size = 256,
             }),
         }), impl->pAlloc, &impl->pipelineLayout));
 

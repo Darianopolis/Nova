@@ -264,25 +264,25 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     static
-    std::string ShaderPreamble(Context context, ShaderStage stage)
+    std::string ShaderPreamble(Context context, ShaderStage stage, bool allImageFormats)
     {
         std::string codeStr = "#version 460\n";
         auto code = std::back_insert_iterator(codeStr);
 
         constexpr auto Extensions = std::to_array<std::pair<const char*, VkShaderStageFlags>>({
-            std::pair("GL_GOOGLE_include_directive", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_GOOGLE_include_directive", VK_SHADER_STAGE_ALL),
 
             std::pair("GL_EXT_scalar_block_layout", VK_SHADER_STAGE_ALL),
             std::pair("GL_EXT_buffer_reference2", VK_SHADER_STAGE_ALL),
             std::pair("GL_EXT_nonuniform_qualifier", VK_SHADER_STAGE_ALL),
 
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_int8", VK_SHADER_STAGE_ALL),
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_int16", VK_SHADER_STAGE_ALL),
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_int32", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_int8", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_int16", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_int32", VK_SHADER_STAGE_ALL),
             std::pair("GL_EXT_shader_explicit_arithmetic_types_int64", VK_SHADER_STAGE_ALL),
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_float16", VK_SHADER_STAGE_ALL),
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_float32", VK_SHADER_STAGE_ALL),
-            std::pair("GL_EXT_shader_explicit_arithmetic_types_float64", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_float16", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_float32", VK_SHADER_STAGE_ALL),
+            // std::pair("GL_EXT_shader_explicit_arithmetic_types_float64", VK_SHADER_STAGE_ALL),
 
             std::pair("GL_EXT_fragment_shader_barycentric", VK_SHADER_STAGE_FRAGMENT_BIT),
 
@@ -373,33 +373,35 @@ namespace nova
             std::pair("u", "uint"),
         };
 
-        // TODO: Bind these lazily
+        if (allImageFormats) {
+            for (auto format : ImageFormats) {
+                for (auto dims : Dimensions) {
+                    std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} StorageImage{}_{}[];\n",
+                        format.first, format.second, dims, dims, format.first);
+                }
 
-        for (auto format : ImageFormats) {
-            for (auto dims : Dimensions) {
-                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}image{} StorageImage{}_{}[];\n",
-                    format.first, format.second, dims, dims, format.first);
+                std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer StorageTexelBuffer_{}[];\n",
+                    format.first, format.second, format.first);
             }
 
-            std::format_to(code, "layout(set = 0, binding = 0, {}) uniform {}imageBuffer StorageTexelBuffer_{}[];\n",
-                format.first, format.second, format.first);
-        }
+            for (auto dims : Dimensions) {
+                std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0} SampledImage{0}[];\n", dims);
+            }
 
-        for (auto dims : Dimensions) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0} SampledImage{0}[];\n", dims);
-        }
-
-        for (auto type : UniformTexelFormats) {
-            std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer UniformTexelBuffer_{}[];\n",
-                type.first, type.second);
+            for (auto type : UniformTexelFormats) {
+                std::format_to(code, "layout(set = 0, binding = 0) uniform {}textureBuffer UniformTexelBuffer_{}[];\n",
+                    type.first, type.second);
+            }
         }
 
         // Samplers
 
         std::format_to(code, "layout(set = 0, binding = 0) uniform sampler Sampler[];\n");
 
-        for (auto dims : Dimensions) {
-            std::format_to(code, "#define Sampler{0}(texture, sampler) sampler{0}(SampledImage{0}[texture], Sampler[sampler])\n", dims);
+        if (allImageFormats) {
+            for (auto dims : Dimensions) {
+                std::format_to(code, "#define Sampler{0}(texture, sampler) sampler{0}(SampledImage{0}[texture], Sampler[sampler])\n", dims);
+            }
         }
 
         // Acceleration structure
@@ -468,6 +470,30 @@ namespace nova
         NOVA_THROW("Unknown Format: {}", u32(format));
     }
 
+    static
+    std::string_view FormatToGlslPrefix(Format format)
+    {
+        switch (format) {
+        break;case Format::RGBA8_UNorm:   return "";
+        break;case Format::RGBA8_SRGB:    return "";
+        break;case Format::RGBA16_SFloat: return "";
+        break;case Format::RGBA32_SFloat: return "";
+        break;case Format::BGRA8_UNorm:   return "";
+        break;case Format::BGRA8_SRGB:    return "";
+        break;case Format::RGB32_SFloat:  return "";
+        break;case Format::R8_UNorm:      return "";
+        break;case Format::R32_SFloat:    return "";
+        break;case Format::R8_UInt:       return "u";
+        break;case Format::R16_UInt:      return "u";
+        break;case Format::R32_UInt:      return "u";
+        break;case Format::D24_UNorm:     ;
+        break;case Format::S8_D24_UNorm:  ;
+        break;case Format::D32_SFloat:    ;
+        }
+
+        NOVA_THROW("Unknown Format: {}", u32(format));
+    }
+
 // -----------------------------------------------------------------------------
 //
 // -----------------------------------------------------------------------------
@@ -478,7 +504,7 @@ namespace nova
         impl->context = context;
         impl->stage = stage;
 
-        std::string codeStr = ShaderPreamble(context, stage);
+        std::string codeStr = ShaderPreamble(context, stage, false);
         auto code = std::back_insert_iterator(codeStr);
 
         nova::Compiler compiler;
@@ -517,6 +543,13 @@ namespace nova
         backend.RegisterGlobal("gl_NumWorkGroups",      backend.FindType("uvec2"));
         backend.RegisterGlobal("gl_WorkGroupSize",      backend.FindType("uvec2"));
 
+        ankerl::unordered_dense::set<std::string> declared;
+
+        auto isDeclaredType = [&](std::string_view type) {
+            // TODO: Cover all types
+            return type == "uint";
+        };
+
         auto getType = [&](const ShaderType& shaderType) {
             Type* type = nullptr;
 
@@ -526,6 +559,11 @@ namespace nova
                         backend.FindType(br.element),
                         VulkanGlslBackend::AccessorMode::BufferReference,
                         br.readonly);
+                    if (isDeclaredType(br.element) && !declared.contains(accessor->name)) {
+                        declared.emplace(accessor->name);
+                        std::format_to(code, "layout(buffer_reference, scalar, buffer_reference_align = 4) buffer {0}{1}_buffer_reference {{ {0} get; }};\n",
+                            br.element, br.readonly ? "_readonly" : "");
+                    }
                     type = accessor->accessorType;
                 },
                 [&](const UniformBufferType& ub) {
@@ -546,12 +584,26 @@ namespace nova
                 },
                 [&](const SampledImageType& t) {
                     NOVA_LOG("  IS SAMPLED IMAGE");
+                    // TODO: Support Array/Cube texture dims
+                    auto& declaration = NOVA_FORMAT_TEMP("SampledImage{}D", t.dims);
+                    if (!declared.contains(declaration)) {
+                        declared.emplace(declaration);
+                        std::format_to(code, "layout(set = 0, binding = 0) uniform texture{0}D SampledImage{0}D[];\n", t.dims);
+                    }
                     auto accessor = backend.RegisterImageAccessor("", t.dims,
                         VulkanGlslBackend::AccessorMode::SampledImage);
                     type = accessor->accessorType;
                 },
                 [&](const StorageImageType& t) {
                     NOVA_LOG("  IS STORAGE IMAGE");
+                    auto formatStr = FormatToGlsl(t.format);
+                    // TODO: Support Array/Cube texture dims
+                    auto& declaration = NOVA_FORMAT_TEMP("StorageImage{}D_{}", t.dims, formatStr);
+                    if (!declared.contains(declaration)) {
+                        declared.emplace(declaration);
+                        std::format_to(code, "layout(set = 0, binding = 0, {0}) uniform {1}image{2}D StorageImage{2}D_{0}[];\n",
+                            formatStr, FormatToGlslPrefix(t.format), t.dims);
+                    }
                     auto accessor = backend.RegisterImageAccessor(FormatToGlsl(t.format), t.dims,
                         VulkanGlslBackend::AccessorMode::StorageImage);
                     type = accessor->accessorType;
@@ -734,7 +786,7 @@ namespace nova
         impl->context = context;
         impl->stage = stage;
 
-        auto codeStr = ShaderPreamble(context, stage);
+        auto codeStr = ShaderPreamble(context, stage, true);
         auto code = std::back_insert_iterator(codeStr);
 
         // Transform GLSL
@@ -890,7 +942,7 @@ namespace nova
             }, element);
         }
 
-        NOVA_LOG("Generated shader:\n{}", codeStr);
+        // NOVA_LOG("Generated shader:\n{}", codeStr);
 
         Shader shader{ impl };
         CompileShader(shader, "generated", codeStr);

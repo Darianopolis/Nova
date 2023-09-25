@@ -4,6 +4,10 @@
 #include <nova/core/nova_Ref.hpp>
 #include <nova/core/nova_Math.hpp>
 
+// TODO: No! >:(
+#include <volk.h>
+#include <vk_mem_alloc.h>
+
 // #define NOVA_NOISY_VULKAN_ALLOCATIONS
 
 namespace nova

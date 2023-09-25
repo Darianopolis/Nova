@@ -12,15 +12,13 @@ namespace nova
         u64  vertices;
         Vec2    scale;
         Vec2   offset;
-        u32 textureID;
-        u32 samplerID;
+        Vec2U texture;
 
         static constexpr std::array Layout {
             nova::Member("vertices",   nova::BufferReferenceType("ImDrawVert", true)),
             nova::Member("scale",      nova::ShaderVarType::Vec2),
             nova::Member("offset",     nova::ShaderVarType::Vec2),
-            nova::Member("textureID",  nova::ShaderVarType::U32),
-            nova::Member("samplerID",  nova::ShaderVarType::U32),
+            nova::Member("texture",    nova::SampledImageType(2)),
         };
     };
 
@@ -67,7 +65,7 @@ namespace nova
             nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
             nova::shader::Fragment(R"glsl(
                 fn main() {
-                    outColor = inColor * texture(Sampler2D(pc.textureID, pc.samplerID), inUV);
+                    outColor = inColor * texture(pc.texture, inUV);
                 }
             )glsl"),
         });
@@ -267,8 +265,7 @@ namespace nova
                     .vertices = vertexBuffer.GetAddress(),
                     .scale = 2.f / Vec2(target.GetExtent()),
                     .offset = Vec2(-1.f),
-                    .textureID = u32(uintptr_t(imCmd.TextureId) & ~0u),
-                    .samplerID = u32(uintptr_t(imCmd.TextureId) >> 32),
+                    .texture = std::bit_cast<Vec2U>(imCmd.TextureId),
                 }));
 
                 cmd.DrawIndexed(imCmd.ElemCount, 1,

@@ -23,7 +23,13 @@ int main(int argc, char* argv[])
     if (argc > 1) {
         for (auto& example : GetExamples()) {
             if (!strcmp(example.name, argv[1])) {
-                example.fn();
+                try {
+                    example.fn();
+                } catch (std::exception& e) {
+                    NOVA_LOG("Error: {}", e.what());
+                } catch (...) {
+                    NOVA_LOG("Unknown Error");
+                }
                 return EXIT_SUCCESS;
             }
         }

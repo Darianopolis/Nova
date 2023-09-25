@@ -56,12 +56,12 @@ namespace nova
 
         ImTextureID GetTextureID(DescriptorHandle texture)
         {
-            return ImTextureID(u64(defaultSamplerID.ToShaderUInt()) << 32 | texture.ToShaderUInt());
+            return std::bit_cast<ImTextureID>(Vec2U(texture.ToShaderUInt(), defaultSamplerID.ToShaderUInt()));
         }
 
         ImTextureID GetTextureID(DescriptorHandle texture, DescriptorHandle sampler)
         {
-            return ImTextureID(u64(sampler.ToShaderUInt()) << 32 | texture.ToShaderUInt());
+            return std::bit_cast<ImTextureID>(Vec2U(texture.ToShaderUInt(), sampler.ToShaderUInt()));
         }
 
         using DockspaceWindowFn = void(*)(void*, ImGuiLayer&);

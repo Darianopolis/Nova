@@ -22,21 +22,28 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-minimal")
     auto fence = nova::Fence::Create(context);
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, {
+        nova::shader::Output("color", nova::ShaderVarType::Vec3),
         nova::shader::Fragment(R"glsl(
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-            layout(location = 0) out vec3 color;
             void main() {
                 color = colors[gl_VertexIndex];
                 gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
             }
+
+            // let positions = [vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6)];
+            // let color     = [vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1)];
+            // fn main() {
+            //     color = colors[gl_VertexIndex];
+            //     gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
+            // }
         )glsl"),
     });
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
+        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
+        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
         nova::shader::Fragment(R"glsl(
-            layout(location = 0) in vec3 inColor;
-            layout(location = 0) out vec4 fragColor;
             void main() {
                 fragColor = vec4(inColor, 1);
             }
