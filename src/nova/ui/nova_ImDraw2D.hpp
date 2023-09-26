@@ -28,7 +28,6 @@ namespace nova
         bool Empty() const noexcept { return min.y == INFINITY; }
     };
 
-
     struct ImRoundRect
     {
         Vec4 centerColor;
@@ -44,22 +43,6 @@ namespace nova
         DescriptorHandle texIndex;
         Vec2         texCenterPos;
         Vec2         texHalfExtent;
-
-        static constexpr auto Layout = std::array {
-            Member("centerColor", nova::ShaderVarType::Vec4),
-            Member("borderColor", nova::ShaderVarType::Vec4),
-
-            Member("centerPos",  nova::ShaderVarType::Vec2),
-            Member("halfExtent", nova::ShaderVarType::Vec2),
-
-            Member("cornerRadius", nova::ShaderVarType::F32),
-            Member("borderWidth",  nova::ShaderVarType::F32),
-
-            Member("texTint",       nova::ShaderVarType::Vec4),
-            Member("texIndex",      nova::ShaderVarType::U32),
-            Member("texCenterPos",  nova::ShaderVarType::Vec2),
-            Member("texHalfExtent", nova::ShaderVarType::Vec2),
-        };
     };
 
     enum class ImDrawType
@@ -102,20 +85,6 @@ namespace nova
 
     struct ImDraw2D
     {
-        struct PushConstants
-        {
-            Vec2  invHalfExtent;
-            Vec2      centerPos;
-            u64           rects;
-            u32    samplerIndex;
-
-            static constexpr auto Layout = std::array {
-                Member("invHalfExtent",   nova::ShaderVarType::Vec2),
-                Member("centerPos",       nova::ShaderVarType::Vec2),
-                Member("rects",           nova::BufferReferenceType("ImRoundRect", true)),
-                Member("samplerIndex",         nova::ShaderVarType::U32),
-            };
-        };
 
         static constexpr u32 MaxPrimitives = 65'536;
 

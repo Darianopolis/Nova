@@ -1,5 +1,7 @@
 #include "nova_ImDraw2D.hpp"
 
+#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
+
 #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
 #include <ft2build.h>
 #include <freetype/freetype.h>
@@ -8,6 +10,47 @@
 
 namespace nova
 {
+    namespace {
+        struct PushConstants
+        {
+            Vec2  invHalfExtent;
+            Vec2      centerPos;
+            u64           rects;
+            u32    samplerIndex;
+        };
+
+        static
+        constexpr auto Preamble = R"glsl(
+            #version 460
+            #extension GL_EXT_scalar_block_layout  : require
+            #extension GL_EXT_buffer_reference2    : require
+            #extension GL_EXT_nonuniform_qualifier : require
+
+            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImRoundRect {
+                vec4 centerColor;
+                vec4 borderColor;
+
+                vec2  centerPos;
+                vec2 halfExtent;
+
+                float cornerRadius;
+                float  borderWidth;
+
+                vec4       texTint;
+                uint      texIndex;
+                vec2  texCenterPos;
+                vec2 texHalfExtent;
+            };
+
+            layout(push_constant, scalar) readonly uniform pc_ {
+                vec2 invHalfExtent;
+                vec2     centerPos;
+                ImRoundRect  rects;
+                uint  samplerIndex;
+            } pc;
+        )glsl"sv;
+    }
+
     ImDraw2D::ImDraw2D(HContext _context)
         : context(_context)
     {
@@ -19,63 +62,72 @@ namespace nova
         descriptorHeap = nova::DescriptorHeap::Create(context, 65'536);
         descriptorHeap.WriteSampler(0, defaultSampler);
 
-        rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, {
-            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::Output("outTex", nova::ShaderVarType::Vec2),
-            nova::shader::Output("outInstanceID", nova::ShaderVarType::U32),
-            nova::shader::Fragment(R"glsl(
-                const vec2[6] deltas = vec2[] (
-                    vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
-                    vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
-            )glsl"),
-            nova::shader::Kernel(R"glsl(
-                let instanceID: uint = gl_VertexIndex / 6;
-                let vertexID: uint = gl_VertexIndex % 6;
+        rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, "main",
+            nova::glsl::Compile(nova::ShaderStage::Vertex, "", {
+                Preamble,
+                R"glsl(
+                    const vec2[6] deltas = vec2[] (
+                        vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
+                        vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
 
-                let box = pc.rects[instanceID];
-                let delta = deltas[vertexID];
-                outTex = delta * box.halfExtent;
-                outInstanceID = instanceID;
-                gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
-            )glsl"),
-        });
+                    layout(location = 0) out vec2 outTex;
+                    layout(location = 1) out uint outInstanceID;
 
-        rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, {
-            nova::shader::Structure("ImRoundRect", ImRoundRect::Layout),
-            nova::shader::Input("inTex", nova::ShaderVarType::Vec2),
-            nova::shader::Input("inInstanceID", nova::ShaderVarType::U32, nova::ShaderInputFlags::Flat),
-            nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
+                    void main() {
+                        uint instanceID = gl_VertexIndex / 6;
+                        uint vertexID = gl_VertexIndex % 6;
 
-            nova::shader::Kernel(R"glsl(
-                let box = pc.rects[inInstanceID];
-
-                let absPos: vec2 = abs(inTex);
-                let cornerFocus = box.halfExtent - vec2(box.cornerRadius);
-
-                let sampled: vec4 = box.texTint.a > 0
-                    ? box.texTint * texture(Sampler2D(nonuniformEXT(box.texIndex), 0),
-                        (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
-                    : vec4(0);
-                let centerColor = vec4(
-                    sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
-                    sampled.a + box.centerColor.a * (1 - sampled.a));
-
-                if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
-                    let dist: float = length(absPos - cornerFocus);
-                    if (dist > box.cornerRadius + 0.5) {
-                        discard;
+                        ImRoundRect box = pc.rects[instanceID];
+                        vec2 delta = deltas[vertexID];
+                        outTex = delta * box.halfExtent;
+                        outInstanceID = instanceID;
+                        gl_Position = vec4(((delta * box.halfExtent) + box.centerPos - pc.centerPos) * pc.invHalfExtent, 0, 1);
                     }
+                )glsl"
+            }));
 
-                    outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
-                        ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
-                        : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
-                } else {
-                    outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
-                        ? box.borderColor
-                        : centerColor;
-                }
-            )glsl"),
-        });
+        rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, "main",
+            nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
+                Preamble,
+                R"glsl(
+                    layout(set = 0, binding = 0) uniform texture2D Texture[];
+                    layout(set = 0, binding = 0) uniform sampler Sampler[];
+
+                    layout(location = 0) in vec2 inTex;
+                    layout(location = 1) in flat uint inInstanceID;
+                    layout(location = 0) out vec4 outColor;
+
+                    void main() {
+                        ImRoundRect box = pc.rects[inInstanceID];
+
+                        vec2 absPos = abs(inTex);
+                        vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
+
+                        vec4 sampled = box.texTint.a > 0
+                            ? box.texTint * texture(sampler2D(Texture[nonuniformEXT(box.texIndex)], Sampler[0]),
+                                (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
+                            : vec4(0);
+                        vec4 centerColor = vec4(
+                            sampled.rgb * sampled.a + box.centerColor.rgb * (1 - sampled.a),
+                            sampled.a + box.centerColor.a * (1 - sampled.a));
+
+                        if (absPos.x > cornerFocus.x && absPos.y > cornerFocus.y) {
+                            float dist = length(absPos - cornerFocus);
+                            if (dist > box.cornerRadius + 0.5) {
+                                discard;
+                            }
+
+                            outColor = (dist > box.cornerRadius - box.borderWidth + 0.5)
+                                ? vec4(box.borderColor.rgb, box.borderColor.a * (1 - max(0, dist - (box.cornerRadius - 0.5))))
+                                : mix(centerColor, box.borderColor, max(0, dist - (box.cornerRadius - box.borderWidth - 0.5)));
+                        } else {
+                            outColor = (absPos.x > box.halfExtent.x - box.borderWidth || absPos.y > box.halfExtent.y - box.borderWidth)
+                                ? box.borderColor
+                                : centerColor;
+                        }
+                    }
+                )glsl"
+            }));
 
         rectBuffer = nova::Buffer::Create(context, sizeof(ImRoundRect) * MaxPrimitives,
             BufferUsage::Storage,

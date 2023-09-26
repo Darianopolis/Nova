@@ -28,6 +28,7 @@ if Project "nova" then
         "glm",
         "mimalloc",
         "eastl",
+        "simdutf",
     }
 
 -------- DB --------------------------------------------------------------------
@@ -49,9 +50,10 @@ if Project "nova" then
     Compile "src/nova/rhi/**"
     Import {
         "vulkan",
+        "volk",
         "VulkanMemoryAllocator",
         "glslang",
-        "volk"
+        "DXC",
     }
 
 -------- UI --------------------------------------------------------------------
@@ -72,6 +74,14 @@ end
 
 if Project "nova-examples" then
     Compile "examples/**"
+    -- Compile {
+    --     "examples/example_Main.cpp",
+    --     "examples/example_Compute.cpp",
+    --     "examples/example_MultiPresent.cpp",
+    --     "examples/example_TriangleMeshShader.cpp",
+    --     "examples/example_TriangleExtended.cpp",
+    --     "examples/example_TriangleMinimal.cpp",
+    -- }
     Import { "stb", "nova" }
     Artifact { "out/example", type = "Console" }
 end

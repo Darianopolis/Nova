@@ -125,6 +125,8 @@ namespace nova
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
+        std::string     entry = {};
+
         VkShaderEXT    shader = {};
         ShaderStage     stage = {};
 

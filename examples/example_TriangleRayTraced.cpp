@@ -1,6 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -58,25 +59,33 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, {
-        nova::shader::Fragment(R"glsl(
-            layout(location = 0) rayPayloadEXT uint     payload;
-            layout(location = 0) hitObjectAttributeNV vec3 bary;
-        )glsl"),
-        nova::shader::Kernel(R"glsl(
-            vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-            vec3 dir = vec3(0, 0, -1);
-            hitObjectNV hit;
-            hitObjectTraceRayNV(hit, AccelerationStructure, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+    auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
+        nova::glsl::Compile(nova::ShaderStage::RayGen, "", {
+            R"glsl(
+                #version 460
+                #extension GL_EXT_ray_tracing              : require
+                #extension GL_NV_shader_invocation_reorder : require
 
-            vec3 color = vec3(0.1);
-            if (hitObjectIsHitNV(hit)) {
-                hitObjectGetAttributesNV(hit, 0);
-                color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
-            }
-            imageStore(StorageImage2D<rgba8>[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
-        )glsl"),
-    });
+                layout(set = 0, binding = 0, rgba8) uniform image2D Target[];
+                layout(set = 1, binding = 0) uniform accelerationStructureEXT TLAS;
+
+                layout(location = 0) rayPayloadEXT uint     payload;
+                layout(location = 0) hitObjectAttributeNV vec3 bary;
+
+                void main() {
+                    vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+                    vec3 dir = vec3(0, 0, -1);
+                    hitObjectNV hit;
+                    hitObjectTraceRayNV(hit, TLAS, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+
+                    vec3 color = vec3(0.1);
+                    if (hitObjectIsHitNV(hit)) {
+                        hitObjectGetAttributesNV(hit, 0);
+                        color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+                    }
+                    imageStore(Target[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+                }
+        )glsl"}));
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader

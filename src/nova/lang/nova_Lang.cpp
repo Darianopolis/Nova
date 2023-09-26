@@ -19,8 +19,13 @@ namespace nova
         case TokenType::Colon: return "Colon";
         case TokenType::QuestionMark: return "QuestionMark";
         case TokenType::Plus: return "Plus";
+        case TokenType::PlusEqual: return "PlusEqual";
         case TokenType::Minus: return "Minus";
+        case TokenType::MinusEqual: return "MinusEqual";
         case TokenType::Star: return "Star";
+        case TokenType::StarEqual: return "StarEqual";
+        case TokenType::Slash: return "Slash";
+        case TokenType::SlashEqual: return "SlashEqual";
         case TokenType::Caret: return "Caret";
         case TokenType::Semicolon: return "Semicolon";
         case TokenType::Ampersand: return "Ampersand";
@@ -35,7 +40,6 @@ namespace nova
         case TokenType::GreaterEqual: return "GreaterEqual";
         case TokenType::Less: return "Less";
         case TokenType::LessEqual: return "LessEqual";
-        case TokenType::Slash: return "Slash";
         case TokenType::Identifier: return "Identifier";
         case TokenType::String: return "String";
         case TokenType::Number: return "Number";

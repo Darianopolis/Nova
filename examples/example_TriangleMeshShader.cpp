@@ -1,6 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -23,39 +24,47 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-meshshader")
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, {
-        nova::shader::Kernel(R"glsl(
-            EmitMeshTasksEXT(1, 1, 1);
-        )glsl")
-    });
+    auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
+        nova::glsl::Compile(nova::ShaderStage::Task, "", {R"glsl(
+            #version 460
+            #extension GL_EXT_mesh_shader : require
 
-    auto meshShader = nova::Shader::Create(context, nova::ShaderStage::Mesh, {
-        nova::shader::Fragment(R"glsl(
+            void main() {
+                EmitMeshTasksEXT(1, 1, 1);
+            }
+        )glsl"}));
+
+    auto meshShader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
+        nova::glsl::Compile(nova::ShaderStage::Mesh, "", {R"glsl(
+            #version 460
+            #extension GL_EXT_mesh_shader : require
+
             layout(triangles, max_vertices = 3, max_primitives = 1) out;
             layout(location = 0) out vec3 outColors[];
 
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-        )glsl"),
-        nova::shader::ComputeKernel(Vec3U(1), R"glsl(
-            SetMeshOutputsEXT(3, 1);
-            for (int i = 0; i < 3; ++i) {
-                gl_MeshVerticesEXT[i].gl_Position = vec4(positions[i], 0, 1);
-                outColors[i] = colors[i];
-            }
-	        gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
-        )glsl"),
-    });
 
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, {
-        nova::shader::Fragment(R"glsl(
+            layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+            void main() {
+                SetMeshOutputs(3, 1);
+                for (int i = 0; i < 3; ++i) {
+                    gl_MeshVerticesEXT[i].gl_Position = vec4(positions[i], 0, 1);
+                    outColors[i] = colors[i];
+                }
+                gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
+            }
+        )glsl"}));
+
+    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+            #version 460
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;
             void main() {
                 fragColor = vec4(inColor, 1);
             }
-        )glsl"),
-    });
+        )glsl"}));
 
     while (!glfwWindowShouldClose(window)) {
 

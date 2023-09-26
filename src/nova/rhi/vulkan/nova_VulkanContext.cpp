@@ -213,6 +213,13 @@ Validation: {} ({})
                 f.features.drawIndirectFirstInstance = VK_TRUE;
             }
 
+            {
+                auto& f = chain.Feature<VkPhysicalDeviceVulkan11Features>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
+                f.storagePushConstant16 = VK_TRUE;
+                f.storageBuffer16BitAccess = VK_TRUE;
+            }
+
             // Vulkan 1.2
 
             {

@@ -1,6 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -9,31 +10,17 @@ struct PushConstants
 {
     Vec2U uniforms;
     u64   vertices;
-
-    static constexpr std::array Layout {
-        nova::Member("uniforms", nova::UniformBufferType("Uniforms", true)),
-        nova::Member("vertices", nova::BufferReferenceType("Vertex", true)),
-    };
 };
 
 struct Uniforms
 {
     Vec3 offset;
-
-    static constexpr std::array Layout {
-        nova::Member("offset", nova::ShaderVarType::Vec3),
-    };
 };
 
 struct Vertex
 {
     Vec3 position;
     Vec3 color;
-
-    static constexpr std::array Layout {
-        nova::Member("position", nova::ShaderVarType::Vec3),
-        nova::Member("color",    nova::ShaderVarType::Vec3),
-    };
 };
 
 NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
@@ -96,69 +83,46 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
 
     // Shaders
 
-    [[maybe_unused]] auto generatedShaderCode = R"glsl(
-#version 460
+    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
+        nova::glsl::Compile(nova::ShaderStage::Vertex, "", {R"glsl(
+            #version 460
+            #extension GL_EXT_scalar_block_layout  : require
+            #extension GL_EXT_buffer_reference2    : require
+            #extension GL_EXT_nonuniform_qualifier : require
 
-// -- Extensions --
-#extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_buffer_reference2 : enable
+            layout(set = 0, binding = 0, scalar) readonly uniform Uniforms_ { vec3 offset; } Uniforms[];
 
-// -- Uniforms --
-struct Uniforms {
-    vec3 offset;
-};
-layout(set = 0, binding = 0, scalar) readonly uniform _2_ { Uniforms data[1024]; } Uniforms_readonly_uniform_buffer[];
+            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex {
+                vec3 position;
+                vec3 color;
+            };
 
-// -- Vertices --
-struct Vertex {
-    vec3 position;
-    vec3 color;
-};
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex_readonly_buffer_reference { Vertex get; };
+            layout(push_constant, scalar) uniform pc_ {
+                uint   uniforms;
+                Vertex vertices;
+            } pc;
 
-// -- PushConstants --
-layout(push_constant, scalar) uniform _10_ {
-    uvec2 uniforms;
-    Vertex_readonly_buffer_reference vertices;
-} pc;
+            layout(location = 0) out vec3 color;
 
-// -- Outputs --
-layout(location = 0) out vec3 color;
-
-// -- Entry --
-void main() {
-    uvec2 u = pc.uniforms;
-    Vertex_readonly_buffer_reference v = pc.vertices[gl_VertexIndex];
-    color = v.get.color;
-    gl_Position = vec4(v.get.position + Uniforms_readonly_uniform_buffer[u.x].data[u.y].offset,1);
-}
-    )glsl";
-
-    auto vertexShader = nova::Shader::Create2(context, nova::ShaderStage::Vertex, {
-        nova::shader::Structure("Uniforms", Uniforms::Layout),
-        nova::shader::Structure("Vertex", Vertex::Layout),
-        nova::shader::PushConstants("pc", PushConstants::Layout),
-        nova::shader::Output("color", nova::ShaderVarType::Vec3),
-        nova::shader::Fragment(R"glsl(
-            fn main() {
-                let u = pc.uniforms;
-                let v = pc.vertices[gl_VertexIndex];
+            void main() {
+                Vertex v = pc.vertices[gl_VertexIndex];
                 color = v.color;
-                gl_Position = vec4(v.position + u.offset, 1);
+                gl_Position = vec4(v.position + Uniforms[pc.uniforms].offset, 1);
             }
-        )glsl"),
-    });
+        )glsl"}));
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };
 
-    auto fragmentShader = nova::Shader::Create2(context, nova::ShaderStage::Fragment, {
-        nova::shader::Input("inColor", nova::ShaderVarType::Vec3),
-        nova::shader::Output("fragColor", nova::ShaderVarType::Vec4),
-        nova::shader::Fragment(R"glsl(
-            fn main() {
+    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+            #version 460
+
+            layout(location = 0) in vec3 inColor;
+            layout(location = 0) out vec4 fragColor;
+
+            void main() {
                 fragColor = vec4(inColor, 1);
             }
-        )glsl"),
-    });
+        )glsl"}));
     NOVA_CLEANUP(&) { fragmentShader.Destroy(); };
 
     // Draw

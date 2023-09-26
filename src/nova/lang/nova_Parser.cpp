@@ -272,6 +272,13 @@
             return new AstAssign{{AstNodeType::Assign}, expr, value};
         }
 
+        if (Match({TokenType::PlusEqual, TokenType::MinusEqual,
+                TokenType::StarEqual, TokenType::SlashEqual})) {
+            auto op = Previous();
+            auto right = Assignment();
+            return new AstBinary{{AstNodeType::Binary}, op, expr, right};
+        }
+
         if (Match({TokenType::QuestionMark})) {
             auto thenExpr = Assignment();
             Consume(TokenType::Colon, "Expect ':' in conditional expression");

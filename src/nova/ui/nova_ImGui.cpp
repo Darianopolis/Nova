@@ -3,24 +3,43 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
+
 #include <ImGuizmo.h>
 
 namespace nova
 {
-    struct ImGuiPushConstants
+    namespace
     {
-        u64  vertices;
-        Vec2    scale;
-        Vec2   offset;
-        Vec2U texture;
-
-        static constexpr std::array Layout {
-            nova::Member("vertices",   nova::BufferReferenceType("ImDrawVert", true)),
-            nova::Member("scale",      nova::ShaderVarType::Vec2),
-            nova::Member("offset",     nova::ShaderVarType::Vec2),
-            nova::Member("texture",    nova::SampledImageType(2)),
+        struct ImGuiPushConstants
+        {
+            u64  vertices;
+            Vec2    scale;
+            Vec2   offset;
+            Vec2U texture;
         };
-    };
+
+        static
+        constexpr auto Preamble = R"glsl(
+            #version 460
+            #extension GL_EXT_scalar_block_layout  : require
+            #extension GL_EXT_buffer_reference2    : require
+            #extension GL_EXT_nonuniform_qualifier : require
+
+            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImDrawVert {
+                vec2 pos;
+                vec2  uv;
+                uint col;
+            };
+
+            layout(push_constant, scalar) readonly uniform pc_ {
+                ImDrawVert vertices;
+                vec2          scale;
+                vec2         offset;
+                uvec2       texture;
+            } pc;
+        )glsl"sv;
+    }
 
     ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
         : context(config.context)
@@ -36,39 +55,36 @@ namespace nova
             nova::BufferUsage::Index,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
-        std::array ImDrawVertLayout {
-            nova::Member("pos", nova::ShaderVarType::Vec2),
-            nova::Member("uv",  nova::ShaderVarType::Vec2),
-            nova::Member("col", nova::ShaderVarType::U32),
-        };
+        vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
+            nova::glsl::Compile(nova::ShaderStage::Vertex, "", {
+                Preamble,
+                R"glsl(
+                    layout(location = 0) out vec2 outUV;
+                    layout(location = 1) out vec4 outColor;
+                    void main() {
+                        ImDrawVert v = pc.vertices[gl_VertexIndex];
+                        outUV = v.uv;
+                        outColor = unpackUnorm4x8(v.col);
+                        gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
+                    }
+                )glsl"
+            }));
 
-        vertexShader = nova::Shader::Create2(context, nova::ShaderStage::Vertex, {
-            nova::shader::Structure("ImDrawVert", ImDrawVertLayout),
-            nova::shader::PushConstants("pc", ImGuiPushConstants::Layout),
-            nova::shader::Output("outUV",    nova::ShaderVarType::Vec2),
-            nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
-            nova::shader::Fragment(R"glsl(
-                fn main() {
-                    let v = pc.vertices[gl_VertexIndex];
-                    outUV = v.uv;
-                    outColor = unpackUnorm4x8(v.col);
-                    gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
-                }
-            )glsl"),
-        });
-
-        fragmentShader = nova::Shader::Create2(context, nova::ShaderStage::Fragment, {
-            nova::shader::Structure("ImDrawVert", ImDrawVertLayout),
-            nova::shader::PushConstants("pc", ImGuiPushConstants::Layout),
-            nova::shader::Input("inUV",      nova::ShaderVarType::Vec2),
-            nova::shader::Input("inColor",   nova::ShaderVarType::Vec4),
-            nova::shader::Output("outColor", nova::ShaderVarType::Vec4),
-            nova::shader::Fragment(R"glsl(
-                fn main() {
-                    outColor = inColor * texture(pc.texture, inUV);
-                }
-            )glsl"),
-        });
+        fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+            nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
+                Preamble,
+                R"glsl(
+                    layout(set = 0, binding = 0) uniform texture2D Texture[];
+                    layout(set = 0, binding = 0) uniform sampler Sampler[];
+                    layout(location = 0) in vec2 inUV;
+                    layout(location = 1) in vec4 inColor;
+                    layout(location = 0) out vec4 outColor;
+                    void main() {
+                        outColor = texture(sampler2D(Texture[pc.texture.x], Sampler[pc.texture.y]), inUV)
+                            * inColor;
+                    }
+                )glsl"
+            }));
 
         // Create ImGui context and initialize
 
@@ -95,11 +111,6 @@ namespace nova
             unsigned char* pixels;
             int width, height;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-            usz uploadSize = width * height * 4;
-            NOVA_LOGEXPR((void*)pixels);
-            NOVA_LOGEXPR(width);
-            NOVA_LOGEXPR(height);
-            NOVA_LOGEXPR(uploadSize);
 
             fontTexture = nova::Texture::Create(context,
                 { u32(width), u32(height), 0u },

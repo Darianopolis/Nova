@@ -68,17 +68,18 @@ fun main()\
         LeftBracket, RightBracket,
 
         Comma, Dot, Colon, QuestionMark,
-        Plus, Minus, Star,
         Caret, Semicolon,
 
+        Minus, MinusEqual,
+        Plus, PlusEqual,
+        Star, StarEqual,
+        Slash, SlashEqual,
         Ampersand, AmpersandAmpersand,
         Pipe, PipePipe,
         Bang, BangEqual,
         Equal, EqualEqual,
         Greater, GreaterEqual,
         Less, LessEqual,
-
-        Slash,
 
         Identifier, String, Number,
 

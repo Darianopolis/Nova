@@ -78,9 +78,9 @@ namespace nova
         break;case '.': AddToken(TokenType::Dot);
         break;case ':': AddToken(TokenType::Colon);
         break;case '?': AddToken(TokenType::QuestionMark);
-        break;case '+': AddToken(TokenType::Plus);
-        break;case '-': AddToken(TokenType::Minus);
-        break;case '*': AddToken(TokenType::Star);
+        break;case '+': AddToken(Match('=') ? TokenType::PlusEqual : TokenType::Plus);
+        break;case '-': AddToken(Match('=') ? TokenType::MinusEqual : TokenType::Minus);
+        break;case '*': AddToken(Match('=') ? TokenType::StarEqual : TokenType::Star);
         break;case '^': AddToken(TokenType::Caret);
         break;case ';': AddToken(TokenType::Semicolon);
 
@@ -92,7 +92,9 @@ namespace nova
         break;case '<': AddToken(Match('=') ? TokenType::LessEqual : TokenType::Less);
 
         break;case '/':
-            if (Match('/')) {
+            if (Match('=')) {
+                AddToken(TokenType::SlashEqual);
+            } else if (Match('/')) {
                 // only line comments
                 while (Peek() != '\n' && !IsAtEnd()) Advance();
             } else {
