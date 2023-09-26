@@ -9,8 +9,6 @@
 #include "Unknwnbase.h"
 #include "dxcapi.h"
 
-#include <vector>
-
 namespace nova
 {
     template<class T>
@@ -25,42 +23,20 @@ namespace nova
             }
         }
 
-        operator bool() { return t; }
+        operator bool() { return t;  }
         T** operator&() { return &t; }
-        T* operator->() { return t; }
-
-        T* GetPtr() { return t; }
+        T* operator->() { return t;  }
+        T* GetPtr()     { return t;  }
     };
 
     struct HlslIncluder : public IDxcIncludeHandler
     {
         IDxcUtils* utils;
+
         std::unordered_set<std::filesystem::path> included;
 
     public:
-        using IUnknown::QueryInterface;
-
         virtual ~HlslIncluder() = default;
-
-        virtual HRESULT STDMETHODCALLTYPE QueryInterface(
-            /* [in] */ REFIID riid,
-            /* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject)
-        {
-            if (riid == __uuidof(IDxcIncludeHandler)) {
-                *reinterpret_cast<IDxcIncludeHandler**>(ppvObject) = this;
-                return S_OK;
-            }
-
-            return E_FAIL;
-        }
-
-        virtual ULONG STDMETHODCALLTYPE AddRef() {
-            return 1;
-        }
-
-        virtual ULONG STDMETHODCALLTYPE Release() {
-            return 1;
-        }
 
         virtual HRESULT STDMETHODCALLTYPE LoadSource(
             _In_z_ LPCWSTR pFilename,
@@ -71,9 +47,9 @@ namespace nova
             if (std::filesystem::exists(target)) {
                 if (included.contains(target)) {
                     // Return empty string blob if this file has been included before
-                    static const char nullStr[] = " ";
+                    constexpr const char* emptyStr = "";
                     IDxcBlobEncoding* blob = nullptr;
-                    utils->CreateBlobFromPinned(nullStr, ARRAYSIZE(nullStr), DXC_CP_ACP, &blob);
+                    utils->CreateBlobFromPinned(emptyStr, 1, DXC_CP_ACP, &blob);
                     *ppIncludeSource = blob;
                     return S_OK;
                 }
@@ -92,29 +68,39 @@ namespace nova
 
             return E_FAIL;
         };
+
+// -----------------------------------------------------------------------------
+
+        virtual HRESULT STDMETHODCALLTYPE QueryInterface(const IID&, void**) { return E_NOINTERFACE; }
+        virtual ULONG   STDMETHODCALLTYPE AddRef()  { return 1; }
+        virtual ULONG   STDMETHODCALLTYPE Release() { return 1; }
     };
 
-    std::vector<uint32_t> hlsl::Compile(ShaderStage stage, std::string_view entry, const std::string& filename, Span<std::string_view> fragments)
+    std::vector<uint32_t> hlsl::Compile(
+            ShaderStage stage,
+            std::string_view entry,
+            const std::string& filename,
+            Span<std::string_view> fragments)
     {
-        // Initialize DXC library
+        // Init
+
         ComPtr<IDxcLibrary> library;
         if (FAILED(DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&library)))) {
             NOVA_THROW("Could not init DXC Library");
         }
 
-        // Initialize DXC compiler
         ComPtr<IDxcCompiler3> compiler;
         if (FAILED(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)))) {
             NOVA_THROW("Could not init DXC Compiler");
         }
 
-        // Initialize DXC utility
         ComPtr<IDxcUtils> utils;
         if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils)))) {
             NOVA_THROW("Could not init DXC Utiliy");
         }
 
-        // Load the HLSL text shader from disk
+        // Load
+
         std::string hlsl;
         if (fragments.size()) {
             for (auto& f : fragments) {
@@ -124,7 +110,8 @@ namespace nova
             hlsl = files::ReadTextFile(filename);
         }
 
-        // Select target profile based on shader file extension
+        // Arguments
+
 #define NOVA_HLSL_SM L"_6_7"
         const wchar_t* targetProfile;
         switch (GetVulkanShaderStage(stage)) {
@@ -157,19 +144,35 @@ namespace nova
         auto wFilename = toWide(filename);
         auto wEntry = toWide(entry);
 
-        // Configure the compiler arguments for compiling the HLSL shader to SPIR-V
         auto arguments = std::to_array<const wchar_t*>({
+
+            // Input
             wFilename.c_str(),
             L"-E", wEntry.c_str(),
-            L"-T", targetProfile,
+
+            // Include
             L"-I", L".",
-            L"-fspv-target-env=vulkan1.3",
-            L"-fvk-use-scalar-layout",
-            L"-enable-16bit-types",
+
+            // Env
+            L"-T", targetProfile,
             L"-spirv",
+            L"-fspv-target-env=vulkan1.3",
+            L"-HV", L"2021",
+
+            // Features
+            L"-enable-16bit-types",
+
+            // Layout
+            L"-fvk-use-scalar-layout", // scalar
+            L"-Zpc",                   // column-major
+
+            // Optimization
+            L"-res-may-alias",
+            L"-ffinite-math-only",
         });
 
-        // Compile shader
+        // Compile
+
         DxcBuffer buffer{};
         buffer.Encoding = DXC_CP_ACP;
         buffer.Ptr = hlsl.data();
@@ -190,6 +193,8 @@ namespace nova
             result->GetStatus(&hres);
         }
 
+        // Report Errors
+
         ComPtr<IDxcBlobEncoding> errorBlob;
         if (result
                 && SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errorBlob), nullptr))
@@ -200,14 +205,15 @@ namespace nova
             NOVA_THROW("Shader compilation failed: Message unavailable");
         }
 
-        // Get compilation result
+        // Get SPIR-V
+
         ComPtr<IDxcBlob> code;
         result->GetResult(&code);
 
-        std::vector<u32> dxil;
-        dxil.resize(code->GetBufferSize() / sizeof(u32));
-        std::memcpy(dxil.data(), code->GetBufferPointer(), code->GetBufferSize());
+        std::vector<u32> spirv;
+        spirv.resize(code->GetBufferSize() / sizeof(u32));
+        std::memcpy(spirv.data(), code->GetBufferPointer(), code->GetBufferSize());
 
-        return dxil;
+        return spirv;
     }
 }

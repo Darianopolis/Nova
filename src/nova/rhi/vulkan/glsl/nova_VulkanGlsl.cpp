@@ -80,7 +80,10 @@ namespace nova
         std::vector<std::filesystem::path> includeDirs;
     };
 
-    std::vector<uint32_t> glsl::Compile(ShaderStage stage, const std::string& filename, Span<std::string_view> fragments)
+    std::vector<uint32_t> glsl::Compile(
+            ShaderStage stage,
+            const std::string& filename,
+            Span<std::string_view> fragments)
     {
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
