@@ -42,7 +42,7 @@ namespace nova
         Vec4              texTint;
         DescriptorHandle texIndex;
         Vec2         texCenterPos;
-        Vec2         texHalfExtent;
+        Vec2        texHalfExtent;
     };
 
     enum class ImDrawType
@@ -53,8 +53,8 @@ namespace nova
     struct ImDrawCommand
     {
         ImDrawType type;
-        u32 first;
-        u32 count;
+        u32       first;
+        u32       count;
     };
 
 // -----------------------------------------------------------------------------
@@ -77,6 +77,7 @@ namespace nova
     struct ImFont
     {
         ImDraw2D* imDraw;
+
         std::vector<ImGlyph> glyphs;
 
     public:

@@ -74,13 +74,13 @@ namespace nova
             nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
                 Preamble,
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D Texture[];
+                    layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];
                     layout(set = 0, binding = 0) uniform sampler Sampler[];
                     layout(location = 0) in vec2 inUV;
                     layout(location = 1) in vec4 inColor;
                     layout(location = 0) out vec4 outColor;
                     void main() {
-                        outColor = texture(sampler2D(Texture[pc.texture.x], Sampler[pc.texture.y]), inUV)
+                        outColor = texture(sampler2D(SampledImage2D[pc.texture.x], Sampler[pc.texture.y]), inUV)
                             * inColor;
                     }
                 )glsl"

@@ -7,7 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-NOVA_EXAMPLE(TriangleMinimal, "tri-minimal")
+NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -23,64 +23,27 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-minimal")
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    // auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-    //     nova::glsl::Compile(nova::ShaderStage::Vertex, "", {R"glsl(
-    //         #version 460
-    //         layout(location = 0) out vec3 color;
-    //         const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
-    //         const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-    //         void main() {
-    //             color = colors[gl_VertexIndex];
-    //             gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-    //         }
-    //     )glsl"}));
+    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
+        nova::glsl::Compile(nova::ShaderStage::Vertex, "", {R"glsl(
+            #version 460
+            layout(location = 0) out vec3 color;
+            const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
+            const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
+            void main() {
+                color = colors[gl_VertexIndex];
+                gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
+            }
+        )glsl"}));
 
-    // auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-    //     nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
-    //         #version 460
-    //         layout(location = 0) in vec3 inColor;
-    //         layout(location = 0) out vec4 fragColor;
-    //         void main() {
-    //             fragColor = vec4(inColor, 1);
-    //         }
-    //     )glsl"}));
-
-    auto Code = R"glsl(
-        struct VSOutput
-        {
-            float4 position : SV_POSITION;
-            float4 color : TEXCOORD;
-        };
-
-        struct PSOutput
-        {
-            float4 color : SV_TARGET0;
-        };
-
-        VSOutput VSMain(uint index: SV_VertexID)
-        {
-            float4 trianglePositions[3] = { float4(0, -1, 0, 1), float4(-1, 1, 0, 1), float4(1, 1, 0, 1) };
-            float4 triangleColors[3]    = { float4(1,  0, 0, 1), float4( 0, 1, 0, 1), float4(0, 0, 1, 1) };
-
-            VSOutput output;
-            output.position = trianglePositions[index];
-            output.color    = triangleColors[index];
-            return output;
-        }
-
-        PSOutput PSMain(VSOutput input)
-        {
-            PSOutput output;
-            output.color = input.color;
-            return output;
-        }
-    )glsl"sv;
-
-    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "VSMain",
-        nova::hlsl::Compile(nova::ShaderStage::Vertex, "VSMain", "", {Code}));
-
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "PSMain",
-        nova::hlsl::Compile(nova::ShaderStage::Fragment, "PSMain", "", {Code}));
+    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+            #version 460
+            layout(location = 0) in vec3 inColor;
+            layout(location = 0) out vec4 fragColor;
+            void main() {
+                fragColor = vec4(inColor, 1);
+            }
+        )glsl"}));
 
     while (!glfwWindowShouldClose(window)) {
 

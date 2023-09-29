@@ -6,7 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-NOVA_EXAMPLE(TriangleMeshShader, "tri-meshshader")
+NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

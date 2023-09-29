@@ -9,7 +9,7 @@
 struct PushConstants
 {
     Vec2U uniforms;
-    u64   vertices;
+    u64 vertices;
 };
 
 struct Uniforms
@@ -20,10 +20,10 @@ struct Uniforms
 struct Vertex
 {
     Vec3 position;
-    Vec3 color;
+    Vec3    color;
 };
 
-NOVA_EXAMPLE(TriangleBuffered, "tri-extended")
+NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

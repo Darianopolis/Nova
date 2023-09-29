@@ -6,7 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-NOVA_EXAMPLE(RayTracing, "tri-raytraced")
+NOVA_EXAMPLE(RayTracing, "tri-rt")
 {
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
@@ -65,8 +65,9 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
                 #version 460
                 #extension GL_EXT_ray_tracing              : require
                 #extension GL_NV_shader_invocation_reorder : require
+                #extension GL_EXT_shader_image_load_formatted  : require
 
-                layout(set = 0, binding = 0, rgba8) uniform image2D Target[];
+                layout(set = 0, binding = 0, vec4) uniform image2D StorageImage2D4F[];
                 layout(set = 1, binding = 0) uniform accelerationStructureEXT TLAS;
 
                 layout(location = 0) rayPayloadEXT uint     payload;
@@ -83,7 +84,7 @@ NOVA_EXAMPLE(RayTracing, "tri-raytraced")
                         hitObjectGetAttributesNV(hit, 0);
                         color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
                     }
-                    imageStore(Target[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+                    imageStore(StorageImage2D4F[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
         )glsl"}));
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };

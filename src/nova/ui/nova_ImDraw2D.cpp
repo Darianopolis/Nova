@@ -90,7 +90,7 @@ namespace nova
             nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
                 Preamble,
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D Texture[];
+                    layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];
                     layout(set = 0, binding = 0) uniform sampler Sampler[];
 
                     layout(location = 0) in vec2 inTex;
@@ -104,7 +104,7 @@ namespace nova
                         vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
                         vec4 sampled = box.texTint.a > 0
-                            ? box.texTint * texture(sampler2D(Texture[nonuniformEXT(box.texIndex)], Sampler[0]),
+                            ? box.texTint * texture(sampler2D(SampledImage2D[nonuniformEXT(box.texIndex)], Sampler[0]),
                                 (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                             : vec4(0);
                         vec4 centerColor = vec4(

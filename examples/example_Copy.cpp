@@ -25,7 +25,7 @@ NOVA_EXAMPLE(Copy, "copy")
     }
     NOVA_CLEANUP(&) {
         for (u32 i = 0; i < 4; ++i) {
-            buffers[i].Destroy();
+            buffers [i].Destroy();
             textures[i].Destroy();
         }
     };

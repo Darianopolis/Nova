@@ -89,27 +89,27 @@ NOVA_EXAMPLE(Compute, "compute")
     {
         u32 sampledIdx;
         u32 samplerIdx;
-        u32 targetIdx;
-        Vec2 size;
+        u32  targetIdx;
+        Vec2      size;
     };
 
     auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
         nova::hlsl::Compile(nova::ShaderStage::Compute, "main", "", {R"hlsl(
-            [[vk::binding(0, 0)]] RWTexture2D<float4> Target[];
-            [[vk::binding(0, 0)]] Texture2D Source[];
+            [[vk::binding(0, 0)]] RWTexture2D<float4> RWImage2DF4[];
+            [[vk::binding(0, 0)]] Texture2D Image2D[];
             [[vk::binding(0, 0)]] SamplerState Sampler[];
             struct PushConstants {
                 uint sampledIdx;
                 uint samplerIdx;
-                uint targetIdx;
-                float2 size;
+                uint  targetIdx;
+                float2     size;
             };
             [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
             [numthreads(16, 16, 1)]
             void main(uint2 id: SV_DispatchThreadID) {
                 float2 uv = float2(id) / pc.size;
-                float3 source = Source[pc.sampledIdx].SampleLevel(Sampler[pc.samplerIdx], uv, 0).rgb;
-                Target[pc.targetIdx][id] = float4(source, 1.0);
+                float3 source = Image2D[pc.sampledIdx].SampleLevel(Sampler[pc.samplerIdx], uv, 0).rgb;
+                RWImage2DF4[pc.targetIdx][id] = float4(source, 1.0);
             }
         )hlsl"}));
     NOVA_CLEANUP(&) { computeShader.Destroy(); };
@@ -120,24 +120,25 @@ NOVA_EXAMPLE(Compute, "compute")
     //         #extension GL_EXT_scalar_block_layout  : require
     //         #extension GL_EXT_nonuniform_qualifier : require
     //         #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+    //         #extension GL_EXT_shader_image_load_formatted  : require
 
-    //         layout(set = 0, binding = 0, rgba8) uniform image2D Target[];
-    //         layout(set = 0, binding = 0) uniform texture2D Source[];
+    //         layout(set = 0, binding = 0) uniform image2D RWImage2D[];
+    //         layout(set = 0, binding = 0) uniform texture2D Image2D[];
     //         layout(set = 0, binding = 0) uniform sampler Sampler[];
 
     //         layout(push_constant, scalar) uniform PushConstants {
     //             uint sampledIdx;
     //             uint samplerIdx;
-    //             uint targetIdx;
-    //             vec2 size;
+    //             uint  targetIdx;
+    //             vec2       size;
     //         } pc;
 
     //         layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
     //         void main() {
     //             ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     //             vec2 uv = vec2(pos) / pc.size;
-    //             vec3 source = texture(sampler2D(Source[pc.sampledIdx], Sampler[pc.samplerIdx]), uv).rgb;
-    //             imageStore(Target[pc.targetIdx], pos, vec4(source, 1.0));
+    //             vec3 source = texture(sampler2D(Image2D[pc.sampledIdx], Sampler[pc.samplerIdx]), uv).rgb;
+    //             imageStore(RWImage2D[pc.targetIdx], pos, vec4(source, 1.0));
     //         }
     //     )glsl"}));
     // NOVA_CLEANUP(&) { computeShader.Destroy(); };

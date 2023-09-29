@@ -6,7 +6,7 @@ namespace nova
     class Array
     {
         u64 _size     : 63 = 0;
-        u64 _is_large : 1  = 0;
+        u64 _is_large :  1 = 0;
 
         union
         {
