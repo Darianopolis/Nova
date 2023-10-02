@@ -277,10 +277,6 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
                 .mutableDescriptorType = VK_TRUE;
 
-            // Push Descriptors
-
-            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
-
             // Host Image Copy
 
             chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
@@ -345,6 +341,13 @@ Validation: {} ({})
         }
 
         if (config.rayTracing) {
+
+            // Push Descriptors (for accel structure binding)
+
+            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+
+            // Ray Tracing extensions
+
             chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
             chain.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
             chain.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);

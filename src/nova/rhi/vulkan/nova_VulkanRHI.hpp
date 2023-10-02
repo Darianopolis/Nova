@@ -217,7 +217,7 @@ namespace nova
         Context context = {};
 
         VkPipeline pipeline = {};
-        Buffer   sbtBuffer = {};
+        Buffer    sbtBuffer = {};
 
         VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
