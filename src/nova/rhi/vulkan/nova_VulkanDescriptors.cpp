@@ -384,26 +384,4 @@ namespace nova
             descriptorSize,
             data);
     }
-
-// -----------------------------------------------------------------------------
-//                          Acceleration Structures
-// -----------------------------------------------------------------------------
-
-    void CommandList::BindAccelerationStructure(BindPoint bindPoint, HAccelerationStructure accelerationStructure) const
-    {
-        vkCmdPushDescriptorSetKHR(impl->buffer,
-            GetVulkanPipelineBindPoint(bindPoint),
-            impl->pool->context->pipelineLayout, 1, 1, Temp(VkWriteDescriptorSet {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .pNext = Temp(VkWriteDescriptorSetAccelerationStructureKHR {
-                    .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
-                    .accelerationStructureCount = 1,
-                    .pAccelerationStructures = &accelerationStructure->structure,
-                }),
-                .dstBinding = 0,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-            }));
-    }
 }

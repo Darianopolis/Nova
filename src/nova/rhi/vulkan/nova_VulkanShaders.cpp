@@ -63,15 +63,12 @@ namespace nova
                 .codeSize = spirv.size() * 4,
                 .pCode = spirv.data(),
                 .pName = shader->entry.c_str(),
-                .setLayoutCount = context->config.rayTracing ? 2u : 1u,
-                .pSetLayouts = std::array {
-                    context->heapLayout,
-                    context->rtLayout,
-                }.data(),
+                .setLayoutCount = 1,
+                .pSetLayouts = &context->heapLayout,
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_ALL,
-                    .size = 128,
+                    .size = 256,
                 }),
             }), context->pAlloc, &shader->shader));
         }

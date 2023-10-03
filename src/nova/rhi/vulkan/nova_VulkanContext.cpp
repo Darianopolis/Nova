@@ -342,10 +342,6 @@ Validation: {} ({})
 
         if (config.rayTracing) {
 
-            // Push Descriptors (for accel structure binding)
-
-            chain.Extension(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
-
             // Ray Tracing extensions
 
             chain.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
@@ -541,30 +537,10 @@ Validation: {} ({})
             NOVA_LOGEXPR(impl->mutableDescriptorSize);
         }
 
-        if (impl->config.rayTracing) {
-            vkh::Check(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR
-                    | VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT,
-                .bindingCount = 1,
-                .pBindings = std::array {
-                    VkDescriptorSetLayoutBinding {
-                        .binding = 0,
-                        .descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-                        .descriptorCount = 1,
-                        .stageFlags = VK_SHADER_STAGE_ALL,
-                    },
-                }.data(),
-            }), impl->pAlloc, &impl->rtLayout));
-        }
-
         vkh::Check(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = impl->config.rayTracing ? 2u : 1u,
-            .pSetLayouts = std::array {
-                impl->heapLayout,
-                impl->rtLayout,
-            }.data(),
+            .setLayoutCount = 1,
+            .pSetLayouts = &impl->heapLayout,
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_ALL,
@@ -597,7 +573,6 @@ Validation: {} ({})
 
         // Destroy context vk objects
         vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
-        vkDestroyDescriptorSetLayout(impl->device, impl->rtLayout, impl->pAlloc);
         vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
         vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);

@@ -451,7 +451,6 @@ namespace nova
         void DispatchIndirect(HBuffer buffer, u64 offset) const;
 
         void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
-        void BindAccelerationStructure(BindPoint, HAccelerationStructure) const;
 
         void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;

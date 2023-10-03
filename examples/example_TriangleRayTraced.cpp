@@ -63,28 +63,34 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         nova::glsl::Compile(nova::ShaderStage::RayGen, "", {
             R"glsl(
                 #version 460
-                #extension GL_EXT_ray_tracing              : require
-                #extension GL_NV_shader_invocation_reorder : require
-                #extension GL_EXT_shader_image_load_formatted  : require
+                #extension GL_EXT_ray_tracing                            : require
+                #extension GL_NV_shader_invocation_reorder               : require
+                #extension GL_EXT_shader_image_load_formatted            : require
+                #extension GL_EXT_scalar_block_layout                    : require
+                #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
-                layout(set = 0, binding = 0, vec4) uniform image2D StorageImage2D4F[];
+                layout(set = 0, binding = 0) uniform image2D RWImage2D[];
                 layout(set = 1, binding = 0) uniform accelerationStructureEXT TLAS;
 
                 layout(location = 0) rayPayloadEXT uint     payload;
                 layout(location = 0) hitObjectAttributeNV vec3 bary;
 
+                layout(push_constant, scalar) uniform pc_ {
+                    uint64_t tlas;
+                } pc;
+
                 void main() {
                     vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
                     vec3 dir = vec3(0, 0, -1);
                     hitObjectNV hit;
-                    hitObjectTraceRayNV(hit, TLAS, 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+                    hitObjectTraceRayNV(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
                     vec3 color = vec3(0.1);
                     if (hitObjectIsHitNV(hit)) {
                         hitObjectGetAttributesNV(hit, 0);
                         color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
                     }
-                    imageStore(StorageImage2D4F[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+                    imageStore(RWImage2D[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
         )glsl"}));
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
@@ -217,10 +223,10 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         cmd.WriteStorageTexture(heap, 0, swapchain.GetCurrent());
         cmd.BindDescriptorHeap(nova::BindPoint::RayTracing, heap);
-        cmd.BindAccelerationStructure(nova::BindPoint::RayTracing, tlas);
 
         // Trace rays
 
+        cmd.PushConstants(tlas.GetAddress());
         cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
 
         // Submit and present work

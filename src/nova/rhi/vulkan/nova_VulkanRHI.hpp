@@ -356,7 +356,6 @@ namespace nova
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
         VkDescriptorSetLayout heapLayout = {};
-        VkDescriptorSetLayout   rtLayout = {};
         VkPipelineLayout  pipelineLayout = {};
 
         std::vector<Queue>  graphicQueues = {};

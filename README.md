@@ -57,7 +57,6 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 #### Additional supported extensions
 - VK_EXT_mesh_shader
 - VK_KHR_fragment_shader_barycentric
-- VK_KHR_push_descriptor (required for accel structure binding)
 - VK_KHR_ray_tracing_pipeline
 - VK_KHR_acceleration_structure
 - VK_KHR_ray_query
