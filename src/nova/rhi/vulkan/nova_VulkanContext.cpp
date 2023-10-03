@@ -494,14 +494,19 @@ Validation: {} ({})
                     .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
                     .mutableDescriptorTypeListCount = 1,
                     .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
-                        .descriptorTypeCount = 7,
+                        .descriptorTypeCount = 8,
                         .pDescriptorTypes = std::array {
                             VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+
                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+
                             VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
                             VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+
+                            VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+
                             VK_DESCRIPTOR_TYPE_SAMPLER,
                         }.data(),
                     }),

@@ -10,6 +10,7 @@ namespace nova
 
         Shader shader{ impl };
 
+        shader->id = context->GetUID();
         shader->entry = std::move(entry);
 
         bool generateShaderObject = true;

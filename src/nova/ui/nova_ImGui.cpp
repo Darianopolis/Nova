@@ -242,7 +242,6 @@ namespace nova
 
         // Set pipeline state
 
-        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(target.GetExtent())}});
         cmd.SetBlendState({true});
@@ -251,6 +250,8 @@ namespace nova
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
 
         // Draw vertices
+
+        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
 
         Vec2 clipOffset{ data->DisplayPos.x, data->DisplayPos.y };
         Vec2 clipScale{ data->FramebufferScale.x, data->FramebufferScale.y };

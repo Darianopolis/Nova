@@ -54,6 +54,7 @@ namespace nova
         range.primitiveCount = count;
 
         impl->primitiveCounts[geometryIndex] = count;
+        impl->sizeDirty = true;
     }
 
     void AccelerationStructureBuilder::SetTriangles(u32 geometryIndex,
@@ -79,6 +80,7 @@ namespace nova
         range.primitiveCount = triangleCount;
 
         impl->primitiveCounts[geometryIndex] = triangleCount;
+        impl->sizeDirty = true;
     }
 
     void AccelerationStructureBuilder::Prepare(AccelerationStructureType _type, AccelerationStructureFlags _flags,
