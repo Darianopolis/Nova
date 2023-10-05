@@ -102,6 +102,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     NOVA_CLEANUP(&) { pipeline.Destroy(); };
     pipeline.Update({rayGenShader}, {}, {}, {});
 
+    // pipeline.WriteHandle(sbt.GetMapped(), 0, 0);
+
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS
 // -----------------------------------------------------------------------------

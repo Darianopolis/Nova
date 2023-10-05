@@ -467,7 +467,7 @@ namespace nova
         void BuildAccelerationStructure(HAccelerationStructureBuilder, HAccelerationStructure, HBuffer scratch) const;
         void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const;
 
-        void TraceRays(HRayTracingPipeline, Vec3U extent, u32 genIndex) const;
+        void TraceRays(HRayTracingPipeline, Vec3U extent, u32 genIndex, u64 hitShaderAddress = 0, u32 hitShaderCount = 0) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -604,6 +604,10 @@ namespace nova
             Span<HShader> rayMissShaders,
             Span<struct HitShaderGroup> rayhitShaderGroups,
             Span<HShader> callableShaders) const;
+
+        u64 GetShaderBindingTableSize(u32 numHandles) const;
+        u64 GetShaderBindingTableAlign() const;
+        void WriteHandle(void* bufferAddress, u32 index, u32 groupIndex);
     };
 
 #undef NOVA_BEGIN_API_OBJECT

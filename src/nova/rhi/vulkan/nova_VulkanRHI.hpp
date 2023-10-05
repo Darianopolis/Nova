@@ -217,6 +217,12 @@ namespace nova
         VkPipeline pipeline = {};
         Buffer    sbtBuffer = {};
 
+        u32                 handleSize;
+        u32               handleStride;
+        u64               rayHitOffset;
+        std::vector<u8>        handles;
+        std::vector<u32> rayHitIndices;
+
         VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
         VkStridedDeviceAddressRegionKHR rayMissRegion = {};
         VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
