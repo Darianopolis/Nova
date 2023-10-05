@@ -45,7 +45,7 @@ namespace nova
         auto& instances = impl->geometries[geometryIndex];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-        instances.geometry.instances = VkAccelerationStructureGeometryInstancesDataKHR {
+        instances.geometry.instances = {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
             .data = {{ deviceAddress }},
         };
@@ -66,7 +66,7 @@ namespace nova
         auto& instances = impl->geometries[geometryIndex];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-        instances.geometry.triangles = VkAccelerationStructureGeometryTrianglesDataKHR {
+        instances.geometry.triangles = {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
             .vertexFormat = GetVulkanFormat(vertexFormat),
             .vertexData = {{ vertexAddress }},

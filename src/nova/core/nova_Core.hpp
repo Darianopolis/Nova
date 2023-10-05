@@ -230,6 +230,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<typename K, typename V>
+    using HashMap = ankerl::unordered_dense::map<K, V>;
+
+// -----------------------------------------------------------------------------
+
         template<typename T>
         struct Span
         {
@@ -259,11 +264,6 @@ namespace nova
     }
 
     using namespace types;
-
-// -----------------------------------------------------------------------------
-
-    template<typename K, typename V>
-    using HashMap = ankerl::unordered_dense::map<K, V>;
 
     // template<typename K>
     // struct Hash;

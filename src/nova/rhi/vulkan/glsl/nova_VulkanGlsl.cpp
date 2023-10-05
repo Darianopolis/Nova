@@ -166,7 +166,7 @@ namespace nova
 
         // ---- Parsing ----
 
-        if (!glslShader.parse(resource, 100, ENoProfile, EShMessages::EShMsgDefault)) {
+        if (!glslShader.parse(resource, 460, false, EShMessages::EShMsgDefault)) {
             printShader();
             NOVA_THROW("GLSL parsing failed {}\n{}\n{}", filename, glslShader.getInfoLog(), glslShader.getInfoDebugLog());
         }
@@ -195,7 +195,7 @@ namespace nova
 
         std::vector<u32> spirv;
         spv::SpvBuildLogger logger;
-        glslang::GlslangToSpv(*intermediate, spirv, &spvOptions);
+        glslang::GlslangToSpv(*intermediate, spirv, &logger, &spvOptions);
 
         if (!logger.getAllMessages().empty()) {
             NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());

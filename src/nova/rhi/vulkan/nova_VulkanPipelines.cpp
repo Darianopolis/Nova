@@ -10,7 +10,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     static
-    constexpr std::array DynamicStates {
+    constexpr std::array DynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
         VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT,
         VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,

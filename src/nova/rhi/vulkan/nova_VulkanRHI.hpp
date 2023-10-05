@@ -2,8 +2,6 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
-#include <nova/core/nova_Array.hpp>
-
 namespace nova
 {
     namespace vkh
