@@ -53,6 +53,10 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         heap.Destroy();
     };
 
+    glm::mat4x3 m;
+    glm::vec4 v;
+    auto t = m * v;
+
 // -----------------------------------------------------------------------------
 //                        Descriptors & Pipeline
 // -----------------------------------------------------------------------------
@@ -100,9 +104,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     auto pipeline = nova::RayTracingPipeline::Create(context);
     NOVA_CLEANUP(&) { pipeline.Destroy(); };
-    pipeline.Update({rayGenShader}, {}, {}, {});
-
-    // pipeline.WriteHandle(sbt.GetMapped(), 0, 0);
+    pipeline.Update(rayGenShader, {}, {}, {});
 
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS
@@ -230,7 +232,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         // Trace rays
 
         cmd.PushConstants(tlas.GetAddress());
-        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1), 0);
+        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1));
 
         // Submit and present work
 

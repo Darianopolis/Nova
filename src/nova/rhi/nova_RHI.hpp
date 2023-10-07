@@ -467,7 +467,7 @@ namespace nova
         void BuildAccelerationStructure(HAccelerationStructureBuilder, HAccelerationStructure, HBuffer scratch) const;
         void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const;
 
-        void TraceRays(HRayTracingPipeline, Vec3U extent, u32 genIndex, u64 hitShaderAddress = 0, u32 hitShaderCount = 0) const;
+        void TraceRays(HRayTracingPipeline, Vec3U extent, u64 hitShaderAddress = 0, u32 hitShaderCount = 0) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -600,13 +600,16 @@ namespace nova
         void Destroy();
 
         void Update(
-            Span<HShader> rayGenShaders,
-            Span<HShader> rayMissShaders,
+            HShader                           rayGenShader,
+            Span<HShader>                   rayMissShaders,
             Span<struct HitShaderGroup> rayhitShaderGroups,
-            Span<HShader> callableShaders) const;
+            Span<HShader>                  callableShaders) const;
 
-        u64 GetShaderBindingTableSize(u32 numHandles) const;
-        u64 GetShaderBindingTableAlign() const;
+        u64 GetTableSize(u32 handles) const;
+        u64 GetHandleSize() const;
+        u64 GetHandleStride() const;
+        u64 GetHandleGroupAlign() const;
+        HBuffer GetHandles() const;
         void WriteHandle(void* bufferAddress, u32 index, u32 groupIndex);
     };
 

@@ -45,8 +45,7 @@ namespace nova
 
             if (exists) {
                 userData->name = target.string();
-                // userData->content = nova::files::ReadTextFile(userData->name);
-                NOVA_THROW("Include load file not supported yet");
+                userData->content = nova::files::ReadTextFile(userData->name);
             } else {
                 userData->content = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
                 NOVA_LOG("{}", userData->content);
@@ -127,7 +126,7 @@ namespace nova
         }
         const char* source = glsl.data();
         i32 sourceLength = i32(glsl.size());
-        const char* sourceName = "shader";
+        const char* sourceName = filename.c_str();
         glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
 
         // ---- Defines ----
