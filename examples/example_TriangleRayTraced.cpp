@@ -64,7 +64,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
     auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
-        nova::glsl::Compile(nova::ShaderStage::RayGen, "", {
+        nova::glsl::Compile(nova::ShaderStage::RayGen, "main", "", {
             R"glsl(
                 #version 460
                 #extension GL_EXT_ray_tracing                            : require

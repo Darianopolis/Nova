@@ -33,11 +33,16 @@ namespace nova
                 target = current.parent_path() / requested;
                 exists = std::filesystem::exists(target);
 
-            } else for (auto& dir : includeDirs) {
-                target = dir / requested;
-                if (std::filesystem::exists(target)) {
-                    exists = true;
-                    break;
+            }
+
+            if (!exists) {
+                for (auto& dir : includeDirs) {
+                    target = dir / requested;
+                    if (std::filesystem::exists(target)) {
+                        NOVA_LOG("  Found!");
+                        exists = true;
+                        break;
+                    }
                 }
             }
 
@@ -81,6 +86,7 @@ namespace nova
 
     std::vector<uint32_t> glsl::Compile(
             ShaderStage stage,
+            std::string_view entry,
             const std::string& filename,
             Span<std::string_view> fragments)
     {
@@ -129,11 +135,14 @@ namespace nova
         const char* sourceName = filename.c_str();
         glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
 
+        glslShader.setSourceEntryPoint(entry.data());
+
         // ---- Defines ----
 
         // ---- Includes ----
 
         GlslangIncluder includer;
+        includer.AddIncludeDir(".");
 
         // ---- Preprocessing ----
 

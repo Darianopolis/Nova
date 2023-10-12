@@ -288,18 +288,20 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-#define NOVA_DECORATE_FLAG_ENUM(enumType)                                \
-    inline enumType operator|(enumType l, enumType r) {                  \
-        return enumType(static_cast<std::underlying_type_t<enumType>>(l) \
-            | std::to_underlying(r));                                    \
-    }                                                                    \
-    inline bool operator>=(enumType l, enumType r) {                     \
-        return std::to_underlying(r)                                     \
-            == (std::to_underlying(l) & std::to_underlying(r));          \
-    }                                                                    \
-    inline bool operator&(enumType l, enumType r) {                      \
-        return static_cast<std::underlying_type_t<enumType>>(0)          \
-            != (std::to_underlying(l) & std::to_underlying(r));          \
+#define NOVA_DECORATE_FLAG_ENUM(enumType)                                      \
+    inline enumType operator|(enumType l, enumType r) {                        \
+        return enumType(std::to_underlying(l) | std::to_underlying(r));        \
+    }                                                                          \
+    inline enumType operator|=(enumType& l, enumType r) {                      \
+        return l = l | r;                                                      \
+    }                                                                          \
+    inline bool operator>=(enumType l, enumType r) {                           \
+        return std::to_underlying(r)                                           \
+            == (std::to_underlying(l) & std::to_underlying(r));                \
+    }                                                                          \
+    inline bool operator&(enumType l, enumType r) {                            \
+        return static_cast<std::underlying_type_t<enumType>>(0)                \
+            != (std::to_underlying(l) & std::to_underlying(r));                \
     }
 
 // -----------------------------------------------------------------------------

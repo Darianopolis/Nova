@@ -55,6 +55,8 @@ namespace nova
         break;case Format::D24_UNorm:     return VK_FORMAT_X8_D24_UNORM_PACK32;
         break;case Format::S8_D24_UNorm:  return VK_FORMAT_D24_UNORM_S8_UINT;
         break;case Format::D32_SFloat:    return VK_FORMAT_D32_SFLOAT;
+        break;case Format::BC7_SRGB:      return VK_FORMAT_BC7_SRGB_BLOCK;
+        break;case Format::BC7_Unorm:     return VK_FORMAT_BC7_UNORM_BLOCK;
         }
 
         NOVA_THROW("Unknown Format: {}", u32(format));
@@ -79,6 +81,8 @@ namespace nova
         break;case VK_FORMAT_X8_D24_UNORM_PACK32: return Format::D24_UNorm;
         break;case VK_FORMAT_D24_UNORM_S8_UINT:   return Format::S8_D24_UNorm;
         break;case VK_FORMAT_D32_SFLOAT:          return Format::D32_SFloat;
+        break;case VK_FORMAT_BC7_SRGB_BLOCK:      return Format::BC7_SRGB;
+        break;case VK_FORMAT_BC7_UNORM_BLOCK:     return Format::BC7_Unorm;
         }
 
         NOVA_THROW("Unknown VkFormat: {}", u32(format));

@@ -211,6 +211,7 @@ Validation: {} ({})
                 f.features.independentBlend = VK_TRUE;
                 f.features.imageCubeArray = VK_TRUE;
                 f.features.drawIndirectFirstInstance = VK_TRUE;
+                f.features.fragmentStoresAndAtomics = VK_TRUE;
             }
 
             {

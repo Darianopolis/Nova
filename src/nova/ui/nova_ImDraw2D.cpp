@@ -63,7 +63,7 @@ namespace nova
         descriptorHeap.WriteSampler(0, defaultSampler);
 
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, "main",
-            nova::glsl::Compile(nova::ShaderStage::Vertex, "", {
+            nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
                 R"glsl(
                     const vec2[6] deltas = vec2[] (
@@ -87,7 +87,7 @@ namespace nova
             }));
 
         rectFragShader = nova::Shader::Create(context, ShaderStage::Fragment, "main",
-            nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
+            nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];

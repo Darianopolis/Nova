@@ -12,7 +12,7 @@ std::monostate RegisterExample(const char* name, void(*fn)())
     return {};
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[]) try
 {
     std::sort(GetExamples().begin(), GetExamples().end(), [](const auto& l, const auto& r) {
         return std::lexicographical_compare(
@@ -38,4 +38,7 @@ int main(int argc, char* argv[])
     NOVA_LOG("Examples:");
     for (auto& example : GetExamples())
         NOVA_LOG(" - {}", example.name);
+}
+catch (const std::exception& e) {
+    NOVA_LOG("Error: {}", e.what());
 }

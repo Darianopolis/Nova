@@ -25,7 +25,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
     auto fence = nova::Fence::Create(context);
 
     auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
-        nova::glsl::Compile(nova::ShaderStage::Task, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Task, "main", "", {R"glsl(
             #version 460
             #extension GL_EXT_mesh_shader : require
 
@@ -35,7 +35,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         )glsl"}));
 
     auto meshShader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
-        nova::glsl::Compile(nova::ShaderStage::Mesh, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Mesh, "main", "", {R"glsl(
             #version 460
             #extension GL_EXT_mesh_shader : require
 
@@ -57,7 +57,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         )glsl"}));
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
             #version 460
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;

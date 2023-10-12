@@ -56,7 +56,7 @@ namespace nova
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
         vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-            nova::glsl::Compile(nova::ShaderStage::Vertex, "", {
+            nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(location = 0) out vec2 outUV;
@@ -71,7 +71,7 @@ namespace nova
             }));
 
         fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-            nova::glsl::Compile(nova::ShaderStage::Fragment, "", {
+            nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];

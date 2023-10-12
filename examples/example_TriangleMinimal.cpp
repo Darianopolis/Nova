@@ -24,7 +24,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     auto fence = nova::Fence::Create(context);
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-        nova::glsl::Compile(nova::ShaderStage::Vertex, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
             #version 460
             layout(location = 0) out vec3 color;
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
@@ -36,7 +36,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         )glsl"}));
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
             #version 460
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;

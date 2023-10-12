@@ -82,6 +82,10 @@ if Project "nova-examples" then
     --     "examples/example_TriangleExtended.cpp",
     --     "examples/example_TriangleMinimal.cpp",
     -- }
-    Import { "stb", "nova" }
+    Import {
+        "stb",
+        "nova",
+        "bc7enc",
+    }
     Artifact { "out/example", type = "Console" }
 end

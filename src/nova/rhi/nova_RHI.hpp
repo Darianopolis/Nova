@@ -114,6 +114,9 @@ namespace nova
         D24_UNorm,
         D32_SFloat,
         S8_D24_UNorm,
+
+        BC7_SRGB,
+        BC7_Unorm,
     };
 
     enum class IndexType : u32

@@ -84,7 +84,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     // Shaders
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-        nova::glsl::Compile(nova::ShaderStage::Vertex, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
             #version 460
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_buffer_reference2    : require
@@ -113,7 +113,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "", {R"glsl(
+        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
             #version 460
 
             layout(location = 0) in vec3 inColor;
