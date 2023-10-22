@@ -130,11 +130,13 @@ namespace nova
         } else {
             glsl = files::ReadTextFile(filename);
         }
+
         const char* source = glsl.data();
         i32 sourceLength = i32(glsl.size());
         const char* sourceName = filename.c_str();
-        glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
 
+        glslShader.setStringsWithLengthsAndNames(&source, &sourceLength, &sourceName, 1);
+        glslShader.setPreamble("#extension GL_GOOGLE_include_directive : require\n");
         glslShader.setSourceEntryPoint(entry.data());
 
         // ---- Defines ----

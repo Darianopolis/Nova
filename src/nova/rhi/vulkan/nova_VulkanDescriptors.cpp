@@ -19,7 +19,7 @@ namespace nova
             vkh::Check(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
-                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
+                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
                     .mutableDescriptorTypeListCount = 1,
                     .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
                         .descriptorTypeCount = 7,

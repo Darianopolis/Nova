@@ -4,6 +4,8 @@
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 #include <nova/rhi/vulkan/hlsl/nova_VulkanHlsl.hpp>
 
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -68,10 +70,9 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_CLEANUP(&) { texture.Destroy(); };
     {
         int width, height, channels;
-        auto imageData = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
+        // auto imageData = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
+        auto imageData = stbi_load("D:/Dev/Models/Sponza/textures/column_brickwall_01_BaseColor.png", &width, &height, &channels, STBI_rgb_alpha);
         NOVA_CLEANUP(&) { stbi_image_free(imageData); };
-
-
 
 
 
@@ -112,7 +113,7 @@ NOVA_EXAMPLE(Compute, "compute")
         //         for (i32 lx = 0; lx < BlockDim; ++lx) {
         //             for (i32 ly = 0; ly < BlockDim; ++ly) {
         //                 sourceBlock[lx + ly * BlockDim]
-        //                     = reinterpret_cast<const Pixel*>(imageData)[(px + lx) + (py + ly) * height];
+        //                     = reinterpret_cast<const Pixel*>(imageData)[(px + lx) + (py + ly) * width];
         //             }
         //         }
         //         if (bc7enc_compress_block(&blocks[bx + by * bcWidth], sourceBlock, &params)) {
@@ -135,12 +136,55 @@ NOVA_EXAMPLE(Compute, "compute")
 
         // texture.Set({}, texture.GetExtent(), blocks.data());
 
+
+
+
+
         constexpr i32 BlockDim = 4;
         constexpr i32 BlockSize = BlockDim * BlockDim;
         struct Block { uc8 data[BlockSize]; };
 
         utils::image_u8 image{ u32(width), u32(height) };
-        std::memcpy(image.get_pixels().data(), imageData, width * height * 4);
+        // std::memcpy(image.get_pixels().data(), imageData, width * height * 4);
+
+        {
+
+            i32 maxDim = 2048;
+            auto pData = imageData;
+            auto getIndex = [](i32 x, i32 y, i32 pitch) { return x + y * pitch; };
+
+            i32 factor = std::max(width / maxDim, height / maxDim);
+            i32 sWidth = width / factor;
+            i32 sHeight = height / factor;
+            i32 factor2 = factor * factor;
+
+            image.init(sWidth, sHeight);
+
+#pragma omp parallel for
+            for (i32 x = 0; x < sWidth; ++x) {
+                for (i32 y = 0; y < sHeight; ++y) {
+
+                    Vec4 acc = {};
+
+                    for (i32 dx = 0; dx < factor; ++dx) {
+                        for (i32 dy = 0; dy < factor; ++dy) {
+                            auto* pixel = pData + getIndex(x * factor + dx, y * factor + dy, width) * 4;
+                            acc.r += pixel[0];
+                            acc.g += pixel[1];
+                            acc.b += pixel[2];
+                            acc.a += pixel[3];
+                        }
+                    }
+
+                    acc /= f32(factor2);
+                    image.get_pixels()[getIndex(x, y, sWidth)]
+                        = { u8(acc.r), u8(acc.g), u8(acc.b), u8(acc.a) };
+                }
+            }
+
+            width = sWidth;
+            height = sHeight;
+        }
 
         if (false) {
             texture = nova::Texture::Create(context,
@@ -205,7 +249,6 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
         nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {R"glsl(
-            #version 460
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_nonuniform_qualifier : require
             #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require

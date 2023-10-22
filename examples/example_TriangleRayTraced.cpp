@@ -66,7 +66,6 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
         nova::glsl::Compile(nova::ShaderStage::RayGen, "main", "", {
             R"glsl(
-                #version 460
                 #extension GL_EXT_ray_tracing                            : require
                 #extension GL_NV_shader_invocation_reorder               : require
                 #extension GL_EXT_shader_image_load_formatted            : require

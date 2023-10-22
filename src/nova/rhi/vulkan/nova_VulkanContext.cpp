@@ -95,6 +95,17 @@ Validation: {} ({})
 
         volkInitialize();
 
+        {
+            uint32_t instLayerCount = NULL;
+            auto result = vkEnumerateInstanceLayerProperties(&instLayerCount,nullptr);
+            std::vector<VkLayerProperties> instLayerList(instLayerCount);
+            result = vkEnumerateInstanceLayerProperties(&instLayerCount,&instLayerList[0]);
+
+            // for (u32 i = 0; i < instLayerCount; ++i) {
+            //     NOVA_LOG("Instance layer[{}] = {}", i, instLayerList[i].layerName);
+            // }
+        }
+
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
             .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -235,7 +246,9 @@ Validation: {} ({})
                 f.samplerFilterMinmax = VK_TRUE;
                 f.bufferDeviceAddress = VK_TRUE;
                 f.imagelessFramebuffer = VK_TRUE;
+                f.storagePushConstant8 = VK_TRUE;
                 f.runtimeDescriptorArray = VK_TRUE;
+                f.storageBuffer8BitAccess = VK_TRUE;
                 f.descriptorBindingPartiallyBound = VK_TRUE;
                 f.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
                 f.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
@@ -488,7 +501,7 @@ Validation: {} ({})
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
                 .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
-                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_VALVE,
+                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
                     .mutableDescriptorTypeListCount = 1,
                     .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
                         .descriptorTypeCount = 8,
@@ -533,9 +546,7 @@ Validation: {} ({})
         if (impl->descriptorBuffers) {
             VkDeviceSize maxSize;
             vkGetDescriptorSetLayoutSizeEXT(impl->device, impl->heapLayout, &maxSize);
-            NOVA_LOGEXPR(maxSize);
             impl->mutableDescriptorSize = u32(maxSize / impl->maxDescriptors);
-            NOVA_LOGEXPR(impl->mutableDescriptorSize);
         }
 
         vkh::Check(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {

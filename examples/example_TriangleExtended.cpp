@@ -8,8 +8,8 @@
 
 struct PushConstants
 {
-    Vec2U uniforms;
     u64 vertices;
+    u32 uniforms;
 };
 
 struct Uniforms
@@ -85,7 +85,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
         nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
-            #version 460
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_buffer_reference2    : require
             #extension GL_EXT_nonuniform_qualifier : require
@@ -98,8 +97,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
             };
 
             layout(push_constant, scalar) uniform pc_ {
-                uint   uniforms;
                 Vertex vertices;
+                uint   uniforms;
             } pc;
 
             layout(location = 0) out vec3 color;
@@ -114,8 +113,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            #version 460
-
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;
 
@@ -144,8 +141,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         cmd.BindShaders({vertexShader, fragmentShader});
 
         cmd.PushConstants(PushConstants {
-            .uniforms = Vec2U(0, 0),
-            .vertices = vertices.GetAddress()
+            .vertices = vertices.GetAddress(),
+            .uniforms = 0,
         });
         cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);

@@ -36,7 +36,6 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
     auto meshShader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
         nova::glsl::Compile(nova::ShaderStage::Mesh, "main", "", {R"glsl(
-            #version 460
             #extension GL_EXT_mesh_shader : require
 
             layout(triangles, max_vertices = 3, max_primitives = 1) out;
@@ -58,7 +57,6 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            #version 460
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;
             void main() {

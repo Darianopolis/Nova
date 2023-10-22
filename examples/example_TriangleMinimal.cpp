@@ -2,7 +2,6 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
-#include <nova/rhi/vulkan/hlsl/nova_VulkanHlsl.hpp>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -25,7 +24,6 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
         nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
-            #version 460
             layout(location = 0) out vec3 color;
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
@@ -37,7 +35,6 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 
     auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            #version 460
             layout(location = 0) in vec3 inColor;
             layout(location = 0) out vec4 fragColor;
             void main() {

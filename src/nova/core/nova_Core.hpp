@@ -264,22 +264,40 @@ namespace nova
     }
 
     using namespace types;
+}
 
-    // template<typename K>
-    // struct Hash;
+#define NOVA_MEMORY_HASH(type)                                                 \
+    template<>                                                                 \
+    struct ankerl::unordered_dense::hash<type>                                 \
+    {                                                                          \
+        using is_avalanching = void;                                           \
+        uint64_t operator()(const type& key) const noexcept {                  \
+            return detail::wyhash::hash(&key, sizeof(key));                    \
+        }                                                                      \
+    };
+    //  \
+    // bool operator==(const type& l, const type& r) {                            \
+    //     return std::memcmp(&l, &r, sizeof(type)) == 0;                         \
+    // }
 
-// }
-//     template<typename K>
-//     struct ankerl::unordered_dense::hash<K>
-//     {
-//         using K::is_avalanching;
-//         uint64_t operator()(const K& key) const noexcept {
-//             return nova::Hash<K>{}(key);
-//         }
-//     };
+NOVA_MEMORY_HASH(nova::Vec2)
+NOVA_MEMORY_HASH(nova::Vec2I)
+NOVA_MEMORY_HASH(nova::Vec2U)
+NOVA_MEMORY_HASH(nova::Vec3)
+NOVA_MEMORY_HASH(nova::Vec3I)
+NOVA_MEMORY_HASH(nova::Vec3U)
+NOVA_MEMORY_HASH(nova::Vec4)
+NOVA_MEMORY_HASH(nova::Vec4I)
+NOVA_MEMORY_HASH(nova::Vec4U)
+NOVA_MEMORY_HASH(nova::Quat)
+NOVA_MEMORY_HASH(nova::Mat3)
+NOVA_MEMORY_HASH(nova::Mat4)
+NOVA_MEMORY_HASH(nova::Rect2I)
+NOVA_MEMORY_HASH(nova::Trs)
+NOVA_MEMORY_HASH(nova::Rect2D)
 
-// namespace nova
-// {
+namespace nova
+{
 
 // -----------------------------------------------------------------------------
 
