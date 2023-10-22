@@ -1,7 +1,8 @@
 .vscode
 .VSCodeCounter
-build
-out
+build/
+vendor/
+out/
 imgui.ini
 renderdoc.cap
 assets/models

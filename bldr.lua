@@ -6,10 +6,6 @@ if Project "nova" then
 
     if Os "Win32" then
         Define "NOVA_PLATFORM_WINDOWS"
-        Define {
-            "WINVER=0x011A00",
-            "_WIN32_WINNT=0x011A00",
-        }
     else
         Error "Nova currently only supported on Windows"
     end
@@ -27,7 +23,6 @@ if Project "nova" then
         "ankerl-maps",
         "glm",
         "mimalloc",
-        "eastl",
         "simdutf",
     }
 
@@ -38,12 +33,12 @@ if Project "nova" then
 
 -------- OS --------------------------------------------------------------------
 
-    Compile "src/nova/os/**"
-    Import "glfw"
+    -- Compile "src/nova/os/**"
+    -- Import "glfw"
 
 -------- Lang ------------------------------------------------------------------
 
-    Compile "src/nova/lang/**"
+    -- Compile "src/nova/lang/**"
 
 -------- RHI -------------------------------------------------------------------
 
@@ -74,14 +69,6 @@ end
 
 if Project "nova-examples" then
     Compile "examples/**"
-    -- Compile {
-    --     "examples/example_Main.cpp",
-    --     "examples/example_Compute.cpp",
-    --     "examples/example_MultiPresent.cpp",
-    --     "examples/example_TriangleMeshShader.cpp",
-    --     "examples/example_TriangleExtended.cpp",
-    --     "examples/example_TriangleMinimal.cpp",
-    -- }
     Import {
         "stb",
         "nova",
