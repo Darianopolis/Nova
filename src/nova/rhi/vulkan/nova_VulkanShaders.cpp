@@ -48,14 +48,14 @@ namespace nova
         // TODO: remove shader module creation,
         //   store spirv and simply pass to pipelines
 
-        vkh::Check(vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
+        vkh::Check(impl->context->vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * 4,
             .pCode = reinterpret_cast<const u32*>(spirv.data()),
         }), context->pAlloc, &shader->handle));
 
         if (generateShaderObject) {
-            vkh::Check(vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
+            vkh::Check(impl->context->vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
                 .nextStage = nextStages,
@@ -82,10 +82,10 @@ namespace nova
             return;
         }
 
-        vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
+        impl->context->vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->pAlloc);
 
         if (impl->shader) {
-            vkDestroyShaderEXT(impl->context->device, impl->shader, impl->context->pAlloc);
+            impl->context->vkDestroyShaderEXT(impl->context->device, impl->shader, impl->context->pAlloc);
         }
 
         delete impl;

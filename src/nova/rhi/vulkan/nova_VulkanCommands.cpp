@@ -8,7 +8,7 @@ namespace nova
         impl->context = context;
         impl->queue = queue;
 
-        vkh::Check(vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
+        vkh::Check(context->vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = queue->family,
         }), context->pAlloc, &impl->pool));
@@ -26,7 +26,7 @@ namespace nova
             delete list.impl;
         }
 
-        vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->pAlloc);
+        impl->context->vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->pAlloc);
 
         delete impl;
         impl = nullptr;
@@ -39,7 +39,8 @@ namespace nova
             cmd = impl->lists.emplace_back(new CommandList::Impl);
 
             cmd->pool = *this;
-            vkh::Check(vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
+            cmd->context = impl->context;
+            vkh::Check(impl->context->vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = impl->pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -52,7 +53,7 @@ namespace nova
 
         cmd->usingShaderObjects = impl->context->shaderObjects;
 
-        vkh::Check(vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
+        vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
@@ -62,14 +63,14 @@ namespace nova
     void CommandPool::Reset() const
     {
         impl->index = 0;
-        vkh::Check(vkResetCommandPool(impl->context->device, impl->pool, 0));
+        vkh::Check(impl->context->vkResetCommandPool(impl->context->device, impl->pool, 0));
     }
 
 // -----------------------------------------------------------------------------
 
     void CommandList::Barrier(PipelineStage src, PipelineStage dst) const
     {
-        vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
+        impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
             .pMemoryBarriers = Temp(VkMemoryBarrier2 {

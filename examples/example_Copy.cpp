@@ -34,7 +34,7 @@ NOVA_EXAMPLE(Copy, "copy")
         auto cmd = cmdPool.Begin();
 
         for (auto& texture : textures) {
-            cmd.Transition(texture, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+            cmd.Transition(texture, nova::TextureLayout::GeneralImage, nova::PipelineStage::All);
         }
 
         for (u32 j = 0; j < 100; ++j) {

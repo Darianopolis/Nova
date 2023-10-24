@@ -4,12 +4,6 @@
 #include <nova/core/nova_Ref.hpp>
 #include <nova/core/nova_Math.hpp>
 
-// TODO: No! >:(
-#include <volk.h>
-#include <vk_mem_alloc.h>
-
-// #define NOVA_NOISY_VULKAN_ALLOCATIONS
-
 namespace nova
 {
     namespace rhi::stats
@@ -161,8 +155,9 @@ namespace nova
         ClosestHit   = 1 << 8,
         Miss         = 1 << 9,
         Intersection = 1 << 10,
-        Task         = 1 << 11,
-        Mesh         = 1 << 12,
+        Callable     = 1 << 11,
+        Task         = 1 << 12,
+        Mesh         = 1 << 13,
     };
     NOVA_DECORATE_FLAG_ENUM(ShaderStage)
 
@@ -459,7 +454,6 @@ namespace nova
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
         void Barrier(HBuffer, PipelineStage src, PipelineStage dst) const;
 
-        void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2) const;
         void Transition(HTexture, TextureLayout, PipelineStage) const;
         void ClearColor(HTexture, std::variant<Vec4, Vec4U, Vec4I> value) const;
         void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0) const;

@@ -1,6 +1,6 @@
 #include "nova_VulkanHlsl.hpp"
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include <nova/rhi/nova_RHI.hpp>
 
 #include <nova/core/nova_Files.hpp>
 
@@ -114,21 +114,21 @@ namespace nova
 
 #define NOVA_HLSL_SM L"_6_7"
         const wchar_t* targetProfile;
-        switch (GetVulkanShaderStage(stage)) {
-            break;case VK_SHADER_STAGE_VERTEX_BIT:                  targetProfile = L"vs" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    targetProfile = L"hs" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: targetProfile = L"ds" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_GEOMETRY_BIT:                targetProfile = L"gs" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_FRAGMENT_BIT:                targetProfile = L"ps" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_COMPUTE_BIT:                 targetProfile = L"cs" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_MISS_BIT_KHR:                targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_TASK_BIT_EXT:                targetProfile = L"as" NOVA_HLSL_SM;
-            break;case VK_SHADER_STAGE_MESH_BIT_EXT:                targetProfile = L"ms" NOVA_HLSL_SM;
+        switch (stage) {
+            break;case nova::ShaderStage::Vertex:       targetProfile = L"vs" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::TessControl:  targetProfile = L"hs" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::TessEval:     targetProfile = L"ds" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Geometry:     targetProfile = L"gs" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Fragment:     targetProfile = L"ps" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Compute:      targetProfile = L"cs" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::RayGen:       targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::AnyHit:       targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::ClosestHit:   targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Miss:         targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Intersection: targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Callable:     targetProfile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Task:         targetProfile = L"as" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Mesh:         targetProfile = L"ms" NOVA_HLSL_SM;
 
             break;default: NOVA_THROW("Unknown stage: {}", int(stage));
         }

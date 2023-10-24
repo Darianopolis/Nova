@@ -2,6 +2,11 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
+#define VK_NO_PROTOTYPES
+#define VK_USE_PLATFORM_WIN32_KHR
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
+
 namespace nova
 {
     namespace vkh
@@ -64,6 +69,7 @@ namespace nova
     template<>
     struct Handle<CommandList>::Impl
     {
+        Context        context = {};
         CommandPool       pool = {};
         VkCommandBuffer buffer = {};
 
@@ -83,6 +89,7 @@ namespace nova
         bool graphicsStateDirty = false;
 
         void EnsureGraphicsState();
+        void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2);
     };
 
     template<>
@@ -301,21 +308,6 @@ NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
 namespace nova
 {
 
-// #define NOVA_DEFINE_WYHASH_FOR(type)                                \
-//     template<> struct Hash<type> {                                  \
-//         using is_avalanching = void;                                \
-//         uint64_t operator()(const type& key) const noexcept {       \
-//             return ankerl::unordered_dense::detail::wyhash::hash(&key, sizeof(key)); \
-//         }                                                           \
-//     }
-
-//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineVertexInputStageKey);
-//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelinePreRasterizationStageKey);
-//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineFragmentShaderStageKey);
-//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineFragmentOutputStageKey);
-//     NOVA_DEFINE_WYHASH_FOR(GraphicsPipelineLibrarySetKey);
-//     NOVA_DEFINE_WYHASH_FOR(ComputePipelineKey);
-
 // -----------------------------------------------------------------------------
 
     VkBufferUsageFlags GetVulkanBufferUsage(BufferUsage usage);
@@ -348,6 +340,9 @@ namespace nova
     template<>
     struct Handle<Context>::Impl
     {
+#define NOVA_VULKAN_FUNCTION(name) PFN_##name name = (PFN_##name)+[]{ NOVA_THROW("Function " #name " not loaded"); };
+#include "nova_VulkanFunctions.inl"
+
         ContextConfig config = {};
 
         VkInstance  instance = {};
@@ -406,46 +401,34 @@ namespace nova
 //                           Allocation Tracking
 // -----------------------------------------------------------------------------
 
-//         VkAllocationCallbacks alloc = {
-//             .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
-//                 void* ptr = mi_malloc_aligned(size, align);
-//                 if (ptr) {
-//                     rhi::stats::MemoryAllocated += mi_usable_size(ptr);
-//                     ++rhi::stats::AllocationCount;
-//                     ++rhi::stats::NewAllocationCount;
-// #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-//                     std::cout << " --\n" << std::stacktrace::current() << '\n';
-//                     NOVA_LOG("Allocating size = {}, align = {}, scope = {}, ptr = {}", size, align, int(scope), ptr);
-// #endif
-//                 }
-//                 return ptr;
-//             },
-//             .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) {
-//                 void* ptr = mi_realloc_aligned(orig, size, align);
-// #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-//                 NOVA_LOG("Reallocated, size = {}, align = {}, ptr = {} -> {}", size, align, orig, ptr);
-// #endif
-//                 return ptr;
-//             },
-//             .pfnFree = +[](void*, void* ptr) {
-//                 if (ptr) {
-//                     rhi::stats::MemoryAllocated -= mi_usable_size(ptr);
-//                     --rhi::stats::AllocationCount;
-// #ifdef NOVA_NOISY_VULKAN_ALLOCATIONS
-//                     NOVA_LOG("Freeing ptr = {}", ptr);
-//                     NOVA_LOG("    Allocations - :: {}", rhi::stats::AllocationCount.load());
-// #endif
-//                 }
-//                 mi_free(ptr);
-//             },
-//             .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-//                 NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
-//             },
-//             .pfnInternalFree = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-//                 NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
-//             },
-//         };
-//         VkAllocationCallbacks* pAlloc = &alloc;
-        VkAllocationCallbacks* pAlloc = nullptr;
+        VkAllocationCallbacks alloc = {
+            .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
+                void* ptr = mi_malloc_aligned(size, align);
+                if (ptr) {
+                    rhi::stats::MemoryAllocated += mi_usable_size(ptr);
+                    ++rhi::stats::AllocationCount;
+                    ++rhi::stats::NewAllocationCount;
+                }
+                return ptr;
+            },
+            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) {
+                void* ptr = mi_realloc_aligned(orig, size, align);
+                return ptr;
+            },
+            .pfnFree = +[](void*, void* ptr) {
+                if (ptr) {
+                    rhi::stats::MemoryAllocated -= mi_usable_size(ptr);
+                    --rhi::stats::AllocationCount;
+                }
+                mi_free(ptr);
+            },
+            .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
+                NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
+            },
+            .pfnInternalFree = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
+                NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
+            },
+        };
+        VkAllocationCallbacks* pAlloc = &alloc;
     };
 }

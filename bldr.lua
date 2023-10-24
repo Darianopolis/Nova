@@ -45,7 +45,6 @@ if Project "nova" then
     Compile "src/nova/rhi/**"
     Import {
         "vulkan",
-        "volk",
         "VulkanMemoryAllocator",
         "glslang",
         "DXC",

@@ -16,7 +16,7 @@ namespace nova
                 nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
         } else {
-            vkh::Check(vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
+            vkh::Check(context->vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
                 .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
                     .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
@@ -42,7 +42,7 @@ namespace nova
                 }.data(),
             }), context->pAlloc, &impl->descriptorPool));
 
-            vkh::Check(vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
+            vkh::Check(context->vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                 .pNext = Temp(VkDescriptorSetVariableDescriptorCountAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,
@@ -67,7 +67,7 @@ namespace nova
         if (impl->context->descriptorBuffers) {
             impl->descriptorBuffer.Destroy();
         } else {
-            vkDestroyDescriptorPool(impl->context->device, impl->descriptorPool, impl->context->pAlloc);
+            impl->context->vkDestroyDescriptorPool(impl->context->device, impl->descriptorPool, impl->context->pAlloc);
         }
 
         delete impl;
@@ -81,18 +81,19 @@ namespace nova
 
     void CommandList::BindDescriptorHeap(BindPoint bindPoint, HDescriptorHeap heap) const
     {
+        auto context = impl->context;
         if (heap->context->descriptorBuffers) {
-            vkCmdBindDescriptorBuffersEXT(impl->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
+            context->vkCmdBindDescriptorBuffersEXT(impl->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
                 .address = heap->descriptorBuffer.GetAddress(),
                 .usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
                     | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
-            vkCmdSetDescriptorBufferOffsetsEXT(impl->buffer, GetVulkanPipelineBindPoint(bindPoint),
+            context->vkCmdSetDescriptorBufferOffsetsEXT(impl->buffer, GetVulkanPipelineBindPoint(bindPoint),
                 heap->context->pipelineLayout,
                 0, 1, Temp(0u), Temp(0ull));
         } else {
-            vkCmdBindDescriptorSets(impl->buffer, GetVulkanPipelineBindPoint(bindPoint),
+            context->vkCmdBindDescriptorSets(impl->buffer, GetVulkanPipelineBindPoint(bindPoint),
                 heap->context->pipelineLayout, 0,
                 1, std::array {
                     heap->descriptorSet,
@@ -109,7 +110,7 @@ namespace nova
     {
         if (impl->context->descriptorBuffers) {
             auto descriptorSize = impl->context->descriptorSizes.storageBufferDescriptorSize;
-            vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
+            impl->context->vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .data{
@@ -121,7 +122,7 @@ namespace nova
                 }
             }), descriptorSize, impl->descriptorBuffer.GetMapped() + impl->context->mutableDescriptorSize * handle.id);
         } else {
-            vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            impl->context->vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = impl->descriptorSet,
                 .dstBinding = 0,
@@ -142,7 +143,7 @@ namespace nova
         auto descriptorSize = heap->context->descriptorSizes.storageBufferDescriptorSize;
         auto data = NOVA_ALLOC_STACK(char, descriptorSize);
 
-        vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
+        impl->context->vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .data{
@@ -154,7 +155,7 @@ namespace nova
             }
         }), descriptorSize, data);
 
-        vkCmdUpdateBuffer(impl->buffer,
+        impl->context->vkCmdUpdateBuffer(impl->buffer,
             heap->descriptorBuffer->buffer,
             heap->context->mutableDescriptorSize * handle.id,
             descriptorSize,
@@ -169,7 +170,7 @@ namespace nova
     {
         if (impl->context->descriptorBuffers) {
             auto descriptorSize = impl->context->descriptorSizes.uniformBufferDescriptorSize;
-            vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
+            impl->context->vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 .data{
@@ -181,7 +182,7 @@ namespace nova
                 }
             }), descriptorSize, impl->descriptorBuffer.GetMapped() + impl->context->mutableDescriptorSize * handle.id);
         } else {
-            vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            impl->context->vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = impl->descriptorSet,
                 .dstBinding = 0,
@@ -202,7 +203,7 @@ namespace nova
         auto descriptorSize = heap->context->descriptorSizes.uniformBufferDescriptorSize;
         auto data = NOVA_ALLOC_STACK(char, descriptorSize);
 
-        vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
+        impl->context->vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .data{
@@ -214,7 +215,7 @@ namespace nova
             }
         }), descriptorSize, data);
 
-        vkCmdUpdateBuffer(impl->buffer,
+        impl->context->vkCmdUpdateBuffer(impl->buffer,
             heap->descriptorBuffer->buffer,
             heap->context->mutableDescriptorSize * handle.id,
             descriptorSize,
@@ -229,7 +230,7 @@ namespace nova
     {
         if (impl->context->descriptorBuffers) {
             auto descriptorSize = impl->context->descriptorSizes.sampledImageDescriptorSize;
-            vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
+            impl->context->vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                 .data{
@@ -240,7 +241,7 @@ namespace nova
                 }
             }), descriptorSize, impl->descriptorBuffer.GetMapped() + impl->context->mutableDescriptorSize * handle.id);
         } else {
-            vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            impl->context->vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = impl->descriptorSet,
                 .dstBinding = 0,
@@ -260,7 +261,7 @@ namespace nova
         auto descriptorSize = heap->context->descriptorSizes.sampledImageDescriptorSize;
         auto data = NOVA_ALLOC_STACK(char, descriptorSize);
 
-        vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
+        impl->context->vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
             .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             .data{
@@ -271,7 +272,7 @@ namespace nova
             }
         }), descriptorSize, data);
 
-        vkCmdUpdateBuffer(impl->buffer,
+        impl->context->vkCmdUpdateBuffer(impl->buffer,
             heap->descriptorBuffer->buffer,
             heap->context->mutableDescriptorSize * handle.id,
             descriptorSize,
@@ -286,7 +287,7 @@ namespace nova
     {
         if (impl->context->descriptorBuffers) {
             auto descriptorSize = impl->context->descriptorSizes.storageImageDescriptorSize;
-            vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
+            impl->context->vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .data{
@@ -297,7 +298,7 @@ namespace nova
                 }
             }), descriptorSize, impl->descriptorBuffer.GetMapped() + impl->context->mutableDescriptorSize * handle.id);
         } else {
-            vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            impl->context->vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = impl->descriptorSet,
                 .dstBinding = 0,
@@ -317,7 +318,7 @@ namespace nova
         auto descriptorSize = heap->context->descriptorSizes.storageImageDescriptorSize;
         auto data = NOVA_ALLOC_STACK(char, descriptorSize);
 
-        vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
+        impl->context->vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
             .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             .data{
@@ -328,7 +329,7 @@ namespace nova
             }
         }), descriptorSize, data);
 
-        vkCmdUpdateBuffer(impl->buffer,
+        impl->context->vkCmdUpdateBuffer(impl->buffer,
             heap->descriptorBuffer->buffer,
             heap->context->mutableDescriptorSize * handle.id,
             descriptorSize,
@@ -343,7 +344,7 @@ namespace nova
     {
         if (impl->context->descriptorBuffers) {
             auto descriptorSize = impl->context->descriptorSizes.samplerDescriptorSize;
-            vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
+            impl->context->vkGetDescriptorEXT(impl->context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_SAMPLER,
                 .data{
@@ -351,7 +352,7 @@ namespace nova
                 }
             }), descriptorSize, impl->descriptorBuffer.GetMapped() + impl->context->mutableDescriptorSize * handle.id);
         } else {
-            vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
+            impl->context->vkUpdateDescriptorSets(impl->context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = impl->descriptorSet,
                 .dstBinding = 0,
@@ -370,7 +371,7 @@ namespace nova
         auto descriptorSize = heap->context->descriptorSizes.samplerDescriptorSize;
         auto data = NOVA_ALLOC_STACK(char, descriptorSize);
 
-        vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
+        impl->context->vkGetDescriptorEXT(heap->context->device, Temp(VkDescriptorGetInfoEXT {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
             .type = VK_DESCRIPTOR_TYPE_SAMPLER,
             .data{
@@ -378,7 +379,7 @@ namespace nova
             }
         }), descriptorSize, data);
 
-        vkCmdUpdateBuffer(impl->buffer,
+        impl->context->vkCmdUpdateBuffer(impl->buffer,
             heap->descriptorBuffer->buffer,
             heap->context->mutableDescriptorSize * handle.id,
             descriptorSize,

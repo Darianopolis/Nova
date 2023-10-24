@@ -93,13 +93,29 @@ Validation: {} ({})
             instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
 
-        volkInitialize();
+// #define NOVA_VULKAN_FUNCTION(name) if (vkGetInstanceProcAddr(nullptr, #name)) std::cout << std::format("Loaded pre-instance fn: {}\n", #name);
+// #include "nova_VulkanFunctions.inl"
+
+        // volkInitialize();
+
+        HMODULE vulkanModule = LoadLibraryA("vulkan-1.dll");
+        if (!vulkanModule) {
+            NOVA_THROW("Failed to load vulkan-1.dll");
+        }
+        impl->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(vulkanModule, "vkGetInstanceProcAddr");
+        NOVA_LOGEXPR(impl->vkGetInstanceProcAddr);
+
+#define NOVA_VULKAN_FUNCTION(name) {                                           \
+    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name);        \
+    if (pfn) impl->name = pfn;                                                 \
+}
+#include "nova_VulkanFunctions.inl"
 
         {
             uint32_t instLayerCount = NULL;
-            auto result = vkEnumerateInstanceLayerProperties(&instLayerCount,nullptr);
+            auto result = impl->vkEnumerateInstanceLayerProperties(&instLayerCount,nullptr);
             std::vector<VkLayerProperties> instLayerList(instLayerCount);
-            result = vkEnumerateInstanceLayerProperties(&instLayerCount,&instLayerList[0]);
+            result = impl->vkEnumerateInstanceLayerProperties(&instLayerCount,&instLayerList[0]);
 
             // for (u32 i = 0; i < instLayerCount; ++i) {
             //     NOVA_LOG("Instance layer[{}] = {}", i, instLayerList[i].layerName);
@@ -131,7 +147,7 @@ Validation: {} ({})
             .pEnabledValidationFeatures = validationFeaturesEnabled.data(),
         };
 
-        vkh::Check(vkCreateInstance(Temp(VkInstanceCreateInfo {
+        vkh::Check(impl->vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext = config.debug ? &validationFeatures : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
@@ -144,17 +160,20 @@ Validation: {} ({})
             .ppEnabledExtensionNames = instanceExtensions.data(),
         }), impl->pAlloc, &impl->instance));
 
-        volkLoadInstanceOnly(impl->instance);
+#define NOVA_VULKAN_FUNCTION(name) {                                           \
+    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(impl->instance, #name); \
+    if (pfn) impl->name = pfn;                                                 \
+}
+#include "nova_VulkanFunctions.inl"
 
         if (config.debug)
-            vkh::Check(vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
-
+            vkh::Check(impl->vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
 
         std::vector<VkPhysicalDevice> gpus;
-        vkh::Enumerate(gpus, vkEnumeratePhysicalDevices, impl->instance);
+        vkh::Enumerate(gpus, impl->vkEnumeratePhysicalDevices, impl->instance);
         for (auto& gpu : gpus) {
             VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            vkGetPhysicalDeviceProperties2(gpu, &properties);
+            impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
 
@@ -176,7 +195,7 @@ Validation: {} ({})
         // ---- Logical Device ----
 
         std::array<VkQueueFamilyProperties, 3> properties;
-        vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
+        impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
         for (u32 i = 0; i < 16; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
@@ -395,7 +414,7 @@ Validation: {} ({})
 
         {
             std::vector<VkExtensionProperties> props;
-            vkh::Enumerate(props, vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
+            vkh::Enumerate(props, impl->vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
 
             std::unordered_set<std::string_view> supported;
             for (auto& prop : props) {
@@ -429,7 +448,7 @@ Validation: {} ({})
             lowPriorities[i] = 0.1f;
         }
 
-        vkh::Check(vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
+        vkh::Check(impl->vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
             .queueCreateInfoCount = 3,
@@ -457,9 +476,13 @@ Validation: {} ({})
             .ppEnabledExtensionNames = deviceExtensions,
         }), impl->pAlloc, &impl->device));
 
-        volkLoadDevice(impl->device);
+#define NOVA_VULKAN_FUNCTION(name) {                                           \
+    auto pfn = (PFN_##name)impl->vkGetDeviceProcAddr(impl->device, #name);     \
+    if (pfn) impl->name = pfn;                                                 \
+}
+#include "nova_VulkanFunctions.inl"
 
-        vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
+        impl->vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &impl->descriptorSizes,
         }));
@@ -467,15 +490,15 @@ Validation: {} ({})
         // ---- Shared resources ----
 
         for (u32 i = 0; i < impl->graphicQueues.size(); ++i) {
-            vkGetDeviceQueue(impl->device, impl->graphicQueues[i]->family, i, &impl->graphicQueues[i]->handle);
+            impl->vkGetDeviceQueue(impl->device, impl->graphicQueues[i]->family, i, &impl->graphicQueues[i]->handle);
         }
 
         for (u32 i = 0; i < impl->transferQueues.size(); ++i) {
-            vkGetDeviceQueue(impl->device, impl->transferQueues[i]->family, i, &impl->transferQueues[i]->handle);
+            impl->vkGetDeviceQueue(impl->device, impl->transferQueues[i]->family, i, &impl->transferQueues[i]->handle);
         }
 
         for (u32 i = 0; i < impl->computeQueues.size(); ++i) {
-            vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
+            impl->vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
         }
 
         vkh::Check(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
@@ -484,19 +507,19 @@ Validation: {} ({})
             .device = impl->device,
             .pAllocationCallbacks = impl->pAlloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
-                .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
-                .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+                .vkGetInstanceProcAddr = impl->vkGetInstanceProcAddr,
+                .vkGetDeviceProcAddr = impl->vkGetDeviceProcAddr,
             }),
             .instance = impl->instance,
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &impl->vma));
 
-        vkh::Check(vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
+        vkh::Check(impl->vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
         }), impl->pAlloc, &impl->pipelineCache));
 
-        vkh::Check(vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
+        vkh::Check(impl->vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
@@ -545,11 +568,11 @@ Validation: {} ({})
 
         if (impl->descriptorBuffers) {
             VkDeviceSize maxSize;
-            vkGetDescriptorSetLayoutSizeEXT(impl->device, impl->heapLayout, &maxSize);
+            impl->vkGetDescriptorSetLayoutSizeEXT(impl->device, impl->heapLayout, &maxSize);
             impl->mutableDescriptorSize = u32(maxSize / impl->maxDescriptors);
         }
 
-        vkh::Check(vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
+        vkh::Check(impl->vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
             .pSetLayouts = &impl->heapLayout,
@@ -576,23 +599,23 @@ Validation: {} ({})
         for (auto& queue : impl->transferQueues) { delete queue.impl; }
 
         // Deleted graphics pipeline library stages
-        for (auto&[key, pipeline] : impl->vertexInputStages)    { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->preRasterStages)      { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->fragmentShaderStages) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->fragmentOutputStages) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->graphicsPipelineSets) { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->computePipelines)     { vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->vertexInputStages)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->preRasterStages)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->fragmentShaderStages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->fragmentOutputStages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->graphicsPipelineSets) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->computePipelines)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
 
         // Destroy context vk objects
-        vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
-        vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
-        vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
+        impl->vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
+        impl->vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
+        impl->vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);
-        vkDestroyDevice(impl->device, impl->pAlloc);
+        impl->vkDestroyDevice(impl->device, impl->pAlloc);
         if (impl->debugMessenger) {
-            vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
+            impl->vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
         }
-        vkDestroyInstance(impl->instance, impl->pAlloc);
+        impl->vkDestroyInstance(impl->instance, impl->pAlloc);
 
         NOVA_LOG("~Context(Allocations = {})", rhi::stats::AllocationCount.load());
 
@@ -602,7 +625,7 @@ Validation: {} ({})
 
     void Context::WaitIdle() const
     {
-        vkDeviceWaitIdle(impl->device);
+        impl->vkDeviceWaitIdle(impl->device);
     }
 
     const ContextConfig& Context::GetConfig() const

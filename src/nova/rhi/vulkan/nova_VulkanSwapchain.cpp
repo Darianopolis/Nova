@@ -9,14 +9,14 @@ namespace nova
         impl->usage = usage;
         impl->presentMode = presentMode;
 
-        vkh::Check(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
+        vkh::Check(impl->context->vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(window),
         }), context->pAlloc, &impl->surface));
 
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        vkh::Enumerate(surfaceFormats, vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
+        vkh::Enumerate(surfaceFormats, impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
 
         for (auto& surfaceFormat : surfaceFormats) {
             if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM
@@ -36,7 +36,7 @@ namespace nova
         }
 
         for (auto semaphore : impl->semaphores) {
-            vkDestroySemaphore(impl->context->device, semaphore, impl->context->pAlloc);
+            impl->context->vkDestroySemaphore(impl->context->device, semaphore, impl->context->pAlloc);
         }
 
         for (auto& texture : impl->textures) {
@@ -44,10 +44,10 @@ namespace nova
         }
 
         if (impl->swapchain) {
-            vkDestroySwapchainKHR(impl->context->device, impl->swapchain, impl->context->pAlloc);
+            impl->context->vkDestroySwapchainKHR(impl->context->device, impl->swapchain, impl->context->pAlloc);
         }
 
-        vkDestroySurfaceKHR(impl->context->instance, impl->surface, impl->context->pAlloc);
+        impl->context->vkDestroySurfaceKHR(impl->context->instance, impl->surface, impl->context->pAlloc);
 
         delete impl;
         impl = nullptr;
@@ -77,7 +77,7 @@ namespace nova
         for (auto swapchain : _swapchains) {
             do {
                 VkSurfaceCapabilitiesKHR caps;
-                vkh::Check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl->context->gpu, swapchain->surface, &caps));
+                vkh::Check(impl->context->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl->context->gpu, swapchain->surface, &caps));
 
                 bool recreate = swapchain->invalid
                     || !swapchain->swapchain
@@ -87,7 +87,7 @@ namespace nova
                 if (recreate) {
                     anyResized |= recreate;
 
-                    vkh::Check(vkQueueWaitIdle(impl->handle));
+                    vkh::Check(impl->context->vkQueueWaitIdle(impl->handle));
 
                     auto oldSwapchain = swapchain->swapchain;
 
@@ -95,7 +95,7 @@ namespace nova
                         | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
                     swapchain->extent = caps.currentExtent;
-                    vkh::Check(vkCreateSwapchainKHR(impl->context->device, Temp(VkSwapchainCreateInfoKHR {
+                    vkh::Check(impl->context->vkCreateSwapchainKHR(impl->context->device, Temp(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                         .surface = swapchain->surface,
                         .minImageCount = caps.minImageCount,
@@ -116,14 +116,14 @@ namespace nova
 
                     swapchain->semaphoreIndex = false;
 
-                    vkDestroySwapchainKHR(impl->context->device, oldSwapchain, impl->context->pAlloc);
+                    impl->context->vkDestroySwapchainKHR(impl->context->device, oldSwapchain, impl->context->pAlloc);
 
                     std::vector<VkImage> vkImages;
-                    vkh::Enumerate(vkImages, vkGetSwapchainImagesKHR, impl->context->device, swapchain->swapchain);
+                    vkh::Enumerate(vkImages, impl->context->vkGetSwapchainImagesKHR, impl->context->device, swapchain->swapchain);
 
                     while (swapchain->semaphores.size() < vkImages.size() * 2) {
                         auto& semaphore = swapchain->semaphores.emplace_back();
-                        vkh::Check(vkCreateSemaphore(impl->context->device, Temp(VkSemaphoreCreateInfo {
+                        vkh::Check(impl->context->vkCreateSemaphore(impl->context->device, Temp(VkSemaphoreCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
                         }), impl->context->pAlloc, &semaphore));
                     }
@@ -144,7 +144,7 @@ namespace nova
                         texture->layers = 1;
 
                         texture->image = vkImages[i];
-                        vkh::Check(vkCreateImageView(impl->context->device, Temp(VkImageViewCreateInfo {
+                        vkh::Check(impl->context->vkCreateImageView(impl->context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                             .image = vkImages[i],
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -154,7 +154,7 @@ namespace nova
                     }
                 }
 
-                auto result = vkAcquireNextImage2KHR(impl->context->device, Temp(VkAcquireNextImageInfoKHR {
+                auto result = impl->context->vkAcquireNextImage2KHR(impl->context->device, Temp(VkAcquireNextImageInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
                     .swapchain = swapchain->swapchain,
                     .timeout = UINT64_MAX,
@@ -197,7 +197,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(_swapchains.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -222,7 +222,7 @@ namespace nova
                 values[i] = waits[i]->value;
             }
 
-            vkh::Check(vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
+            vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                 .semaphoreCount = u32(waits.size()),
                 .pSemaphores = semaphores,
@@ -250,7 +250,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
                 .pWaitSemaphoreInfos = waitInfos,
@@ -277,7 +277,7 @@ namespace nova
 
         auto results = NOVA_ALLOC_STACK(VkResult, _swapchains.size());
         auto start = std::chrono::steady_clock::now();
-        vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
+        impl->context->vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binaryWaits ? u32(_swapchains.size()) : 0u,
             .pWaitSemaphores = binaryWaits,
@@ -300,7 +300,7 @@ namespace nova
 
     void CommandList::Present(HSwapchain swapchain) const
     {
-        Transition(swapchain.Unwrap().GetCurrent(),
+        impl->Transition(swapchain.Unwrap().GetCurrent(),
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_PIPELINE_STAGE_2_NONE);
     }

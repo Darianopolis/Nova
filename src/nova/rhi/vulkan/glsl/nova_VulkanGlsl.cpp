@@ -2,7 +2,7 @@
 
 #include <nova/core/nova_Files.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+#include <nova/rhi/nova_RHI.hpp>
 
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/ResourceLimits.h>
@@ -95,21 +95,21 @@ namespace nova
 
         EShLanguage glslangStage;
 
-        switch (GetVulkanShaderStage(stage)) {
-            break;case VK_SHADER_STAGE_VERTEX_BIT:                  glslangStage = EShLangVertex;
-            break;case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:    glslangStage = EShLangTessControl;
-            break;case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: glslangStage = EShLangTessEvaluation;
-            break;case VK_SHADER_STAGE_GEOMETRY_BIT:                glslangStage = EShLangGeometry;
-            break;case VK_SHADER_STAGE_FRAGMENT_BIT:                glslangStage = EShLangFragment;
-            break;case VK_SHADER_STAGE_COMPUTE_BIT:                 glslangStage = EShLangCompute;
-            break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              glslangStage = EShLangRayGen;
-            break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             glslangStage = EShLangAnyHit;
-            break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         glslangStage = EShLangClosestHit;
-            break;case VK_SHADER_STAGE_MISS_BIT_KHR:                glslangStage = EShLangMiss;
-            break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        glslangStage = EShLangIntersect;
-            break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            glslangStage = EShLangCallable;
-            break;case VK_SHADER_STAGE_TASK_BIT_EXT:                glslangStage = EShLangTask;
-            break;case VK_SHADER_STAGE_MESH_BIT_EXT:                glslangStage = EShLangMesh;
+        switch (stage) {
+            break;case nova::ShaderStage::Vertex:       glslangStage = EShLangVertex;
+            break;case nova::ShaderStage::TessControl:  glslangStage = EShLangTessControl;
+            break;case nova::ShaderStage::TessEval:     glslangStage = EShLangTessEvaluation;
+            break;case nova::ShaderStage::Geometry:     glslangStage = EShLangGeometry;
+            break;case nova::ShaderStage::Fragment:     glslangStage = EShLangFragment;
+            break;case nova::ShaderStage::Compute:      glslangStage = EShLangCompute;
+            break;case nova::ShaderStage::RayGen:       glslangStage = EShLangRayGen;
+            break;case nova::ShaderStage::AnyHit:       glslangStage = EShLangAnyHit;
+            break;case nova::ShaderStage::ClosestHit:   glslangStage = EShLangClosestHit;
+            break;case nova::ShaderStage::Miss:         glslangStage = EShLangMiss;
+            break;case nova::ShaderStage::Intersection: glslangStage = EShLangIntersect;
+            break;case nova::ShaderStage::Callable:     glslangStage = EShLangCallable;
+            break;case nova::ShaderStage::Task:         glslangStage = EShLangTask;
+            break;case nova::ShaderStage::Mesh:         glslangStage = EShLangMesh;
 
             break;default: NOVA_THROW("Unknown stage: {}", int(stage));
         }

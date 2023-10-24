@@ -88,7 +88,7 @@ namespace nova
             nullptr));
 
         if (impl->flags >= BufferFlags::Addressable) {
-            impl->address = vkGetBufferDeviceAddress(impl->context->device, Temp(VkBufferDeviceAddressInfo {
+            impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, Temp(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                 .buffer = impl->buffer,
             }));
@@ -116,12 +116,12 @@ namespace nova
 
     void CommandList::UpdateBuffer(HBuffer dst, const void* pData, usz size, u64 dstOffset) const
     {
-        vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
+        impl->context->vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
     }
 
     void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset, u64 srcOffset) const
     {
-        vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
+        impl->context->vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
             .srcBuffer = src->buffer,
             .dstBuffer = dst->buffer,
@@ -137,7 +137,7 @@ namespace nova
 
     void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst) const
     {
-        vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
+        impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {

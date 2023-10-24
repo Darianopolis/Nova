@@ -25,7 +25,7 @@ namespace nova
         }
 
         impl->sbtBuffer.Destroy();
-        vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
+        impl->context->vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
 
         delete impl;
         impl = nullptr;
@@ -97,10 +97,10 @@ namespace nova
         // Create pipeline
 
         if (impl->pipeline) {
-            vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
+            impl->context->vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->pAlloc);
         }
 
-        vkh::Check(vkCreateRayTracingPipelinesKHR(impl->context->device,
+        vkh::Check(impl->context->vkCreateRayTracingPipelinesKHR(impl->context->device,
             0, impl->context->pipelineCache,
             1, Temp(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
@@ -138,7 +138,7 @@ namespace nova
         };
 
         impl->handles.resize(groups.size() * handleSize);
-        vkh::Check(vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
+        vkh::Check(impl->context->vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
             0, u32(groups.size()),
             u32(impl->handles.size()), impl->handles.data()));
 
@@ -216,7 +216,7 @@ namespace nova
 
     void CommandList::TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u64 hitShaderAddress, u32 hitShaderCount) const
     {
-        vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
+        impl->context->vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
 
         VkStridedDeviceAddressRegionKHR rayHitRegion = {};
         if (hitShaderAddress) {
@@ -227,7 +227,7 @@ namespace nova
             rayHitRegion = pipeline->rayHitRegion;
         }
 
-        vkCmdTraceRaysKHR(impl->buffer,
+        impl->context->vkCmdTraceRaysKHR(impl->buffer,
             &pipeline->rayGenRegion,
             &pipeline->rayMissRegion,
             &rayHitRegion,

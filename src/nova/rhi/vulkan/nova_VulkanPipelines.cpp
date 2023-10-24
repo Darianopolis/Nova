@@ -4,7 +4,7 @@ namespace nova
 {
     void CommandList::PushConstants(u64 offset, u64 size, const void* data) const
     {
-        vkCmdPushConstants(impl->buffer, impl->pool->context->pipelineLayout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
+        impl->context->vkCmdPushConstants(impl->buffer, impl->context->pipelineLayout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
 
 // -----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
@@ -113,7 +113,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -163,7 +163,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -249,7 +249,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(impl->context->vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineRenderingCreateInfo {
@@ -304,7 +304,7 @@ namespace nova
 
         if (!pipeline) {
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(vkCreateGraphicsPipelines(context->device, context->pipelineCache,
+            vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipelineCache,
                 1, Temp(VkGraphicsPipelineCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                     .pNext = Temp(VkPipelineLibraryCreateInfoKHR {
@@ -353,8 +353,6 @@ namespace nova
 
         // Request pipeline
 
-        auto context = pool->context;
-
         auto vi = GetGraphicsVertexInputStage(context, topology);
         auto pr = GetGraphicsPreRasterizationStage(pool->context,
             { preRasterStageShaders.data(), preRasterStageShaderIndex }, polygonMode);
@@ -367,7 +365,7 @@ namespace nova
 
         auto pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo });
 
-        vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        context->vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
 
 // -----------------------------------------------------------------------------
@@ -377,26 +375,26 @@ namespace nova
     void CommandList::ResetGraphicsState() const
     {
         if (impl->usingShaderObjects) {
-            vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
-            vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
-            vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
-            vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
+            impl->context->vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
+            impl->context->vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
+            impl->context->vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
+            impl->context->vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
         }
 
-        vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
-        vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
+        impl->context->vkCmdSetRasterizerDiscardEnable(impl->buffer, false);
+        impl->context->vkCmdSetPrimitiveRestartEnable(impl->buffer, false);
 
         // Stencil tests
 
-        vkCmdSetStencilTestEnable(impl->buffer, false);
-        vkCmdSetStencilOp(impl->buffer, VK_STENCIL_FACE_FRONT_AND_BACK,
+        impl->context->vkCmdSetStencilTestEnable(impl->buffer, false);
+        impl->context->vkCmdSetStencilOp(impl->buffer, VK_STENCIL_FACE_FRONT_AND_BACK,
             VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_NEVER);
 
         // Depth (extended)
 
-        vkCmdSetDepthBiasEnable(impl->buffer, false);
-        vkCmdSetDepthBoundsTestEnable(impl->buffer, false);
-        vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
+        impl->context->vkCmdSetDepthBiasEnable(impl->buffer, false);
+        impl->context->vkCmdSetDepthBoundsTestEnable(impl->buffer, false);
+        impl->context->vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
 
         SetPolygonState(
             Topology::Triangles,
@@ -421,7 +419,7 @@ namespace nova
                 .maxDepth = 1.f
             };
         }
-        vkCmdSetViewportWithCount(impl->buffer, u32(viewports.size()), vkViewports);
+        impl->context->vkCmdSetViewportWithCount(impl->buffer, u32(viewports.size()), vkViewports);
 
         if (copyToScissors) {
             SetScissors(viewports);
@@ -441,7 +439,7 @@ namespace nova
                 .extent{ u32(r.extent.x), u32(r.extent.y) },
             };
         }
-        vkCmdSetScissorWithCount(impl->buffer, u32(scissors.size()), vkScissors);
+        impl->context->vkCmdSetScissorWithCount(impl->buffer, u32(scissors.size()), vkScissors);
     }
 
     void CommandList::SetPolygonState(
@@ -451,24 +449,24 @@ namespace nova
         FrontFace frontFace,
         f32 lineWidth) const
     {
-        vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(topology));
+        impl->context->vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(topology));
         if (impl->usingShaderObjects) {
-            vkCmdSetPolygonModeEXT(impl->buffer, GetVulkanPolygonMode(polygonMode));
+            impl->context->vkCmdSetPolygonModeEXT(impl->buffer, GetVulkanPolygonMode(polygonMode));
         } else {
             impl->topology = topology;
             impl->polygonMode = polygonMode;
             impl->graphicsStateDirty = true;
         }
-        vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(cullMode));
-        vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(frontFace));
-        vkCmdSetLineWidth(impl->buffer, lineWidth);
+        impl->context->vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(cullMode));
+        impl->context->vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(frontFace));
+        impl->context->vkCmdSetLineWidth(impl->buffer, lineWidth);
     }
 
     void CommandList::SetDepthState(bool testEnable, bool writeEnable, CompareOp compareOp) const
     {
-        vkCmdSetDepthTestEnable(impl->buffer, testEnable);
-        vkCmdSetDepthWriteEnable(impl->buffer, writeEnable);
-        vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(compareOp));
+        impl->context->vkCmdSetDepthTestEnable(impl->buffer, testEnable);
+        impl->context->vkCmdSetDepthWriteEnable(impl->buffer, writeEnable);
+        impl->context->vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(compareOp));
     }
 
     NOVA_NO_INLINE
@@ -518,10 +516,10 @@ namespace nova
             }
         }
 
-        vkCmdSetColorBlendEnableEXT(impl->buffer, 0, count, blendEnableBools);
-        vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
+        impl->context->vkCmdSetColorBlendEnableEXT(impl->buffer, 0, count, blendEnableBools);
+        impl->context->vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
         if (anyBlend) {
-            vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blendEquations);
+            impl->context->vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blendEquations);
         }
     }
 
@@ -536,11 +534,11 @@ namespace nova
                 auto key = ComputePipelineKey {};
                 key.shader = shaders[0]->id;
 
-                auto context = impl->pool->context;
+                auto context = impl->context;
 
                 auto pipeline = context->computePipelines[key];
                 if (!pipeline) {
-                    vkh::Check(vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
+                    vkh::Check(impl->context->vkCreateComputePipelines(context->device, context->pipelineCache, 1, Temp(VkComputePipelineCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                         .flags = context->descriptorBuffers
                                 ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
@@ -553,7 +551,7 @@ namespace nova
                     context->computePipelines[key] = pipeline;
                 }
 
-                vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+                impl->context->vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
             } else {
 
                 // Graphics
@@ -588,6 +586,6 @@ namespace nova
             }
         }
 
-        vkCmdBindShadersEXT(impl->buffer, count, stageFlags, shaderObjects);
+        impl->context->vkCmdBindShadersEXT(impl->buffer, count, stageFlags, shaderObjects);
     }
 }
