@@ -11,12 +11,6 @@ cd vendor
 
 @REM git clone https://github.com/g-truc/glm.git
 
-@REM git clone https://github.com/microsoft/mimalloc.git
-@REM cd mimalloc
-@REM cmake . -DCMAKE_INSTALL_PREFIX=build/install -B build
-@REM cmake --build build --config Release --target install
-@REM cd ..
-
 @REM git clone https://github.com/simdutf/simdutf.git
 @REM cd simdutf
 @REM cmake . -DCMAKE_INSTALL_PREFIX=build/install -B build
@@ -170,7 +164,6 @@ cd build
 @REM     /I..\vendor\simdutf\build\install\include ^
 @REM     /I..\vendor\VulkanMemoryAllocator\build\install\include ^
 @REM     /I..\vendor\freetype\build\install\include\freetype2 ^
-@REM     /I..\vendor\mimalloc\build\install\include\mimalloc-2.1 ^
 @REM     ..\src\nova\core\nova_Files.cpp ^
 @REM     ..\src\nova\db\nova_Sqlite.cpp ^
 @REM     ..\src\nova\rhi\vulkan\nova_VulkanAccelerationStructures.cpp ^

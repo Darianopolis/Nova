@@ -22,7 +22,6 @@ if Project "nova" then
     Import {
         "ankerl-maps",
         "glm",
-        "mimalloc",
         "simdutf",
     }
 

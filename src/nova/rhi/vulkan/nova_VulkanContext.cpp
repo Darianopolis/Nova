@@ -42,7 +42,7 @@ Validation: {} ({})
         ~VulkanFeatureChain()
         {
             for (auto&[type, feature] : deviceFeatures) {
-                mi_free(feature);
+                std::free(feature);
             }
         }
 
@@ -56,7 +56,7 @@ Validation: {} ({})
         {
             auto& f = deviceFeatures[type];
             if (!f) {
-                f = static_cast<VkBaseInStructure*>(mi_malloc(sizeof(T)));
+                f = static_cast<VkBaseInStructure*>(std::malloc(sizeof(T)));
                 new(f) T{};
                 f->sType = type;
                 f->pNext = pNext;
@@ -617,7 +617,8 @@ Validation: {} ({})
         }
         impl->vkDestroyInstance(impl->instance, impl->pAlloc);
 
-        NOVA_LOG("~Context(Allocations = {})", rhi::stats::AllocationCount.load());
+        NOVA_LOG("~Context(Allocated = {}, Allocations = {})",
+            rhi::stats::MemoryAllocated.load(), rhi::stats::AllocationCount.load());
 
         delete impl;
         impl = nullptr;

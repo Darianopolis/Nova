@@ -5,7 +5,6 @@
 # add_subdirectory(freetype)
 # add_subdirectory(glfw)
 # add_subdirectory(glslang)
-# add_subdirectory(mimalloc)
 # add_subdirectory(simdutf)
 # add_subdirectory(unordered_dense)
 # add_subdirectory(Vulkan-Headers)
@@ -69,8 +68,6 @@ target_link_libraries(VulkanMemoryAllocator INTERFACE Vulkan-Headers)
 add_subdirectory(glslang)
 
 add_subdirectory(glm)
-
-add_subdirectory(mimalloc)
 
 add_subdirectory(unordered_dense)
 

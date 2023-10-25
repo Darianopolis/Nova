@@ -4,9 +4,6 @@
 [submodule "dependencies/glm"]
 	path = dependencies/glm
 	url = https://github.com/g-truc/glm.git
-[submodule "dependencies/mimalloc"]
-	path = dependencies/mimalloc
-	url = https://github.com/microsoft/mimalloc.git
 [submodule "dependencies/simdutf"]
 	path = dependencies/simdutf
 	url = https://github.com/simdutf/simdutf.git

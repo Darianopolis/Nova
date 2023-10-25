@@ -91,12 +91,29 @@ namespace nova
 
     template<typename T>
     constexpr
-    T AlignUpPower2(T v, u64 align) noexcept {
+    T AlignUpPower2(T v, u64 align) noexcept
+    {
         return T((u64(v) + (align - 1)) &~ (align - 1));
     }
 
+    template<typename T>
+    constexpr
+    T AlignDownPower2(T v, u64 align) noexcept
+    {
+        return T(u64(v) &~ (align - 1));
+    }
+
+    template<typename T>
+    requires std::is_pointer_v<T>
+    constexpr
+    T ByteOffsetPointer(T ptr, intptr_t offset) noexcept
+    {
+        return T(u64(ptr) + offset);
+    }
+
     inline constexpr
-    u32 RoundUpPower2(u32 v) noexcept {
+    u32 RoundUpPower2(u32 v) noexcept
+    {
         v--;
         v |= v >> 1;
         v |= v >> 2;

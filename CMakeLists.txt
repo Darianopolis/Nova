@@ -51,7 +51,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         ${CMAKE_SOURCE_DIR}/dependencies/ImGuizmo
         ${CMAKE_SOURCE_DIR}/dependencies/stb
         ${CMAKE_SOURCE_DIR}/dependencies/glfw/include
-        ${CMAKE_SOURCE_DIR}/dependencies/mimalloc/include
         )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
@@ -64,7 +63,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
         MachineIndependent
         GenericCodeGen
         glm::glm
-        mimalloc
         unordered_dense
         # dxc (directx compiler)
 

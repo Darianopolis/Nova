@@ -402,25 +402,67 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         VkAllocationCallbacks alloc = {
-            .pfnAllocation = +[](void*, size_t size, size_t align, [[maybe_unused]] VkSystemAllocationScope scope) {
-                void* ptr = mi_malloc_aligned(size, align);
+            .pfnAllocation = +[](void*, size_t size, size_t align, VkSystemAllocationScope) {
+                align = std::max(8ull, align);
+
+                void* ptr = _aligned_offset_malloc(size + 8, align, 8);
+
                 if (ptr) {
-                    rhi::stats::MemoryAllocated += mi_usable_size(ptr);
-                    ++rhi::stats::AllocationCount;
-                    ++rhi::stats::NewAllocationCount;
+                    static_cast<usz*>(ptr)[0] = size;
+
+                    rhi::stats::MemoryAllocated += size;
+                    rhi::stats::AllocationCount++;
+                    rhi::stats::NewAllocationCount++;
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+                    NOVA_LOG("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
+#endif
                 }
-                return ptr;
+
+                return ByteOffsetPointer(ptr, 8);
             },
-            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) {
-                void* ptr = mi_realloc_aligned(orig, size, align);
-                return ptr;
+            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) -> void* {
+                align = std::max(8ull, align);
+
+                if (orig) {
+                    usz oldSize  = static_cast<usz*>(orig)[-1];
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+                    NOVA_LOG("Reallocating {}, size = {}/{}", orig, oldSize, size);
+#endif
+
+                    rhi::stats::MemoryAllocated -= oldSize;
+                    rhi::stats::AllocationCount--;
+                }
+
+                void* ptr = _aligned_offset_realloc(ByteOffsetPointer(orig, -8), size + 8, align, 8);
+                static_cast<usz*>(ptr)[0] = size;
+
+                if (ptr) {
+                    rhi::stats::MemoryAllocated += size;
+                    rhi::stats::AllocationCount++;
+                    if (ptr != orig) {
+                        rhi::stats::NewAllocationCount++;
+                    }
+                }
+
+                return ByteOffsetPointer(ptr, 8);
             },
             .pfnFree = +[](void*, void* ptr) {
                 if (ptr) {
-                    rhi::stats::MemoryAllocated -= mi_usable_size(ptr);
-                    --rhi::stats::AllocationCount;
+                    usz size = static_cast<usz*>(ptr)[-1];
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+                    NOVA_LOG("Freeing      {}, size = {}", ptr, size);
+#endif
+
+                    rhi::stats::MemoryAllocated -= size;
+                    rhi::stats::AllocationCount--;
+
+                    ptr = ByteOffsetPointer(ptr, -8);
                 }
-                mi_free(ptr);
+
+                _aligned_free(ptr);
             },
             .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
                 NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
