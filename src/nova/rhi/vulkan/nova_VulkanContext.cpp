@@ -284,25 +284,6 @@ Validation: {} ({})
                 f.synchronization2 = VK_TRUE;
             }
 
-            // Mesh Shaders
-
-            {
-                chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
-                auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
-                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
-                f.meshShader = true;
-                f.meshShaderQueries = true;
-                f.multiviewMeshShader = true;
-                f.taskShader = true;
-            }
-
-            // Mutable Descriptor Type
-
-            chain.Extension(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT)
-                .mutableDescriptorType = VK_TRUE;
-
             // Host Image Copy
 
             chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
@@ -317,9 +298,10 @@ Validation: {} ({})
             chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
                 .shaderObject = VK_TRUE;
-            impl->shaderObjectsSupported = true;
+            impl->shaderObjects = true;
 #endif
 
+#if 0
             // Descriptor Buffers
 
             {
@@ -330,6 +312,7 @@ Validation: {} ({})
                 f.descriptorBufferPushDescriptors = VK_TRUE;
                 impl->descriptorBuffers = true;
             }
+#endif
 
             // Graphics Pipeline Libraries + Extended Dynamic State
 
@@ -354,6 +337,7 @@ Validation: {} ({})
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
                 .fragmentShaderBarycentric = VK_TRUE;
 
+#if 0
             // Fragment Shader Interlock
 
             {
@@ -364,6 +348,19 @@ Validation: {} ({})
                 f.fragmentShaderSampleInterlock = VK_TRUE;
                 f.fragmentShaderShadingRateInterlock = VK_TRUE;
             }
+#endif
+        }
+
+        if (config.meshShading) {
+            // Mesh Shading extensions
+
+            chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+            auto& f = chain.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>(
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
+            f.meshShader = true;
+            f.meshShaderQueries = true;
+            f.multiviewMeshShader = true;
+            f.taskShader = true;
         }
 
         if (config.rayTracing) {

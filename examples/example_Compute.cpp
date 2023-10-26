@@ -30,7 +30,7 @@ NOVA_EXAMPLE(Compute, "compute")
 // -----------------------------------------------------------------------------
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -207,6 +207,17 @@ NOVA_EXAMPLE(Compute, "compute")
                 {});
 
             texture.Set({}, texture.GetExtent(), encoder.get_blocks());
+
+            // auto staging = nova::Buffer::Create(context, encoder.get_total_blocks_size_in_bytes(),
+            //     nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
+            // NOVA_CLEANUP(&) { staging.Destroy(); };
+            // staging.Set<b8>(Span((const b8*)encoder.get_blocks(), encoder.get_total_blocks_size_in_bytes()));
+            // auto cmd = commandPools[0].Begin();
+            // cmd.CopyToTexture(texture, staging);
+            // queue.Submit({cmd}, {}, {fence});
+            // fence.Wait();
+            // waitValues[0] = fence.GetPendingValue();
+            // waitValues[1] = fence.GetPendingValue();
         }
 
         texture.Transition(nova::TextureLayout::Sampled);
@@ -266,7 +277,7 @@ NOVA_EXAMPLE(Compute, "compute")
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
                 vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linearSampler]), uv).rgb;
-                imageStore(RWImage2D[pc.targetIdx], pos, vec4(source, 1.0));
+                imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
             }
         )glsl"}));
     NOVA_CLEANUP(&) { computeShader.Destroy(); };

@@ -573,16 +573,18 @@ namespace nova
             stageFlags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));
             shaderObjects[i] = shaders[i]->shader;
 
-            if (shaders[i]->stage == nova::ShaderStage::Mesh) {
-                stageFlags[count] = VK_SHADER_STAGE_VERTEX_BIT;
-                shaderObjects[count++] = VK_NULL_HANDLE;
+            if (impl->context->config.meshShading) {
+                if (shaders[i]->stage == nova::ShaderStage::Mesh) {
+                    stageFlags[count] = VK_SHADER_STAGE_VERTEX_BIT;
+                    shaderObjects[count++] = VK_NULL_HANDLE;
 
-            } else if (shaders[i]->stage == nova::ShaderStage::Vertex) {
-                stageFlags[count] = VK_SHADER_STAGE_MESH_BIT_EXT;
-                shaderObjects[count++] = VK_NULL_HANDLE;
+                } else if (shaders[i]->stage == nova::ShaderStage::Vertex) {
+                    stageFlags[count] = VK_SHADER_STAGE_MESH_BIT_EXT;
+                    shaderObjects[count++] = VK_NULL_HANDLE;
 
-                stageFlags[count] = VK_SHADER_STAGE_TASK_BIT_EXT;
-                shaderObjects[count++] = VK_NULL_HANDLE;
+                    stageFlags[count] = VK_SHADER_STAGE_TASK_BIT_EXT;
+                    shaderObjects[count++] = VK_NULL_HANDLE;
+                }
             }
         }
 

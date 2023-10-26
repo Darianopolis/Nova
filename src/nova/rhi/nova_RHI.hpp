@@ -331,8 +331,9 @@ namespace nova
 
     struct ContextConfig
     {
-        bool      debug = false;
-        bool rayTracing = false;
+        bool       debug = false;
+        bool  rayTracing = false;
+        bool meshShading = false;
     };
 
     struct Context : Handle<Context>
