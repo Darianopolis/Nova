@@ -2,6 +2,8 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
+#include <nova/core/nova_SubAllocation.hpp>
+
 #define VK_NO_PROTOTYPES
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
@@ -111,15 +113,38 @@ namespace nova
         u32                  semaphoreIndex = 0;
     };
 
-    template<>
-    struct Handle<DescriptorHeap>::Impl
+    struct DescriptorHeap
     {
         Context context = {};
 
-        VkDescriptorPool descriptorPool = {};
-        VkDescriptorSet   descriptorSet = {};
-        Buffer         descriptorBuffer = {};
-        u32             descriptorCount = 0;
+        VkDescriptorSetLayout heapLayout = {};
+        VkPipelineLayout  pipelineLayout = {};
+
+        VkDescriptorPool  descriptorPool = {};
+        VkDescriptorSet    descriptorSet = {};
+
+        Buffer          descriptorBuffer = {};
+
+        u32         imageDescriptorCount = 0;
+        u32       samplerDescriptorCount = 0;
+
+        u64 sampledOffset, sampledStride;
+        u64 storageOffset, storageStride;
+        u64 samplerOffset, samplerStride;
+
+        IndexFreeList   imageHandles;
+        IndexFreeList samplerHandles;
+
+        std::shared_mutex mutex;
+
+        void Init(HContext context, u32 imageDescriptorCount, u32 samplerDescriptorCount);
+        void Destroy();
+
+        void Bind(CommandList cmd, BindPoint bindPoint);
+
+        void WriteStorage(u32 index, HTexture texture);
+        void WriteSampled(u32 index, HTexture texture);
+        void WriteSampler(u32 index, HSampler sampler);
     };
 
     template<>
@@ -158,6 +183,8 @@ namespace nova
         Context context = {};
 
         VkSampler sampler;
+
+        u32 descriptorIndex;
     };
 
     template<>
@@ -174,6 +201,8 @@ namespace nova
 
         VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
         VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
+
+        u32 descriptorIndex = UINT_MAX;
 
         Vec3U extent = {};
         u32     mips = 0;
@@ -352,8 +381,7 @@ namespace nova
 
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
-        VkDescriptorSetLayout heapLayout = {};
-        VkPipelineLayout  pipelineLayout = {};
+        DescriptorHeap globalHeap;
 
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};
@@ -365,8 +393,6 @@ namespace nova
 
         bool        shaderObjects = false;
         bool    descriptorBuffers = false;
-        u32        maxDescriptors = 0;
-        u32 mutableDescriptorSize = 0;
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,

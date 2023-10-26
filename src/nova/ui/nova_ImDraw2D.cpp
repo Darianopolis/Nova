@@ -58,9 +58,6 @@ namespace nova
             BorderColor::TransparentBlack,
             16.f);
 
-        descriptorHeap = nova::DescriptorHeap::Create(context, 65'536);
-        descriptorHeap.WriteSampler(0, defaultSampler);
-
         rectVertShader = nova::Shader::Create(context, ShaderStage::Vertex, "main",
             nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
@@ -89,8 +86,8 @@ namespace nova
             nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];
-                    layout(set = 0, binding = 0) uniform sampler Sampler[];
+                    layout(set = 0, binding = 0) uniform texture2D Image2D[];
+                    layout(set = 0, binding = 2) uniform sampler Sampler[];
 
                     layout(location = 0) in vec2 inTex;
                     layout(location = 1) in flat uint inInstanceID;
@@ -103,7 +100,7 @@ namespace nova
                         vec2 cornerFocus = box.halfExtent - vec2(box.cornerRadius);
 
                         vec4 sampled = box.texTint.a > 0
-                            ? box.texTint * texture(sampler2D(SampledImage2D[nonuniformEXT(box.texIndex)], Sampler[0]),
+                            ? box.texTint * texture(sampler2D(Image2D[nonuniformEXT(box.texIndex)], Sampler[0]),
                                 (inTex / box.halfExtent) * box.texHalfExtent + box.texCenterPos)
                             : vec4(0);
                         vec4 centerColor = vec4(
@@ -146,21 +143,6 @@ namespace nova
     const ImBounds2D& ImDraw2D::GetBounds() const noexcept
     {
         return bounds;
-    }
-
-// -----------------------------------------------------------------------------
-
-    DescriptorHandle ImDraw2D::RegisterTexture(Texture texture, Sampler sampler)
-    {
-        (void)sampler;// TODO: Handle custom sampler!
-        auto handle = textureSlots.Acquire();
-        descriptorHeap.WriteSampledTexture(handle, texture);
-        return handle;
-    }
-
-    void ImDraw2D::UnregisterTexture(DescriptorHandle handle)
-    {
-        textureSlots.Release(handle.ToShaderUInt());
     }
 
 // -----------------------------------------------------------------------------
@@ -218,8 +200,6 @@ namespace nova
 
             glyph.texture.Set({}, glyph.texture.GetExtent(), pixels.data());
             glyph.texture.Transition(nova::TextureLayout::Sampled);
-
-            glyph.index = RegisterTexture(glyph.texture, defaultSampler);
         }
 
         FT_Done_Face(face);
@@ -232,7 +212,6 @@ namespace nova
     {
         for (auto& glyph : glyphs) {
             if (glyph.texture) {
-                imDraw->UnregisterTexture(glyph.index);
                 glyph.texture.Destroy();
             }
         }
@@ -264,14 +243,16 @@ namespace nova
         for (auto c : str) {
             auto& g = font.glyphs[c];
 
-            DrawRect(nova::ImRoundRect {
-                .centerPos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
-                .halfExtent = { g.width / 2.f, g.height / 2.f },
-                .texTint = { 1.f, 1.f, 1.f, 1.f, },
-                .texIndex = g.index,
-                .texCenterPos = { 0.5f, 0.5f },
-                .texHalfExtent = { 0.5f, 0.5f },
-            });
+            if (g.texture) {
+                DrawRect(nova::ImRoundRect {
+                    .centerPos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
+                    .halfExtent = { g.width / 2.f, g.height / 2.f },
+                    .texTint = { 1.f, 1.f, 1.f, 1.f, },
+                    .texIndex = g.texture.GetDescriptor(),
+                    .texCenterPos = { 0.5f, 0.5f },
+                    .texHalfExtent = { 0.5f, 0.5f },
+                });
+            }
 
             pos.x += g.advance;
         }
@@ -309,8 +290,6 @@ namespace nova
                 .centerPos = bounds.Center(),
                 .rects = rectBuffer.GetAddress(),
             }));
-
-        cmd.BindDescriptorHeap(nova::BindPoint::Graphics, descriptorHeap);
 
         for (auto& command : drawCommands) {
             switch (command.type) {

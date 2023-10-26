@@ -4,7 +4,7 @@ namespace nova
 {
     void CommandList::PushConstants(u64 offset, u64 size, const void* data) const
     {
-        impl->context->vkCmdPushConstants(impl->buffer, impl->context->pipelineLayout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
+        impl->context->vkCmdPushConstants(impl->buffer, impl->context->globalHeap.pipelineLayout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
     }
 
 // -----------------------------------------------------------------------------
@@ -140,7 +140,7 @@ namespace nova
                         .dynamicStateCount = u32(DynamicStates.size()),
                         .pDynamicStates = DynamicStates.data(),
                     }),
-                    .layout = context->pipelineLayout,
+                    .layout = context->globalHeap.pipelineLayout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
@@ -190,7 +190,7 @@ namespace nova
                         .dynamicStateCount = u32(DynamicStates.size()),
                         .pDynamicStates = DynamicStates.data(),
                     }),
-                    .layout = context->pipelineLayout,
+                    .layout = context->globalHeap.pipelineLayout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
@@ -315,7 +315,7 @@ namespace nova
                     .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                             : VkPipelineCreateFlags(0),
-                    .layout = context->pipelineLayout,
+                    .layout = context->globalHeap.pipelineLayout,
                     .basePipelineIndex = -1,
                 }), context->pAlloc, &pipeline));
             auto dur = std::chrono::steady_clock::now() - start;
@@ -544,7 +544,7 @@ namespace nova
                                 ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                                 : VkPipelineCreateFlags(0),
                         .stage = shaders[0]->GetStageInfo(),
-                        .layout = context->pipelineLayout,
+                        .layout = context->globalHeap.pipelineLayout,
                         .basePipelineIndex = -1,
                     }), context->pAlloc, &pipeline));
 

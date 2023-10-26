@@ -42,9 +42,7 @@ namespace nova
 
     ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
         : context(config.context)
-        , heap(config.heap)
-        , defaultSamplerID(config.sampler)
-        , fontTextureID(config.fontTextureID)
+        , defaultSampler(config.sampler)
     {
         vertexBuffer = nova::Buffer::Create(context, 0,
             nova::BufferUsage::Storage,
@@ -73,13 +71,13 @@ namespace nova
             nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D SampledImage2D[];
-                    layout(set = 0, binding = 0) uniform sampler Sampler[];
+                    layout(set = 0, binding = 0) uniform texture2D Image2D[];
+                    layout(set = 0, binding = 2) uniform sampler Sampler[];
                     layout(location = 0) in vec2 inUV;
                     layout(location = 1) in vec4 inColor;
                     layout(location = 0) out vec4 outColor;
                     void main() {
-                        outColor = texture(sampler2D(SampledImage2D[pc.texture.x], Sampler[pc.texture.y]), inUV)
+                        outColor = texture(sampler2D(Image2D[pc.texture.x], Sampler[pc.texture.y]), inUV)
                             * inColor;
                     }
                 )glsl"
@@ -116,8 +114,7 @@ namespace nova
                 { u32(width), u32(height), 0u },
                 nova::TextureUsage::Sampled,
                 nova::Format::RGBA8_UNorm, {});
-            heap.WriteSampledTexture(fontTextureID, fontTexture);
-            io.Fonts->SetTexID(GetTextureID(fontTextureID));
+            io.Fonts->SetTexID(GetTextureID(fontTexture));
 
             fontTexture.Set({}, fontTexture.GetExtent(), pixels);
             fontTexture.Transition(nova::TextureLayout::Sampled);
@@ -247,7 +244,6 @@ namespace nova
         cmd.SetBlendState({true});
         cmd.BindShaders({vertexShader, fragmentShader});
         cmd.BindIndexBuffer(indexBuffer, sizeof(ImDrawIdx) == 2 ? nova::IndexType::U16 : nova::IndexType::U32);
-        cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
 
         // Draw vertices
 

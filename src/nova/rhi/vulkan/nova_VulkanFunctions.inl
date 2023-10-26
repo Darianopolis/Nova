@@ -132,5 +132,6 @@ NOVA_VULKAN_FUNCTION(vkSignalSemaphore)
 NOVA_VULKAN_FUNCTION(vkTransitionImageLayoutEXT)
 NOVA_VULKAN_FUNCTION(vkUpdateDescriptorSets)
 NOVA_VULKAN_FUNCTION(vkWaitSemaphores)
+NOVA_VULKAN_FUNCTION(vkGetDescriptorSetLayoutBindingOffsetEXT)
 
 #undef NOVA_VULKAN_FUNCTION

@@ -26,10 +26,10 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
     auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
         nova::glsl::Compile(nova::ShaderStage::Task, "main", "", {R"glsl(
-            #version 460
             #extension GL_EXT_mesh_shader : require
 
-            void main() {
+            void main()
+            {
                 EmitMeshTasksEXT(1, 1, 1);
             }
         )glsl"}));
@@ -46,7 +46,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
             layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
             void main() {
-                SetMeshOutputs(3, 1);
+                SetMeshOutputsEXT(3, 1);
                 for (int i = 0; i < 3; ++i) {
                     gl_MeshVerticesEXT[i].gl_Position = vec4(positions[i], 0, 1);
                     outColors[i] = colors[i];

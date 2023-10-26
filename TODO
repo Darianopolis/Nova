@@ -1,20 +1,20 @@
 [X] Remove volk dependency
 [X] Remove mandatory mimalloc dependency
-[ ] Separate components into different sub-projects
+[X] Change descriptor set layouts
+    [X] drop texel buffers and bindless uniforms
+    [X] 3 layouts
+        sampled images
+        storage images
+        samplers
+    [X] Drop DescriptorHeaps from API, "true bindless" textures/samplers
 [ ] Rename ImDraw2D -> Draw2D
-[ ] Split up core
+[ ] Separate components into different sub-projects
     [ ] nova-math
     [ ] nova-containers?
     [ ] nova-jobs
     [ ] nova-io (files + json)
 [ ] Rename rhi/gpu/gpgpu?
 [ ] Add nova-window
-[ ] Change descriptor set layouts
-    - drop texel buffers and bindless uniforms
-    - 3 layouts
-        sampled images
-        storage images
-        samplers
 [ ] Sequester Windows.h (possibly lock behind nova-os/novs-window)
 [ ] pch
 [ ] Tidy up includes

@@ -45,17 +45,11 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
-    auto heap = nova::DescriptorHeap::Create(context, 1);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
         builder.Destroy();
-        heap.Destroy();
     };
-
-    glm::mat4x3 m;
-    glm::vec4 v;
-    auto t = m * v;
 
 // -----------------------------------------------------------------------------
 //                        Descriptors & Pipeline
@@ -71,14 +65,16 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                 #extension GL_EXT_shader_image_load_formatted            : require
                 #extension GL_EXT_scalar_block_layout                    : require
                 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+                #extension GL_EXT_nonuniform_qualifier                   : require
 
-                layout(set = 0, binding = 0) uniform image2D RWImage2D[];
+                layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 
                 layout(location = 0) rayPayloadEXT uint     payload;
                 layout(location = 0) hitObjectAttributeNV vec3 bary;
 
                 layout(push_constant, scalar) uniform pc_ {
                     uint64_t tlas;
+                    uint   target;
                 } pc;
 
                 void main() {
@@ -94,7 +90,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                         hitObjectGetAttributesNV(hit, 0);
                         color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
                     }
-                    imageStore(RWImage2D[0], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+                    imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
         )glsl"}));
     NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
@@ -223,14 +219,18 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
             nova::TextureLayout::GeneralImage,
             nova::PipelineStage::RayTracing);
 
-        // Push swapchain image and TLAS descriptors
-
-        cmd.WriteStorageTexture(heap, 0, swapchain.GetCurrent());
-        cmd.BindDescriptorHeap(nova::BindPoint::RayTracing, heap);
-
         // Trace rays
 
-        cmd.PushConstants(tlas.GetAddress());
+        struct PushConstants
+        {
+            u64 tlas;
+            u32 target;
+        };
+
+        cmd.PushConstants(PushConstants {
+            .tlas = tlas.GetAddress(),
+            .target = swapchain.GetCurrent().GetDescriptor(),
+        });
         cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1));
 
         // Submit and present work

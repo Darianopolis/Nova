@@ -30,7 +30,7 @@ NOVA_EXAMPLE(Compute, "compute")
 // -----------------------------------------------------------------------------
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -52,19 +52,16 @@ NOVA_EXAMPLE(Compute, "compute")
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
-    auto heap = nova::DescriptorHeap::Create(context, 3);
     NOVA_CLEANUP(&) {
         commandPools[0].Destroy();
         commandPools[1].Destroy();
         fence.Destroy();
-        heap.Destroy();
     };
 
     // Image
 
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
     NOVA_CLEANUP(&) { sampler.Destroy(); };
-    heap.WriteSampler(0, sampler);
 
     nova::Texture texture;
     NOVA_CLEANUP(&) { texture.Destroy(); };
@@ -213,17 +210,16 @@ NOVA_EXAMPLE(Compute, "compute")
         }
 
         texture.Transition(nova::TextureLayout::Sampled);
-        heap.WriteSampledTexture(1, texture);
     }
 
     // Shaders
 
     struct PushConstants
     {
-        u32 sampledIdx;
-        u32 samplerIdx;
-        u32  targetIdx;
-        Vec2      size;
+        u32   image;
+        u32 sampler;
+        u32  target;
+        Vec2   size;
     };
 
     // auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
@@ -254,22 +250,22 @@ NOVA_EXAMPLE(Compute, "compute")
             #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
             #extension GL_EXT_shader_image_load_formatted  : require
 
-            layout(set = 0, binding = 0) uniform image2D RWImage2D[];
             layout(set = 0, binding = 0) uniform texture2D Image2D[];
-            layout(set = 0, binding = 0) uniform sampler Sampler[];
+            layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+            layout(set = 0, binding = 2) uniform sampler Sampler[];
 
             layout(push_constant, scalar) uniform PushConstants {
-                uint sampledIdx;
-                uint samplerIdx;
-                uint  targetIdx;
-                vec2       size;
+                uint image;
+                uint linearSampler;
+                uint target;
+                vec2 size;
             } pc;
 
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
             void main() {
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
-                vec3 source = texture(sampler2D(Image2D[pc.sampledIdx], Sampler[pc.samplerIdx]), uv).rgb;
+                vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linearSampler]), uv).rgb;
                 imageStore(RWImage2D[pc.targetIdx], pos, vec4(source, 1.0));
             }
         )glsl"}));
@@ -310,17 +306,12 @@ NOVA_EXAMPLE(Compute, "compute")
             nova::TextureLayout::GeneralImage,
             nova::PipelineStage::Compute);
 
-        // Update target descriptor
-
-        heap.WriteStorageTexture(2, target);
-        cmd.BindDescriptorHeap(nova::BindPoint::Compute, heap);
-
         // Dispatch
 
         cmd.PushConstants(PushConstants {
-            .sampledIdx = 1,
-            .samplerIdx = 0,
-            .targetIdx = 2,
+            .image = texture.GetDescriptor(),
+            .sampler = sampler.GetDescriptor(),
+            .target = swapchain.GetCurrent().GetDescriptor(),
             .size = Vec2(swapchain.GetExtent()),
         });
         cmd.BindShaders({computeShader});

@@ -24,6 +24,15 @@ namespace nova
             .borderColor = GetVulkanBorderColor(color),
         }), context->pAlloc, &impl->sampler));
 
+        {
+            std::scoped_lock lock{ context->globalHeap.mutex };
+            impl->descriptorIndex = context->globalHeap.samplerHandles.Acquire();
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Sampler Descriptor Acquired: {}", impl->descriptorIndex);
+#endif
+        }
+        context->globalHeap.WriteSampler(impl->descriptorIndex, impl);
+
         return { impl };
     }
 
@@ -35,8 +44,21 @@ namespace nova
 
         impl->context->vkDestroySampler(impl->context->device, impl->sampler, impl->context->pAlloc);
 
+        {
+            std::scoped_lock lock{ impl->context->globalHeap.mutex };
+            impl->context->globalHeap.samplerHandles.Release(impl->descriptorIndex);
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Sampler Descriptor Released: {}", impl->descriptorIndex);
+#endif
+        }
+
         delete impl;
         impl = nullptr;
+    }
+
+    u32 Sampler::GetDescriptor() const
+    {
+        return impl->descriptorIndex;
     }
 
 // -----------------------------------------------------------------------------
@@ -93,6 +115,8 @@ namespace nova
 
         // ---- Create image -----
 
+        VmaAllocationInfo info;
+
         vkh::Check(vmaCreateImage(context->vma,
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -120,7 +144,9 @@ namespace nova
             }),
             &impl->image,
             &impl->allocation,
-            nullptr));
+            &info));
+
+        rhi::stats::MemoryAllocated += info.size;
 
         // ---- Pick aspects -----
 
@@ -168,11 +194,47 @@ namespace nova
         }
 
         if (impl->allocation) {
+            VmaAllocationInfo info;
+            vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
+            rhi::stats::MemoryAllocated -= info.size;
             vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
+        }
+
+        if (impl->descriptorIndex != UINT_MAX) {
+            auto& heap = impl->context->globalHeap;
+            std::scoped_lock lock{ heap.mutex };
+            impl->context->globalHeap.imageHandles.Release(impl->descriptorIndex);
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Texture Descriptor Released: {} (total = {})",
+                impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
+#endif
         }
 
         delete impl;
         impl = nullptr;
+    }
+
+    u32 Texture::GetDescriptor() const
+    {
+        if (impl->descriptorIndex == UINT_MAX) {
+            auto& heap = impl->context->globalHeap;
+            {
+                std::scoped_lock lock{ heap.mutex };
+                impl->descriptorIndex = heap.imageHandles.Acquire();
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+                NOVA_LOG("Texture Descriptor Acquired: {} (total = {})",
+                    impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
+#endif
+            }
+            if (impl->usage >= nova::TextureUsage::Sampled) {
+                heap.WriteSampled(impl->descriptorIndex, *this);
+            }
+            if (impl->usage >= nova::TextureUsage::Storage) {
+                heap.WriteStorage(impl->descriptorIndex, *this);
+            }
+        }
+
+        return impl->descriptorIndex;
     }
 
     Vec3U Texture::GetExtent() const

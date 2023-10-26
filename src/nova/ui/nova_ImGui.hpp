@@ -19,10 +19,8 @@ namespace nova
 
         GLFWwindow* window;
 
-        Context                context;
-        DescriptorHeap            heap;
-        DescriptorHandle       sampler;
-        DescriptorHandle fontTextureID;
+        Context context;
+        Sampler sampler;
     };
 
     struct ImGuiLayer
@@ -32,12 +30,9 @@ namespace nova
         ImGuiContext*     imguiCtx = {};
         ImGuiContext* lastImguiCtx = {};
 
-        DescriptorHeap heap;
+        Sampler defaultSampler;
 
-        DescriptorHandle defaultSamplerID;
-
-        Texture            fontTexture;
-        DescriptorHandle fontTextureID;
+        Texture fontTexture;
 
         Shader   vertexShader;
         Shader fragmentShader;
@@ -54,14 +49,14 @@ namespace nova
         ImGuiLayer(const ImGuiConfig& config);
         ~ImGuiLayer();
 
-        ImTextureID GetTextureID(DescriptorHandle texture)
+        ImTextureID GetTextureID(Texture texture)
         {
-            return std::bit_cast<ImTextureID>(Vec2U(texture.ToShaderUInt(), defaultSamplerID.ToShaderUInt()));
+            return std::bit_cast<ImTextureID>(Vec2U(texture.GetDescriptor(), defaultSampler.GetDescriptor()));
         }
 
-        ImTextureID GetTextureID(DescriptorHandle texture, DescriptorHandle sampler)
+        ImTextureID GetTextureID(Texture texture, Sampler sampler)
         {
-            return std::bit_cast<ImTextureID>(Vec2U(texture.ToShaderUInt(), sampler.ToShaderUInt()));
+            return std::bit_cast<ImTextureID>(Vec2U(texture.GetDescriptor(), sampler.GetDescriptor()));
         }
 
         using DockspaceWindowFn = void(*)(void*, ImGuiLayer&);

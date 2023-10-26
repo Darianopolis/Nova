@@ -177,13 +177,6 @@ Validation: {} ({})
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
 
-                impl->maxDescriptors = std::min({
-                    properties.properties.limits.maxDescriptorSetSampledImages,
-                    properties.properties.limits.maxDescriptorSetStorageImages,
-                    properties.properties.limits.maxDescriptorSetUniformBuffers,
-                    properties.properties.limits.maxDescriptorSetStorageBuffers,
-                    properties.properties.limits.maxDescriptorSetSamplers,
-                });
                 break;
             }
         }
@@ -519,69 +512,11 @@ Validation: {} ({})
             .initialDataSize = 0,
         }), impl->pAlloc, &impl->pipelineCache));
 
-        vkh::Check(impl->vkCreateDescriptorSetLayout(impl->device, Temp(VkDescriptorSetLayoutCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-            .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-                .pNext = Temp(VkMutableDescriptorTypeCreateInfoEXT {
-                    .sType = VK_STRUCTURE_TYPE_MUTABLE_DESCRIPTOR_TYPE_CREATE_INFO_EXT,
-                    .mutableDescriptorTypeListCount = 1,
-                    .pMutableDescriptorTypeLists = Temp(VkMutableDescriptorTypeListEXT {
-                        .descriptorTypeCount = 8,
-                        .pDescriptorTypes = std::array {
-                            VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-
-                            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-
-                            VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-                            VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-
-                            VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-
-                            VK_DESCRIPTOR_TYPE_SAMPLER,
-                        }.data(),
-                    }),
-                }),
-                .bindingCount = 1,
-                .pBindingFlags = std::array<VkDescriptorBindingFlags, 1> {
-                    VkDescriptorSetLayoutCreateFlags(impl->descriptorBuffers
-                            ? 0 : VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT)
-                        | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT
-                        | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT,
-                }.data(),
-            }),
-            .flags = VkDescriptorSetLayoutCreateFlags(impl->descriptorBuffers
-                ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                : VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT),
-            .bindingCount = 1,
-            .pBindings = std::array {
-                VkDescriptorSetLayoutBinding {
-                    .binding = 0,
-                    .descriptorType = VK_DESCRIPTOR_TYPE_MUTABLE_EXT,
-                    .descriptorCount = impl->maxDescriptors,
-                    .stageFlags = VK_SHADER_STAGE_ALL,
-                },
-            }.data(),
-        }), impl->pAlloc, &impl->heapLayout));
-
-        if (impl->descriptorBuffers) {
-            VkDeviceSize maxSize;
-            impl->vkGetDescriptorSetLayoutSizeEXT(impl->device, impl->heapLayout, &maxSize);
-            impl->mutableDescriptorSize = u32(maxSize / impl->maxDescriptors);
+        {
+            constexpr u32 NumImageDescriptors = 1024 * 1024;
+            constexpr u32 NumSamplerDescriptors = 4096;
+            impl->globalHeap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
         }
-
-        vkh::Check(impl->vkCreatePipelineLayout(impl->device, Temp(VkPipelineLayoutCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &impl->heapLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = Temp(VkPushConstantRange {
-                .stageFlags = VK_SHADER_STAGE_ALL,
-                .size = 256,
-            }),
-        }), impl->pAlloc, &impl->pipelineLayout));
 
         return { impl };
     }
@@ -606,9 +541,9 @@ Validation: {} ({})
         for (auto&[key, pipeline] : impl->graphicsPipelineSets) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
         for (auto&[key, pipeline] : impl->computePipelines)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
 
+        impl->globalHeap.Destroy();
+
         // Destroy context vk objects
-        impl->vkDestroyPipelineLayout(impl->device, impl->pipelineLayout, impl->pAlloc);
-        impl->vkDestroyDescriptorSetLayout(impl->device, impl->heapLayout, impl->pAlloc);
         impl->vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
         vmaDestroyAllocator(impl->vma);
         impl->vkDestroyDevice(impl->device, impl->pAlloc);

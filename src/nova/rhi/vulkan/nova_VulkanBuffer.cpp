@@ -21,6 +21,8 @@ namespace nova
             return;
         }
 
+        rhi::stats::MemoryAllocated -= buffer->size;
+
         vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
         buffer->buffer = nullptr;
     }
@@ -43,10 +45,9 @@ namespace nova
             return;
         }
 
-        // impl->size = std::max(_size, impl->size + (impl->size >> 1));
-        impl->size = _size;
-
         ResetBuffer(impl->context, *this);
+        impl->size = _size;
+        rhi::stats::MemoryAllocated += impl->size;
 
         VmaAllocationCreateFlags vmaFlags = {};
         if (impl->flags >= BufferFlags::Mapped) {

@@ -40,7 +40,7 @@ namespace nova
         f32  borderWidth;
 
         Vec4              texTint;
-        DescriptorHandle texIndex;
+        u32              texIndex;
         Vec2         texCenterPos;
         Vec2        texHalfExtent;
     };
@@ -61,8 +61,7 @@ namespace nova
 
     struct ImGlyph
     {
-        Texture        texture;
-        DescriptorHandle index;
+        Texture texture;
 
         f32   width;
         f32  height;
@@ -94,9 +93,6 @@ namespace nova
 
         Sampler defaultSampler;
 
-        DescriptorHeap descriptorHeap;
-        IndexFreeList    textureSlots{ 1 }; // 0 is reserved for default sampler
-
         Shader rectVertShader;
         Shader rectFragShader;
         Buffer     rectBuffer;
@@ -112,9 +108,6 @@ namespace nova
 
         Sampler GetDefaultSampler() noexcept;
         const ImBounds2D& GetBounds() const noexcept;
-
-        DescriptorHandle RegisterTexture(Texture texture, Sampler sampler);
-        void UnregisterTexture(DescriptorHandle handle);
 
         std::unique_ptr<ImFont> LoadFont(const char* file, f32 size);
 

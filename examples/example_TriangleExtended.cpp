@@ -9,12 +9,7 @@
 struct PushConstants
 {
     u64 vertices;
-    u32 uniforms;
-};
-
-struct Uniforms
-{
-    Vec3 offset;
+    Vec3  offset;
 };
 
 struct Vertex
@@ -44,11 +39,9 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmdPool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    auto heap = nova::DescriptorHeap::Create(context, 1);
     NOVA_CLEANUP(&) {
         cmdPool.Destroy();
         fence.Destroy();
-        heap.Destroy();
     };
 
     // Vertex data
@@ -71,16 +64,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     NOVA_CLEANUP(&) { indices.Destroy(); };
     indices.Set<u32>({0, 1, 2});
 
-    // Uniforms
-
-    auto ubo = nova::Buffer::Create(context, sizeof(Vec3),
-        nova::BufferUsage::Uniform,
-        nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_CLEANUP(&) { ubo.Destroy(); };
-    ubo.Set<Vec3>({{0.f, 0.25f, 0.f}});
-
-    heap.WriteUniformBuffer(0, ubo);
-
     // Shaders
 
     auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
@@ -89,8 +72,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
             #extension GL_EXT_buffer_reference2    : require
             #extension GL_EXT_nonuniform_qualifier : require
 
-            layout(set = 0, binding = 0, scalar) readonly uniform Uniforms_ { vec3 offset; } Uniforms[];
-
             layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex {
                 vec3 position;
                 vec3 color;
@@ -98,7 +79,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
             layout(push_constant, scalar) uniform pc_ {
                 Vertex vertices;
-                uint   uniforms;
+                vec3     offset;
             } pc;
 
             layout(location = 0) out vec3 color;
@@ -106,7 +87,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
             void main() {
                 Vertex v = pc.vertices[gl_VertexIndex];
                 color = v.color;
-                gl_Position = vec4(v.position + Uniforms[pc.uniforms].offset, 1);
+                gl_Position = vec4(v.position + pc.offset, 1);
             }
         )glsl"}));
     NOVA_CLEANUP(&) { vertexShader.Destroy(); };
@@ -142,9 +123,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
         cmd.PushConstants(PushConstants {
             .vertices = vertices.GetAddress(),
-            .uniforms = 0,
+            .offset = {0.f, 0.25f, 0.f},
         });
-        cmd.BindDescriptorHeap(nova::BindPoint::Graphics, heap);
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);
         cmd.DrawIndexed(3, 1, 0, 0, 0);
         cmd.EndRendering();

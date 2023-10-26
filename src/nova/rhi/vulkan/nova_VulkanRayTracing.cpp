@@ -112,7 +112,7 @@ namespace nova
                 .groupCount = u32(groups.size()),
                 .pGroups = groups.data(),
                 .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
-                .layout = impl->context->pipelineLayout,
+                .layout = impl->context->globalHeap.pipelineLayout,
             }),
             impl->context->pAlloc, &impl->pipeline));
 

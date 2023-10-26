@@ -153,7 +153,7 @@ namespace nova
             std::string line;
             u32 lineNum = 0;
             while (std::getline(iss, line)) {
-                NOVA_LOG("{:3} : {}", ++lineNum, line);
+                NOVA_LOG("{:3} : {}", ++lineNum + 1, line);
             }
         };
 

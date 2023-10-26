@@ -25,7 +25,7 @@ namespace nova
     using HBuffer = Handle<struct Buffer>;
     using HCommandList = Handle<struct CommandList>;
     using HCommandPool = Handle<struct CommandPool>;
-    using HDescriptorHeap = Handle<struct DescriptorHeap>;
+    // using HDescriptorHeap = Handle<struct DescriptorHeap>;
     using HFence = Handle<struct Fence>;
     using HQueue = Handle<struct Queue>;
     using HSampler = Handle<struct Sampler>;
@@ -209,21 +209,6 @@ namespace nova
         Storage,
         AccelerationStructure,
         Sampler,
-    };
-
-    struct DescriptorHandle
-    {
-        u32 id = 0;
-
-        DescriptorHandle() = default;
-
-        DescriptorHandle(u32 _id)
-            : id(_id)
-        {}
-
-        u32 ToShaderUInt() const {
-            return id;
-        }
     };
 
     enum class CompareOp : u32
@@ -411,12 +396,6 @@ namespace nova
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;
 
-        void WriteStorageBuffer(DescriptorHeap, DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        void WriteUniformBuffer(DescriptorHeap, DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        void WriteSampledTexture(DescriptorHeap, DescriptorHandle handle, HTexture) const;
-        void WriteSampler(DescriptorHeap, DescriptorHandle handle, HSampler) const;
-        void WriteStorageTexture(DescriptorHeap, DescriptorHandle handle, HTexture) const;
-
         void PushConstants(u64 offset, u64 size, const void* data) const;
         template<class T>
         void PushConstants(const T& constants, u64 offset = 0) const
@@ -447,8 +426,6 @@ namespace nova
 
         void Dispatch(Vec3U groups) const;
         void DispatchIndirect(HBuffer buffer, u64 offset) const;
-
-        void BindDescriptorHeap(BindPoint, HDescriptorHeap) const;
 
         void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
@@ -481,22 +458,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct DescriptorHeap : Handle<DescriptorHeap>
-    {
-        static DescriptorHeap Create(HContext, u32 requestedDescriptorCount);
-        void Destroy();
-
-        u32 GetMaxDescriptorCount() const;
-
-        void WriteStorageBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        void WriteUniformBuffer(DescriptorHandle handle, HBuffer, u64 size = ~0ull, u64 offset = 0) const;
-        void WriteSampledTexture(DescriptorHandle handle, HTexture) const;
-        void WriteSampler(DescriptorHandle handle, HSampler) const;
-        void WriteStorageTexture(DescriptorHandle handle, HTexture) const;
-    };
-
-// -----------------------------------------------------------------------------
-
     struct Shader : Handle<Shader>
     {
         static Shader Create(HContext, ShaderStage, std::string entry, Span<u32> bytecode);
@@ -509,6 +470,8 @@ namespace nova
     {
         static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
+
+        u32 GetDescriptor() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -524,6 +487,8 @@ namespace nova
         // TODO: Handle row pitch, etc..
         void Set(Vec3I offset, Vec3U extent, const void* data) const;
         void Transition(TextureLayout layout) const;
+
+        u32 GetDescriptor() const;
     };
 
 // -----------------------------------------------------------------------------

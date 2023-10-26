@@ -46,25 +46,19 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
-    auto heap = nova::DescriptorHeap::Create(context, 2);
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_CLEANUP(&) {
         fence.Destroy();
         commandPools[0].Destroy();
         commandPools[1].Destroy();
-        heap.Destroy();
         sampler.Destroy();
     };
-
-    heap.WriteSampler(0, sampler);
 
     auto imgui = nova::ImGuiLayer({
         .window = windows[0],
         .context = context,
-        .heap = heap,
-        .sampler = 0,
-        .fontTextureID = 1,
+        .sampler = sampler,
     });
 
     u64 frame = 0;

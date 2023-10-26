@@ -64,7 +64,7 @@ namespace nova
                 .pCode = spirv.data(),
                 .pName = shader->entry.c_str(),
                 .setLayoutCount = 1,
-                .pSetLayouts = &context->heapLayout,
+                .pSetLayouts = &context->globalHeap.heapLayout,
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_ALL,

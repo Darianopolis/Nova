@@ -50,12 +50,11 @@ NOVA_EXAMPLE(Draw, "draw")
 
 // -----------------------------------------------------------------------------
 
-    nova::ImDraw2D imDraw{context};
+    nova::ImDraw2D imDraw{ context };
 
 // -----------------------------------------------------------------------------
 
     nova::Texture texture;
-    nova::DescriptorHandle texID;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
@@ -68,8 +67,6 @@ NOVA_EXAMPLE(Draw, "draw")
 
         texture.Set({}, {u32(w), u32(h), 1}, data);
         texture.Transition(nova::TextureLayout::Sampled);
-
-        texID = imDraw.RegisterTexture(texture, imDraw.GetDefaultSampler());
     }
 
 // -----------------------------------------------------------------------------
@@ -92,7 +89,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .borderWidth = 5.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = texID,
+        .texIndex = texture.GetDescriptor(),
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 1.f },
     };
@@ -106,7 +103,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = texID,
+        .texIndex = texture.GetDescriptor(),
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 0.5f, 0.5f },
     };
@@ -120,7 +117,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .borderWidth = 10.f,
 
         .texTint = { 1.f, 1.f, 1.f, 1.f },
-        .texIndex = texID,
+        .texIndex = texture.GetDescriptor(),
         .texCenterPos = { 0.5f, 0.5f },
         .texHalfExtent = { 1.f, 0.5f },
     };
