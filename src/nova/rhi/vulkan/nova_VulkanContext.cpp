@@ -565,4 +565,92 @@ Validation: {} ({})
     {
         return impl->config;
     }
+
+    void* VulkanTrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
+    {
+        align = std::max(8ull, align);
+
+        void* ptr = _aligned_offset_malloc(size + 8, align, 8);
+
+        if (ptr) {
+            static_cast<usz*>(ptr)[0] = size;
+
+            rhi::stats::MemoryAllocated += size;
+            rhi::stats::AllocationCount++;
+            rhi::stats::NewAllocationCount++;
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
+#endif
+        }
+
+        return ByteOffsetPointer(ptr, 8);
+    }
+
+    void* VulkanTrackedReallocate(void*, void* orig, size_t size, size_t align, VkSystemAllocationScope)
+    {
+        align = std::max(8ull, align);
+
+        if (orig) {
+            usz oldSize  = static_cast<usz*>(orig)[-1];
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Reallocating {}, size = {}/{}", orig, oldSize, size);
+#endif
+
+            rhi::stats::MemoryAllocated -= oldSize;
+            rhi::stats::AllocationCount--;
+        }
+
+        void* ptr = _aligned_offset_realloc(ByteOffsetPointer(orig, -8), size + 8, align, 8);
+        static_cast<usz*>(ptr)[0] = size;
+
+        if (ptr) {
+            rhi::stats::MemoryAllocated += size;
+            rhi::stats::AllocationCount++;
+            if (ptr != orig) {
+                rhi::stats::NewAllocationCount++;
+            }
+        }
+
+        return ByteOffsetPointer(ptr, 8);
+    }
+
+    void VulkanTrackedFree(void*, void* ptr)
+    {
+        if (ptr) {
+            usz size = static_cast<usz*>(ptr)[-1];
+
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+            NOVA_LOG("Freeing      {}, size = {}", ptr, size);
+#endif
+
+            rhi::stats::MemoryAllocated -= size;
+            rhi::stats::AllocationCount--;
+
+            ptr = ByteOffsetPointer(ptr, -8);
+        }
+
+        _aligned_free(ptr);
+    }
+
+    void VulkanNotifyAllocation(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
+    {
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+        NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
+#endif
+        rhi::stats::MemoryAllocated += size;
+        rhi::stats::AllocationCount++;
+        rhi::stats::NewAllocationCount++;
+
+    }
+
+    void VulkanNotifyFree(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
+    {
+#ifdef NOVA_RHI_NOISY_ALLOCATIONS
+        NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
+#endif
+        rhi::stats::MemoryAllocated -= size;
+        rhi::stats::AllocationCount--;
+    }
 }

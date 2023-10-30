@@ -265,17 +265,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-#define NOVA_DEFINE_WYHASH_EQUALITY(type)                    \
-    bool operator==(const type& other) const                 \
-    {                                                        \
-        return std::memcmp(this, &other, sizeof(type)) == 0; \
-    }
-
     struct GraphicsPipelineVertexInputStageKey
     {
         Topology topology;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineVertexInputStageKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineVertexInputStageKey)
     };
 
     struct GraphicsPipelinePreRasterizationStageKey
@@ -283,14 +277,14 @@ namespace nova
         std::array<UID, 4> shaders;
         PolygonMode       polyMode;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelinePreRasterizationStageKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelinePreRasterizationStageKey)
     };
 
     struct GraphicsPipelineFragmentShaderStageKey
     {
         UID shader;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentShaderStageKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineFragmentShaderStageKey)
     };
 
     struct GraphicsPipelineFragmentOutputStageKey
@@ -301,38 +295,30 @@ namespace nova
 
         std::bitset<8> blendStates;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineFragmentOutputStageKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineFragmentOutputStageKey)
     };
 
     struct GraphicsPipelineLibrarySetKey
     {
         std::array<VkPipeline, 4> stages;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(GraphicsPipelineLibrarySetKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineLibrarySetKey)
     };
 
     struct ComputePipelineKey
     {
         UID shader;
 
-        NOVA_DEFINE_WYHASH_EQUALITY(ComputePipelineKey)
+        NOVA_MEMORY_EQUALITY_MEMBER(ComputePipelineKey)
     };
 }
 
-#define NOVA_DEFINE_WYHASH_FOR(type)                          \
-    template<> struct ankerl::unordered_dense::hash<type> {   \
-        using is_avalanching = void;                          \
-        uint64_t operator()(const type& key) const noexcept { \
-            return detail::wyhash::hash(&key, sizeof(key));   \
-        }                                                     \
-    }
-
-NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineVertexInputStageKey);
-NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelinePreRasterizationStageKey);
-NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentShaderStageKey);
-NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineFragmentOutputStageKey);
-NOVA_DEFINE_WYHASH_FOR(nova::GraphicsPipelineLibrarySetKey);
-NOVA_DEFINE_WYHASH_FOR(nova::ComputePipelineKey);
+NOVA_MEMORY_HASH(nova::GraphicsPipelineVertexInputStageKey);
+NOVA_MEMORY_HASH(nova::GraphicsPipelinePreRasterizationStageKey);
+NOVA_MEMORY_HASH(nova::GraphicsPipelineFragmentShaderStageKey);
+NOVA_MEMORY_HASH(nova::GraphicsPipelineFragmentOutputStageKey);
+NOVA_MEMORY_HASH(nova::GraphicsPipelineLibrarySetKey);
+NOVA_MEMORY_HASH(nova::ComputePipelineKey);
 
 namespace nova
 {
@@ -361,6 +347,12 @@ namespace nova
     VkQueueFlags GetVulkanQueueFlags(QueueFlags in);
     VkPipelineStageFlags2 GetVulkanPipelineStage(PipelineStage in);
     VkImageLayout GetVulkanImageLayout(TextureLayout layout);
+
+    void* VulkanTrackedAllocate(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
+    void* VulkanTrackedReallocate(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
+    void  VulkanTrackedFree(void* pUserData, void* pMemory);
+    void  VulkanNotifyAllocation(void* pUserData, size_t size, VkInternalAllocationType, VkSystemAllocationScope);
+    void  VulkanNotifyFree(void* pUserData, size_t size, VkInternalAllocationType, VkSystemAllocationScope);
 
 // -----------------------------------------------------------------------------
 //                                 Context
@@ -428,74 +420,11 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         VkAllocationCallbacks alloc = {
-            .pfnAllocation = +[](void*, size_t size, size_t align, VkSystemAllocationScope) {
-                align = std::max(8ull, align);
-
-                void* ptr = _aligned_offset_malloc(size + 8, align, 8);
-
-                if (ptr) {
-                    static_cast<usz*>(ptr)[0] = size;
-
-                    rhi::stats::MemoryAllocated += size;
-                    rhi::stats::AllocationCount++;
-                    rhi::stats::NewAllocationCount++;
-
-#ifdef NOVA_RHI_NOISY_ALLOCATIONS
-                    NOVA_LOG("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
-#endif
-                }
-
-                return ByteOffsetPointer(ptr, 8);
-            },
-            .pfnReallocation = +[](void*, void* orig, size_t size, size_t align, VkSystemAllocationScope) -> void* {
-                align = std::max(8ull, align);
-
-                if (orig) {
-                    usz oldSize  = static_cast<usz*>(orig)[-1];
-
-#ifdef NOVA_RHI_NOISY_ALLOCATIONS
-                    NOVA_LOG("Reallocating {}, size = {}/{}", orig, oldSize, size);
-#endif
-
-                    rhi::stats::MemoryAllocated -= oldSize;
-                    rhi::stats::AllocationCount--;
-                }
-
-                void* ptr = _aligned_offset_realloc(ByteOffsetPointer(orig, -8), size + 8, align, 8);
-                static_cast<usz*>(ptr)[0] = size;
-
-                if (ptr) {
-                    rhi::stats::MemoryAllocated += size;
-                    rhi::stats::AllocationCount++;
-                    if (ptr != orig) {
-                        rhi::stats::NewAllocationCount++;
-                    }
-                }
-
-                return ByteOffsetPointer(ptr, 8);
-            },
-            .pfnFree = +[](void*, void* ptr) {
-                if (ptr) {
-                    usz size = static_cast<usz*>(ptr)[-1];
-
-#ifdef NOVA_RHI_NOISY_ALLOCATIONS
-                    NOVA_LOG("Freeing      {}, size = {}", ptr, size);
-#endif
-
-                    rhi::stats::MemoryAllocated -= size;
-                    rhi::stats::AllocationCount--;
-
-                    ptr = ByteOffsetPointer(ptr, -8);
-                }
-
-                _aligned_free(ptr);
-            },
-            .pfnInternalAllocation = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-                NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
-            },
-            .pfnInternalFree = +[](void*, size_t size, VkInternalAllocationType type, VkSystemAllocationScope) {
-                NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
-            },
+            .pfnAllocation = VulkanTrackedAllocate,
+            .pfnReallocation = VulkanTrackedReallocate,
+            .pfnFree = VulkanTrackedFree,
+            .pfnInternalAllocation = VulkanNotifyAllocation,
+            .pfnInternalFree = VulkanNotifyFree,
         };
         VkAllocationCallbacks* pAlloc = &alloc;
     };
