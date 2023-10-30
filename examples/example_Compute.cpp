@@ -133,10 +133,6 @@ NOVA_EXAMPLE(Compute, "compute")
 
         // texture.Set({}, texture.GetExtent(), blocks.data());
 
-
-
-
-
         constexpr i32 BlockDim = 4;
         constexpr i32 BlockSize = BlockDim * BlockDim;
         struct Block { uc8 data[BlockSize]; };

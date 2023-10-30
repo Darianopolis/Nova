@@ -93,6 +93,7 @@ namespace nova
         BGRA8_SRGB,
 
         R8_UNorm,
+        RG8_UNorm,
         RGBA8_UNorm,
         BGRA8_UNorm,
 

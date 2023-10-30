@@ -48,6 +48,7 @@ namespace nova
         break;case Format::BGRA8_SRGB:    return VK_FORMAT_B8G8R8A8_SRGB;
         break;case Format::RGB32_SFloat:  return VK_FORMAT_R32G32B32_SFLOAT;
         break;case Format::R8_UNorm:      return VK_FORMAT_R8_UNORM;
+        break;case Format::RG8_UNorm:     return VK_FORMAT_R8G8_UNORM;
         break;case Format::R32_SFloat:    return VK_FORMAT_R32_SFLOAT;
         break;case Format::R8_UInt:       return VK_FORMAT_R8_UINT;
         break;case Format::R16_UInt:      return VK_FORMAT_R16_UINT;
@@ -74,6 +75,7 @@ namespace nova
         break;case VK_FORMAT_B8G8R8A8_SRGB:       return Format::BGRA8_SRGB;
         break;case VK_FORMAT_R32G32B32_SFLOAT:    return Format::RGB32_SFloat;
         break;case VK_FORMAT_R8_UNORM:            return Format::R8_UNorm;
+        break;case VK_FORMAT_R8G8_UNORM:          return Format::RG8_UNorm;
         break;case VK_FORMAT_R32_SFLOAT:          return Format::R32_SFloat;
         break;case VK_FORMAT_R8_UINT:             return Format::R8_UInt;
         break;case VK_FORMAT_R16_UINT:            return Format::R16_UInt;

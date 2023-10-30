@@ -50,7 +50,10 @@ namespace nova
 
             if (exists) {
                 userData->name = target.string();
-                userData->content = nova::files::ReadTextFile(userData->name);
+                if (!included.contains(target)) {
+                    included.insert(target);
+                    userData->content = nova::files::ReadTextFile(userData->name);
+                }
             } else {
                 userData->content = std::format("Failed to find include [{}] requested by [{}]", requestedSource, requestingSource);
                 NOVA_LOG("{}", userData->content);
@@ -82,6 +85,8 @@ namespace nova
 
     private:
         std::vector<std::filesystem::path> includeDirs;
+
+        ankerl::unordered_dense::set<std::filesystem::path> included;
     };
 
     std::vector<uint32_t> glsl::Compile(

@@ -111,6 +111,13 @@ namespace nova
         return T(u64(ptr) + offset);
     }
 
+    template<typename ...T>
+    constexpr
+    usz SizeOf(usz count = 1) noexcept
+    {
+        return count * (... + (sizeof(T)));
+    }
+
     inline constexpr
     u32 RoundUpPower2(u32 v) noexcept
     {
