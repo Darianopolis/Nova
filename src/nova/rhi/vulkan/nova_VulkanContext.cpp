@@ -242,6 +242,7 @@ Validation: {} ({})
                     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
                 f.storagePushConstant16 = VK_TRUE;
                 f.storageBuffer16BitAccess = VK_TRUE;
+                f.shaderDrawParameters = VK_TRUE;
             }
 
             // Vulkan 1.2

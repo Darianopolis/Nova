@@ -284,12 +284,11 @@ namespace nova
         cmd.SetViewports({{{}, Vec2I(target.GetExtent())}}, true);
         cmd.SetBlendState({true});
 
-        cmd.PushConstants(0, sizeof(PushConstants),
-            Temp(PushConstants {
-                .invHalfExtent = 2.f / bounds.Size(),
-                .centerPos = bounds.Center(),
-                .rects = rectBuffer.GetAddress(),
-            }));
+        cmd.PushConstants(PushConstants {
+            .invHalfExtent = 2.f / bounds.Size(),
+            .centerPos = bounds.Center(),
+            .rects = rectBuffer.GetAddress(),
+        });
 
         for (auto& command : drawCommands) {
             switch (command.type) {

@@ -138,7 +138,7 @@ namespace nova
         fontTexture.Destroy();
     }
 
-    void ImGuiLayer::BeginFrame_(DockspaceWindowFn fn, void* payload)
+    void ImGuiLayer::BeginFrame(LambdaRef<void()> fn)
     {
         lastImguiCtx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiCtx);
@@ -182,7 +182,7 @@ namespace nova
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspaceFlags);
 
-            fn(payload, *this);
+            fn();
 
             ImGui::End();
 
@@ -269,12 +269,12 @@ namespace nova
                 }
 
                 cmd.SetScissors({{Vec2I(clipMin), Vec2I(clipMax - clipMin)}});
-                cmd.PushConstants(0, sizeof(ImGuiPushConstants), Temp(ImGuiPushConstants {
+                cmd.PushConstants(ImGuiPushConstants {
                     .vertices = vertexBuffer.GetAddress(),
                     .scale = 2.f / Vec2(target.GetExtent()),
                     .offset = Vec2(-1.f),
                     .texture = std::bit_cast<Vec2U>(imCmd.TextureId),
-                }));
+                });
 
                 cmd.DrawIndexed(imCmd.ElemCount, 1,
                     u32(indexOffset) + imCmd.IdxOffset,

@@ -365,6 +365,48 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<class Ret, class... Types>
+    struct FuncBase {
+        void* body;
+        Ret(*fptr)(void*, Types...);
+
+        Ret operator()(Types... args) {
+            return fptr(body, std::forward<Types>(args)...);
+        }
+    };
+
+    template<class Tx>
+    struct GetFunctionImpl {};
+
+    template<class Ret, class... Types>
+    struct GetFunctionImpl<Ret(Types...)> { using type = FuncBase<Ret, Types...>; };
+
+    template<class Sig>
+    struct LambdaRef : GetFunctionImpl<Sig>::type {
+        template<class Fn>
+        LambdaRef(Fn&& fn)
+            : GetFunctionImpl<Sig>::type(&fn,
+                [](void*b, auto... args) -> auto {
+                    return (*(Fn*)b)(args...);
+                })
+        {};
+    };
+
+// -----------------------------------------------------------------------------
+
+    struct RawByteView
+    {
+        void* data;
+        usz   size;
+
+        template<class T>
+        RawByteView(const T& t)
+            : data((void*)&t), size(sizeof(T))
+        {}
+    };
+
+// -----------------------------------------------------------------------------
+
     namespace detail
     {
         thread_local inline std::chrono::steady_clock::time_point NovaTimeitLast;

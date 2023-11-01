@@ -2,9 +2,11 @@
 
 namespace nova
 {
-    void CommandList::PushConstants(u64 offset, u64 size, const void* data) const
+    void CommandList::PushConstants(RawByteView data, u64 offset) const
     {
-        impl->context->vkCmdPushConstants(impl->buffer, impl->context->globalHeap.pipelineLayout, VK_SHADER_STAGE_ALL, u32(offset), u32(size), data);
+        impl->context->vkCmdPushConstants(impl->buffer,
+            impl->context->globalHeap.pipelineLayout, VK_SHADER_STAGE_ALL,
+            u32(offset), u32(data.size), data.data);
     }
 
 // -----------------------------------------------------------------------------
@@ -396,12 +398,8 @@ namespace nova
         impl->context->vkCmdSetDepthBoundsTestEnable(impl->buffer, false);
         impl->context->vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
 
-        SetPolygonState(
-            Topology::Triangles,
-            PolygonMode::Fill,
-            CullMode::None,
-            FrontFace::CounterClockwise,
-            1.f);
+        SetPolygonState(Topology::Triangles, PolygonMode::Fill, 1.f);
+        SetCullState(CullMode::None, FrontFace::CounterClockwise);
         SetDepthState(false, false, CompareOp::Always);
     }
 
@@ -445,8 +443,6 @@ namespace nova
     void CommandList::SetPolygonState(
         Topology topology,
         PolygonMode polygonMode,
-        CullMode cullMode,
-        FrontFace frontFace,
         f32 lineWidth) const
     {
         impl->context->vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(topology));
@@ -457,9 +453,15 @@ namespace nova
             impl->polygonMode = polygonMode;
             impl->graphicsStateDirty = true;
         }
+        impl->context->vkCmdSetLineWidth(impl->buffer, lineWidth);
+    }
+
+    void CommandList::SetCullState(
+        CullMode cullMode,
+        FrontFace frontFace) const
+    {
         impl->context->vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(cullMode));
         impl->context->vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(frontFace));
-        impl->context->vkCmdSetLineWidth(impl->buffer, lineWidth);
     }
 
     void CommandList::SetDepthState(bool testEnable, bool writeEnable, CompareOp compareOp) const

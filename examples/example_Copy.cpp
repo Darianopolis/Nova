@@ -59,4 +59,33 @@ NOVA_EXAMPLE(Copy, "copy")
         fence.Wait();
         NOVA_TIMEIT("transfer");
     }
+
+    constexpr size_t size = 512ull * 1024 * 1024;
+    constexpr size_t count = 1;
+
+    static volatile int foo;
+
+    std::vector<char> sources[count];
+    nova::Buffer targets[count];
+    for (int i = 0; i < count; ++i) {
+        sources[i] = std::vector<char>(size);
+        targets[i] = nova::Buffer::Create(context, size,
+            {},
+            nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    }
+
+    for (int j = 0; j < 50; ++j) {
+        std::this_thread::sleep_for(100ms);
+        using namespace std::chrono;
+        auto start = steady_clock::now();
+        for (int i = 0; i < count; ++i) {
+            auto dst = targets[i].GetMapped();
+            auto src = sources[i].data();
+            std::memcpy(dst, src, size);
+        }
+        auto end = steady_clock::now();
+        auto seconds = duration_cast<duration<float>>(end - start).count();
+
+        NOVA_LOG("Total time: {:.2f} seconds ({} /s)", seconds, nova::ByteSizeToString(uint64_t((size * count) / seconds)));
+    }
 }
