@@ -396,23 +396,19 @@ namespace nova
         impl->context->vkCmdSetDepthBoundsTestEnable(impl->buffer, false);
         impl->context->vkCmdSetDepthBounds(impl->buffer, 0.f, 1.f);
 
-        SetPolygonState(
-            Topology::Triangles,
-            PolygonMode::Fill,
-            CullMode::None,
-            FrontFace::CounterClockwise,
-            1.f);
+        SetPolygonState(Topology::Triangles, PolygonMode::Fill, 1.f);
+        SetCullState(CullMode::None, FrontFace::CounterClockwise);
         SetDepthState(false, false, CompareOp::Always);
     }
 
     NOVA_NO_INLINE
-    void CommandList::SetViewports(Span<Rect2I> viewports, bool copyToScissors) const
+    void CommandList::SetViewports(Span<Rect2I> viewports, bool copyToScissors, Vec2 jitter) const
     {
         auto vkViewports = NOVA_ALLOC_STACK(VkViewport, viewports.size());
         for (u32 i = 0; i < viewports.size(); ++i) {
             vkViewports[i] = VkViewport {
-                .x = f32(viewports[i].offset.x),
-                .y = f32(viewports[i].offset.y),
+                .x = f32(viewports[i].offset.x) + jitter.x,
+                .y = f32(viewports[i].offset.y) + jitter.y,
                 .width = f32(viewports[i].extent.x),
                 .height = f32(viewports[i].extent.y),
                 .minDepth = 0.f,
@@ -445,8 +441,6 @@ namespace nova
     void CommandList::SetPolygonState(
         Topology topology,
         PolygonMode polygonMode,
-        CullMode cullMode,
-        FrontFace frontFace,
         f32 lineWidth) const
     {
         impl->context->vkCmdSetPrimitiveTopology(impl->buffer, GetVulkanTopology(topology));
@@ -457,9 +451,15 @@ namespace nova
             impl->polygonMode = polygonMode;
             impl->graphicsStateDirty = true;
         }
+        impl->context->vkCmdSetLineWidth(impl->buffer, lineWidth);
+    }
+
+    void CommandList::SetCullState(
+        CullMode cullMode,
+        FrontFace frontFace) const
+    {
         impl->context->vkCmdSetCullMode(impl->buffer, GetVulkanCullMode(cullMode));
         impl->context->vkCmdSetFrontFace(impl->buffer, GetVulkanFrontFace(frontFace));
-        impl->context->vkCmdSetLineWidth(impl->buffer, lineWidth);
     }
 
     void CommandList::SetDepthState(bool testEnable, bool writeEnable, CompareOp compareOp) const

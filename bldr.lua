@@ -47,6 +47,7 @@ if Project "nova" then
         "VulkanMemoryAllocator",
         "glslang",
         "DXC",
+        "DLSS",
     }
 
 -------- UI --------------------------------------------------------------------

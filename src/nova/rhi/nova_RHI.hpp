@@ -25,7 +25,6 @@ namespace nova
     using HBuffer = Handle<struct Buffer>;
     using HCommandList = Handle<struct CommandList>;
     using HCommandPool = Handle<struct CommandPool>;
-    // using HDescriptorHeap = Handle<struct DescriptorHeap>;
     using HFence = Handle<struct Fence>;
     using HQueue = Handle<struct Queue>;
     using HSampler = Handle<struct Sampler>;
@@ -97,7 +96,9 @@ namespace nova
         RGBA8_UNorm,
         BGRA8_UNorm,
 
+
         R32_SFloat,
+        RG16_SFloat,
         RGB32_SFloat,
         RGBA16_SFloat,
         RGBA32_SFloat,
@@ -391,9 +392,10 @@ namespace nova
         void Present(HSwapchain) const;
 
         void ResetGraphicsState() const;
-        void SetViewports(Span<Rect2I> rects, bool copyToScissors = false) const;
+        void SetViewports(Span<Rect2I> rects, bool copyToScissors = false, Vec2 jitter = Vec2(0.f)) const;
         void SetScissors(Span<Rect2I> scissors) const;
-        void SetPolygonState(Topology, PolygonMode, CullMode, FrontFace, f32 lineWidth) const;
+        void SetPolygonState(Topology, PolygonMode, f32 lineWidth) const;
+        void SetCullState(CullMode cullMode, FrontFace frontFace) const;
         void SetDepthState(bool testEnable, bool writeEnable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;

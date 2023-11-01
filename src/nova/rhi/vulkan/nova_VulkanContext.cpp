@@ -93,6 +93,41 @@ Validation: {} ({})
             instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
 
+        // NVSDK_NGX_FeatureCommonInfo nv_info_common{};
+
+        NVSDK_NGX_FeatureDiscoveryInfo nv_info{};
+        nv_info.Identifier.IdentifierType = NVSDK_NGX_Application_Identifier_Type_Project_Id;
+        nv_info.Identifier.v.ProjectDesc.EngineType = NVSDK_NGX_ENGINE_TYPE_CUSTOM;
+        nv_info.Identifier.v.ProjectDesc.EngineVersion = "1.0.0";
+        nv_info.Identifier.v.ProjectDesc.ProjectId = "22D14131-6C0A-485D-98AC-A6F28677E1CE";
+        nv_info.ApplicationDataPath = L"D:\\Dev\\Projects\\nova";
+        // nv_info.FeatureInfo = &nv_info_common;
+        nv_info.FeatureID = NVSDK_NGX_Feature_SuperSampling;
+        nv_info.SDKVersion = NVSDK_NGX_Version_API;
+
+        {
+            // DLSS cursed shit
+
+            u32 extension_count = 0;
+            VkExtensionProperties* required_extensions;
+            NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements(&nv_info, &extension_count, &required_extensions);
+NOVA_DEBUG();
+            for (u32 i = 0; i < extension_count; ++i) {
+NOVA_DEBUG();
+                NOVA_LOG("DLSS :: Required instance extension: {}", required_extensions[i].extensionName);
+NOVA_DEBUG();
+                if (std::ranges::find(instanceExtensions, (const char*)required_extensions[i].extensionName) == instanceExtensions.end()) {
+NOVA_DEBUG();
+                    NOVA_LOG("  Adding!");
+NOVA_DEBUG();
+                    instanceExtensions.emplace_back(required_extensions[i].extensionName);
+NOVA_DEBUG();
+                }
+NOVA_DEBUG();
+            }
+NOVA_DEBUG();
+        }
+
 // #define NOVA_VULKAN_FUNCTION(name) if (vkGetInstanceProcAddr(nullptr, #name)) std::cout << std::format("Loaded pre-instance fn: {}\n", #name);
 // #include "nova_VulkanFunctions.inl"
 
@@ -212,6 +247,26 @@ Validation: {} ({})
         }
 
         VulkanFeatureChain chain;
+
+        {
+            // DLSS 2: The cursed shit returns
+
+NOVA_DEBUG();
+            u32 extension_count = 0;
+NOVA_DEBUG();
+            VkExtensionProperties* required_extensions;
+NOVA_DEBUG();
+            NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements(impl->instance, impl->gpu, &nv_info, &extension_count, &required_extensions);
+NOVA_DEBUG();
+            for (u32 i = 0; i < extension_count; ++i) {
+NOVA_DEBUG();
+                NOVA_LOG("DLSS :: Required device extension: {}", required_extensions[i].extensionName);
+NOVA_DEBUG();
+                chain.Extension(required_extensions[i].extensionName);
+NOVA_DEBUG();
+            }
+NOVA_DEBUG();
+        }
 
         // TODO: Allow for optional features
 
@@ -515,6 +570,120 @@ Validation: {} ({})
             impl->globalHeap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
         }
 
+        do {
+            // DLSS Part 3 We good now?
+
+            auto init_res = NVSDK_NGX_VULKAN_Init_with_ProjectID(nv_info.Identifier.v.ProjectDesc.ProjectId,
+                nv_info.Identifier.v.ProjectDesc.EngineType,
+                nv_info.Identifier.v.ProjectDesc.EngineVersion,
+                nv_info.ApplicationDataPath,
+                impl->instance,
+                impl->gpu,
+                impl->device,
+                impl->vkGetInstanceProcAddr,
+                impl->vkGetDeviceProcAddr);
+
+            if (NVSDK_NGX_FAILED(init_res)) {
+                NOVA_THROW("DLSS: Failed to load params: {:#x}", uint32_t(init_res));
+            }
+
+            NOVA_LOG("DLSS: Successfully initialized");
+
+            int32_t dlss_supported = 0;
+            int32_t needs_updated_driver = 0;
+            uint32_t min_driver_version_major = 0;
+            uint32_t min_driver_version_minor = 0;
+
+            auto& dlss_params = impl->dlss_params;
+            auto res = NVSDK_NGX_VULKAN_GetCapabilityParameters(&dlss_params);
+
+            if (res != NVSDK_NGX_Result_Success) {
+                NOVA_THROW("DLSS: Failed to load params: {:#x}", uint32_t(res));
+                break;
+            }
+
+            auto result_updated_driver = dlss_params->Get(NVSDK_NGX_Parameter_SuperSampling_NeedsUpdatedDriver, &needs_updated_driver);
+            auto result_min_driver_version_major = dlss_params->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMajor, &min_driver_version_major);
+            auto result_min_driver_version_minor = dlss_params->Get(NVSDK_NGX_Parameter_SuperSampling_MinDriverVersionMinor, &min_driver_version_minor);
+
+            if (NVSDK_NGX_SUCCEED(result_updated_driver)) {
+                if (needs_updated_driver) {
+                    // NVIDIA DLSS cannot be loaded due to outdated driver.
+                    if (NVSDK_NGX_SUCCEED(result_min_driver_version_major)
+                            && NVSDK_NGX_SUCCEED(result_min_driver_version_minor)) {
+                        NOVA_LOG("DLSS: Min Driver version required: {}.{}", min_driver_version_major, min_driver_version_minor);
+                        break;
+                    } else {
+                        NOVA_LOG("DLSS: Incompatible device");
+                        break;
+                    }
+                }
+            }
+
+            auto result_dlss_supported = dlss_params->Get(NVSDK_NGX_Parameter_SuperSampling_Available, &dlss_supported);
+            if (NVSDK_NGX_FAILED(result_dlss_supported) || !dlss_supported) {
+                NOVA_LOG("DLSS: Not available on this hardware/platform");
+                break;
+            }
+
+            result_dlss_supported = dlss_params->Get(NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, &dlss_supported);
+
+            if (NVSDK_NGX_FAILED(result_dlss_supported) || !dlss_supported) {
+                NOVA_LOG("DLSS: Denied for this application");
+                break;
+            }
+
+            NOVA_LOG("DLSS: Supported");
+
+            auto context = Context(impl);
+            auto pool = CommandPool::Create(impl, context.GetQueue(QueueFlags::Graphics, 0));
+            NOVA_CLEANUP(&) { pool.Destroy(); };
+            auto cmd = pool.Begin();
+
+            uint32_t render_width, render_height;
+            uint32_t min_render_width, min_render_height;
+            uint32_t max_render_width, max_render_height;
+            float sharpness = 0.f;
+
+            auto quality = NVSDK_NGX_PerfQuality_Value_MaxQuality;
+
+            NGX_DLSS_GET_OPTIMAL_SETTINGS(impl->dlss_params, 1920, 1080, quality,
+                &render_width, &render_height,
+                &max_render_width, &max_render_height,
+                &min_render_width, &min_render_height,
+                &sharpness);
+
+            NOVA_LOGEXPR(render_width);
+            NOVA_LOGEXPR(render_height);
+            NOVA_LOGEXPR(min_render_width);
+            NOVA_LOGEXPR(min_render_height);
+            NOVA_LOGEXPR(max_render_width);
+            NOVA_LOGEXPR(max_render_height);
+            NOVA_LOGEXPR(sharpness);
+
+            impl->dlss_render_size = { render_width, render_height };
+            // impl->dlss_render_size = { max_render_width, max_render_height };
+
+            NVSDK_NGX_DLSS_Create_Params create_params{};
+            create_params.Feature.InWidth = impl->dlss_render_size.x;
+            create_params.Feature.InHeight = impl->dlss_render_size.y;
+            create_params.Feature.InTargetWidth = 1920;
+            create_params.Feature.InTargetHeight = 1080;
+            create_params.Feature.InPerfQualityValue = quality;
+            create_params.InFeatureCreateFlags = NVSDK_NGX_DLSS_Feature_Flags_None
+                | NVSDK_NGX_DLSS_Feature_Flags_MVLowRes
+                ;
+
+            res = NGX_VULKAN_CREATE_DLSS_EXT(cmd->buffer, 1, 1, &impl->dlss_feature_handle, dlss_params, &create_params);
+            if (NVSDK_NGX_FAILED(res)) {
+                NOVA_THROW("DLSS: Failed to create dlss feature: {:#x}", uint32_t(res));
+            }
+
+            NOVA_LOG("DLSS: Feature created");
+
+            NOVA_LOG("DLSS: Handle: {}", impl->dlss_feature_handle->Id);
+        } while(0);
+
         return { impl };
     }
 
@@ -525,6 +694,9 @@ Validation: {} ({})
         }
 
         WaitIdle();
+
+        NVSDK_NGX_VULKAN_DestroyParameters(impl->dlss_params);
+        NVSDK_NGX_VULKAN_Shutdown1(impl->device);
 
         for (auto& queue : impl->graphicQueues)  { delete queue.impl; }
         for (auto& queue : impl->computeQueues)  { delete queue.impl; }

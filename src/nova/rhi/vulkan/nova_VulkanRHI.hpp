@@ -9,6 +9,14 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
+#pragma warning(push)
+#pragma warning(disable: 4100)
+#include "nvsdk_ngx.h"
+#include "nvsdk_ngx_vk.h"
+#include "nvsdk_ngx_helpers.h"
+#include "nvsdk_ngx_helpers_vk.h"
+#pragma warning(pop)
+
 namespace nova
 {
     namespace vkh
@@ -378,6 +386,10 @@ namespace nova
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};
         std::vector<Queue>  computeQueues = {};
+
+        glm::uvec2           dlss_render_size;
+        NVSDK_NGX_Parameter* dlss_params = nullptr;
+        NVSDK_NGX_Handle*    dlss_feature_handle;
 
 // -----------------------------------------------------------------------------
 //                              Device Properties

@@ -113,8 +113,8 @@ namespace nova
 
     void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset) const
     {
-        impl->context->vkCmdClearAttachments(
-            impl->buffer, 1, nova::Temp(VkClearAttachment {
+        impl->context->vkCmdClearAttachments(impl->buffer,
+            1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .clearValue = { .depthStencil = { .depth = depth } },
             }),
@@ -127,8 +127,8 @@ namespace nova
 
     void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset) const
     {
-        impl->context->vkCmdClearAttachments(
-            impl->buffer, 1, nova::Temp(VkClearAttachment {
+        impl->context->vkCmdClearAttachments(impl->buffer,
+            1, nova::Temp(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
                 .clearValue = { .depthStencil = { .stencil = value } },
             }),
