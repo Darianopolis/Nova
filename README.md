@@ -12,7 +12,6 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 
 #### Principles
 - Design for the future
-  - Today's cutting edge will be tomorrows baseline
   - Build based on the current direction of hardware evolution.
   - Don't compromise the API to support older devices.
 - Doing **more** *per* call is better than making **more** calls.
@@ -30,9 +29,10 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 - No renderpass/framebuffer management - just start rendering
 - `[TODO]` Retain tile-based rendering optimizations via VK_EXT_shader_tile_image
 
-#### Unified Descriptor Heap
-- No explicit descriptor set/layout management
-- Using VK_EXT_mutable_descriptor_type to achieve DirectX style descriptor heaps optimal for bindless
+#### Unified Bindless Resources
+- No explicit descriptor management
+- Image and sampler descriptors handled automatically
+- Simply request bindless descriptors and pass into shaders as data
 
 #### Dynamic drawing API
 - No pipeline management
@@ -42,19 +42,21 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 
 #### Convenient HWRT
 - Neatly wrapped ray tracing pipeline management
-- Automatic shader binding table updates
+- Automatic base shader binding table construction
+- Build and update supplementary hit group table on CPU or GPU
 - Acceleration structure builder for building/updating/compacting acceleration structures efficiently
 
-#### Minimum requirements:
+#### Minimum requirements
 - Vulkan 1.3
-- Coherent host visbility to any device local memory (ReBAR or similar)
-- VK_EXT_descriptor_buffer
-- VK_EXT_mutable_descriptor_type
-- VK_EXT_shader_object
 - VK_EXT_graphics_pipeline_library
+
+#### Recommended extensions
+- Full coherent host access to device heap (Resizable BAR or similar)
 - VK_EXT_host_image_copy
 
 #### Additional supported extensions
+- VK_EXT_descriptor_buffer
+- VK_EXT_shader_object
 - VK_EXT_mesh_shader
 - VK_KHR_fragment_shader_barycentric
 - VK_KHR_ray_tracing_pipeline

@@ -247,7 +247,7 @@ namespace nova
 
             auto vkFormats = NOVA_ALLOC_STACK(VkFormat, renderingDesc.colorFormats.size());
             for (u32 i = 0; i < renderingDesc.colorFormats.size(); ++i) {
-                vkFormats[i] = GetVulkanFormat(renderingDesc.colorFormats[i]);
+                vkFormats[i] = GetVulkanFormat(renderingDesc.colorFormats[i]).vkFormat;
             }
 
             auto start = std::chrono::steady_clock::now();
@@ -262,8 +262,8 @@ namespace nova
                         }),
                         .colorAttachmentCount = u32(renderingDesc.colorFormats.size()),
                         .pColorAttachmentFormats = vkFormats,
-                        .depthAttachmentFormat = GetVulkanFormat(renderingDesc.depthFormat),
-                        .stencilAttachmentFormat = GetVulkanFormat(renderingDesc.stencilFormat),
+                        .depthAttachmentFormat = GetVulkanFormat(renderingDesc.depthFormat).vkFormat,
+                        .stencilAttachmentFormat = GetVulkanFormat(renderingDesc.stencilFormat).vkFormat,
                     }),
                     .flags = context->descriptorBuffers
                             ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT

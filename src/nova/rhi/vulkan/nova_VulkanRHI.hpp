@@ -33,6 +33,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct VulkanFormat
+    {
+        Format     format;
+        VkFormat vkFormat;
+
+        u32    atomSize = 0;
+        u32  blockWidth = 1;
+        u32 blockHeight = 1;
+    };
+
     enum class UID : u64 {
         Invalid = 0,
     };
@@ -42,6 +52,7 @@ namespace nova
     {
         Context context = {};
 
+        VkQueueFlags           flags = {};
         VkQueue               handle = {};
         u32                   family = UINT32_MAX;
         VkPipelineStageFlags2 stages = {};
@@ -145,6 +156,23 @@ namespace nova
         void WriteStorage(u32 index, HTexture texture);
         void WriteSampled(u32 index, HTexture texture);
         void WriteSampler(u32 index, HSampler sampler);
+    };
+
+    struct TransferManager
+    {
+        Context context = {};
+
+        Queue         queue = {};
+        Fence         fence = {};
+        CommandPool cmdPool = {};
+        Buffer      staging = {};
+
+        std::shared_mutex mutex;
+
+        bool stagedImageCopy = true;
+
+        void Init(HContext context);
+        void Destroy();
     };
 
     template<>
@@ -327,7 +355,7 @@ namespace nova
 
     VkBufferUsageFlags GetVulkanBufferUsage(BufferUsage usage);
     VkImageUsageFlags GetVulkanImageUsage(TextureUsage usage);
-    VkFormat GetVulkanFormat(Format format);
+    const VulkanFormat& GetVulkanFormat(Format format);
     Format FromVulkanFormat(VkFormat format);
     VkIndexType GetVulkanIndexType(IndexType type);
     VkFilter GetVulkanFilter(Filter filter);
@@ -373,7 +401,8 @@ namespace nova
 
         VkDebugUtilsMessengerEXT debugMessenger = {};
 
-        DescriptorHeap globalHeap;
+        DescriptorHeap       globalHeap;
+        TransferManager transferManager;
 
         std::vector<Queue>  graphicQueues = {};
         std::vector<Queue> transferQueues = {};

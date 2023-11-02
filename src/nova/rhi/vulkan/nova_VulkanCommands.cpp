@@ -57,10 +57,12 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Graphics);
-        cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Compute);
-        if (cmd->context.GetConfig().rayTracing) {
-            cmd->context->globalHeap.Bind(cmd, nova::BindPoint::RayTracing);
+        if (impl->queue->flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
+            cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Graphics);
+            cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Compute);
+            if (cmd->context.GetConfig().rayTracing) {
+                cmd->context->globalHeap.Bind(cmd, nova::BindPoint::RayTracing);
+            }
         }
 
         return cmd;

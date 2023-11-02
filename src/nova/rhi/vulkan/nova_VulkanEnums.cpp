@@ -36,31 +36,36 @@ namespace nova
         return out;
     }
 
-    VkFormat GetVulkanFormat(Format format)
-    {
-        switch (format) {
-        break;case Format::Undefined:     return VK_FORMAT_UNDEFINED;
-        break;case Format::RGBA8_UNorm:   return VK_FORMAT_R8G8B8A8_UNORM;
-        break;case Format::RGBA8_SRGB:    return VK_FORMAT_R8G8B8A8_SRGB;
-        break;case Format::RGBA16_SFloat: return VK_FORMAT_R16G16B16A16_SFLOAT;
-        break;case Format::RGBA32_SFloat: return VK_FORMAT_R32G32B32A32_SFLOAT;
-        break;case Format::BGRA8_UNorm:   return VK_FORMAT_B8G8R8A8_UNORM;
-        break;case Format::BGRA8_SRGB:    return VK_FORMAT_B8G8R8A8_SRGB;
-        break;case Format::RGB32_SFloat:  return VK_FORMAT_R32G32B32_SFLOAT;
-        break;case Format::R8_UNorm:      return VK_FORMAT_R8_UNORM;
-        break;case Format::RG8_UNorm:     return VK_FORMAT_R8G8_UNORM;
-        break;case Format::R32_SFloat:    return VK_FORMAT_R32_SFLOAT;
-        break;case Format::R8_UInt:       return VK_FORMAT_R8_UINT;
-        break;case Format::R16_UInt:      return VK_FORMAT_R16_UINT;
-        break;case Format::R32_UInt:      return VK_FORMAT_R32_UINT;
-        break;case Format::D24_UNorm:     return VK_FORMAT_X8_D24_UNORM_PACK32;
-        break;case Format::S8_D24_UNorm:  return VK_FORMAT_D24_UNORM_S8_UINT;
-        break;case Format::D32_SFloat:    return VK_FORMAT_D32_SFLOAT;
-        break;case Format::BC7_SRGB:      return VK_FORMAT_BC7_SRGB_BLOCK;
-        break;case Format::BC7_Unorm:     return VK_FORMAT_BC7_UNORM_BLOCK;
-        }
+    static
+    auto VulkanFormats = [] {
+        std::array<VulkanFormat, usz(Format::_count)> formats;
 
-        NOVA_THROW("Unknown Format: {}", u32(format));
+        formats[std::to_underlying(Format::Undefined)]     = { Format::Undefined,     VK_FORMAT_UNDEFINED,           0        };
+        formats[std::to_underlying(Format::RGBA8_UNorm)]   = { Format::RGBA8_UNorm,   VK_FORMAT_R8G8B8A8_UNORM,      4        };
+        formats[std::to_underlying(Format::RGBA8_SRGB)]    = { Format::RGBA8_SRGB,    VK_FORMAT_R8G8B8A8_SRGB,       4        };
+        formats[std::to_underlying(Format::RGBA16_SFloat)] = { Format::RGBA16_SFloat, VK_FORMAT_R16G16B16A16_SFLOAT, 8        };
+        formats[std::to_underlying(Format::RGBA32_SFloat)] = { Format::RGBA32_SFloat, VK_FORMAT_R32G32B32A32_SFLOAT, 16       };
+        formats[std::to_underlying(Format::BGRA8_UNorm)]   = { Format::BGRA8_UNorm,   VK_FORMAT_B8G8R8A8_UNORM,      4        };
+        formats[std::to_underlying(Format::BGRA8_SRGB)]    = { Format::BGRA8_SRGB,    VK_FORMAT_B8G8R8A8_SRGB,       4        };
+        formats[std::to_underlying(Format::RGB32_SFloat)]  = { Format::RGB32_SFloat,  VK_FORMAT_R32G32B32_SFLOAT,    12       };
+        formats[std::to_underlying(Format::R8_UNorm)]      = { Format::R8_UNorm,      VK_FORMAT_R8_UNORM,            1        };
+        formats[std::to_underlying(Format::RG8_UNorm)]     = { Format::RG8_UNorm,     VK_FORMAT_R8G8_UNORM,          2        };
+        formats[std::to_underlying(Format::R32_SFloat)]    = { Format::R32_SFloat,    VK_FORMAT_R32_SFLOAT,          4        };
+        formats[std::to_underlying(Format::R8_UInt)]       = { Format::R8_UInt,       VK_FORMAT_R8_UINT,             1        };
+        formats[std::to_underlying(Format::R16_UInt)]      = { Format::R16_UInt,      VK_FORMAT_R16_UINT,            2        };
+        formats[std::to_underlying(Format::R32_UInt)]      = { Format::R32_UInt,      VK_FORMAT_R32_UINT,            4        };
+        formats[std::to_underlying(Format::D24_UNorm)]     = { Format::D24_UNorm,     VK_FORMAT_X8_D24_UNORM_PACK32, 4        };
+        formats[std::to_underlying(Format::S8_D24_UNorm)]  = { Format::S8_D24_UNorm,  VK_FORMAT_D24_UNORM_S8_UINT,   4        };
+        formats[std::to_underlying(Format::D32_SFloat)]    = { Format::D32_SFloat,    VK_FORMAT_D32_SFLOAT,          4        };
+        formats[std::to_underlying(Format::BC7_SRGB)]      = { Format::BC7_SRGB,      VK_FORMAT_BC7_SRGB_BLOCK,      16, 4, 4 };
+        formats[std::to_underlying(Format::BC7_Unorm)]     = { Format::BC7_Unorm,     VK_FORMAT_BC7_UNORM_BLOCK,     16, 4, 4 };
+
+        return formats;
+    }();
+
+    const VulkanFormat& GetVulkanFormat(Format format)
+    {
+        return VulkanFormats[std::to_underlying(format)];
     }
 
     Format FromVulkanFormat(VkFormat format)

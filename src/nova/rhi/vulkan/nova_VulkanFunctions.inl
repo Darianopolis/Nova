@@ -133,5 +133,6 @@ NOVA_VULKAN_FUNCTION(vkTransitionImageLayoutEXT)
 NOVA_VULKAN_FUNCTION(vkUpdateDescriptorSets)
 NOVA_VULKAN_FUNCTION(vkWaitSemaphores)
 NOVA_VULKAN_FUNCTION(vkGetDescriptorSetLayoutBindingOffsetEXT)
+NOVA_VULKAN_FUNCTION(vkGetDeviceImageSubresourceLayoutKHR)
 
 #undef NOVA_VULKAN_FUNCTION

@@ -68,7 +68,7 @@ namespace nova
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-            .vertexFormat = GetVulkanFormat(vertexFormat),
+            .vertexFormat = GetVulkanFormat(vertexFormat).vkFormat,
             .vertexData = {{ vertexAddress }},
             .vertexStride = vertexStride,
             .maxVertex = maxVertex,

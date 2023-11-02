@@ -112,6 +112,8 @@ namespace nova
 
         BC7_SRGB,
         BC7_Unorm,
+
+        _count,
     };
 
     enum class IndexType : u32
@@ -332,9 +334,10 @@ namespace nova
 
     struct ContextConfig
     {
-        bool       debug = false;
-        bool  rayTracing = false;
-        bool meshShading = false;
+        bool         debug = false;
+        bool    rayTracing = false;
+        bool   meshShading = false;
+        bool compatibility = false;
     };
 
     struct Context : Handle<Context>

@@ -31,6 +31,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto context = nova::Context::Create({
         .debug = true,
+        .compatibility = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -203,17 +204,6 @@ NOVA_EXAMPLE(Compute, "compute")
                 {});
 
             texture.Set({}, texture.GetExtent(), encoder.get_blocks());
-
-            // auto staging = nova::Buffer::Create(context, encoder.get_total_blocks_size_in_bytes(),
-            //     nova::BufferUsage::TransferSrc, nova::BufferFlags::Mapped);
-            // NOVA_CLEANUP(&) { staging.Destroy(); };
-            // staging.Set<b8>(Span((const b8*)encoder.get_blocks(), encoder.get_total_blocks_size_in_bytes()));
-            // auto cmd = commandPools[0].Begin();
-            // cmd.CopyToTexture(texture, staging);
-            // queue.Submit({cmd}, {}, {fence});
-            // fence.Wait();
-            // waitValues[0] = fence.GetPendingValue();
-            // waitValues[1] = fence.GetPendingValue();
         }
 
         texture.Transition(nova::TextureLayout::Sampled);

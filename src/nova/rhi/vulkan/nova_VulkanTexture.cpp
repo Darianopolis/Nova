@@ -121,7 +121,7 @@ namespace nova
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = GetVulkanFormat(impl->format),
+                .format = GetVulkanFormat(impl->format).vkFormat,
                 .extent = { impl->extent.x, impl->extent.y, impl->extent.z },
                 .mipLevels = impl->mips,
                 .arrayLayers = impl->layers,
@@ -150,7 +150,7 @@ namespace nova
 
         // ---- Pick aspects -----
 
-        switch (GetVulkanFormat(impl->format)) {
+        switch (GetVulkanFormat(impl->format).vkFormat) {
         break;case VK_FORMAT_S8_UINT:
             impl->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
@@ -175,7 +175,7 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = impl->image,
                 .viewType = viewType,
-                .format = GetVulkanFormat(impl->format),
+                .format = GetVulkanFormat(impl->format).vkFormat,
                 .subresourceRange = { impl->aspect, 0, impl->mips, 0, impl->layers },
             }), context->pAlloc, &impl->view));
         }
@@ -249,44 +249,72 @@ namespace nova
 
     void Texture::Set(Vec3I offset, Vec3U extent, const void* data) const
     {
-        impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
-            .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
-            .image = impl->image,
-            .oldLayout = impl->layout,
-            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
-        }));
+        if (impl->context->transferManager.stagedImageCopy) {
+            auto& manager = impl->context->transferManager;
+            std::scoped_lock lock{ manager.mutex };
 
-        impl->context->vkCopyMemoryToImageEXT(impl->context->device, Temp(VkCopyMemoryToImageInfoEXT {
-            .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,
-            .dstImage = impl->image,
-            .dstImageLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .regionCount = 1,
-            .pRegions = Temp(VkMemoryToImageCopyEXT {
-                .sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT,
-                .pHostPointer = data,
-                .imageSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-                .imageOffset{ offset.x, offset.y, offset.z },
-                .imageExtent{ extent.x, extent.y, extent.z },
-            })
-        }));
+            auto format = GetVulkanFormat(impl->format);
 
-        impl->layout = VK_IMAGE_LAYOUT_GENERAL;
-        impl->stage = VK_PIPELINE_STAGE_2_HOST_BIT;
+            usz rows = (extent.y + format.blockHeight - 1) / format.blockHeight;
+            usz cols = (extent.x + format.blockWidth  - 1) / format.blockWidth;
+            usz size = rows * cols * format.atomSize;
+
+            manager.staging.Set(Span<char>((char*)data, size));
+            auto cmd = manager.cmdPool.Begin();
+            cmd.CopyToTexture(*this, manager.staging);
+            manager.queue.Submit({cmd}, {}, {manager.fence});
+            manager.fence.Wait();
+            manager.cmdPool.Reset();
+        } else {
+            impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
+                .image = impl->image,
+                .oldLayout = impl->layout,
+                .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
+            }));
+
+            impl->context->vkCopyMemoryToImageEXT(impl->context->device, Temp(VkCopyMemoryToImageInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,
+                .dstImage = impl->image,
+                .dstImageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                .regionCount = 1,
+                .pRegions = Temp(VkMemoryToImageCopyEXT {
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT,
+                    .pHostPointer = data,
+                    .imageSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                    .imageOffset{ offset.x, offset.y, offset.z },
+                    .imageExtent{ extent.x, extent.y, extent.z },
+                })
+            }));
+
+            impl->layout = VK_IMAGE_LAYOUT_GENERAL;
+            impl->stage = VK_PIPELINE_STAGE_2_HOST_BIT;
+        }
     }
 
     void Texture::Transition(TextureLayout layout) const
     {
-        impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
-            .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
-            .image = impl->image,
-            .oldLayout = impl->layout,
-            .newLayout = GetVulkanImageLayout(layout),
-            .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
-        }));
+        if (impl->context->transferManager.stagedImageCopy) {
+            auto& manager = impl->context->transferManager;
+            std::scoped_lock lock{ manager.mutex };
+            auto cmd = manager.cmdPool.Begin();
+            cmd.Transition(*this, layout, nova::PipelineStage::All);
+            manager.queue.Submit({cmd}, {}, {manager.fence});
+            manager.fence.Wait();
+            manager.cmdPool.Reset();
+        } else {
+            impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
+                .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
+                .image = impl->image,
+                .oldLayout = impl->layout,
+                .newLayout = GetVulkanImageLayout(layout),
+                .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
+            }));
 
-        impl->layout = GetVulkanImageLayout(layout);
-        impl->stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+            impl->layout = GetVulkanImageLayout(layout);
+            impl->stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        }
     }
 
 // -----------------------------------------------------------------------------
@@ -323,27 +351,6 @@ namespace nova
         auto vkStage = GetVulkanPipelineStage(stage) & queue->stages;
 
         impl->Transition(texture, vkLayout, vkStage);
-
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = Temp(VkImageMemoryBarrier2 {
-                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-
-                .srcStageMask = texture->stage,
-                .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = vkStage,
-                .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-
-                .oldLayout = texture->layout,
-                .newLayout = vkLayout,
-                .image = texture->image,
-                .subresourceRange{ texture->aspect, 0, texture->mips, 0, texture->layers },
-            })
-        }));
-
-        texture->layout = vkLayout;
-        texture->stage = vkStage;
     }
 
     void CommandList::ClearColor(HTexture texture, std::variant<Vec4, Vec4U, Vec4I> value) const

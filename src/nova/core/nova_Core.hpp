@@ -396,12 +396,16 @@ namespace nova
 
     struct RawByteView
     {
-        void* data;
+        const void* data;
         usz   size;
 
         template<class T>
         RawByteView(const T& t)
-            : data((void*)&t), size(sizeof(T))
+            : data((const void*)&t), size(sizeof(T))
+        {}
+
+        RawByteView(const void* data, usz size)
+            : data(data), size(size)
         {}
     };
 

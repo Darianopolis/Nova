@@ -194,20 +194,23 @@ Validation: {} ({})
             queue->context = { impl };
             queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             queue->family = 0;
+            queue->flags = properties[0].queueFlags;
             impl->graphicQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 2; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 1;
+            queue->flags = properties[1].queueFlags;
             impl->transferQueues.emplace_back(queue);
         }
         for (u32 i = 0; i < 8; ++i) {
             auto queue = new Queue::Impl;
             queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
             queue->family = 2;
+            queue->flags = properties[2].queueFlags;
             impl->computeQueues.emplace_back(queue);
         }
 
@@ -287,10 +290,13 @@ Validation: {} ({})
 
             // Host Image Copy
 
-            chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
-                .hostImageCopy = VK_TRUE;
+            if (!config.compatibility) {
+                chain.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
+                chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
+                    .hostImageCopy = VK_TRUE;
+                impl->transferManager.stagedImageCopy = false;
+            }
 
 #if 0
             // Shader Objects
@@ -516,6 +522,10 @@ Validation: {} ({})
             impl->globalHeap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
         }
 
+        {
+            impl->transferManager.Init(impl);
+        }
+
         return { impl };
     }
 
@@ -540,6 +550,7 @@ Validation: {} ({})
         for (auto&[key, pipeline] : impl->computePipelines)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
 
         impl->globalHeap.Destroy();
+        impl->transferManager.Destroy();
 
         // Destroy context vk objects
         impl->vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
