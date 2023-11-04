@@ -75,7 +75,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
 
         // texture = nova::Texture::Create(context,
-        //     Vec3U(u32(x), u32(y), 0),
+        //     Vec3U(u32(width), u32(height), 0),
         //     nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
         //     nova::Format::RGBA8_UNorm,
         //     {});
@@ -133,6 +133,13 @@ NOVA_EXAMPLE(Compute, "compute")
         // NOVA_LOG("Transparent: {} / {}", transparentCount, totalCount);
 
         // texture.Set({}, texture.GetExtent(), blocks.data());
+
+
+
+
+
+
+
 
         constexpr i32 BlockDim = 4;
         constexpr i32 BlockSize = BlockDim * BlockDim;
@@ -205,6 +212,12 @@ NOVA_EXAMPLE(Compute, "compute")
 
             texture.Set({}, texture.GetExtent(), encoder.get_blocks());
         }
+
+
+
+
+
+
 
         texture.Transition(nova::TextureLayout::Sampled);
     }

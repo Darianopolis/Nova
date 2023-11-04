@@ -1,6 +1,7 @@
 .vscode
 .VSCodeCounter
 build/
+artifacts/
 vendor/
 out/
 imgui.ini
