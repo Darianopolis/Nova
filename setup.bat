@@ -1,5 +1,26 @@
-mkdir vendor
-cd vendor
+where /q wget
+goto wget_missing_%errorlevel%
+:wget_missing_1
+    echo Missing wget, install and try again
+    GOTO:eof
+:wget_missing_0
+
+where /q 7z
+goto 7z_missing_%errorlevel%
+:7z_missing_1
+    echo Missing 7z, install and try again
+    GOTO:eof
+:7z_missing_0
+
+where /q python
+goto python_missing_%errorlevel%
+:python_missing_1
+    echo Missing python, install and try again
+    GOTO:eof
+:python_missing_0
+
+mkdir build\vendor
+cd build\vendor
 
     git clone https://github.com/martinus/unordered_dense.git
     cd unordered_dense
@@ -78,4 +99,15 @@ cd vendor
 
     git clone https://github.com/richgel999/bc7enc_rdo.git
 
-cd ..
+cd ..\..
+
+bldr make -clean sqlite3 ^
+    VulkanMemoryAllocator ^
+    imgui ^
+    imgui-glfw ^
+    imgui-vulkan ^
+    imguizmo ^
+    stb ^
+    bc7enc
+
+bldr ide nova-examples

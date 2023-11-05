@@ -68,135 +68,15 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_CLEANUP(&) { texture.Destroy(); };
     {
         int width, height, channels;
-        // auto imageData = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
-        auto imageData = stbi_load("D:/Dev/Models/Sponza/textures/column_brickwall_01_BaseColor.png", &width, &height, &channels, STBI_rgb_alpha);
+        auto imageData = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
         NOVA_CLEANUP(&) { stbi_image_free(imageData); };
 
-
-
-        // texture = nova::Texture::Create(context,
-        //     Vec3U(u32(width), u32(height), 0),
-        //     nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
-        //     nova::Format::RGBA8_UNorm,
-        //     {});
-
-        // texture.Set({}, texture.GetExtent(), imageData);
-
-
-
-
-        // bc7enc_compress_block_init();
-        // bc7enc_compress_block_params params;
-        // bc7enc_compress_block_params_init(&params);
-
-        // constexpr i32 BlockDim = 4;
-        // constexpr i32 BlockSize = BlockDim * BlockDim;
-
-        // struct Block { uc8 data[BlockSize]; };
-
-        // std::vector<Block> blocks;
-        // i32 bcWidth  = width / BlockDim;
-        // i32 bcHeight = height / BlockDim;
-        // blocks.resize(bcWidth * bcHeight);
-
-        // struct Pixel { uc8 data[4]; };
-        // Pixel sourceBlock[BlockSize];
-
-        // i32 transparentCount = 0;
-        // i32 totalCount = 0;
-        // for (i32 bx = 0; bx < bcWidth; ++bx) {
-        //     for (i32 by = 0; by < bcHeight; ++by) {
-        //         i32 px = bx * BlockDim;
-        //         i32 py = by * BlockDim;
-        //         for (i32 lx = 0; lx < BlockDim; ++lx) {
-        //             for (i32 ly = 0; ly < BlockDim; ++ly) {
-        //                 sourceBlock[lx + ly * BlockDim]
-        //                     = reinterpret_cast<const Pixel*>(imageData)[(px + lx) + (py + ly) * width];
-        //             }
-        //         }
-        //         if (bc7enc_compress_block(&blocks[bx + by * bcWidth], sourceBlock, &params)) {
-        //             transparentCount++;
-        //         }
-        //         totalCount++;
-        //     }
-        // }
-
-        // texture = nova::Texture::Create(context,
-        //     Vec3U(u32(width), u32(height), 0),
-        //     nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
-        //     nova::Format::BC7_Unorm,
-        //     {});
-
-        // NOVA_LOG("Original size: {}", nova::ByteSizeToString(width * height * 4));
-        // NOVA_LOG("Compressed size: {}", nova::ByteSizeToString(blocks.size() * sizeof(Block)));
-        // NOVA_LOG("Ratio: {:.3f}", f32(width * height * 4) / f32(blocks.size() * sizeof(Block)));
-        // NOVA_LOG("Transparent: {} / {}", transparentCount, totalCount);
-
-        // texture.Set({}, texture.GetExtent(), blocks.data());
-
-
-
-
-
-
-
-
-        constexpr i32 BlockDim = 4;
-        constexpr i32 BlockSize = BlockDim * BlockDim;
-        struct Block { uc8 data[BlockSize]; };
-
         utils::image_u8 image{ u32(width), u32(height) };
-        // std::memcpy(image.get_pixels().data(), imageData, width * height * 4);
+        std::memcpy(image.get_pixels().data(), imageData, width * height * 4);
 
-        {
+        constexpr bool use_bc7 = true;
 
-            i32 maxDim = 2048;
-            auto pData = imageData;
-            auto getIndex = [](i32 x, i32 y, i32 pitch) { return x + y * pitch; };
-
-            i32 factor = std::max(width / maxDim, height / maxDim);
-            i32 sWidth = width / factor;
-            i32 sHeight = height / factor;
-            i32 factor2 = factor * factor;
-
-            image.init(sWidth, sHeight);
-
-#pragma omp parallel for
-            for (i32 x = 0; x < sWidth; ++x) {
-                for (i32 y = 0; y < sHeight; ++y) {
-
-                    Vec4 acc = {};
-
-                    for (i32 dx = 0; dx < factor; ++dx) {
-                        for (i32 dy = 0; dy < factor; ++dy) {
-                            auto* pixel = pData + getIndex(x * factor + dx, y * factor + dy, width) * 4;
-                            acc.r += pixel[0];
-                            acc.g += pixel[1];
-                            acc.b += pixel[2];
-                            acc.a += pixel[3];
-                        }
-                    }
-
-                    acc /= f32(factor2);
-                    image.get_pixels()[getIndex(x, y, sWidth)]
-                        = { u8(acc.r), u8(acc.g), u8(acc.b), u8(acc.a) };
-                }
-            }
-
-            width = sWidth;
-            height = sHeight;
-        }
-
-        if (false) {
-            texture = nova::Texture::Create(context,
-                Vec3U(u32(width), u32(height), 0),
-                nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
-                nova::Format::RGBA8_UNorm,
-                {});
-
-            texture.Set({}, texture.GetExtent(), image.get_pixels().data());
-        } else {
-
+        if (use_bc7) {
             rdo_bc::rdo_bc_params params;
             params.m_bc7enc_reduce_entropy = true;
 
@@ -211,13 +91,15 @@ NOVA_EXAMPLE(Compute, "compute")
                 {});
 
             texture.Set({}, texture.GetExtent(), encoder.get_blocks());
+        } else {
+            texture = nova::Texture::Create(context,
+                Vec3U(u32(width), u32(height), 0),
+                nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
+                nova::Format::RGBA8_UNorm,
+                {});
+
+            texture.Set({}, texture.GetExtent(), image.get_pixels().data());
         }
-
-
-
-
-
-
 
         texture.Transition(nova::TextureLayout::Sampled);
     }

@@ -1,15 +1,15 @@
 if Project "ankerl-maps" then
-    Dir "vendor/unordered_dense"
+    Dir "build/vendor/unordered_dense"
     Include "build/install/include"
 end
 
 if Project "glm" then
-    Dir "vendor/glm"
+    Dir "build/vendor/glm"
     Include "."
 end
 
 if Project "simdutf" then
-    Dir "vendor/simdutf"
+    Dir "build/vendor/simdutf"
     Include "build/install/include"
     Link "build/install/lib/*.lib"
 end
@@ -17,7 +17,7 @@ end
 --------------------------------------------------------------------------------
 
 if Project "sqlite3" then
-    Dir "vendor/sqlite3"
+    Dir "build/vendor/sqlite3"
     Compile "sqlite3.c"
     Include "."
 end
@@ -25,12 +25,12 @@ end
 --------------------------------------------------------------------------------
 
 if Project "vulkan" then
-    Include "vendor/Vulkan-Headers/include"
-    Link "vendor/Vulkan-Loader/build/install/lib/vulkan-1.lib"
+    Include "build/vendor/Vulkan-Headers/include"
+    Link "build/vendor/Vulkan-Loader/build/install/lib/vulkan-1.lib"
 end
 
 if Project "VulkanMemoryAllocator" then
-    Dir "vendor/VulkanMemoryAllocator"
+    Dir "build/vendor/VulkanMemoryAllocator"
     Import "vulkan"
     Include "build/install/include"
     Define {
@@ -42,7 +42,7 @@ if Project "VulkanMemoryAllocator" then
 end
 
 if Project "glslang" then
-    Dir "vendor/glslang"
+    Dir "build/vendor/glslang"
 
     Include "build/install/include"
     Link {
@@ -65,7 +65,7 @@ if Project "glslang" then
 end
 
 if Project "DXC" then
-    Dir "vendor/DXC"
+    Dir "build/vendor/DXC"
     Include "inc"
     Link "lib/x64/*.lib"
     Dynamic "bin/x64/*.dll"
@@ -74,20 +74,20 @@ end
 --------------------------------------------------------------------------------
 
 if Project "freetype" then
-    Dir "vendor/freetype"
+    Dir "build/vendor/freetype"
     Include "build/install/include/freetype2"
     Link "build/install/lib/*.lib"
 end
 
 if Project "glfw" then
-    Dir "vendor/glfw"
+    Dir "build/vendor/glfw"
     Define { "GLFW_INCLUDE_NONE", "GLFW_EXPOSE_NATIVE_WIN32", "NOMINMAX" }
     Include "build/install/include"
     Link "build/install/lib/glfw3.lib"
 end
 
 if Project "imgui" then
-    Dir "vendor/imgui"
+    Dir "build/vendor/imgui"
     Compile "./*"
     Define {
         "IMGUI_DISABLE_OBSOLETE_FUNCTIONS",
@@ -97,20 +97,20 @@ if Project "imgui" then
 end
 
 if Project "imgui-glfw" then
-    Dir "vendor/imgui"
+    Dir "build/vendor/imgui"
     Compile "backends/imgui_impl_glfw.cpp"
     Define "GLFW_HAS_VULKAN"
     Import { "imgui", "glfw" }
 end
 
 if Project "imgui-vulkan" then
-    Dir "vendor/imgui"
+    Dir "build/vendor/imgui"
     Compile "backends/imgui_impl_vulkan.cpp"
     Import { "imgui", "vulkan" }
 end
 
 if Project "imguizmo" then
-    Dir "vendor/ImGuizmo"
+    Dir "build/vendor/ImGuizmo"
     Compile "./*"
     Include "."
     Import "imgui"
@@ -119,14 +119,14 @@ end
 --------------------------------------------------------------------------------
 
 if Project "stb" then
-    Dir "vendor/stb"
+    Dir "build/vendor/stb"
     Include "."
     Define { "STB_IMAGE_IMPLEMENTATION", scope = "build" }
     Compile { "stb_image.h", type = "cpp" }
 end
 
 if Project "bc7enc" then
-    Dir "vendor/bc7enc_rdo"
+    Dir "build/vendor/bc7enc_rdo"
     Compile {
         "bc7enc.cpp",
         "rdo_bc_encoder.cpp",
