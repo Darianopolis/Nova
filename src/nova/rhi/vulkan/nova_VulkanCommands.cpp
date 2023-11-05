@@ -57,8 +57,10 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
-        if (impl->queue->flags & (VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT)) {
+        if (impl->queue->flags & VK_QUEUE_GRAPHICS_BIT) {
             cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Graphics);
+        }
+        if (impl->queue->flags & VK_QUEUE_COMPUTE_BIT) {
             cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Compute);
             if (cmd->context.GetConfig().rayTracing) {
                 cmd->context->globalHeap.Bind(cmd, nova::BindPoint::RayTracing);
