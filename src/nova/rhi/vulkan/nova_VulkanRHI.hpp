@@ -25,9 +25,12 @@ namespace nova
         void Enumerate(Container&& container, Fn&& fn, Args&& ... args)
         {
             u32 count;
-            fn(std::forward<Args>(args)..., &count, nullptr);
-            container.resize(count);
-            fn(std::forward<Args>(args)..., &count, container.data());
+            VkResult res;
+            do {
+                vkh::Check(fn(args..., &count, nullptr));
+                container.resize(count);
+            } while ((res = fn(args..., &count, container.data())) == VK_INCOMPLETE);
+            vkh::Check(res);
         }
     }
 

@@ -4,3 +4,4 @@ out/
 imgui.ini
 renderdoc.cap
 assets/models
+CMakeLists.txt

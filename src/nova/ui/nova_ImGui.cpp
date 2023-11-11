@@ -83,7 +83,6 @@ namespace nova
                 )glsl"
             }));
 
-
         // Create ImGui context and initialize
 
         imguiCtx = ImGui::CreateContext();
