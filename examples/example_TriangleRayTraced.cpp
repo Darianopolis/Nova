@@ -1,5 +1,6 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
@@ -16,7 +17,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Ray Traced", nullptr, nullptr);
-    NOVA_CLEANUP(&) { glfwTerminate(); };
+    NOVA_DEFER(&) { glfwTerminate(); };
 
     i32 width, height;
     glfwGetFramebufferSize(window, &width, &height);
@@ -31,14 +32,14 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         .debug = true,
         .ray_tracing = true,
     });
-    NOVA_CLEANUP(&) { context.Destroy(); };
+    NOVA_DEFER(&) { context.Destroy(); };
 
     // Create surface and swapchain for GLFW window
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
-    NOVA_CLEANUP(&) { swapchain.Destroy(); };
+    NOVA_DEFER(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
@@ -46,7 +47,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         cmd_pool.Destroy();
         fence.Destroy();
         builder.Destroy();
@@ -94,12 +95,12 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                     imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
         )glsl"}));
-    NOVA_CLEANUP(&) { ray_gen_shader.Destroy(); };
+    NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader
 
     auto pipeline = nova::RayTracingPipeline::Create(context);
-    NOVA_CLEANUP(&) { pipeline.Destroy(); };
+    NOVA_DEFER(&) { pipeline.Destroy(); };
     pipeline.Update(ray_gen_shader, {}, {}, {});
 
 // -----------------------------------------------------------------------------
@@ -109,13 +110,13 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Vertex data
 
     auto scratch = nova::Buffer::Create(context, 0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
-    NOVA_CLEANUP(&) { scratch.Destroy(); };
+    NOVA_DEFER(&) { scratch.Destroy(); };
 
     auto blas = [&] {
         auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vec3),
             nova::BufferUsage::AccelBuild,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { vertices.Destroy(); };
+        NOVA_DEFER(&) { vertices.Destroy(); };
         vertices.Set<Vec3>({ {0.5f, 0.2f, 0.f}, {0.2f, 0.8f, 0.f}, {0.8f, 0.8f, 0.f} });
 
         // Index data
@@ -123,7 +124,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         auto indices = nova::Buffer::Create(context, 3 * sizeof(u32),
             nova::BufferUsage::AccelBuild,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-        NOVA_CLEANUP(&) { indices.Destroy(); };
+        NOVA_DEFER(&) { indices.Destroy(); };
         indices.Set<u32>({ 0u, 1u, 2u });
 
         // Configure BLAS build
@@ -139,7 +140,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         auto uncompacted_blas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
             nova::AccelerationStructureType::BottomLevel);
-        NOVA_CLEANUP(&) { uncompacted_blas.Destroy(); };
+        NOVA_DEFER(&) { uncompacted_blas.Destroy(); };
         scratch.Resize(builder.GetBuildScratchSize());
 
         // Build BLAS
@@ -162,7 +163,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         return blas;
     }();
-    NOVA_CLEANUP(&) { blas.Destroy(); };
+    NOVA_DEFER(&) { blas.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                                Scene TLAS
@@ -173,7 +174,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto instances = nova::Buffer::Create(context, builder.GetInstanceSize(),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_CLEANUP(&) { instances.Destroy(); };
+    NOVA_DEFER(&) { instances.Destroy(); };
 
     // Configure TLAS build
 
@@ -186,14 +187,14 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto tlas = nova::AccelerationStructure::Create(context,
         builder.GetBuildSize(),
         nova::AccelerationStructureType::TopLevel);
-    NOVA_CLEANUP(&) { tlas.Destroy(); };
+    NOVA_DEFER(&) { tlas.Destroy(); };
     scratch.Resize(builder.GetBuildScratchSize());
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
 // -----------------------------------------------------------------------------
 
-    NOVA_CLEANUP(&) { fence.Wait(); };
+    NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
 
         // Wait for previous frame and acquire new swapchain image

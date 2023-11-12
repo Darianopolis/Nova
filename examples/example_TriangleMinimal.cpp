@@ -1,5 +1,6 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
@@ -12,9 +13,11 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Minimal", nullptr, nullptr);
-    NOVA_CLEANUP(&) { glfwTerminate(); };
+    NOVA_DEFER(&) { glfwTerminate(); };
 
-    auto context = nova::Context::Create({ .debug = true });
+    auto context = nova::Context::Create({
+        .debug = true
+    });
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,

@@ -1,7 +1,10 @@
+#include "example_Main.hpp"
+
+#include <nova/core/nova_Guards.hpp>
+#include <nova/core/nova_Timer.hpp>
+#include <nova/core/nova_ToString.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
-#include "example_Main.hpp"
 
 NOVA_EXAMPLE(Copy, "copy")
 {
@@ -11,7 +14,7 @@ NOVA_EXAMPLE(Copy, "copy")
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         cmd_pool.Destroy();
         fence.Destroy();
         context.Destroy();
@@ -23,7 +26,7 @@ NOVA_EXAMPLE(Copy, "copy")
         buffers[i] = nova::Buffer::Create(context, 8192ull * 8192ull * 4, {}, nova::BufferFlags::DeviceLocal);
         textures[i] = nova::Texture::Create(context, { 8192u, 8192u, 0u }, {}, nova::Format::RGBA8_UNorm, {});
     }
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         for (u32 i = 0; i < 4; ++i) {
             buffers [i].Destroy();
             textures[i].Destroy();

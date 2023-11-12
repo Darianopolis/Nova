@@ -1,5 +1,8 @@
 #include "nova_VulkanRHI.hpp"
 
+#include <nova/core/nova_Stack.hpp>
+#include <nova/core/nova_ToString.hpp>
+
 namespace nova
 {
     static

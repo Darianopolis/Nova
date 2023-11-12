@@ -1,5 +1,6 @@
 #include "nova_VulkanGlsl.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Files.hpp>
 
 #include <nova/rhi/nova_RHI.hpp>

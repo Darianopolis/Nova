@@ -1,5 +1,7 @@
 #include <nova/ui/nova_ImGui.hpp>
 
+#include <nova/core/nova_Guards.hpp>
+
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 
@@ -7,7 +9,7 @@
 
 #include <ImGuizmo.h>
 
-namespace nova
+namespace nova::imgui
 {
     namespace
     {
@@ -217,7 +219,7 @@ namespace nova
 
         last_imgui_ctx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imgui_ctx);
-        NOVA_CLEANUP(&) {  ImGui::SetCurrentContext(last_imgui_ctx); };
+        NOVA_DEFER(&) { ImGui::SetCurrentContext(last_imgui_ctx); };
 
         auto data = ImGui::GetDrawData();
         if (!data->TotalIdxCount) {

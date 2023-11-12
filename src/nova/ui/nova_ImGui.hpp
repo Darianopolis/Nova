@@ -7,7 +7,7 @@
 #include <imgui.h>
 #include <GLFW/glfw3.h>
 
-namespace nova
+namespace nova::imgui
 {
     struct ImGuiConfig
     {

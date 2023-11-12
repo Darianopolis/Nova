@@ -67,7 +67,7 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 
 # nova::ui
 
-#### ImDraw2D
+#### Draw2D
 - Tiny immediate mode API drawing library
 - Procedural antialiased rounded quads
 - Basic text rendering

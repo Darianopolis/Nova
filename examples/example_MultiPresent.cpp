@@ -1,5 +1,6 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_ImGui.hpp>
@@ -15,15 +16,15 @@
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
-    NOVA_CLEANUP(&) { context.Destroy(); };
+    NOVA_DEFER(&) { context.Destroy(); };
 
     auto present_mode = nova::PresentMode::Mailbox;
     auto swapchain_usage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
 
     glfwInit();
-    NOVA_CLEANUP(&) { glfwTerminate(); };
+    NOVA_DEFER(&) { glfwTerminate(); };
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto windows = std::array {
@@ -35,7 +36,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchain_usage, present_mode),
         nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchain_usage, present_mode),
     };
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         swapchains[0].Destroy();
         swapchains[1].Destroy();
     };
@@ -49,14 +50,14 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         fence.Destroy();
         command_pools[0].Destroy();
         command_pools[1].Destroy();
         sampler.Destroy();
     };
 
-    auto imgui = nova::ImGuiLayer({
+    auto imgui = nova::imgui::ImGuiLayer({
         .window = windows[0],
         .context = context,
         .sampler = sampler,
@@ -125,7 +126,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         wait_values[fif] = fence.GetPendingValue();
     };
 
-    NOVA_CLEANUP(&) { fence.Wait(); };
+    NOVA_DEFER(&) { fence.Wait(); };
 
     for (auto window : windows) {
         glfwSetWindowUserPointer(window, &update);

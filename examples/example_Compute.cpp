@@ -6,6 +6,8 @@
 
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
+#include <nova/core/nova_Guards.hpp>
+
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -24,7 +26,7 @@ NOVA_EXAMPLE(Compute, "compute")
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(720, 720, "Nova - Compute", nullptr, nullptr);
-    NOVA_CLEANUP(&) { glfwTerminate(); };
+    NOVA_DEFER(&) { glfwTerminate(); };
 
 // -----------------------------------------------------------------------------
 //                             Nova Initialization
@@ -34,7 +36,7 @@ NOVA_EXAMPLE(Compute, "compute")
         .debug = true,
         .compatibility = true,
     });
-    NOVA_CLEANUP(&) { context.Destroy(); };
+    NOVA_DEFER(&) { context.Destroy(); };
 
     // Create surface and swapchain for GLFW window
 
@@ -43,7 +45,7 @@ NOVA_EXAMPLE(Compute, "compute")
         | nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Immediate);
-    NOVA_CLEANUP(&) { swapchain.Destroy(); };
+    NOVA_DEFER(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
@@ -54,7 +56,7 @@ NOVA_EXAMPLE(Compute, "compute")
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         command_pools[0].Destroy();
         command_pools[1].Destroy();
         fence.Destroy();
@@ -63,14 +65,14 @@ NOVA_EXAMPLE(Compute, "compute")
     // Image
 
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
-    NOVA_CLEANUP(&) { sampler.Destroy(); };
+    NOVA_DEFER(&) { sampler.Destroy(); };
 
     nova::Texture texture;
-    NOVA_CLEANUP(&) { texture.Destroy(); };
+    NOVA_DEFER(&) { texture.Destroy(); };
     {
         int width, height, channels;
         auto image_data = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
-        NOVA_CLEANUP(&) { stbi_image_free(image_data); };
+        NOVA_DEFER(&) { stbi_image_free(image_data); };
 
         utils::image_u8 image{ u32(width), u32(height) };
         std::memcpy(image.get_pixels().data(), image_data, width * height * 4);
@@ -134,7 +136,7 @@ NOVA_EXAMPLE(Compute, "compute")
     //             RWImage2DF4[pc.target_idx][id] = float4(source, 1.0);
     //         }
     //     )hlsl"}));
-    // NOVA_CLEANUP(&) { compute_shader.Destroy(); };
+    // NOVA_DEFER(&) { compute_shader.Destroy(); };
 
     auto compute_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
         nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {R"glsl(
@@ -162,7 +164,7 @@ NOVA_EXAMPLE(Compute, "compute")
                 imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { compute_shader.Destroy(); };
+    NOVA_DEFER(&) { compute_shader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -170,7 +172,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
-    NOVA_CLEANUP(&) { fence.Wait(); };
+    NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
 
         // Debug output statistics

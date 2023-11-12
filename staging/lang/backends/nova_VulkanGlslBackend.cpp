@@ -157,7 +157,7 @@ namespace nova
                     auto enclosing = currentFnType;
                     Type* type = FindType("nil");
                     currentFnType = &type;
-                    NOVA_CLEANUP(&) { currentFnType = enclosing; };
+                    NOVA_DEFER(&) { currentFnType = enclosing; };
 
                     Declare(node->name);
                     Define(node->name, *currentFnType);

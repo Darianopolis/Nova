@@ -4,90 +4,103 @@
 
 namespace nova
 {
-    inline
-    std::string DurationToString(std::chrono::duration<double, std::nano> dur)
+    namespace types
     {
-        f64 nanos = dur.count();
+        using Vec2  = glm::vec2;
+        using Vec2I = glm::ivec2;
+        using Vec2U = glm::uvec2;
 
-        if (nanos > 1e9) {
-            f64 seconds = nanos / 1e9;
-            u32 decimals = 2 - u32(std::log10(seconds));
-            return std::format("{:.{}f}s",seconds, decimals);
-        }
+        using Vec3  = glm::vec3;
+        using Vec3I = glm::ivec3;
+        using Vec3U = glm::uvec3;
 
-        if (nanos > 1e6) {
-            f64 millis = nanos / 1e6;
-            u32 decimals = 2 - u32(std::log10(millis));
-            return std::format("{:.{}f}ms", millis, decimals);
-        }
+        using Vec4  = glm::vec4;
+        using Vec4I = glm::ivec4;
+        using Vec4U = glm::uvec4;
 
-        if (nanos > 1e3) {
-            f64 micros = nanos / 1e3;
-            u32 decimals = 2 - u32(std::log10(micros));
-            return std::format("{:.{}f}us", micros, decimals);
-        }
+        using Quat = glm::quat;
 
-        if (nanos > 0) {
-            u32 decimals = 2 - u32(std::log10(nanos));
-            return std::format("{:.{}f}ns", nanos, decimals);
-        }
+        using Mat3 = glm::mat3;
+        using Mat4 = glm::mat4;
 
-        return "0";
+        struct Rect2I
+        {
+            Vec2I offset, extent;
+        };
+
+        struct Bounds2
+        {
+            Vec2 min {  INFINITY,  INFINITY };
+            Vec2 max { -INFINITY, -INFINITY };
+
+            void Expand(const Bounds2& other) noexcept
+            {
+                min.x = std::min(min.x, other.min.x);
+                min.y = std::min(min.y, other.min.y);
+                max.x = std::max(max.x, other.max.x);
+                max.y = std::max(max.y, other.max.y);
+            }
+
+            Vec2 Size()   const noexcept { return max - min; }
+            Vec2 Center() const noexcept { return 0.5f * (max + min); }
+
+            float Width()  const noexcept { return max.x - min.x; }
+            float Height() const noexcept { return max.y - min.y; }
+
+            bool Empty() const noexcept { return min.y == INFINITY; }
+        };
+
+        struct Trs
+        {
+            Vec3 translation = Vec3(0.f);
+            Quat    rotation = Vec3(0.f);
+            Vec3       scale = Vec3(1.f);
+
+            Trs& TranslateWorld(Vec3 delta) noexcept;
+            Trs& TranslateLocal(Vec3 delta) noexcept;
+
+            Trs& RotateWorld(Quat delta) noexcept;
+            Trs& RotateLocal(Quat delta);
+
+            Trs& ScaleWorld(glm::vec3 delta) noexcept;
+            Trs& ScaleLocal(glm::vec3 delta) noexcept;
+
+            Mat4 GetMatrix() const noexcept;
+            Mat4 GetInverseMatrix() const noexcept;
+
+            static
+            Trs FromAffineTransform(Mat4 matrix);
+
+            friend
+            Trs operator*(const Trs& lhs, const Trs& rhs);
+        };
+
+        struct Rect2D
+        {
+            Vec2I offset = {};
+            Vec2U extent = {};
+        };
     }
+}
 
-    inline
-    std::string ByteSizeToString(u64 bytes)
-    {
-        constexpr auto Exabyte   = 1ull << 60;
-        if (bytes > Exabyte) {
-            f64 exabytes = bytes / f64(Exabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(exabytes)));
-            return std::format("{:.{}f}EiB", exabytes, decimals);
-        }
+NOVA_MEMORY_HASH(nova::Vec2)
+NOVA_MEMORY_HASH(nova::Vec2I)
+NOVA_MEMORY_HASH(nova::Vec2U)
+NOVA_MEMORY_HASH(nova::Vec3)
+NOVA_MEMORY_HASH(nova::Vec3I)
+NOVA_MEMORY_HASH(nova::Vec3U)
+NOVA_MEMORY_HASH(nova::Vec4)
+NOVA_MEMORY_HASH(nova::Vec4I)
+NOVA_MEMORY_HASH(nova::Vec4U)
+NOVA_MEMORY_HASH(nova::Quat)
+NOVA_MEMORY_HASH(nova::Mat3)
+NOVA_MEMORY_HASH(nova::Mat4)
+NOVA_MEMORY_HASH(nova::Rect2I)
+NOVA_MEMORY_HASH(nova::Trs)
+NOVA_MEMORY_HASH(nova::Rect2D)
 
-        constexpr auto Petabyte  = 1ull << 50;
-        if (bytes > Petabyte) {
-            f64 petabytes = bytes / f64(Petabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(petabytes)));
-            return std::format("{:.{}f}PiB", petabytes, decimals);
-        }
-
-        constexpr auto Terabyte  = 1ull << 40;
-        if (bytes > Terabyte) {
-            f64 terabytes = bytes / f64(Terabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(terabytes)));
-            return std::format("{:.{}f}TiB", terabytes, decimals);
-        }
-
-        constexpr auto Gigabyte = 1ull << 30;
-        if (bytes > Gigabyte) {
-            f64 gigabytes = bytes / f64(Gigabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(gigabytes)));
-            return std::format("{:.{}f}GiB", gigabytes, decimals);
-        }
-
-        constexpr auto Megabyte = 1ull << 20;
-        if (bytes > Megabyte) {
-            f64 megabytes = bytes / f64(Megabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(megabytes)));
-            std::string str =  std::format("{:.{}f}MiB", megabytes, decimals);
-            return str;
-        }
-
-        constexpr auto Kilobyte = 1ull << 10;
-        if (bytes > Kilobyte) {
-            f64 kilobytes = bytes / f64(Kilobyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(kilobytes)));
-            return std::format("{:.{}f}KiB", kilobytes, decimals);
-        }
-
-        if (bytes > 0) {
-            u32 decimals = 2 - std::min(2u, u32(std::log10(bytes)));
-            return std::format("{:.{}f}", f64(bytes), decimals);
-        }
-
-        return "0";
-    }
+namespace nova
+{
 
     template<typename T>
     constexpr
@@ -147,50 +160,5 @@ namespace nova
     glm::vec4 QuatToVec4(glm::quat q) noexcept
     {
         return { q.x, q.y, q.z, q.w };
-    }
-
-    inline
-    Trs DecomposeAffineTransform(Mat4 _matrix)
-    {
-        Trs trs = {};
-        auto* matrix = glm::value_ptr(_matrix);
-
-        // Extract the translation.
-        trs.translation = Vec3(matrix[12], matrix[13], matrix[14]);
-
-        // Extract the scale. We calculate the euclidean length of the columns. We then
-        // construct a vector with those lengths.
-        f32 s1 = std::sqrt(matrix[0] * matrix[0] + matrix[1] * matrix[1] +  matrix[2] *  matrix[2]);
-        f32 s2 = std::sqrt(matrix[4] * matrix[4] + matrix[5] * matrix[5] +  matrix[6] *  matrix[6]);
-        f32 s3 = std::sqrt(matrix[8] * matrix[8] + matrix[9] * matrix[9] + matrix[10] * matrix[10]);
-        trs.scale = Vec3(s1, s2, s3);
-
-        f32 is1 = 1.f / s1;
-        f32 is2 = 1.f / s2;
-        f32 is3 = 1.f / s3;
-
-        // Remove the scaling from the matrix, leaving only the rotation. matrix is now the
-        // rotation matrix.
-        matrix[0] *= is1; matrix[1] *= is1;  matrix[2] *= is1;
-        matrix[4] *= is2; matrix[5] *= is2;  matrix[6] *= is2;
-        matrix[8] *= is3; matrix[9] *= is3; matrix[10] *= is3;
-
-        // Construct the quaternion. This algo is copied from here:
-        // https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/christian.htm.
-        // glm orders the components as w,x,y,z
-        trs.rotation = {
-            /* w = */ std::max(0.f, 1.f + matrix[0] + matrix[5] + matrix[10]),
-            /* x = */ std::max(0.f, 1.f + matrix[0] - matrix[5] - matrix[10]),
-            /* y = */ std::max(0.f, 1.f - matrix[0] + matrix[5] - matrix[10]),
-            /* z = */ std::max(0.f, 1.f - matrix[0] - matrix[5] + matrix[10]),
-        };
-        for (u32 i = 0; i < 4; ++i) {
-            trs.rotation[i] = f32(std::sqrt(f64(trs.rotation[i])) * 0.5f);
-        }
-        trs.rotation.x = std::copysignf(trs.rotation.x, matrix[6] - matrix[9]);
-        trs.rotation.y = std::copysignf(trs.rotation.y, matrix[8] - matrix[2]);
-        trs.rotation.z = std::copysignf(trs.rotation.z, matrix[1] - matrix[4]);
-
-        return trs;
     }
 }

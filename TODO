@@ -7,7 +7,6 @@
         storage images
         samplers
     [X] Drop DescriptorHeaps from API, "true bindless" textures/samplers
-[ ] Rename ImDraw2D -> Draw2D
 [ ] Separate components into different sub-projects
     [ ] nova-math
     [ ] nova-containers?

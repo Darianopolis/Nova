@@ -1,5 +1,7 @@
 #include "nova_VulkanRHI.hpp"
 
+#include <nova/core/nova_Stack.hpp>
+
 namespace nova
 {
     void CommandList::BeginRendering(Rect2D region, Span<HTexture> color_attachments, HTexture depth_attachment, HTexture stencil_attachment) const

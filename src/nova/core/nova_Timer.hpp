@@ -101,4 +101,21 @@ namespace nova
             return preempt;
         }
     };
+
+// -----------------------------------------------------------------------------
+
+    namespace detail
+    {
+        thread_local inline std::chrono::steady_clock::time_point NovaTimeitLast;
+    }
+
+#define NOVA_TIMEIT_RESET() ::nova::detail::NovaTimeitLast = std::chrono::steady_clock::now()
+
+#define NOVA_TIMEIT(...) do {                                                  \
+    using namespace std::chrono;                                               \
+    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+        duration_cast<milliseconds>(steady_clock::now()                        \
+            - ::nova::detail::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+    ::nova::detail::NovaTimeitLast = steady_clock::now();                      \
+} while (0)
 }

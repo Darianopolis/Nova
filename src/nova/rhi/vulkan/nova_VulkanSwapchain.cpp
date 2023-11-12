@@ -1,5 +1,7 @@
 #include "nova_VulkanRHI.hpp"
 
+#include <nova/core/nova_Stack.hpp>
+
 namespace nova
 {
     Swapchain Swapchain::Create(HContext context, void* window, TextureUsage usage, PresentMode present_mode)

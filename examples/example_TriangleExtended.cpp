@@ -1,5 +1,6 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
@@ -24,23 +25,23 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Extended", nullptr, nullptr);
-    NOVA_CLEANUP(&) { glfwTerminate(); };
+    NOVA_DEFER(&) { glfwTerminate(); };
 
     auto context = nova::Context::Create({
         .debug = true,
     });
-    NOVA_CLEANUP(&) { context.Destroy(); };
+    NOVA_DEFER(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
-    NOVA_CLEANUP(&) { swapchain.Destroy(); };
+    NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         cmd_pool.Destroy();
         fence.Destroy();
     };
@@ -50,7 +51,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_CLEANUP(&) { vertices.Destroy(); };
+    NOVA_DEFER(&) { vertices.Destroy(); };
     vertices.Set<Vertex>({
         {{ -0.6f, 0.6f, 0.f }, { 1.f, 0.f, 0.f }},
         {{  0.6f, 0.6f, 0.f }, { 0.f, 1.f, 0.f }},
@@ -62,7 +63,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     auto indices = nova::Buffer::Create(context, 6 * 4,
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
-    NOVA_CLEANUP(&) { indices.Destroy(); };
+    NOVA_DEFER(&) { indices.Destroy(); };
     indices.Set<u32>({0, 1, 2});
 
     // Shaders
@@ -91,7 +92,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
                 gl_Position = vec4(v.position + pc.offset, 1);
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { vertex_shader.Destroy(); };
+    NOVA_DEFER(&) { vertex_shader.Destroy(); };
 
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
@@ -102,11 +103,11 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
                 frag_color = vec4(in_color, 1);
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { fragment_shader.Destroy(); };
+    NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Draw
 
-    NOVA_CLEANUP(&) { fence.Wait(); };
+    NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
         fence.Wait();
         queue.Acquire({swapchain}, {fence});

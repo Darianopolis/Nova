@@ -1,8 +1,9 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/ui/nova_ImDraw2D.hpp>
+#include <nova/ui/nova_Draw2D.hpp>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
@@ -17,7 +18,7 @@ NOVA_EXAMPLE(Draw, "draw")
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
     auto window = glfwCreateWindow(1920, 1200, "Nova - Draw", nullptr, nullptr);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         glfwDestroyWindow(window);
         glfwTerminate();
     };
@@ -33,25 +34,25 @@ NOVA_EXAMPLE(Draw, "draw")
     auto context = nova::Context::Create({
         .debug = true,
     });
-    NOVA_CLEANUP(&) { context.Destroy(); };
+    NOVA_DEFER(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, hwnd,
         nova::TextureUsage::TransferDst
         | nova::TextureUsage::ColorAttach,
         nova::PresentMode::Fifo);
-    NOVA_CLEANUP(&) { swapchain.Destroy(); };
+    NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto command_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
-    NOVA_CLEANUP(&) {
+    NOVA_DEFER(&) {
         command_pool.Destroy();
         fence.Destroy();
     };
 
 // -----------------------------------------------------------------------------
 
-    nova::ImDraw2D im_draw{ context };
+    nova::draw::Draw2D im_draw{ context };
 
 // -----------------------------------------------------------------------------
 
@@ -59,7 +60,7 @@ NOVA_EXAMPLE(Draw, "draw")
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
-        NOVA_CLEANUP(&) { stbi_image_free(data); };
+        NOVA_DEFER(&) { stbi_image_free(data); };
 
         texture = nova::Texture::Create(context,
             Vec3U(u32(w), u32(h), 0),
@@ -81,7 +82,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
     auto font = im_draw.LoadFont("assets/fonts/arial.ttf", 20.f);
 
-    nova::ImRoundRect box1 {
+    nova::draw::Rectangle box1 {
         .center_color = { 1.f, 0.f, 0.f, 0.5f },
         .border_color = { 0.2f, 0.2f, 0.2f, 1.f },
         .center_pos = { width * 0.25f, height * 0.25f },
@@ -95,7 +96,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .tex_half_extent = { 0.5f, 1.f },
     };
 
-    nova::ImRoundRect box2 {
+    nova::draw::Rectangle box2 {
         .center_color = { 0.f, 1.f, 0.f, 0.5f },
         .border_color = { 0.4f, 0.4f, 0.4f, 1.f },
         .center_pos = { width * 0.5f, height * 0.5f },
@@ -109,7 +110,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .tex_half_extent = { 0.5f, 0.5f },
     };
 
-    nova::ImRoundRect box3 {
+    nova::draw::Rectangle box3 {
         .center_color = { 0.f, 0.f, 1.f, 0.5f },
         .border_color = { 0.6f, 0.6f, 0.6f, 1.f },
         .center_pos = { width * 0.75f, height * 0.75f },
@@ -128,14 +129,14 @@ NOVA_EXAMPLE(Draw, "draw")
 
     auto last_frame = std::chrono::steady_clock::now();
 
-    NOVA_CLEANUP(&) { fence.Wait(); };
+    NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
 // -----------------------------------------------------------------------------
 
         if (!skip_update) {
-            auto MoveBox = [&](nova::ImRoundRect& box, int left, int right, int up, int down) {
+            auto MoveBox = [&](nova::draw::Rectangle& box, int left, int right, int up, int down) {
                 float speed = 5.f;
                 if (glfwGetKey(window, left))  { box.center_pos.x -= speed; redraw = true; }
                 if (glfwGetKey(window, right)) { box.center_pos.x += speed; redraw = true; }

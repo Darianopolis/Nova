@@ -2,6 +2,7 @@
 
 #include "nova_Core.hpp"
 #include "nova_Ref.hpp"
+#include "nova_Guards.hpp"
 
 namespace nova
 {
@@ -129,7 +130,7 @@ namespace nova
         void Worker([[maybe_unused]] JobSystem* system, u32 index)
         {
             JobWorkerState.worker_id = index;
-            NOVA_CLEANUP() { JobWorkerState.worker_id = ~0u; };
+            NOVA_DEFER() { JobWorkerState.worker_id = ~0u; };
 
             for (;;) {
                 // Acquire a lock

@@ -1,4 +1,4 @@
-#include "nova_ImDraw2D.hpp"
+#include "nova_Draw2D.hpp"
 
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
@@ -8,7 +8,7 @@
 
 #include <freetype/ftlcdfil.h>
 
-namespace nova
+namespace nova::draw
 {
     namespace {
         struct PushConstants
@@ -50,7 +50,7 @@ namespace nova
         )glsl"sv;
     }
 
-    ImDraw2D::ImDraw2D(HContext _context)
+    Draw2D::Draw2D(HContext _context)
         : context(_context)
     {
         default_sampler = nova::Sampler::Create(context, Filter::Linear,
@@ -125,29 +125,29 @@ namespace nova
                 )glsl"
             }));
 
-        rect_buffer = nova::Buffer::Create(context, sizeof(ImRoundRect) * MaxPrimitives,
+        rect_buffer = nova::Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
     }
 
-    ImDraw2D::~ImDraw2D()
+    Draw2D::~Draw2D()
     {}
 
 // -----------------------------------------------------------------------------
 
-    Sampler ImDraw2D::GetDefaultSampler() noexcept
+    Sampler Draw2D::GetDefaultSampler() noexcept
     {
         return default_sampler;
     }
 
-    const ImBounds2D& ImDraw2D::GetBounds() const noexcept
+    const Bounds2& Draw2D::GetBounds() const noexcept
     {
         return bounds;
     }
 
 // -----------------------------------------------------------------------------
 
-    std::unique_ptr<ImFont> ImDraw2D::LoadFont(const char* file, f32 size)
+    std::unique_ptr<Font> Draw2D::LoadFont(const char* file, f32 size)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -166,7 +166,7 @@ namespace nova
         struct Pixel { u8 r, g, b, a; };
         std::vector<Pixel> pixels;
 
-        auto font = std::make_unique<ImFont>();
+        auto font = std::make_unique<Font>();
         font->im_draw = this;
 
         font->glyphs.resize(128);
@@ -208,7 +208,7 @@ namespace nova
         return font;
     }
 
-    ImFont::~ImFont()
+    Font::~Font()
     {
         for (auto& glyph : glyphs) {
             if (glyph.texture) {
@@ -217,7 +217,7 @@ namespace nova
         }
     }
 
-    void ImDraw2D::Reset()
+    void Draw2D::Reset()
     {
         rect_index = 0;
         bounds = {};
@@ -225,26 +225,26 @@ namespace nova
         draw_commands.clear();
     }
 
-    void ImDraw2D::DrawRect(const ImRoundRect& rect)
+    void Draw2D::DrawRect(const Rectangle& rect)
     {
-        ImDrawCommand& cmd = (draw_commands.size() && draw_commands.back().type == ImDrawType::RoundRect)
+        DrawCommand& cmd = (draw_commands.size() && draw_commands.back().type == DrawType::RoundRect)
             ? draw_commands.back()
-            : draw_commands.emplace_back(ImDrawType::RoundRect, rect_index, 0);
+            : draw_commands.emplace_back(DrawType::RoundRect, rect_index, 0);
 
-        rect_buffer.Get<ImRoundRect>(cmd.first + cmd.count) = rect;
+        rect_buffer.Get<Rectangle>(cmd.first + cmd.count) = rect;
 
         bounds.Expand({{rect.center_pos - rect.half_extent}, {rect.center_pos + rect.half_extent}});
 
         cmd.count++;
     }
 
-    void ImDraw2D::DrawString(std::string_view str, Vec2 pos, ImFont& font)
+    void Draw2D::DrawString(std::string_view str, Vec2 pos, Font& font)
     {
         for (auto c : str) {
             auto& g = font.glyphs[c];
 
             if (g.texture) {
-                DrawRect(nova::ImRoundRect {
+                DrawRect(Rectangle {
                     .center_pos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                     .half_extent = { g.width / 2.f, g.height / 2.f },
                     .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
@@ -258,9 +258,9 @@ namespace nova
         }
     }
 
-    ImBounds2D ImDraw2D::MeasureString(std::string_view str, ImFont& font)
+    Bounds2 Draw2D::MeasureString(std::string_view str, Font& font)
     {
-        ImBounds2D str_bounds = {};
+        Bounds2 str_bounds = {};
 
         Vec2 pos = Vec2(0);
 
@@ -277,7 +277,7 @@ namespace nova
         return str_bounds;
     }
 
-    void ImDraw2D::Record(CommandList cmd, Texture target)
+    void Draw2D::Record(CommandList cmd, Texture target)
     {
         cmd.ResetGraphicsState();
         cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
@@ -292,7 +292,7 @@ namespace nova
 
         for (auto& command : draw_commands) {
             switch (command.type) {
-            break;case ImDrawType::RoundRect:
+            break;case DrawType::RoundRect:
                 cmd.BindShaders({rect_vert_shader, rect_frag_shader});
                 cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
