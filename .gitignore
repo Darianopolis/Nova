@@ -1,7 +1,12 @@
+# Configuration
 .vscode
 build/
 out/
+CMakeLists.txt
+
+# Assets
+assets/models/
+
+# Runtime
 imgui.ini
 renderdoc.cap
-assets/models
-CMakeLists.txt
