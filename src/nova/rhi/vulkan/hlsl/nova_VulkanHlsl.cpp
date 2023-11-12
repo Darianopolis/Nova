@@ -39,10 +39,10 @@ namespace nova
         virtual ~HlslIncluder() = default;
 
         virtual HRESULT STDMETHODCALLTYPE LoadSource(
-            _In_z_ LPCWSTR pFilename,
-            _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource)
+            _In_z_ LPCWSTR filename,
+            _COM_Outptr_result_maybenull_ IDxcBlob** include_source)
         {
-            auto target = std::filesystem::path(pFilename);
+            auto target = std::filesystem::path(filename);
 
             if (std::filesystem::exists(target)) {
                 if (included.contains(target)) {
@@ -50,7 +50,7 @@ namespace nova
                     constexpr const char* emptyStr = "";
                     IDxcBlobEncoding* blob = nullptr;
                     utils->CreateBlobFromPinned(emptyStr, 1, DXC_CP_ACP, &blob);
-                    *ppIncludeSource = blob;
+                    *include_source = blob;
                     return S_OK;
                 }
 
@@ -59,7 +59,7 @@ namespace nova
                 IDxcBlobEncoding* blob = nullptr;
                 HRESULT hres = utils->LoadFile(target.wstring().c_str(), nullptr, &blob);
                 if (SUCCEEDED(hres)) {
-                    *ppIncludeSource = blob;
+                    *include_source = blob;
                     return S_OK;
                 }
 
@@ -113,48 +113,49 @@ namespace nova
         // Arguments
 
 #define NOVA_HLSL_SM L"_6_7"
-        const wchar_t* targetProfile;
+        const wchar_t* target_profile;
         switch (stage) {
-            break;case nova::ShaderStage::Vertex:       targetProfile = L"vs" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::TessControl:  targetProfile = L"hs" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::TessEval:     targetProfile = L"ds" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Geometry:     targetProfile = L"gs" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Fragment:     targetProfile = L"ps" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Compute:      targetProfile = L"cs" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::RayGen:       targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::AnyHit:       targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::ClosestHit:   targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Miss:         targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Intersection: targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Callable:     targetProfile = L"lib" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Task:         targetProfile = L"as" NOVA_HLSL_SM;
-            break;case nova::ShaderStage::Mesh:         targetProfile = L"ms" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Vertex:       target_profile = L"vs"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::TessControl:  target_profile = L"hs"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::TessEval:     target_profile = L"ds"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Geometry:     target_profile = L"gs"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Fragment:     target_profile = L"ps"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Compute:      target_profile = L"cs"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::RayGen:       target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::AnyHit:       target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::ClosestHit:   target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Miss:         target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Intersection: target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Callable:     target_profile = L"lib" NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Task:         target_profile = L"as"  NOVA_HLSL_SM;
+            break;case nova::ShaderStage::Mesh:         target_profile = L"ms"  NOVA_HLSL_SM;
 
             break;default: NOVA_THROW("Unknown stage: {}", int(stage));
         }
 #undef NOVA_HLSL_SM
 
-        auto toWide = [](std::string_view str) -> std::wstring {
+        // TODO: String utilities
+        auto to_wide = [](std::string_view str) -> std::wstring {
             std::wstring out;
             out.resize(simdutf::utf16_length_from_utf8(str.data(), str.size()));
             simdutf::convert_valid_utf8_to_utf16(str.data(), str.size(), reinterpret_cast<char16_t*>(out.data()));
             return out;
         };
 
-        auto wFilename = toWide(filename);
-        auto wEntry = toWide(entry);
+        auto wide_filename = to_wide(filename);
+        auto wide_entry = to_wide(entry);
 
         auto arguments = std::to_array<const wchar_t*>({
 
             // Input
-            wFilename.c_str(),
-            L"-E", wEntry.c_str(),
+            wide_filename.c_str(),
+            L"-E", wide_entry.c_str(),
 
             // Include
             L"-I", L".",
 
             // Env
-            L"-T", targetProfile,
+            L"-T", target_profile,
             L"-spirv",
             L"-fspv-target-env=vulkan1.3",
             L"-HV", L"2021",
@@ -178,15 +179,15 @@ namespace nova
         buffer.Ptr = hlsl.data();
         buffer.Size = hlsl.size();
 
-        HlslIncluder includeHandler;
-        includeHandler.utils = utils.GetPtr();
+        HlslIncluder include_handler;
+        include_handler.utils = utils.GetPtr();
 
         ComPtr<IDxcResult> result;
         auto hres = compiler->Compile(
             &buffer,
             arguments.data(),
             u32(arguments.size()),
-            &includeHandler,
+            &include_handler,
             IID_PPV_ARGS(&result));
 
         if (SUCCEEDED(hres)) {
@@ -195,12 +196,12 @@ namespace nova
 
         // Report Errors
 
-        ComPtr<IDxcBlobEncoding> errorBlob;
+        ComPtr<IDxcBlobEncoding> error_blob;
         if (result
-                && SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errorBlob), nullptr))
-                && errorBlob
-                && errorBlob->GetBufferSize() > 0) {
-            NOVA_THROW("Shader compilation failed:\n\n{}", static_cast<const char*>(errorBlob->GetBufferPointer()));
+                && SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&error_blob), nullptr))
+                && error_blob
+                && error_blob->GetBufferSize() > 0) {
+            NOVA_THROW("Shader compilation failed:\n\n{}", static_cast<const char*>(error_blob->GetBufferPointer()));
         } else if (FAILED(hres)) {
             NOVA_THROW("Shader compilation failed: Message unavailable");
         }

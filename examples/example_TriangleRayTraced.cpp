@@ -29,7 +29,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     auto context = nova::Context::Create({
         .debug = true,
-        .rayTracing = true,
+        .ray_tracing = true,
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
@@ -43,11 +43,11 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Create required Nova objects
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
     NOVA_CLEANUP(&) {
-        cmdPool.Destroy();
+        cmd_pool.Destroy();
         fence.Destroy();
         builder.Destroy();
     };
@@ -58,7 +58,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto rayGenShader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
+    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
         nova::glsl::Compile(nova::ShaderStage::RayGen, "main", "", {
             R"glsl(
                 #extension GL_EXT_ray_tracing                            : require
@@ -94,13 +94,13 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                     imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
         )glsl"}));
-    NOVA_CLEANUP(&) { rayGenShader.Destroy(); };
+    NOVA_CLEANUP(&) { ray_gen_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader
 
     auto pipeline = nova::RayTracingPipeline::Create(context);
     NOVA_CLEANUP(&) { pipeline.Destroy(); };
-    pipeline.Update(rayGenShader, {}, {}, {});
+    pipeline.Update(ray_gen_shader, {}, {}, {});
 
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS
@@ -137,15 +137,15 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         // Create BLAS and scratch buffer
 
-        auto uncompactedBlas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
+        auto uncompacted_blas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
             nova::AccelerationStructureType::BottomLevel);
-        NOVA_CLEANUP(&) { uncompactedBlas.Destroy(); };
+        NOVA_CLEANUP(&) { uncompacted_blas.Destroy(); };
         scratch.Resize(builder.GetBuildScratchSize());
 
         // Build BLAS
 
-        auto cmd = cmdPool.Begin();
-        cmd.BuildAccelerationStructure(builder, uncompactedBlas, scratch);
+        auto cmd = cmd_pool.Begin();
+        cmd.BuildAccelerationStructure(builder, uncompacted_blas, scratch);
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
 
@@ -155,8 +155,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
             builder.GetCompactSize(),
             nova::AccelerationStructureType::BottomLevel);
 
-        cmd = cmdPool.Begin();
-        cmd.CompactAccelerationStructure(blas, uncompactedBlas);
+        cmd = cmd_pool.Begin();
+        cmd.CompactAccelerationStructure(blas, uncompacted_blas);
         queue.Submit({cmd}, {}, {fence});
         fence.Wait();
 
@@ -203,8 +203,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         // Start new command buffer
 
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin();
+        cmd_pool.Reset();
+        auto cmd = cmd_pool.Begin();
 
         // Build scene TLAS
 

@@ -30,19 +30,19 @@ namespace nova
 
     struct ImRoundRect
     {
-        Vec4 centerColor;
-        Vec4 borderColor;
+        Vec4 center_color;
+        Vec4 border_color;
 
-        Vec2  centerPos;
-        Vec2 halfExtent;
+        Vec2  center_pos;
+        Vec2 half_extent;
 
-        f32 cornerRadius;
-        f32  borderWidth;
+        f32 corner_radius;
+        f32  border_width;
 
-        Vec4              texTint;
-        u32              texIndex;
-        Vec2         texCenterPos;
-        Vec2        texHalfExtent;
+        Vec4        tex_tint;
+        u32          tex_idx;
+        Vec2  tex_center_pos;
+        Vec2 tex_half_extent;
     };
 
     enum class ImDrawType
@@ -75,7 +75,7 @@ namespace nova
 
     struct ImFont
     {
-        ImDraw2D* imDraw;
+        ImDraw2D* im_draw;
 
         std::vector<ImGlyph> glyphs;
 
@@ -91,16 +91,16 @@ namespace nova
     public:
         Context context = {};
 
-        Sampler defaultSampler;
+        Sampler default_sampler;
 
-        Shader rectVertShader;
-        Shader rectFragShader;
-        Buffer     rectBuffer;
-        u32         rectIndex = 0;
+        Shader rect_vert_shader;
+        Shader rect_frag_shader;
+        Buffer      rect_buffer;
+        u32          rect_index = 0;
 
         ImBounds2D bounds;
 
-        std::vector<ImDrawCommand> drawCommands;
+        std::vector<ImDrawCommand> draw_commands;
 
     public:
         ImDraw2D(HContext);

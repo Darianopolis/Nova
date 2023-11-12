@@ -38,12 +38,12 @@ namespace nova
 
     struct VulkanFormat
     {
-        Format     format;
-        VkFormat vkFormat;
+        Format      format;
+        VkFormat vk_format;
 
-        u32    atomSize = 0;
-        u32  blockWidth = 1;
-        u32 blockHeight = 1;
+        u32    atom_size = 0;
+        u32  block_width = 1;
+        u32 block_height = 1;
     };
 
     enum class UID : u64 {
@@ -91,18 +91,18 @@ namespace nova
 
         // Graphics Pipeline Library fallback
 
-        std::vector<Format> colorAttachmentsFormats;
-        Format                depthAttachmentFormat = nova::Format::Undefined;
-        Format              stencilAttachmentFormat = nova::Format::Undefined;
+        std::vector<Format> color_attachments_formats;
+        Format                depth_attachment_format = nova::Format::Undefined;
+        Format              stencil_attachment_format = nova::Format::Undefined;
 
-        PolygonMode polygonMode;
-        Topology       topology;
+        PolygonMode polygon_mode;
+        Topology        topology;
 
-        std::bitset<8>   blendStates;
+        std::bitset<8>  blend_states;
         std::vector<HShader> shaders;
 
-        bool usingShaderObjects = false;
-        bool graphicsStateDirty = false;
+        bool using_shader_objects = false;
+        bool graphics_state_dirty = false;
 
         void EnsureGraphicsState();
         void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2);
@@ -113,48 +113,48 @@ namespace nova
     {
         Context context = {};
 
-        VkSurfaceKHR          surface = {};
-        VkSwapchainKHR      swapchain = {};
-        VkSurfaceFormatKHR     format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        TextureUsage            usage = {};
-        PresentMode       presentMode = PresentMode::Fifo;
-        std::vector<Texture> textures = {};
-        uint32_t                index = UINT32_MAX;
-        VkExtent2D             extent = { 0, 0 };
-        bool                  invalid = false;
+        VkSurfaceKHR           surface = {};
+        VkSwapchainKHR       swapchain = {};
+        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        TextureUsage             usage = {};
+        PresentMode       present_mode = PresentMode::Fifo;
+        std::vector<Texture>  textures = {};
+        uint32_t                 index = UINT32_MAX;
+        VkExtent2D              extent = { 0, 0 };
+        bool                   invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
-        u32                  semaphoreIndex = 0;
+        u32                 semaphore_index = 0;
     };
 
     struct DescriptorHeap
     {
         Context context = {};
 
-        VkDescriptorSetLayout heapLayout = {};
-        VkPipelineLayout  pipelineLayout = {};
+        VkDescriptorSetLayout heap_layout = {};
+        VkPipelineLayout  pipeline_layout = {};
 
-        VkDescriptorPool  descriptorPool = {};
-        VkDescriptorSet    descriptorSet = {};
+        VkDescriptorPool  descriptor_pool = {};
+        VkDescriptorSet    descriptor_set = {};
 
-        Buffer          descriptorBuffer = {};
+        Buffer          descriptor_buffer = {};
 
-        u32         imageDescriptorCount = 0;
-        u32       samplerDescriptorCount = 0;
+        u32        image_descriptor_count = 0;
+        u32      sampler_descriptor_count = 0;
 
-        u64 sampledOffset, sampledStride;
-        u64 storageOffset, storageStride;
-        u64 samplerOffset, samplerStride;
+        u64 sampled_offset, sampled_stride;
+        u64 storage_offset, storage_stride;
+        u64 sampler_offset, sampler_stride;
 
-        IndexFreeList   imageHandles;
-        IndexFreeList samplerHandles;
+        IndexFreeList   image_handles;
+        IndexFreeList sampler_handles;
 
         std::shared_mutex mutex;
 
-        void Init(HContext context, u32 imageDescriptorCount, u32 samplerDescriptorCount);
+        void Init(HContext context, u32 image_descriptor_count, u32 sampler_descriptor_count);
         void Destroy();
 
-        void Bind(CommandList cmd, BindPoint bindPoint);
+        void Bind(CommandList cmd, BindPoint bind_point);
 
         void WriteStorage(u32 index, HTexture texture);
         void WriteSampled(u32 index, HTexture texture);
@@ -165,14 +165,14 @@ namespace nova
     {
         Context context = {};
 
-        Queue         queue = {};
-        Fence         fence = {};
-        CommandPool cmdPool = {};
-        Buffer      staging = {};
+        Queue          queue = {};
+        Fence          fence = {};
+        CommandPool cmd_pool = {};
+        Buffer       staging = {};
 
         std::shared_mutex mutex;
 
-        bool stagedImageCopy = true;
+        bool staged_image_copy = true;
 
         void Init(HContext context);
         void Destroy();
@@ -215,7 +215,7 @@ namespace nova
 
         VkSampler sampler;
 
-        u32 descriptorIndex;
+        u32 descriptor_index;
     };
 
     template<>
@@ -233,7 +233,7 @@ namespace nova
         VkImageLayout        layout = VK_IMAGE_LAYOUT_UNDEFINED;
         VkPipelineStageFlags2 stage = VK_PIPELINE_STAGE_2_NONE;
 
-        u32 descriptorIndex = UINT_MAX;
+        u32 descriptor_index = UINT_MAX;
 
         Vec3U extent = {};
         u32     mips = 0;
@@ -248,19 +248,19 @@ namespace nova
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
-        u64         buildSize = 0;
-        u64  buildScratchSize = 0;
-        u64 updateScratchSize = 0;
+        u64          build_size = 0;
+        u64  build_scratch_size = 0;
+        u64 update_scratch_size = 0;
 
         std::vector<VkAccelerationStructureGeometryKHR>   geometries;
-        std::vector<u32>                             primitiveCounts;
+        std::vector<u32>                            primitive_counts;
         std::vector<VkAccelerationStructureBuildRangeInfoKHR> ranges;
 
-        u32 geometryCount = 0;
-        u32 firstGeometry = 0;
-        bool    sizeDirty = false;
+        u32 geometry_count = 0;
+        u32 first_geometry = 0;
+        bool    size_dirty = false;
 
-        VkQueryPool queryPool = {};
+        VkQueryPool query_pool = {};
     };
 
     template<>
@@ -272,8 +272,8 @@ namespace nova
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
 
-        Buffer buffer;
-        bool ownBuffer;
+        Buffer   buffer;
+        bool own_buffer;
     };
 
     template<>
@@ -282,16 +282,16 @@ namespace nova
         Context context = {};
 
         VkPipeline pipeline = {};
-        Buffer    sbtBuffer = {};
+        Buffer   sbt_buffer = {};
 
-        u32                 handleSize;
-        u32               handleStride;
-        std::vector<u8>        handles;
+        u32         handle_size;
+        u32       handle_stride;
+        std::vector<u8> handles;
 
-        VkStridedDeviceAddressRegionKHR  rayGenRegion = {};
-        VkStridedDeviceAddressRegionKHR rayMissRegion = {};
-        VkStridedDeviceAddressRegionKHR  rayHitRegion = {};
-        VkStridedDeviceAddressRegionKHR rayCallRegion = {};
+        VkStridedDeviceAddressRegionKHR  raygen_region = {};
+        VkStridedDeviceAddressRegionKHR raymiss_region = {};
+        VkStridedDeviceAddressRegionKHR  rayhit_region = {};
+        VkStridedDeviceAddressRegionKHR raycall_region = {};
     };
 
 // -----------------------------------------------------------------------------
@@ -306,7 +306,7 @@ namespace nova
     struct GraphicsPipelinePreRasterizationStageKey
     {
         std::array<UID, 4> shaders;
-        PolygonMode       polyMode;
+        PolygonMode       poly_mode;
 
         NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelinePreRasterizationStageKey)
     };
@@ -320,11 +320,11 @@ namespace nova
 
     struct GraphicsPipelineFragmentOutputStageKey
     {
-        std::array<Format, 8> colorAttachments;
-        Format                 depthAttachment;
-        Format               stencilAttachment;
+        std::array<Format, 8> color_attachments;
+        Format                 depth_attachment;
+        Format               stencil_attachment;
 
-        std::bitset<8> blendStates;
+        std::bitset<8> blend_states;
 
         NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineFragmentOutputStageKey)
     };
@@ -379,11 +379,11 @@ namespace nova
     VkPipelineStageFlags2 GetVulkanPipelineStage(PipelineStage in);
     VkImageLayout GetVulkanImageLayout(TextureLayout layout);
 
-    void* VulkanTrackedAllocate(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
-    void* VulkanTrackedReallocate(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
-    void  VulkanTrackedFree(void* pUserData, void* pMemory);
-    void  VulkanNotifyAllocation(void* pUserData, size_t size, VkInternalAllocationType, VkSystemAllocationScope);
-    void  VulkanNotifyFree(void* pUserData, size_t size, VkInternalAllocationType, VkSystemAllocationScope);
+    void* VulkanTrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
+    void* VulkanTrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
+    void  VulkanTrackedFree(      void* userdata, void* memory);
+    void  VulkanNotifyAllocation( void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
+    void  VulkanNotifyFree(       void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
 
 // -----------------------------------------------------------------------------
 //                                 Context
@@ -402,62 +402,62 @@ namespace nova
         VkDevice      device = {};
         VmaAllocator     vma = {};
 
-        VkDebugUtilsMessengerEXT debugMessenger = {};
+        VkDebugUtilsMessengerEXT debug_messenger = {};
 
-        DescriptorHeap       globalHeap;
-        TransferManager transferManager;
+        DescriptorHeap       global_heap;
+        TransferManager transfer_manager;
 
-        std::vector<Queue>  graphicQueues = {};
-        std::vector<Queue> transferQueues = {};
-        std::vector<Queue>  computeQueues = {};
+        std::vector<Queue>  graphic_queues = {};
+        std::vector<Queue> transfer_queues = {};
+        std::vector<Queue>  compute_queues = {};
 
 // -----------------------------------------------------------------------------
 //                              Device Properties
 // -----------------------------------------------------------------------------
 
-        bool        shaderObjects = false;
-        bool    descriptorBuffers = false;
+        bool        shader_objects = false;
+        bool    descriptor_buffers = false;
 
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = {
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
         };
 
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelStructureProperties = {
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accel_structure_properties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR,
-            .pNext = &rayTracingPipelineProperties,
+            .pNext = &ray_tracing_pipeline_properties,
         };
 
-        VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorSizes = {
+        VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptor_sizes = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
-            .pNext = &accelStructureProperties,
+            .pNext = &accel_structure_properties,
         };
 
 // -----------------------------------------------------------------------------
 //                             Pipeline caches
 // -----------------------------------------------------------------------------
 
-        std::atomic_uint64_t nextUID = 1;
-        UID GetUID() noexcept { return UID(nextUID++); };
+        std::atomic_uint64_t next_uid = 1;
+        UID GetUID() noexcept { return UID(next_uid++); };
 
-        HashMap<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertexInputStages;
-        HashMap<GraphicsPipelinePreRasterizationStageKey, VkPipeline>    preRasterStages;
-        HashMap<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragmentShaderStages;
-        HashMap<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragmentOutputStages;
-        HashMap<GraphicsPipelineLibrarySetKey, VkPipeline>          graphicsPipelineSets;
-        HashMap<ComputePipelineKey, VkPipeline>                         computePipelines;
-        VkPipelineCache pipelineCache = {};
+        HashMap<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertex_input_stages;
+        HashMap<GraphicsPipelinePreRasterizationStageKey, VkPipeline>     preraster_stages;
+        HashMap<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragment_shader_stages;
+        HashMap<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragment_output_stages;
+        HashMap<GraphicsPipelineLibrarySetKey, VkPipeline>          graphics_pipeline_sets;
+        HashMap<ComputePipelineKey, VkPipeline>                          compute_pipelines;
+        VkPipelineCache pipeline_cache = {};
 
 // -----------------------------------------------------------------------------
 //                           Allocation Tracking
 // -----------------------------------------------------------------------------
 
-        VkAllocationCallbacks alloc = {
+        VkAllocationCallbacks alloc_notify = {
             .pfnAllocation = VulkanTrackedAllocate,
             .pfnReallocation = VulkanTrackedReallocate,
             .pfnFree = VulkanTrackedFree,
             .pfnInternalAllocation = VulkanNotifyAllocation,
             .pfnInternalFree = VulkanNotifyFree,
         };
-        VkAllocationCallbacks* pAlloc = &alloc;
+        VkAllocationCallbacks* alloc = &alloc_notify;
     };
 }

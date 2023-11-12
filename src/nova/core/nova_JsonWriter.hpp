@@ -13,28 +13,28 @@ namespace nova
 {
     struct JsonWriter
     {
-        std::ostream &out;
-        std::string indentString = "  ";
-        u32 depth = 0;
-        bool firstElement = true;
-        bool hasKey = false;
+        std::ostream&          out;
+        std::string  indent_string = "  ";
+        u32                  depth = 0;
+        bool         first_element = true;
+        bool               has_key = false;
 
     public:
         void Indent()
         {
             for (u32 i = 0; i < depth; ++i) {
-                out << indentString;
+                out << indent_string;
             }
         }
 
         void NewElement()
         {
-            if (hasKey) {
-                hasKey = false;
+            if (has_key) {
+                has_key = false;
                 return;
             }
 
-            if (!firstElement) {
+            if (!first_element) {
                 out << ',';
             }
 
@@ -43,14 +43,14 @@ namespace nova
                 Indent();
             }
 
-            firstElement = false;
+            first_element = false;
         }
 
         JsonWriter& Key(std::string_view key)
         {
             NewElement();
             out << '"' << key << "\": ";
-            hasKey = true;
+            has_key = true;
             return *this;
         }
 
@@ -64,18 +64,18 @@ namespace nova
             NewElement();
             out << '{';
             ++depth;
-            firstElement = true;
+            first_element = true;
         }
 
         void EndObject()
         {
             --depth;
-            if (!firstElement) {
+            if (!first_element) {
                 out << '\n';
                 Indent();
             }
             out << '}';
-            firstElement = false;
+            first_element = false;
         }
 
         void Array()
@@ -83,19 +83,19 @@ namespace nova
             NewElement();
             out << '[';
             ++depth;
-            firstElement = true;
+            first_element = true;
         }
 
         void EndArray()
         {
             --depth;
-            if (!firstElement) {
+            if (!first_element) {
                 out << '\n';
                 Indent();
             }
 
             out << ']';
-            firstElement = false;
+            first_element = false;
         }
 
         void String(std::string_view str)

@@ -9,10 +9,10 @@ NOVA_EXAMPLE(Copy, "copy")
         .debug = false,
     });
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     NOVA_CLEANUP(&) {
-        cmdPool.Destroy();
+        cmd_pool.Destroy();
         fence.Destroy();
         context.Destroy();
     };
@@ -31,7 +31,7 @@ NOVA_EXAMPLE(Copy, "copy")
     };
 
     for (u32 i = 0; i < 10; ++i) {
-        auto cmd = cmdPool.Begin();
+        auto cmd = cmd_pool.Begin();
 
         for (auto& texture : textures) {
             cmd.Transition(texture, nova::TextureLayout::GeneralImage, nova::PipelineStage::All);

@@ -60,11 +60,11 @@ namespace nova
                 throw std::runtime_error("Failed to open file");
             }
 
-            auto fileSize = size_t(file.tellg());
-            std::vector<char> buffer(fileSize);
+            auto file_size = size_t(file.tellg());
+            std::vector<char> buffer(file_size);
 
             file.seekg(0);
-            file.read(buffer.data(), fileSize);
+            file.read(buffer.data(), file_size);
 
             file.close();
             return buffer;

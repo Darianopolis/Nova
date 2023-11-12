@@ -19,9 +19,9 @@ namespace nova
 
     class Statement
     {
-        sqlite3* db = {};
+        sqlite3*        db = {};
         sqlite3_stmt* stmt = {};
-        bool complete = false;
+        bool      complete = false;
 
     public:
         Statement(Database& db, const std::string& sql);

@@ -16,17 +16,17 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
     auto context = nova::Context::Create({
         .debug = true,
-        .meshShading = true,
+        .mesh_shading = true,
     });
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::TextureUsage::ColorAttach
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    auto taskShader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
+    auto task_shader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
         nova::glsl::Compile(nova::ShaderStage::Task, "main", "", {R"glsl(
             #extension GL_EXT_mesh_shader : require
 
@@ -36,12 +36,12 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
             }
         )glsl"}));
 
-    auto meshShader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
+    auto mesh_shader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
         nova::glsl::Compile(nova::ShaderStage::Mesh, "main", "", {R"glsl(
             #extension GL_EXT_mesh_shader : require
 
             layout(triangles, max_vertices = 3, max_primitives = 1) out;
-            layout(location = 0) out vec3 outColors[];
+            layout(location = 0) out vec3 out_colors[];
 
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
@@ -51,18 +51,18 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
                 SetMeshOutputsEXT(3, 1);
                 for (int i = 0; i < 3; ++i) {
                     gl_MeshVerticesEXT[i].gl_Position = vec4(positions[i], 0, 1);
-                    outColors[i] = colors[i];
+                    out_colors[i] = colors[i];
                 }
                 gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
             }
         )glsl"}));
 
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            layout(location = 0) in vec3 inColor;
-            layout(location = 0) out vec4 fragColor;
+            layout(location = 0) in vec3 in_color;
+            layout(location = 0) out vec4 frag_color;
             void main() {
-                fragColor = vec4(inColor, 1);
+                frag_color = vec4(in_color, 1);
             }
         )glsl"}));
 
@@ -70,15 +70,15 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin();
+        cmd_pool.Reset();
+        auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
         cmd.SetBlendState({false});
-        cmd.BindShaders({taskShader, meshShader, fragmentShader});
+        cmd.BindShaders({task_shader, mesh_shader, fragment_shader});
         cmd.DrawMeshTasks(Vec3U(1));
         cmd.EndRendering();
 

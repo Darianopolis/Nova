@@ -6,7 +6,7 @@ namespace nova
 {
     class Timer
     {
-#ifdef NOVA_PLATFORM_WINDOWS
+#ifdef _WIN32
         using NTSTATUS = uint32_t;
         using ZwSetTimerResolutionType = NTSTATUS(__stdcall *)(IN ULONG RequestedResolution, IN BOOLEAN Set, OUT PULONG ActualResolution);
 
@@ -16,36 +16,36 @@ namespace nova
         {
             // https://stackoverflow.com/questions/85122/how-to-make-thread-sleep-less-than-a-millisecond-on-windows/31411628#31411628
             const ZwSetTimerResolutionType ZwSetTimerResolution;
-            std::chrono::nanoseconds minQuantum;
+            std::chrono::nanoseconds                min_quantum;
 
             TimerResolutionGuard()
-                : ZwSetTimerResolution{(NTSTATUS(__stdcall*)(ULONG, BOOLEAN, PULONG)) GetProcAddress(GetModuleHandle(L"ntdll.dll"), "ZwSetTimerResolution")}
+                : ZwSetTimerResolution{(NTSTATUS(__stdcall*)(ULONG, BOOLEAN, PULONG)) GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "ZwSetTimerResolution")}
             {
                 NOVA_LOG("Win32 Timer :: Lowering system interrupt period");
-                ULONG minPeriod;
-                ZwSetTimerResolution(0, true, &minPeriod);
+                ULONG min_period;
+                ZwSetTimerResolution(0, true, &min_period);
 
-                minQuantum = std::chrono::nanoseconds(minPeriod * 100);
+                min_quantum = std::chrono::nanoseconds(min_period * 100);
             }
 
             ~TimerResolutionGuard()
             {
                 NOVA_LOG("Win32 Timer :: Resetting system interrupt period");
-                ULONG minPeriod;
-                ZwSetTimerResolution(0, false, &minPeriod);
+                ULONG min_period;
+                ZwSetTimerResolution(0, false, &min_period);
             }
         };
 
     public:
         std::chrono::nanoseconds GetMinQuantum()
         {
-            static TimerResolutionGuard timerResolutionGuard;
-            return timerResolutionGuard.minQuantum;
+            static TimerResolutionGuard timer_resolution_guard;
+            return timer_resolution_guard.min_quantum;
         }
 
         Timer()
         {
-            handle = CreateWaitableTimer(nullptr, true, nullptr);
+            handle = CreateWaitableTimerW(nullptr, true, nullptr);
             if (!handle) {
                 NOVA_THROW("Timer::Timer - Failed to create win32 timer");
             }
@@ -61,7 +61,7 @@ namespace nova
 
         void Signal()
         {
-#ifdef NOVA_PLATFORM_WINDOWS
+#ifdef _WIN32
             LARGE_INTEGER li;
             li.QuadPart = 0;
             SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false);
@@ -77,7 +77,7 @@ namespace nova
 
             auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
 
-#ifdef NOVA_PLATFORM_WINDOWS
+#ifdef _WIN32
             if (preempt) {
                 if (duration < GetMinQuantum()) {
                     return true;

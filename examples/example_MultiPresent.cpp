@@ -19,8 +19,8 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     });
     NOVA_CLEANUP(&) { context.Destroy(); };
 
-    auto presentMode = nova::PresentMode::Mailbox;
-    auto swapchainUsage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
+    auto present_mode = nova::PresentMode::Mailbox;
+    auto swapchain_usage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
 
     glfwInit();
     NOVA_CLEANUP(&) { glfwTerminate(); };
@@ -32,8 +32,8 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
 
     auto swapchains = std::array {
-        nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchainUsage, presentMode),
-        nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchainUsage, presentMode),
+        nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchain_usage, present_mode),
+        nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchain_usage, present_mode),
     };
     NOVA_CLEANUP(&) {
         swapchains[0].Destroy();
@@ -41,9 +41,9 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto waitValues = std::array { 0ull, 0ull };
+    auto wait_values = std::array { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
-    auto commandPools = std::array {
+    auto command_pools = std::array {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
@@ -51,8 +51,8 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_CLEANUP(&) {
         fence.Destroy();
-        commandPools[0].Destroy();
-        commandPools[1].Destroy();
+        command_pools[0].Destroy();
+        command_pools[1].Destroy();
         sampler.Destroy();
     };
 
@@ -63,14 +63,14 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     });
 
     u64 frame = 0;
-    auto lastTime = std::chrono::steady_clock::now();
+    auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
     auto update = [&] {
 
         // Debug output statistics
         frames++;
-        auto newTime = std::chrono::steady_clock::now();
-        if (newTime - lastTime > 1s) {
+        auto new_time = std::chrono::steady_clock::now();
+        if (new_time - last_time > 1s) {
             NOVA_LOG("\nFps = {}\nAllocations = {:3} (+ {} /s)",
                 frames, nova::rhi::stats::AllocationCount.load(),
                 nova::rhi::stats::NewAllocationCount.exchange(0));
@@ -84,22 +84,22 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
                 nova::rhi::stats::TimeAdaptingToPresent.exchange(0)  / divisor,
                 nova::rhi::stats::TimePresenting.exchange(0) / divisor);
 
-            lastTime = std::chrono::steady_clock::now();
+            last_time = std::chrono::steady_clock::now();
             frames = 0;
         }
 
-        // Pick fence and commandPool for frame in flight
+        // Pick fence and command pool for frame in flight
         auto fif = frame++ % 2;
 
         // Wait for previous commands in frame to complete
-        fence.Wait(waitValues[fif]);
+        fence.Wait(wait_values[fif]);
 
         // Acquire new images from swapchains
         queue.Acquire({swapchains[0], swapchains[1]}, {fence});
 
         // Reset command pool and begin new command list
-        commandPools[fif].Reset();
-        auto cmd = commandPools[fif].Begin();
+        command_pools[fif].Reset();
+        auto cmd = command_pools[fif].Begin();
 
         // Clear screen
         cmd.ClearColor(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
@@ -122,7 +122,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Present both swapchains
         queue.Present({swapchains[0], swapchains[1]}, {fence}, false);
 
-        waitValues[fif] = fence.GetPendingValue();
+        wait_values[fif] = fence.GetPendingValue();
     };
 
     NOVA_CLEANUP(&) { fence.Wait(); };

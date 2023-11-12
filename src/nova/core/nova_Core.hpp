@@ -1,8 +1,5 @@
 #pragma once
 
-// #define WINVER 0x0A00
-// #define _WIN32_WINNT 0x0A00
-
 #include <algorithm>
 #include <any>
 #include <array>
@@ -308,19 +305,19 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-#define NOVA_DECORATE_FLAG_ENUM(enumType)                                      \
-    inline constexpr enumType operator|(enumType l, enumType r) {              \
-        return enumType(std::to_underlying(l) | std::to_underlying(r));        \
+#define NOVA_DECORATE_FLAG_ENUM(EnumType)                                      \
+    inline constexpr EnumType operator|(EnumType l, EnumType r) {              \
+        return EnumType(std::to_underlying(l) | std::to_underlying(r));        \
     }                                                                          \
-    inline constexpr enumType operator|=(enumType& l, enumType r) {            \
+    inline constexpr EnumType operator|=(EnumType& l, EnumType r) {            \
         return l = l | r;                                                      \
     }                                                                          \
-    inline constexpr bool operator>=(enumType l, enumType r) {                 \
+    inline constexpr bool operator>=(EnumType l, EnumType r) {                 \
         return std::to_underlying(r)                                           \
             == (std::to_underlying(l) & std::to_underlying(r));                \
     }                                                                          \
-    inline constexpr bool operator&(enumType l, enumType r) {                  \
-        return static_cast<std::underlying_type_t<enumType>>(0)                \
+    inline constexpr bool operator&(EnumType l, EnumType r) {                  \
+        return static_cast<std::underlying_type_t<EnumType>>(0)                \
             != (std::to_underlying(l) & std::to_underlying(r));                \
     }
 

@@ -4,10 +4,10 @@ namespace nova
 {
     static
     VkBool32 VKAPI_CALL DebugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-        VkDebugUtilsMessageTypeFlagsEXT type,
+        VkDebugUtilsMessageSeverityFlagBitsEXT  severity,
+        VkDebugUtilsMessageTypeFlagsEXT             type,
         const VkDebugUtilsMessengerCallbackDataEXT* data,
-        [[maybe_unused]] void* userData)
+        [[maybe_unused]] void*                  userdata)
     {
         if (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
                 || type != VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
@@ -35,13 +35,13 @@ Validation: {} ({})
 
     struct VulkanFeatureChain
     {
-        HashMap<VkStructureType, VkBaseInStructure*> deviceFeatures;
-        ankerl::unordered_dense::set<std::string> extensions;
-        VkBaseInStructure* pNext = nullptr;
+        HashMap<VkStructureType, VkBaseInStructure*> device_features;
+        ankerl::unordered_dense::set<std::string>         extensions;
+        VkBaseInStructure*                                      next = nullptr;
 
         ~VulkanFeatureChain()
         {
-            for (auto&[type, feature] : deviceFeatures) {
+            for (auto&[type, feature] : device_features) {
                 std::free(feature);
             }
         }
@@ -54,13 +54,13 @@ Validation: {} ({})
         template<typename T>
         T& Feature(VkStructureType type)
         {
-            auto& f = deviceFeatures[type];
+            auto& f = device_features[type];
             if (!f) {
                 f = static_cast<VkBaseInStructure*>(std::malloc(sizeof(T)));
                 new(f) T{};
                 f->sType = type;
-                f->pNext = pNext;
-                pNext = f;
+                f->pNext = next;
+                next = f;
             }
 
             return *(T*)f;
@@ -68,7 +68,7 @@ Validation: {} ({})
 
         const void* Build()
         {
-            return pNext;
+            return next;
         }
     };
 
@@ -77,33 +77,42 @@ Validation: {} ({})
         auto impl = new Impl;
         impl->config = config;
 
-        std::vector<const char*> instanceLayers;
+        // Configure instance layers and validation features
+
+        std::vector<const char*> instance_layers;
+        std::vector<VkValidationFeatureEnableEXT> validation_features_enabled;
+
         if (config.debug) {
-            instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+            instance_layers.push_back("VK_LAYER_KHRONOS_validation");
         }
 
-        // instanceLayers.push_back("VK_LAYER_LUNARG_api_dump");
-
-        std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME };
-    #ifdef _WIN32
-        instanceExtensions.push_back("VK_KHR_win32_surface");
-    #endif
-        if (config.debug) {
-            instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-            instanceExtensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+        if (config.api_dump) {
+            instance_layers.push_back("VK_LAYER_LUNARG_api_dump");
         }
 
-// #define NOVA_VULKAN_FUNCTION(name) if (vkGetInstanceProcAddr(nullptr, #name)) std::cout << std::format("Loaded pre-instance fn: {}\n", #name);
-// #include "nova_VulkanFunctions.inl"
+        std::vector<const char*> instance_extensions = { VK_KHR_SURFACE_EXTENSION_NAME };
+#ifdef _WIN32
+        instance_extensions.push_back("VK_KHR_win32_surface");
+#endif
+        if (config.debug) {
+            instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            instance_extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+        }
 
-        // volkInitialize();
+        if (config.extra_validation) {
+            validation_features_enabled.push_back(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
+            validation_features_enabled.push_back(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
+        }
 
-        HMODULE vulkanModule = LoadLibraryA("vulkan-1.dll");
-        if (!vulkanModule) {
+        // Load pre-instance functions
+
+#ifdef _WIN32
+        HMODULE vulkan1 = LoadLibraryA("vulkan-1.dll");
+        if (!vulkan1) {
             NOVA_THROW("Failed to load vulkan-1.dll");
         }
-        impl->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(vulkanModule, "vkGetInstanceProcAddr");
-        NOVA_LOGEXPR(impl->vkGetInstanceProcAddr);
+        impl->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(vulkan1, "vkGetInstanceProcAddr");
+#endif
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
     auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name);        \
@@ -111,18 +120,20 @@ Validation: {} ({})
 }
 #include "nova_VulkanFunctions.inl"
 
-        {
-            uint32_t instLayerCount = NULL;
-            auto result = impl->vkEnumerateInstanceLayerProperties(&instLayerCount,nullptr);
-            std::vector<VkLayerProperties> instLayerList(instLayerCount);
-            result = impl->vkEnumerateInstanceLayerProperties(&instLayerCount,&instLayerList[0]);
+        // Create instance
 
-            // for (u32 i = 0; i < instLayerCount; ++i) {
-            //     NOVA_LOG("Instance layer[{}] = {}", i, instLayerList[i].layerName);
-            // }
+        if (config.trace) {
+            uint32_t instance_layer_count = NULL;
+            auto result = impl->vkEnumerateInstanceLayerProperties(&instance_layer_count,nullptr);
+            std::vector<VkLayerProperties> instance_layers(instance_layer_count);
+            result = impl->vkEnumerateInstanceLayerProperties(&instance_layer_count,&instance_layers[0]);
+
+            for (u32 i = 0; i < instance_layer_count; ++i) {
+                NOVA_LOG("Instance layer[{}] = {}", i, instance_layers[i].layerName);
+            }
         }
 
-        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo {
+        VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
             .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
                                 | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
@@ -134,31 +145,27 @@ Validation: {} ({})
             .pUserData = impl,
         };
 
-        std::vector<VkValidationFeatureEnableEXT> validationFeaturesEnabled {
-            // VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-            // VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
-            // VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
-        };
-
-        VkValidationFeaturesEXT validationFeatures {
-            .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
-            .pNext = &debugMessengerCreateInfo,
-            .enabledValidationFeatureCount = u32(validationFeaturesEnabled.size()),
-            .pEnabledValidationFeatures = validationFeaturesEnabled.data(),
-        };
-
         vkh::Check(impl->vkCreateInstance(Temp(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-            .pNext = config.debug ? &validationFeatures : nullptr,
+            .pNext = config.debug
+                ? Temp(VkValidationFeaturesEXT {
+                    .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+                    .pNext = &debug_messenger_info,
+                    .enabledValidationFeatureCount = u32(validation_features_enabled.size()),
+                    .pEnabledValidationFeatures = validation_features_enabled.data(),
+                })
+                : nullptr,
             .pApplicationInfo = Temp(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
             }),
-            .enabledLayerCount = u32(instanceLayers.size()),
-            .ppEnabledLayerNames = instanceLayers.data(),
-            .enabledExtensionCount = u32(instanceExtensions.size()),
-            .ppEnabledExtensionNames = instanceExtensions.data(),
-        }), impl->pAlloc, &impl->instance));
+            .enabledLayerCount = u32(instance_layers.size()),
+            .ppEnabledLayerNames = instance_layers.data(),
+            .enabledExtensionCount = u32(instance_extensions.size()),
+            .ppEnabledExtensionNames = instance_extensions.data(),
+        }), impl->alloc, &impl->instance));
+
+        // Load instance functions
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
     auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(impl->instance, #name); \
@@ -166,8 +173,13 @@ Validation: {} ({})
 }
 #include "nova_VulkanFunctions.inl"
 
-        if (config.debug)
-            vkh::Check(impl->vkCreateDebugUtilsMessengerEXT(impl->instance, &debugMessengerCreateInfo, impl->pAlloc, &impl->debugMessenger));
+        // Create debug messenger
+
+        if (config.debug) {
+            vkh::Check(impl->vkCreateDebugUtilsMessengerEXT(impl->instance, &debug_messenger_info, impl->alloc, &impl->debug_messenger));
+        }
+
+        // Select physical device
 
         std::vector<VkPhysicalDevice> gpus;
         vkh::Enumerate(gpus, impl->vkEnumeratePhysicalDevices, impl->instance);
@@ -180,43 +192,14 @@ Validation: {} ({})
                 break;
             }
         }
-        // u32 gpuCount = 1;
-        // vkh::Check(vkEnumeratePhysicalDevices(impl->instance, &gpuCount, &impl->gpu));
-        // if (gpuCount == 0)
-        //     NOVA_THROW("No physical devices found!");
 
-        // ---- Logical Device ----
+        if (!impl->gpu) {
+            NOVA_THROW("No suitable physical device found");
+        }
 
-        std::array<VkQueueFamilyProperties, 3> properties;
-        impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
-        for (u32 i = 0; i < 16; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-            queue->family = 0;
-            queue->flags = properties[0].queueFlags;
-            impl->graphicQueues.emplace_back(queue);
-        }
-        for (u32 i = 0; i < 2; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            queue->family = 1;
-            queue->flags = properties[1].queueFlags;
-            impl->transferQueues.emplace_back(queue);
-        }
-        for (u32 i = 0; i < 8; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            queue->family = 2;
-            queue->flags = properties[2].queueFlags;
-            impl->computeQueues.emplace_back(queue);
-        }
+        // Configure features
 
         VulkanFeatureChain chain;
-
-        // TODO: Allow for optional features
 
         {
             // Swapchains
@@ -238,6 +221,7 @@ Validation: {} ({})
                 f.features.imageCubeArray = VK_TRUE;
                 f.features.drawIndirectFirstInstance = VK_TRUE;
                 f.features.fragmentStoresAndAtomics = VK_TRUE;
+                f.features.multiViewport = VK_TRUE;
             }
 
             {
@@ -246,6 +230,9 @@ Validation: {} ({})
                 f.storagePushConstant16 = VK_TRUE;
                 f.storageBuffer16BitAccess = VK_TRUE;
                 f.shaderDrawParameters = VK_TRUE;
+                f.multiview = VK_TRUE;
+                f.multiviewGeometryShader = VK_TRUE;
+                f.multiviewTessellationShader = VK_TRUE;
             }
 
             // Vulkan 1.2
@@ -295,7 +282,7 @@ Validation: {} ({})
                 chain.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>(
                     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT)
                     .hostImageCopy = VK_TRUE;
-                impl->transferManager.stagedImageCopy = false;
+                impl->transfer_manager.staged_image_copy = false;
             }
 
 #if 0
@@ -358,7 +345,7 @@ Validation: {} ({})
 #endif
         }
 
-        if (config.meshShading) {
+        if (config.mesh_shading) {
             // Mesh Shading extensions
 
             chain.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
@@ -370,7 +357,7 @@ Validation: {} ({})
             f.taskShader = true;
         }
 
-        if (config.rayTracing) {
+        if (config.ray_tracing) {
 
             // Ray Tracing extensions
 
@@ -400,12 +387,12 @@ Validation: {} ({})
                 .rayTracingPositionFetch = VK_TRUE;
         }
 
-        auto deviceExtensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
+        // TODO: Move this into VulkanFeatureChain
+        auto device_extensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
         {
             u32 i = 0;
-
             for (const auto& ext : chain.extensions) {
-                deviceExtensions[i++] = ext.c_str();
+                device_extensions[i++] = ext.c_str();
             }
         }
 
@@ -418,32 +405,64 @@ Validation: {} ({})
                 supported.insert(prop.extensionName);
             }
 
-            u32 missingCount = 0;
+            u32 missing_count = 0;
             for (auto& ext : chain.extensions) {
                 if (!supported.contains(ext)) {
-                    missingCount++;
+                    missing_count++;
                     NOVA_LOG("Missing extension: {}", ext);
                 }
             }
 
-            if (missingCount) {
+            if (missing_count) {
                 NOVA_LOG("Missing {} extension{}.\nPress Enter to close...",
-                    missingCount, missingCount > 1 ? "s" : "");
+                    missing_count, missing_count > 1 ? "s" : "");
                 // Log to file to avoid needing this?
                 std::getline(std::cin, *Temp(std::string{}));
-                NOVA_THROW("Missing {} extensions.", missingCount);
+                NOVA_THROW("Missing {} extensions.", missing_count);
             }
         }
 
-        auto priorities = NOVA_ALLOC_STACK(float, impl->graphicQueues.size());
-        for (u32 i = 0; i < impl->graphicQueues.size(); ++i) {
+        // Configure queues
+        // TODO: This is bad and you should feel bad. Fix it now.
+
+        std::array<VkQueueFamilyProperties, 3> properties;
+        impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
+        for (u32 i = 0; i < 16; ++i) {
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
+            queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+            queue->family = 0;
+            queue->flags = properties[0].queueFlags;
+            impl->graphic_queues.emplace_back(queue);
+        }
+        for (u32 i = 0; i < 2; ++i) {
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
+            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->family = 1;
+            queue->flags = properties[1].queueFlags;
+            impl->transfer_queues.emplace_back(queue);
+        }
+        for (u32 i = 0; i < 8; ++i) {
+            auto queue = new Queue::Impl;
+            queue->context = { impl };
+            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            queue->family = 2;
+            queue->flags = properties[2].queueFlags;
+            impl->compute_queues.emplace_back(queue);
+        }
+
+        auto priorities = NOVA_ALLOC_STACK(float, impl->graphic_queues.size());
+        for (u32 i = 0; i < impl->graphic_queues.size(); ++i) {
             priorities[i] = 1.f;
         }
 
-        auto lowPriorities = NOVA_ALLOC_STACK(float, 8);
+        auto low_priorities = NOVA_ALLOC_STACK(float, 8);
         for (u32 i = 0; i < 8; ++i) {
-            lowPriorities[i] = 0.1f;
+            low_priorities[i] = 0.1f;
         }
+
+        // Create device
 
         vkh::Check(impl->vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -452,26 +471,28 @@ Validation: {} ({})
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->graphicQueues.front()->family,
-                    .queueCount = u32(impl->graphicQueues.size()),
+                    .queueFamilyIndex = impl->graphic_queues.front()->family,
+                    .queueCount = u32(impl->graphic_queues.size()),
                     .pQueuePriorities = priorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->transferQueues.front()->family,
-                    .queueCount = u32(impl->transferQueues.size()),
-                    .pQueuePriorities = lowPriorities,
+                    .queueFamilyIndex = impl->transfer_queues.front()->family,
+                    .queueCount = u32(impl->transfer_queues.size()),
+                    .pQueuePriorities = low_priorities,
                 },
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->computeQueues.front()->family,
-                    .queueCount = u32(impl->computeQueues.size()),
-                    .pQueuePriorities = lowPriorities,
+                    .queueFamilyIndex = impl->compute_queues.front()->family,
+                    .queueCount = u32(impl->compute_queues.size()),
+                    .pQueuePriorities = low_priorities,
                 },
             }.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
-            .ppEnabledExtensionNames = deviceExtensions,
-        }), impl->pAlloc, &impl->device));
+            .ppEnabledExtensionNames = device_extensions,
+        }), impl->alloc, &impl->device));
+
+        // Load device functions
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
     auto pfn = (PFN_##name)impl->vkGetDeviceProcAddr(impl->device, #name);     \
@@ -479,30 +500,34 @@ Validation: {} ({})
 }
 #include "nova_VulkanFunctions.inl"
 
+        // Query device properties
+
         impl->vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &impl->descriptorSizes,
+            .pNext = &impl->descriptor_sizes,
         }));
 
-        // ---- Shared resources ----
+        // Get queues
 
-        for (u32 i = 0; i < impl->graphicQueues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->graphicQueues[i]->family, i, &impl->graphicQueues[i]->handle);
+        for (u32 i = 0; i < impl->graphic_queues.size(); ++i) {
+            impl->vkGetDeviceQueue(impl->device, impl->graphic_queues[i]->family, i, &impl->graphic_queues[i]->handle);
         }
 
-        for (u32 i = 0; i < impl->transferQueues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->transferQueues[i]->family, i, &impl->transferQueues[i]->handle);
+        for (u32 i = 0; i < impl->transfer_queues.size(); ++i) {
+            impl->vkGetDeviceQueue(impl->device, impl->transfer_queues[i]->family, i, &impl->transfer_queues[i]->handle);
         }
 
-        for (u32 i = 0; i < impl->computeQueues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->computeQueues[i]->family, i, &impl->computeQueues[i]->handle);
+        for (u32 i = 0; i < impl->compute_queues.size(); ++i) {
+            impl->vkGetDeviceQueue(impl->device, impl->compute_queues[i]->family, i, &impl->compute_queues[i]->handle);
         }
+
+        // Create VMA allocator
 
         vkh::Check(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = impl->gpu,
             .device = impl->device,
-            .pAllocationCallbacks = impl->pAlloc,
+            .pAllocationCallbacks = impl->alloc,
             .pVulkanFunctions = Temp(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = impl->vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = impl->vkGetDeviceProcAddr,
@@ -511,20 +536,24 @@ Validation: {} ({})
             .vulkanApiVersion = VK_API_VERSION_1_3,
         }), &impl->vma));
 
+        // Create pipeline cache
+
         vkh::Check(impl->vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
-        }), impl->pAlloc, &impl->pipelineCache));
+        }), impl->alloc, &impl->pipeline_cache));
+
+        // Create descriptor heap
 
         {
             constexpr u32 NumImageDescriptors = 1024 * 1024;
             constexpr u32 NumSamplerDescriptors = 4096;
-            impl->globalHeap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
+            impl->global_heap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
         }
 
-        {
-            impl->transferManager.Init(impl);
-        }
+        // Create transfer manager
+
+        impl->transfer_manager.Init(impl);
 
         return { impl };
     }
@@ -537,32 +566,34 @@ Validation: {} ({})
 
         WaitIdle();
 
-        for (auto& queue : impl->graphicQueues)  { delete queue.impl; }
-        for (auto& queue : impl->computeQueues)  { delete queue.impl; }
-        for (auto& queue : impl->transferQueues) { delete queue.impl; }
+        for (auto& queue : impl->graphic_queues)  { delete queue.impl; }
+        for (auto& queue : impl->compute_queues)  { delete queue.impl; }
+        for (auto& queue : impl->transfer_queues) { delete queue.impl; }
 
         // Deleted graphics pipeline library stages
-        for (auto&[key, pipeline] : impl->vertexInputStages)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->preRasterStages)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->fragmentShaderStages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->fragmentOutputStages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->graphicsPipelineSets) { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
-        for (auto&[key, pipeline] : impl->computePipelines)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->pAlloc); }
+        for (auto&[key, pipeline] : impl->vertex_input_stages)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto&[key, pipeline] : impl->preraster_stages)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto&[key, pipeline] : impl->fragment_shader_stages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto&[key, pipeline] : impl->fragment_output_stages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto&[key, pipeline] : impl->graphics_pipeline_sets) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto&[key, pipeline] : impl->compute_pipelines)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
 
-        impl->globalHeap.Destroy();
-        impl->transferManager.Destroy();
+        impl->global_heap.Destroy();
+        impl->transfer_manager.Destroy();
 
         // Destroy context vk objects
-        impl->vkDestroyPipelineCache(impl->device, impl->pipelineCache, impl->pAlloc);
+        impl->vkDestroyPipelineCache(impl->device, impl->pipeline_cache, impl->alloc);
         vmaDestroyAllocator(impl->vma);
-        impl->vkDestroyDevice(impl->device, impl->pAlloc);
-        if (impl->debugMessenger) {
-            impl->vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debugMessenger, impl->pAlloc);
+        impl->vkDestroyDevice(impl->device, impl->alloc);
+        if (impl->debug_messenger) {
+            impl->vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debug_messenger, impl->alloc);
         }
-        impl->vkDestroyInstance(impl->instance, impl->pAlloc);
+        impl->vkDestroyInstance(impl->instance, impl->alloc);
 
-        NOVA_LOG("~Context(Allocated = {}, Allocations = {})",
-            rhi::stats::MemoryAllocated.load(), rhi::stats::AllocationCount.load());
+        if (rhi::stats::MemoryAllocated > 0 || rhi::stats::AllocationCount > 0) {
+            NOVA_LOG("WARNING: {} memory allocation ({}) remaining. Improper cleanup",
+                rhi::stats::AllocationCount.load(), ByteSizeToString(rhi::stats::MemoryAllocated.load()));
+        }
 
         delete impl;
         impl = nullptr;
@@ -604,13 +635,13 @@ Validation: {} ({})
         align = std::max(8ull, align);
 
         if (orig) {
-            usz oldSize  = static_cast<usz*>(orig)[-1];
+            usz old_size  = static_cast<usz*>(orig)[-1];
 
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Reallocating {}, size = {}/{}", orig, oldSize, size);
+            NOVA_LOG("Reallocating {}, size = {}/{}", orig, old_size, size);
 #endif
 
-            rhi::stats::MemoryAllocated -= oldSize;
+            rhi::stats::MemoryAllocated -= old_size;
             rhi::stats::AllocationCount--;
         }
 

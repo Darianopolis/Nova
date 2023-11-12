@@ -301,43 +301,32 @@ namespace nova
 
     struct RenderingDescription
     {
-        Span<Format> colorFormats;
-        Format        depthFormat = {};
-        Format      stencilFormat = {};
-        u32               subpass = 0;
-    };
-
-    struct PipelineState
-    {
-        Topology      topology    = Topology::Triangles;
-        CullMode      cullMode    = CullMode::Back;
-        FrontFace    frontFace    = FrontFace::CounterClockwise;
-        PolygonMode   polyMode    = PolygonMode::Fill;
-        f32          lineWidth    = 1.f;
-        CompareOp depthCompare    = CompareOp::Greater;
-        u32        blendEnable: 1 = false;
-        u32        depthEnable: 1 = false;
-        u32         depthWrite: 1 = true;
-        u32       flipVertical: 1 = false;
+        Span<Format> color_formats;
+        Format        depth_format = {};
+        Format      stencil_format = {};
+        u32                subpass = 0;
     };
 
 // -----------------------------------------------------------------------------
 
     struct HitShaderGroup
     {
-        HShader   closestHitShader = {};
-        HShader       anyHitShader = {};
-        HShader intersectionShader = {};
+        HShader   closesthit_shader = {};
+        HShader       anyhit_shader = {};
+        HShader intersection_shader = {};
     };
 
 // -----------------------------------------------------------------------------
 
     struct ContextConfig
     {
-        bool         debug = false;
-        bool    rayTracing = false;
-        bool   meshShading = false;
-        bool compatibility = false;
+        bool            debug = false;
+        bool extra_validation = false;
+        bool            trace = false;
+        bool         api_dump = false;
+        bool      ray_tracing = false;
+        bool     mesh_shading = false;
+        bool    compatibility = false;
     };
 
     struct Context : Handle<Context>
@@ -358,7 +347,7 @@ namespace nova
 
         void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals) const;
         bool Acquire(Span<HSwapchain>, Span<HFence> signals) const;
-        void Present(Span<HSwapchain>, Span<HFence> waits, bool hostWait = false) const;
+        void Present(Span<HSwapchain>, Span<HFence> waits, bool host_wait = false) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -368,9 +357,9 @@ namespace nova
         static Fence Create(HContext);
         void Destroy();
 
-        void Wait(u64 waitValue = ~0ull) const;
+        void Wait(u64 wait_value = ~0ull) const;
         u64  Advance() const;
-        void Signal(u64 signalValue = ~0ull) const;
+        void Signal(u64 signal_value = ~0ull) const;
         u64  GetPendingValue() const;
     };
 
@@ -394,11 +383,11 @@ namespace nova
         void Present(HSwapchain) const;
 
         void ResetGraphicsState() const;
-        void SetViewports(Span<Rect2I> rects, bool copyToScissors = false) const;
+        void SetViewports(Span<Rect2I> rects, bool copy_to_scissors = false) const;
         void SetScissors(Span<Rect2I> scissors) const;
-        void SetPolygonState(Topology, PolygonMode, f32 lineWidth) const;
-        void SetCullState(CullMode cullMode, FrontFace frontFace) const;
-        void SetDepthState(bool testEnable, bool writeEnable, CompareOp) const;
+        void SetPolygonState(Topology, PolygonMode, f32 line_width) const;
+        void SetCullState(CullMode cull_mode, FrontFace front_face) const;
+        void SetDepthState(bool test_enable, bool write_enable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const;
         void BindShaders(Span<HShader>) const;
 
@@ -406,43 +395,43 @@ namespace nova
 
         void Barrier(PipelineStage src, PipelineStage dst) const;
 
-        void BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment = {}, HTexture stencilAttachment = {}) const;
+        void BeginRendering(Rect2D region, Span<HTexture> color_attachments, HTexture depth_attachment = {}, HTexture stencil_attachment = {}) const;
         void EndRendering() const;
         void BindIndexBuffer(HBuffer, IndexType, u64 offset = {}) const;
         void ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset = {}) const;
         void ClearDepth(f32 depth, Vec2U size, Vec2I offset = {}) const;
         void ClearStencil(u32 value, Vec2U size, Vec2I offset = {}) const;
 
-        void Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const;
+        void Draw(u32 vertices, u32 instances, u32 first_vertex, u32 first_instance) const;
         void DrawIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
-        void DrawIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+        void DrawIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const;
 
-        void DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const;
+        void DrawIndexed(u32 indices, u32 instances, u32 first_index, u32 vertex_offset, u32 first_instance) const;
         void DrawIndexedIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
-        void DrawIndexedIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+        void DrawIndexedIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const;
 
         void DrawMeshTasks(Vec3U groups) const;
         void DrawMeshTasksIndirect(HBuffer, u64 offset, u32 count, u32 stride) const;
-        void DrawMeshTasksIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const;
+        void DrawMeshTasksIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const;
 
         void Dispatch(Vec3U groups) const;
         void DispatchIndirect(HBuffer buffer, u64 offset) const;
 
-        void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dstOffset = 0) const;
-        void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset = 0, u64 srcOffset = 0) const;
+        void UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dst_offset = 0) const;
+        void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dst_offset = 0, u64 src_offset = 0) const;
         void Barrier(HBuffer, PipelineStage src, PipelineStage dst) const;
 
         void Transition(HTexture, TextureLayout, PipelineStage) const;
         void ClearColor(HTexture, std::variant<Vec4, Vec4U, Vec4I> value) const;
-        void CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset = 0) const;
-        void CopyFromTexture(HBuffer dst, HTexture src, Rect2D regino) const;
+        void CopyToTexture(HTexture dst, HBuffer src, u64 src_offset = 0) const;
+        void CopyFromTexture(HBuffer dst, HTexture src, Rect2D region) const;
         void GenerateMips(HTexture) const;
         void BlitImage(HTexture dst, HTexture src, Filter) const;
 
         void BuildAccelerationStructure(HAccelerationStructureBuilder, HAccelerationStructure, HBuffer scratch) const;
         void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const;
 
-        void TraceRays(HRayTracingPipeline, Vec3U extent, u64 hitShaderAddress = 0, u32 hitShaderCount = 0) const;
+        void TraceRays(HRayTracingPipeline, Vec3U extent, u64 hit_shader_address = 0, u32 hit_shader_count = 0) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -525,19 +514,19 @@ namespace nova
         static AccelerationStructureBuilder Create(HContext);
         void Destroy();
 
-        void SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const;
-        void SetTriangles(u32 geometryIndex,
-            u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-            u64 indexAddress, IndexType indexFormat, u32 triangleCount) const;
+        void SetInstances(u32 geometry_index, u64 device_address, u32 count) const;
+        void SetTriangles(u32 geometry_index,
+            u64 vertex_address, Format vertex_format, u32 vertex_stride, u32 max_vertex,
+            u64 index_address, IndexType index_format, u32 triangle_count) const;
 
-        void Prepare(AccelerationStructureType, AccelerationStructureFlags, u32 geometryCount, u32 firstGeometry = 0) const;
+        void Prepare(AccelerationStructureType, AccelerationStructureFlags, u32 geometry_count, u32 first_geometry = 0) const;
 
         u32 GetInstanceSize() const;
-        void WriteInstance(void* bufferAddress, u32 index,
+        void WriteInstance(void* buffer_address, u32 index,
             HAccelerationStructure,
             const Mat4& transform,
-            u32 customIndex, u8 mask,
-            u32 sbtOffset, GeometryInstanceFlags flags) const;
+            u32 custom_index, u8 mask,
+            u32 sbt_offset, GeometryInstanceFlags flags) const;
 
         u64 GetBuildSize() const;
         u64 GetBuildScratchSize() const;
@@ -563,19 +552,16 @@ namespace nova
         void Destroy();
 
         void Update(
-            HShader                           rayGenShader,
-            Span<HShader>                   rayMissShaders,
-            Span<struct HitShaderGroup> rayhitShaderGroups,
-            Span<HShader>                  callableShaders) const;
+            HShader                            raygen_shader,
+            Span<HShader>                    raymiss_shaders,
+            Span<struct HitShaderGroup> rayhit_shader_groups,
+            Span<HShader>                   callable_shaders) const;
 
         u64 GetTableSize(u32 handles) const;
         u64 GetHandleSize() const;
         u64 GetHandleStride() const;
         u64 GetHandleGroupAlign() const;
         HBuffer GetHandles() const;
-        void WriteHandle(void* bufferAddress, u32 index, u32 groupIndex);
+        void WriteHandle(void* buffer_address, u32 index, u32 group_index);
     };
-
-#undef NOVA_BEGIN_API_OBJECT
-#undef NOVA_END_API_OBJECT
 }

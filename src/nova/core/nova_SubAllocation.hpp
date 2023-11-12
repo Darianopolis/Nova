@@ -6,25 +6,25 @@ namespace nova
 {
     struct IndexFreeList
     {
-        u32             nextIndex = 0;
-        std::vector<u32> freeList;
+        u32             next_index = 0;
+        std::vector<u32> free_list;
 
     public:
         inline
         u32 Acquire()
         {
-            if (freeList.empty())
-                return nextIndex++;
+            if (free_list.empty())
+                return next_index++;
 
-            u32 index = freeList.back();
-            freeList.pop_back();
+            u32 index = free_list.back();
+            free_list.pop_back();
             return index;
         }
 
         inline
         void Release(u32 index)
         {
-            freeList.push_back(index);
+            free_list.push_back(index);
         }
     };
 }

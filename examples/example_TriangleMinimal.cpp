@@ -20,10 +20,10 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         | nova::TextureUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
+    auto vertex_shader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
         nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
             layout(location = 0) out vec3 color;
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
@@ -34,12 +34,12 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
             }
         )glsl"}));
 
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            layout(location = 0) in vec3 inColor;
-            layout(location = 0) out vec4 fragColor;
+            layout(location = 0) in vec3 in_color;
+            layout(location = 0) out vec4 frag_color;
             void main() {
-                fragColor = vec4(inColor, 1);
+                frag_color = vec4(in_color, 1);
             }
         )glsl"}));
 
@@ -47,15 +47,15 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin();
+        cmd_pool.Reset();
+        auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
         cmd.SetBlendState({false});
-        cmd.BindShaders({vertexShader, fragmentShader});
+        cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 

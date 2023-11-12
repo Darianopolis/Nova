@@ -16,11 +16,11 @@ namespace nova::types
     {
         static size_t& RefTotal()
         {
-            static size_t refTotal = 0;
-            return refTotal;
+            static size_t ref_total = 0;
+            return ref_total;
         }
     private:
-        u32 referenceCount = 0;
+        u32 reference_count = 0;
         static constexpr u32 InvalidRefCount = ~0u;
 
     protected:
@@ -32,22 +32,22 @@ namespace nova::types
         void RefCounted_Acquire()
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (std::atomic_ref<u32>(referenceCount) == InvalidRefCount) [[unlikely]] {
+            if (std::atomic_ref<u32>(reference_count) == InvalidRefCount) [[unlikely]] {
                 NOVA_THROW("Attempted to Acquire on RefCounted object that is being destroyed!");
             }
 #endif
-            ++std::atomic_ref<u32>(referenceCount);
+            ++std::atomic_ref<u32>(reference_count);
         }
 
         bool RefCounted_Release()
         {
-            bool toDelete = !--std::atomic_ref<u32>(referenceCount);
+            bool to_delete = !--std::atomic_ref<u32>(reference_count);
 #ifdef NOVA_SAFE_REFERENCES
-            if (toDelete) {
-                std::atomic_ref<u32>(referenceCount).store(InvalidRefCount);
+            if (to_delete) {
+                std::atomic_ref<u32>(reference_count).store(InvalidRefCount);
             }
 #endif
-            return toDelete;
+            return to_delete;
         }
 
         // RefCounted objects are STRICTLY unique and pointer stable

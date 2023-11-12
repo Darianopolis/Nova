@@ -9,8 +9,8 @@ namespace nova
 
     struct Barrier : RefCounted
     {
-        std::atomic<u32> counter = 0;
-        u32 acquired = 0;
+        std::atomic<u32>      counter = 0;
+        u32                  acquired = 0;
         std::vector<Ref<Job>> pending;
 
         // void Signal()
@@ -57,8 +57,8 @@ namespace nova
 
     struct Job : RefCounted
     {
-        JobSystem* system = {};
-        std::function<void()> task;
+        JobSystem*                 system = {};
+        std::function<void()>        task;
         std::vector<Ref<Barrier>> signals;
 
         static Ref<Job> Create(JobSystem* system, std::function<void()> task)
@@ -81,26 +81,11 @@ namespace nova
         }
 
         void Submit();
-
-        // Job** pDependents;
-        // Semaphore* pSignal = {};
-        // u16 remainingDependencies = 0;
-        // u16 dependentsCount = 0;
-
-        // template<typename Fn>
-        // void Bind(Fn& fn, u32 dependencies, Job** dependents, u16 _dependentsCount)
-        // {
-        //     pfn = +[](void* d) { (*static_cast<Fn*>(d))(); };
-        //     data = &fn;
-        //     remainingDependencies = dependencies;
-        //     pDependents = dependents;
-        //     dependentsCount = _dependentsCount;
-        // }
     };
 
     struct WorkerState
     {
-        u32 workerID = ~0u;
+        u32 worker_id = ~0u;
     };
 
     inline thread_local WorkerState JobWorkerState;
@@ -108,9 +93,9 @@ namespace nova
     struct JobSystem
     {
         std::vector<std::jthread> workers;
-        std::deque<Ref<Job>> queue;
-        std::shared_mutex mutex;
-        std::condition_variable_any cv;
+        std::deque<Ref<Job>>        queue;
+        std::shared_mutex           mutex;
+        std::condition_variable_any    cv;
 
         bool running = true;
 
@@ -138,13 +123,13 @@ namespace nova
 
         static u32 GetWorkerID() noexcept
         {
-            return JobWorkerState.workerID;
+            return JobWorkerState.worker_id;
         }
 
         void Worker([[maybe_unused]] JobSystem* system, u32 index)
         {
-            JobWorkerState.workerID = index;
-            NOVA_CLEANUP() { JobWorkerState.workerID = ~0u; };
+            JobWorkerState.worker_id = index;
+            NOVA_CLEANUP() { JobWorkerState.worker_id = ~0u; };
 
             for (;;) {
                 // Acquire a lock

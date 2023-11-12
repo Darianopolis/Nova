@@ -59,10 +59,10 @@ namespace nova
             }
         }
 
-        auto vkUsage = GetVulkanBufferUsage(impl->usage);
-        vkUsage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        auto vk_usage = GetVulkanBufferUsage(impl->usage);
+        vk_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
         if (impl->flags >= BufferFlags::Addressable) {
-            vkUsage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            vk_usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
         vkh::Check(vmaCreateBuffer(
@@ -70,7 +70,7 @@ namespace nova
             Temp(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = impl->size,
-                .usage = vkUsage,
+                .usage = vk_usage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
@@ -115,12 +115,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    void CommandList::UpdateBuffer(HBuffer dst, const void* pData, usz size, u64 dstOffset) const
+    void CommandList::UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dst_offset) const
     {
-        impl->context->vkCmdUpdateBuffer(impl->buffer, dst->buffer, dstOffset, size, pData);
+        impl->context->vkCmdUpdateBuffer(impl->buffer, dst->buffer, dst_offset, size, data);
     }
 
-    void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dstOffset, u64 srcOffset) const
+    void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dst_offset, u64 src_offset) const
     {
         impl->context->vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
@@ -129,8 +129,8 @@ namespace nova
             .regionCount = 1,
             .pRegions = Temp(VkBufferCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
-                .srcOffset = srcOffset,
-                .dstOffset = dstOffset,
+                .srcOffset = src_offset,
+                .dstOffset = dst_offset,
                 .size = size,
             }),
         }));

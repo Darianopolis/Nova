@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Sampler Sampler::Create(HContext context, Filter filter, AddressMode addressMode, BorderColor color, f32 anisotropy)
+    Sampler Sampler::Create(HContext context, Filter filter, AddressMode address_mode, BorderColor color, f32 anisotropy)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -15,23 +15,23 @@ namespace nova
             .mipmapMode = filter == Filter::Linear
                 ? VK_SAMPLER_MIPMAP_MODE_LINEAR
                 : VK_SAMPLER_MIPMAP_MODE_NEAREST,
-            .addressModeU = GetVulkanAddressMode(addressMode),
-            .addressModeV = GetVulkanAddressMode(addressMode),
-            .addressModeW = GetVulkanAddressMode(addressMode),
+            .addressModeU = GetVulkanAddressMode(address_mode),
+            .addressModeV = GetVulkanAddressMode(address_mode),
+            .addressModeW = GetVulkanAddressMode(address_mode),
             .anisotropyEnable = anisotropy > 0.f,
             .maxAnisotropy = anisotropy,
             .maxLod = VK_LOD_CLAMP_NONE,
             .borderColor = GetVulkanBorderColor(color),
-        }), context->pAlloc, &impl->sampler));
+        }), context->alloc, &impl->sampler));
 
         {
-            std::scoped_lock lock{ context->globalHeap.mutex };
-            impl->descriptorIndex = context->globalHeap.samplerHandles.Acquire();
+            std::scoped_lock lock{ context->global_heap.mutex };
+            impl->descriptor_index = context->global_heap.sampler_handles.Acquire();
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             NOVA_LOG("Sampler Descriptor Acquired: {}", impl->descriptorIndex);
 #endif
         }
-        context->globalHeap.WriteSampler(impl->descriptorIndex, impl);
+        context->global_heap.WriteSampler(impl->descriptor_index, impl);
 
         return { impl };
     }
@@ -42,11 +42,11 @@ namespace nova
             return;
         }
 
-        impl->context->vkDestroySampler(impl->context->device, impl->sampler, impl->context->pAlloc);
+        impl->context->vkDestroySampler(impl->context->device, impl->sampler, impl->context->alloc);
 
         {
-            std::scoped_lock lock{ impl->context->globalHeap.mutex };
-            impl->context->globalHeap.samplerHandles.Release(impl->descriptorIndex);
+            std::scoped_lock lock{ impl->context->global_heap.mutex };
+            impl->context->global_heap.sampler_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             NOVA_LOG("Sampler Descriptor Released: {}", impl->descriptorIndex);
 #endif
@@ -58,7 +58,7 @@ namespace nova
 
     u32 Sampler::GetDescriptor() const
     {
-        return impl->descriptorIndex;
+        return impl->descriptor_index;
     }
 
 // -----------------------------------------------------------------------------
@@ -69,43 +69,43 @@ namespace nova
         impl->context = context;
         impl->format = format;
         impl->usage = usage;
-        bool makeView = (GetVulkanImageUsage(usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
+        bool make_view = (GetVulkanImageUsage(usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
 
         impl->mips = flags >= TextureFlags::Mips
             ? 1 + u32(std::log2(f32(std::max(size.x, size.y))))
             : 1;
 
-        VkImageType imageType;
-        VkImageViewType viewType;
+        VkImageType image_type;
+        VkImageViewType view_type;
         impl->layers = 1;
 
         if (flags >= TextureFlags::Array) {
             if (size.z > 0) {
                 impl->layers = size.z;
                 size.z = 1;
-                imageType = VK_IMAGE_TYPE_2D;
-                viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+                image_type = VK_IMAGE_TYPE_2D;
+                view_type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 
             } else if (size.y > 0) {
                 impl->layers = size.y;
                 size.y = 1;
-                imageType = VK_IMAGE_TYPE_1D;
-                viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+                image_type = VK_IMAGE_TYPE_1D;
+                view_type = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
             } else {
                 NOVA_THROW("Image array must have at least 1 dimension and 1 layer");
             }
         } else {
             if (size.z > 0) {
-                imageType = VK_IMAGE_TYPE_3D;
-                viewType = VK_IMAGE_VIEW_TYPE_3D;
+                image_type = VK_IMAGE_TYPE_3D;
+                view_type = VK_IMAGE_VIEW_TYPE_3D;
 
             } else if (size.y > 0) {
-                imageType = VK_IMAGE_TYPE_2D;
-                viewType = VK_IMAGE_VIEW_TYPE_2D;
+                image_type = VK_IMAGE_TYPE_2D;
+                view_type = VK_IMAGE_VIEW_TYPE_2D;
 
             } else if (size.z > 0) {
-                imageType = VK_IMAGE_TYPE_1D;
-                viewType = VK_IMAGE_VIEW_TYPE_1D;
+                image_type = VK_IMAGE_TYPE_1D;
+                view_type = VK_IMAGE_VIEW_TYPE_1D;
             } else {
                 NOVA_THROW("Image must have at least one non-zero dimension");
             }
@@ -121,7 +121,7 @@ namespace nova
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 .imageType = VK_IMAGE_TYPE_2D,
-                .format = GetVulkanFormat(impl->format).vkFormat,
+                .format = GetVulkanFormat(impl->format).vk_format,
                 .extent = { impl->extent.x, impl->extent.y, impl->extent.z },
                 .mipLevels = impl->mips,
                 .arrayLayers = impl->layers,
@@ -150,7 +150,7 @@ namespace nova
 
         // ---- Pick aspects -----
 
-        switch (GetVulkanFormat(impl->format).vkFormat) {
+        switch (GetVulkanFormat(impl->format).vk_format) {
         break;case VK_FORMAT_S8_UINT:
             impl->aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
 
@@ -170,14 +170,14 @@ namespace nova
 
         // ---- Make view -----
 
-        if (makeView) {
+        if (make_view) {
             vkh::Check(impl->context->vkCreateImageView(context->device, Temp(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = impl->image,
-                .viewType = viewType,
-                .format = GetVulkanFormat(impl->format).vkFormat,
+                .viewType = view_type,
+                .format = GetVulkanFormat(impl->format).vk_format,
                 .subresourceRange = { impl->aspect, 0, impl->mips, 0, impl->layers },
-            }), context->pAlloc, &impl->view));
+            }), context->alloc, &impl->view));
         }
 
         return { impl };
@@ -190,7 +190,7 @@ namespace nova
         }
 
         if (impl->view) {
-            impl->context->vkDestroyImageView(impl->context->device, impl->view, impl->context->pAlloc);
+            impl->context->vkDestroyImageView(impl->context->device, impl->view, impl->context->alloc);
         }
 
         if (impl->allocation) {
@@ -200,10 +200,10 @@ namespace nova
             vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
         }
 
-        if (impl->descriptorIndex != UINT_MAX) {
-            auto& heap = impl->context->globalHeap;
+        if (impl->descriptor_index != UINT_MAX) {
+            auto& heap = impl->context->global_heap;
             std::scoped_lock lock{ heap.mutex };
-            impl->context->globalHeap.imageHandles.Release(impl->descriptorIndex);
+            impl->context->global_heap.image_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             NOVA_LOG("Texture Descriptor Released: {} (total = {})",
                 impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
@@ -216,25 +216,25 @@ namespace nova
 
     u32 Texture::GetDescriptor() const
     {
-        if (impl->descriptorIndex == UINT_MAX) {
-            auto& heap = impl->context->globalHeap;
+        if (impl->descriptor_index == UINT_MAX) {
+            auto& heap = impl->context->global_heap;
             {
                 std::scoped_lock lock{ heap.mutex };
-                impl->descriptorIndex = heap.imageHandles.Acquire();
+                impl->descriptor_index = heap.image_handles.Acquire();
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
                 NOVA_LOG("Texture Descriptor Acquired: {} (total = {})",
                     impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
 #endif
             }
             if (impl->usage >= nova::TextureUsage::Sampled) {
-                heap.WriteSampled(impl->descriptorIndex, *this);
+                heap.WriteSampled(impl->descriptor_index, *this);
             }
             if (impl->usage >= nova::TextureUsage::Storage) {
-                heap.WriteStorage(impl->descriptorIndex, *this);
+                heap.WriteStorage(impl->descriptor_index, *this);
             }
         }
 
-        return impl->descriptorIndex;
+        return impl->descriptor_index;
     }
 
     Vec3U Texture::GetExtent() const
@@ -249,22 +249,22 @@ namespace nova
 
     void Texture::Set(Vec3I offset, Vec3U extent, const void* data) const
     {
-        if (impl->context->transferManager.stagedImageCopy) {
-            auto& manager = impl->context->transferManager;
+        if (impl->context->transfer_manager.staged_image_copy) {
+            auto& manager = impl->context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };
 
             auto format = GetVulkanFormat(impl->format);
 
-            usz rows = (extent.y + format.blockHeight - 1) / format.blockHeight;
-            usz cols = (extent.x + format.blockWidth  - 1) / format.blockWidth;
-            usz size = rows * cols * format.atomSize;
+            usz rows = (extent.y + format.block_height - 1) / format.block_height;
+            usz cols = (extent.x + format.block_width  - 1) / format.block_width;
+            usz size = rows * cols * format.atom_size;
 
             manager.staging.Set(Span<char>((char*)data, size));
-            auto cmd = manager.cmdPool.Begin();
+            auto cmd = manager.cmd_pool.Begin();
             cmd.CopyToTexture(*this, manager.staging);
             manager.queue.Submit({cmd}, {}, {manager.fence});
             manager.fence.Wait();
-            manager.cmdPool.Reset();
+            manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
@@ -295,14 +295,14 @@ namespace nova
 
     void Texture::Transition(TextureLayout layout) const
     {
-        if (impl->context->transferManager.stagedImageCopy) {
-            auto& manager = impl->context->transferManager;
+        if (impl->context->transfer_manager.staged_image_copy) {
+            auto& manager = impl->context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };
-            auto cmd = manager.cmdPool.Begin();
+            auto cmd = manager.cmd_pool.Begin();
             cmd.Transition(*this, layout, nova::PipelineStage::All);
             manager.queue.Submit({cmd}, {}, {manager.fence});
             manager.fence.Wait();
-            manager.cmdPool.Reset();
+            manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
@@ -320,7 +320,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     void CommandList::Impl::Transition(HTexture texture,
-        VkImageLayout newLayout, VkPipelineStageFlags2 newStages)
+        VkImageLayout new_layout, VkPipelineStageFlags2 new_stages)
     {
         context->vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -330,27 +330,27 @@ namespace nova
 
                 .srcStageMask = texture->stage,
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
-                .dstStageMask = newStages,
+                .dstStageMask = new_stages,
                 .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
 
                 .oldLayout = texture->layout,
-                .newLayout = newLayout,
+                .newLayout = new_layout,
                 .image = texture->image,
                 .subresourceRange{ texture->aspect, 0, texture->mips, 0, texture->layers },
             })
         }));
 
-        texture->layout = newLayout;
-        texture->stage = newStages;
+        texture->layout = new_layout;
+        texture->stage = new_stages;
     }
 
     void CommandList::Transition(HTexture texture, TextureLayout layout, PipelineStage stage) const
     {
         auto queue = impl->pool->queue;
-        auto vkLayout = GetVulkanImageLayout(layout);
-        auto vkStage = GetVulkanPipelineStage(stage) & queue->stages;
+        auto vk_layout = GetVulkanImageLayout(layout);
+        auto vk_stage = GetVulkanPipelineStage(stage) & queue->stages;
 
-        impl->Transition(texture, vkLayout, vkStage);
+        impl->Transition(texture, vk_layout, vk_stage);
     }
 
     void CommandList::ClearColor(HTexture texture, std::variant<Vec4, Vec4U, Vec4I> value) const
@@ -369,7 +369,7 @@ namespace nova
                 VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->mips, 0, texture->layers }));
     }
 
-    void CommandList::CopyToTexture(HTexture dst, HBuffer src, u64 srcOffset) const
+    void CommandList::CopyToTexture(HTexture dst, HBuffer src, u64 src_offset) const
     {
         impl->Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_COPY_BIT);
@@ -382,7 +382,7 @@ namespace nova
             .regionCount = 1,
             .pRegions = Temp(VkBufferImageCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
-                .bufferOffset = srcOffset,
+                .bufferOffset = src_offset,
                 .imageSubresource{ dst->aspect, 0, 0, dst->layers },
                 .imageExtent{ dst->extent.x, dst->extent.y,  1 },
             }),
@@ -418,8 +418,8 @@ namespace nova
         impl->Transition(texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
 
-        int32_t mipWidth = texture->extent.x;
-        int32_t mipHeight = texture->extent.y;
+        int32_t mip_width = texture->extent.x;
+        int32_t mip_height = texture->extent.y;
 
         for (uint32_t mip = 1; mip < texture->mips; ++mip) {
             impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
@@ -445,14 +445,14 @@ namespace nova
                 texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, Temp(VkImageBlit {
                     .srcSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, mip - 1, 0, 1 },
-                    .srcOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)mipWidth, (int32_t)mipHeight, 1} },
+                    .srcOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)mip_width, (int32_t)mip_height, 1} },
                     .dstSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, mip, 0, 1 },
-                    .dstOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)std::max(mipWidth / 2, 1), (int32_t)std::max(mipHeight / 2, 1), 1} },
+                    .dstOffsets{ VkOffset3D{}, VkOffset3D{(int32_t)std::max(mip_width / 2, 1), (int32_t)std::max(mip_height / 2, 1), 1} },
                 }),
                 VK_FILTER_LINEAR);
 
-            mipWidth = std::max(mipWidth / 2, 1);
-            mipHeight = std::max(mipHeight / 2, 1);
+            mip_width = std::max(mip_width / 2, 1);
+            mip_height = std::max(mip_height / 2, 1);
         }
 
         impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {

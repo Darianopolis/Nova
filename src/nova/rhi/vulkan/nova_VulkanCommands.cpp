@@ -11,7 +11,7 @@ namespace nova
         vkh::Check(context->vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .queueFamilyIndex = queue->family,
-        }), context->pAlloc, &impl->pool));
+        }), context->alloc, &impl->pool));
 
         return { impl };
     }
@@ -26,7 +26,7 @@ namespace nova
             delete list.impl;
         }
 
-        impl->context->vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->pAlloc);
+        impl->context->vkDestroyCommandPool(impl->context->device, impl->pool, impl->context->alloc);
 
         delete impl;
         impl = nullptr;
@@ -51,19 +51,19 @@ namespace nova
             cmd = impl->lists[impl->index++];
         }
 
-        cmd->usingShaderObjects = impl->context->shaderObjects;
+        cmd->using_shader_objects = impl->context->shader_objects;
 
         vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
         if (impl->queue->flags & VK_QUEUE_GRAPHICS_BIT) {
-            cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Graphics);
+            cmd->context->global_heap.Bind(cmd, nova::BindPoint::Graphics);
         }
         if (impl->queue->flags & VK_QUEUE_COMPUTE_BIT) {
-            cmd->context->globalHeap.Bind(cmd, nova::BindPoint::Compute);
-            if (cmd->context.GetConfig().rayTracing) {
-                cmd->context->globalHeap.Bind(cmd, nova::BindPoint::RayTracing);
+            cmd->context->global_heap.Bind(cmd, nova::BindPoint::Compute);
+            if (cmd->context.GetConfig().ray_tracing) {
+                cmd->context->global_heap.Bind(cmd, nova::BindPoint::RayTracing);
             }
         }
 

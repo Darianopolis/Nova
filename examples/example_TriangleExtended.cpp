@@ -38,10 +38,10 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     NOVA_CLEANUP(&) { swapchain.Destroy(); };
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
-    auto cmdPool = nova::CommandPool::Create(context, queue);
+    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     NOVA_CLEANUP(&) {
-        cmdPool.Destroy();
+        cmd_pool.Destroy();
         fence.Destroy();
     };
 
@@ -67,7 +67,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Shaders
 
-    auto vertexShader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
+    auto vertex_shader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
         nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_buffer_reference2    : require
@@ -91,18 +91,18 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
                 gl_Position = vec4(v.position + pc.offset, 1);
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { vertexShader.Destroy(); };
+    NOVA_CLEANUP(&) { vertex_shader.Destroy(); };
 
-    auto fragmentShader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
+    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
         nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
-            layout(location = 0) in vec3 inColor;
-            layout(location = 0) out vec4 fragColor;
+            layout(location = 0) in vec3 in_color;
+            layout(location = 0) out vec4 frag_color;
 
             void main() {
-                fragColor = vec4(inColor, 1);
+                frag_color = vec4(in_color, 1);
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { fragmentShader.Destroy(); };
+    NOVA_CLEANUP(&) { fragment_shader.Destroy(); };
 
     // Draw
 
@@ -111,8 +111,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
 
-        cmdPool.Reset();
-        auto cmd = cmdPool.Begin();
+        cmd_pool.Reset();
+        auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
@@ -120,7 +120,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
         cmd.SetBlendState({false});
-        cmd.BindShaders({vertexShader, fragmentShader});
+        cmd.BindShaders({vertex_shader, fragment_shader});
 
         cmd.PushConstants(PushConstants {
             .vertices = vertices.GetAddress(),

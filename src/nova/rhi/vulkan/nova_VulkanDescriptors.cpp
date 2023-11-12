@@ -2,23 +2,23 @@
 
 namespace nova
 {
-    void DescriptorHeap::Init(HContext _context, u32 _imageDescriptorCount, u32 _samplerDescriptorCount)
+    void DescriptorHeap::Init(HContext _context, u32 _image_descriptor_count, u32 _sampler_descriptor_count)
     {
         context = _context;
-        imageDescriptorCount = _imageDescriptorCount;
-        samplerDescriptorCount = _samplerDescriptorCount;
+        image_descriptor_count = _image_descriptor_count;
+        sampler_descriptor_count = _sampler_descriptor_count;
 
-        VkDescriptorSetLayoutCreateFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-        if (!context->descriptorBuffers) bindingFlags |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+        VkDescriptorSetLayoutCreateFlags binding_flags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+        if (!context->descriptor_buffers) binding_flags |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
         vkh::Check(context->vkCreateDescriptorSetLayout(context->device, Temp(VkDescriptorSetLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = Temp(VkDescriptorSetLayoutBindingFlagsCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
                 .bindingCount = 3,
-                .pBindingFlags = std::array { bindingFlags, bindingFlags, bindingFlags }.data(),
+                .pBindingFlags = std::array { binding_flags, binding_flags, binding_flags }.data(),
             }),
-            .flags = VkDescriptorSetLayoutCreateFlags(context->descriptorBuffers
+            .flags = VkDescriptorSetLayoutCreateFlags(context->descriptor_buffers
                 ? VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                 : VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT),
             .bindingCount = 3,
@@ -26,48 +26,48 @@ namespace nova
                 VkDescriptorSetLayoutBinding {
                     .binding = 0,
                     .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-                    .descriptorCount = imageDescriptorCount,
+                    .descriptorCount = image_descriptor_count,
                     .stageFlags = VK_SHADER_STAGE_ALL,
                 },
                 VkDescriptorSetLayoutBinding {
                     .binding = 1,
                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                    .descriptorCount = imageDescriptorCount,
+                    .descriptorCount = image_descriptor_count,
                     .stageFlags = VK_SHADER_STAGE_ALL,
                 },
                 VkDescriptorSetLayoutBinding {
                     .binding = 2,
                     .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
-                    .descriptorCount = samplerDescriptorCount,
+                    .descriptorCount = sampler_descriptor_count,
                     .stageFlags = VK_SHADER_STAGE_ALL,
                 },
             }.data(),
-        }), context->pAlloc, &heapLayout));
+        }), context->alloc, &heap_layout));
 
         vkh::Check(context->vkCreatePipelineLayout(context->device, Temp(VkPipelineLayoutCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
-            .pSetLayouts = &heapLayout,
+            .pSetLayouts = &heap_layout,
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = Temp(VkPushConstantRange {
                 .stageFlags = VK_SHADER_STAGE_ALL,
                 .size = 256,
             }),
-        }), context->pAlloc, &pipelineLayout));
+        }), context->alloc, &pipeline_layout));
 
-        if (context->descriptorBuffers) {
+        if (context->descriptor_buffers) {
             VkDeviceSize size;
-            context->vkGetDescriptorSetLayoutSizeEXT(context->device, heapLayout, &size);
+            context->vkGetDescriptorSetLayoutSizeEXT(context->device, heap_layout, &size);
 
-            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heapLayout, 0, &sampledOffset);
-            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heapLayout, 1, &storageOffset);
-            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heapLayout, 2, &samplerOffset);
+            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heap_layout, 0, &sampled_offset);
+            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heap_layout, 1, &storage_offset);
+            context->vkGetDescriptorSetLayoutBindingOffsetEXT(context->device, heap_layout, 2, &sampler_offset);
 
-            sampledStride = context->descriptorSizes.sampledImageDescriptorSize;
-            storageStride = context->descriptorSizes.storageImageDescriptorSize;
-            samplerStride = context->descriptorSizes.samplerDescriptorSize;
+            sampled_stride = context->descriptor_sizes.sampledImageDescriptorSize;
+            storage_stride = context->descriptor_sizes.storageImageDescriptorSize;
+            sampler_stride = context->descriptor_sizes.samplerDescriptorSize;
 
-            descriptorBuffer = nova::Buffer::Create(context, size,
+            descriptor_buffer = nova::Buffer::Create(context, size,
                 nova::BufferUsage::DescriptorResources | nova::BufferUsage::DescriptorSamplers,
                 nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
@@ -78,49 +78,49 @@ namespace nova
                 .maxSets = 1,
                 .poolSizeCount = 3,
                 .pPoolSizes = std::array {
-                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageDescriptorCount },
-                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, imageDescriptorCount },
-                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER, samplerDescriptorCount },
+                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, image_descriptor_count },
+                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, image_descriptor_count },
+                    VkDescriptorPoolSize { VK_DESCRIPTOR_TYPE_SAMPLER, sampler_descriptor_count },
                 }.data(),
-            }), context->pAlloc, &descriptorPool));
+            }), context->alloc, &descriptor_pool));
 
             vkh::Check(context->vkAllocateDescriptorSets(context->device, Temp(VkDescriptorSetAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorPool = descriptorPool,
+                .descriptorPool = descriptor_pool,
                 .descriptorSetCount = 1,
-                .pSetLayouts = &heapLayout,
-            }), &descriptorSet));
+                .pSetLayouts = &heap_layout,
+            }), &descriptor_set));
         }
     }
 
     void DescriptorHeap::Destroy()
     {
-        if (context->descriptorBuffers) {
-            descriptorBuffer.Destroy();
+        if (context->descriptor_buffers) {
+            descriptor_buffer.Destroy();
         } else {
-            context->vkDestroyDescriptorPool(context->device, descriptorPool, context->pAlloc);
+            context->vkDestroyDescriptorPool(context->device, descriptor_pool, context->alloc);
         }
 
-        context->vkDestroyPipelineLayout(context->device, pipelineLayout, context->pAlloc);
-        context->vkDestroyDescriptorSetLayout(context->device, heapLayout, context->pAlloc);
+        context->vkDestroyPipelineLayout(context->device, pipeline_layout, context->alloc);
+        context->vkDestroyDescriptorSetLayout(context->device, heap_layout, context->alloc);
     }
 
-    void DescriptorHeap::Bind(CommandList cmd, BindPoint bindPoint)
+    void DescriptorHeap::Bind(CommandList cmd, BindPoint bind_point)
     {
-        if (context->descriptorBuffers) {
+        if (context->descriptor_buffers) {
             context->vkCmdBindDescriptorBuffersEXT(cmd->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-                .address = descriptorBuffer.GetAddress(),
+                .address = descriptor_buffer.GetAddress(),
                 .usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
                     | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
-            context->vkCmdSetDescriptorBufferOffsetsEXT(cmd->buffer, GetVulkanPipelineBindPoint(bindPoint),
-                pipelineLayout,
+            context->vkCmdSetDescriptorBufferOffsetsEXT(cmd->buffer, GetVulkanPipelineBindPoint(bind_point),
+                pipeline_layout,
                 0, 1, Temp(0u), Temp(0ull));
         } else {
-            context->vkCmdBindDescriptorSets(cmd->buffer, GetVulkanPipelineBindPoint(bindPoint),
-                pipelineLayout, 0,
-                1, &descriptorSet,
+            context->vkCmdBindDescriptorSets(cmd->buffer, GetVulkanPipelineBindPoint(bind_point),
+                pipeline_layout, 0,
+                1, &descriptor_set,
                 0, nullptr);
         }
     }
@@ -131,7 +131,7 @@ namespace nova
 
     void DescriptorHeap::WriteSampled(u32 index, HTexture texture)
     {
-        if (context->descriptorBuffers) {
+        if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
@@ -141,12 +141,12 @@ namespace nova
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 }
-            }), sampledStride, descriptorBuffer.GetMapped() + sampledOffset + sampledStride * index);
+            }), sampled_stride, descriptor_buffer.GetMapped() + sampled_offset + sampled_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, std::array {
                 VkWriteDescriptorSet {
                     .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                    .dstSet = descriptorSet,
+                    .dstSet = descriptor_set,
                     .dstBinding = 0,
                     .dstArrayElement = index,
                     .descriptorCount = 1,
@@ -162,7 +162,7 @@ namespace nova
 
     void DescriptorHeap::WriteStorage(u32 index, HTexture texture)
     {
-        if (context->descriptorBuffers) {
+        if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -172,11 +172,11 @@ namespace nova
                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                     }),
                 }
-            }), storageStride, descriptorBuffer.GetMapped() + storageOffset + storageStride * index);
+            }), storage_stride, descriptor_buffer.GetMapped() + storage_offset + storage_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = descriptorSet,
+                .dstSet = descriptor_set,
                 .dstBinding = 1,
                 .dstArrayElement = index,
                 .descriptorCount = 1,
@@ -195,18 +195,18 @@ namespace nova
 
     void DescriptorHeap::WriteSampler(u32 index, HSampler sampler)
     {
-        if (context->descriptorBuffers) {
+        if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, Temp(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
                 .type = VK_DESCRIPTOR_TYPE_SAMPLER,
                 .data{
                     .pSampler = &sampler->sampler,
                 }
-            }), samplerStride, descriptorBuffer.GetMapped() + samplerOffset + samplerStride * index);
+            }), sampler_stride, descriptor_buffer.GetMapped() + sampler_offset + sampler_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = descriptorSet,
+                .dstSet = descriptor_set,
                 .dstBinding = 2,
                 .dstArrayElement = index,
                 .descriptorCount = 1,

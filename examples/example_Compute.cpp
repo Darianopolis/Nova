@@ -49,14 +49,14 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto fence = nova::Fence::Create(context);
-    auto waitValues = std::array { 0ull, 0ull };
-    auto commandPools = std::array {
+    auto wait_values = std::array { 0ull, 0ull };
+    auto command_pools = std::array {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
     };
     NOVA_CLEANUP(&) {
-        commandPools[0].Destroy();
-        commandPools[1].Destroy();
+        command_pools[0].Destroy();
+        command_pools[1].Destroy();
         fence.Destroy();
     };
 
@@ -69,11 +69,11 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_CLEANUP(&) { texture.Destroy(); };
     {
         int width, height, channels;
-        auto imageData = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
-        NOVA_CLEANUP(&) { stbi_image_free(imageData); };
+        auto image_data = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
+        NOVA_CLEANUP(&) { stbi_image_free(image_data); };
 
         utils::image_u8 image{ u32(width), u32(height) };
-        std::memcpy(image.get_pixels().data(), imageData, width * height * 4);
+        std::memcpy(image.get_pixels().data(), image_data, width * height * 4);
 
         constexpr bool use_bc7 = true;
 
@@ -115,28 +115,28 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    // auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
+    // auto compute_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
     //     nova::hlsl::Compile(nova::ShaderStage::Compute, "main", "", {R"hlsl(
     //         [[vk::binding(0, 0)]] RWTexture2D<float4> RWImage2DF4[];
     //         [[vk::binding(0, 0)]] Texture2D Image2D[];
     //         [[vk::binding(0, 0)]] SamplerState Sampler[];
     //         struct PushConstants {
-    //             uint sampledIdx;
-    //             uint samplerIdx;
-    //             uint  targetIdx;
-    //             float2     size;
+    //             uint sampled_idx;
+    //             uint sampler_idx;
+    //             uint  target_idx;
+    //             float2      size;
     //         };
     //         [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
     //         [numthreads(16, 16, 1)]
     //         void main(uint2 id: SV_DispatchThreadID) {
     //             float2 uv = float2(id) / pc.size;
-    //             float3 source = Image2D[pc.sampledIdx].SampleLevel(Sampler[pc.samplerIdx], uv, 0).rgb;
-    //             RWImage2DF4[pc.targetIdx][id] = float4(source, 1.0);
+    //             float3 source = Image2D[pc.sampled_idx].SampleLevel(Sampler[pc.sampler_idx], uv, 0).rgb;
+    //             RWImage2DF4[pc.target_idx][id] = float4(source, 1.0);
     //         }
     //     )hlsl"}));
-    // NOVA_CLEANUP(&) { computeShader.Destroy(); };
+    // NOVA_CLEANUP(&) { compute_shader.Destroy(); };
 
-    auto computeShader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
+    auto compute_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
         nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_nonuniform_qualifier : require
@@ -149,7 +149,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
             layout(push_constant, scalar) uniform PushConstants {
                 uint image;
-                uint linearSampler;
+                uint linear_sampler;
                 uint target;
                 vec2 size;
             } pc;
@@ -158,40 +158,40 @@ NOVA_EXAMPLE(Compute, "compute")
             void main() {
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
-                vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linearSampler]), uv).rgb;
+                vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv).rgb;
                 imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
             }
         )glsl"}));
-    NOVA_CLEANUP(&) { computeShader.Destroy(); };
+    NOVA_CLEANUP(&) { compute_shader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
 // -----------------------------------------------------------------------------
 
-    auto lastTime = std::chrono::steady_clock::now();
+    auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
     NOVA_CLEANUP(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
 
         // Debug output statistics
         int fif = frames++ % 2;
-        auto newTime = std::chrono::steady_clock::now();
-        if (newTime - lastTime > 1s) {
+        auto new_time = std::chrono::steady_clock::now();
+        if (new_time - last_time > 1s) {
             NOVA_LOG("Frametime = {:.3f} ({} fps)", 1e6 / frames, frames);
-            lastTime = std::chrono::steady_clock::now();
+            last_time = std::chrono::steady_clock::now();
             frames = 0;
         }
 
         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait(waitValues[fif]);
+        fence.Wait(wait_values[fif]);
         queue.Acquire({swapchain}, {fence});
         auto target = swapchain.GetCurrent();
 
         // Start new command buffer
 
-        commandPools[fif].Reset();
-        auto cmd = commandPools[fif].Begin();
+        command_pools[fif].Reset();
+        auto cmd = command_pools[fif].Begin();
 
         // Transition ready for writing compute output
 
@@ -207,7 +207,7 @@ NOVA_EXAMPLE(Compute, "compute")
             .target = swapchain.GetCurrent().GetDescriptor(),
             .size = Vec2(swapchain.GetExtent()),
         });
-        cmd.BindShaders({computeShader});
+        cmd.BindShaders({compute_shader});
         cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
 
         // Submit and present work
@@ -220,6 +220,6 @@ NOVA_EXAMPLE(Compute, "compute")
 
         glfwPollEvents();
 
-        waitValues[fif] = fence.GetPendingValue();
+        wait_values[fif] = fence.GetPendingValue();
     }
 }

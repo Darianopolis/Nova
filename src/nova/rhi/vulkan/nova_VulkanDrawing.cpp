@@ -2,80 +2,80 @@
 
 namespace nova
 {
-    void CommandList::BeginRendering(Rect2D region, Span<HTexture> colorAttachments, HTexture depthAttachment, HTexture stencilAttachment) const
+    void CommandList::BeginRendering(Rect2D region, Span<HTexture> color_attachments, HTexture depth_attachment, HTexture stencil_attachment) const
     {
-        impl->colorAttachmentsFormats.resize(colorAttachments.size());
+        impl->color_attachments_formats.resize(color_attachments.size());
 
-        auto colorAttachmentInfos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, colorAttachments.size());
-        for (u32 i = 0; i < colorAttachments.size(); ++i) {
-            auto texture = colorAttachments[i];
+        auto color_attachment_infos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, color_attachments.size());
+        for (u32 i = 0; i < color_attachments.size(); ++i) {
+            auto texture = color_attachments[i];
 
-            impl->Transition(colorAttachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            impl->Transition(color_attachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            colorAttachmentInfos[i] = VkRenderingAttachmentInfo {
+            color_attachment_infos[i] = VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                 .imageView = texture->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
 
-            impl->colorAttachmentsFormats[i] = colorAttachments[i]->format;
+            impl->color_attachments_formats[i] = color_attachments[i]->format;
         }
 
         VkRenderingInfo info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
             .renderArea = { { region.offset.x, region.offset.y }, { region.extent.x, region.extent.y } },
             .layerCount = 1,
-            .colorAttachmentCount = u32(colorAttachments.size()),
-            .pColorAttachments = colorAttachmentInfos,
+            .colorAttachmentCount = u32(color_attachments.size()),
+            .pColorAttachments = color_attachment_infos,
         };
 
-        VkRenderingAttachmentInfo depthInfo = {};
-        VkRenderingAttachmentInfo stencilInfo = {};
+        VkRenderingAttachmentInfo depth_info = {};
+        VkRenderingAttachmentInfo stencil_info = {};
 
-        if (depthAttachment == stencilAttachment) {
-            if (depthAttachment) {
-                impl->Transition(depthAttachment,
+        if (depth_attachment == stencil_attachment) {
+            if (depth_attachment) {
+                impl->Transition(depth_attachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
-                depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                depthInfo.imageView = depthAttachment->view;
-                depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                depth_info.imageView = depth_attachment->view;
+                depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-                info.pDepthAttachment = &depthInfo;
-                info.pStencilAttachment = &depthInfo;
+                info.pDepthAttachment = &depth_info;
+                info.pStencilAttachment = &depth_info;
 
-                impl->depthAttachmentFormat = depthAttachment->format;
-                impl->stencilAttachmentFormat = stencilAttachment->format;
+                impl->depth_attachment_format = depth_attachment->format;
+                impl->stencil_attachment_format = stencil_attachment->format;
             }
         } else {
-            if (depthAttachment) {
-                impl->Transition(depthAttachment,
+            if (depth_attachment) {
+                impl->Transition(depth_attachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
-                depthInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                depthInfo.imageView = depthAttachment->view;
-                depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+                depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                depth_info.imageView = depth_attachment->view;
+                depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
-                info.pDepthAttachment = &depthInfo;
+                info.pDepthAttachment = &depth_info;
 
-                impl->depthAttachmentFormat = depthAttachment->format;
+                impl->depth_attachment_format = depth_attachment->format;
             }
 
-            if (stencilAttachment) {
-                impl->Transition(stencilAttachment,
+            if (stencil_attachment) {
+                impl->Transition(stencil_attachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
-                stencilInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                stencilInfo.imageView = stencilAttachment->view;
-                stencilInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+                stencil_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                stencil_info.imageView = stencil_attachment->view;
+                stencil_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
-                info.pStencilAttachment = &stencilInfo;
+                info.pStencilAttachment = &stencil_info;
 
-                impl->stencilAttachmentFormat = stencilAttachment->format;
+                impl->stencil_attachment_format = stencil_attachment->format;
             }
         }
 
@@ -87,9 +87,9 @@ namespace nova
         impl->context->vkCmdEndRendering(impl->buffer);
     }
 
-    void CommandList::BindIndexBuffer(HBuffer indexBuffer, IndexType indexType, u64 offset) const
+    void CommandList::BindIndexBuffer(HBuffer index_buffer, IndexType index_type, u64 offset) const
     {
-        impl->context->vkCmdBindIndexBuffer(impl->buffer, indexBuffer->buffer, offset, GetVulkanIndexType(indexType));
+        impl->context->vkCmdBindIndexBuffer(impl->buffer, index_buffer->buffer, offset, GetVulkanIndexType(index_type));
     }
 
     void CommandList::ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset) const
@@ -143,10 +143,10 @@ namespace nova
 //                                  Draw
 // -----------------------------------------------------------------------------
 
-    void CommandList::Draw(u32 vertices, u32 instances, u32 firstVertex, u32 firstInstance) const
+    void CommandList::Draw(u32 vertices, u32 instances, u32 first_vertex, u32 first_instance) const
     {
         impl->EnsureGraphicsState();
-        impl->context->vkCmdDraw(impl->buffer, vertices, instances, firstVertex, firstInstance);
+        impl->context->vkCmdDraw(impl->buffer, vertices, instances, first_vertex, first_instance);
     }
 
     void CommandList::DrawIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const
@@ -155,20 +155,20 @@ namespace nova
         impl->context->vkCmdDrawIndirect(impl->buffer, buffer->buffer, offset, count, stride);
     }
 
-    void CommandList::DrawIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    void CommandList::DrawIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const
     {
         impl->EnsureGraphicsState();
-        impl->context->vkCmdDrawIndirectCount(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
+        impl->context->vkCmdDrawIndirectCount(impl->buffer, commands->buffer, command_offset, count->buffer, count_offset, max_count, stride);
     }
 
 // -----------------------------------------------------------------------------
 //                              Draw Indexed
 // -----------------------------------------------------------------------------
 
-    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 firstIndex, u32 vertexOffset, u32 firstInstance) const
+    void CommandList::DrawIndexed(u32 indices, u32 instances, u32 first_index, u32 vertex_offset, u32 first_instance) const
     {
         impl->EnsureGraphicsState();
-        impl->context->vkCmdDrawIndexed(impl->buffer, indices, instances, firstIndex, vertexOffset, firstInstance);
+        impl->context->vkCmdDrawIndexed(impl->buffer, indices, instances, first_index, vertex_offset, first_instance);
     }
 
     void CommandList::DrawIndexedIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const
@@ -177,10 +177,10 @@ namespace nova
         impl->context->vkCmdDrawIndexedIndirect(impl->buffer, buffer->buffer, offset, count, stride);
     }
 
-    void CommandList::DrawIndexedIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    void CommandList::DrawIndexedIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const
     {
         impl->EnsureGraphicsState();
-        impl->context->vkCmdDrawIndexedIndirectCount(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
+        impl->context->vkCmdDrawIndexedIndirectCount(impl->buffer, commands->buffer, command_offset, count->buffer, count_offset, max_count, stride);
     }
 
 // -----------------------------------------------------------------------------
@@ -199,9 +199,9 @@ namespace nova
         impl->context->vkCmdDrawMeshTasksIndirectEXT(impl->buffer, buffer->buffer, offset, count, stride);
     }
 
-    void CommandList::DrawMeshTasksIndirectCount(HBuffer commands, u64 commandOffset, HBuffer count, u64 countOffset, u32 maxCount, u32 stride) const
+    void CommandList::DrawMeshTasksIndirectCount(HBuffer commands, u64 command_offset, HBuffer count, u64 count_offset, u32 max_count, u32 stride) const
     {
         impl->EnsureGraphicsState();
-        impl->context->vkCmdDrawMeshTasksIndirectCountEXT(impl->buffer, commands->buffer, commandOffset, count->buffer, countOffset, maxCount, stride);
+        impl->context->vkCmdDrawMeshTasksIndirectCountEXT(impl->buffer, commands->buffer, command_offset, count->buffer, count_offset, max_count, stride);
     }
 }

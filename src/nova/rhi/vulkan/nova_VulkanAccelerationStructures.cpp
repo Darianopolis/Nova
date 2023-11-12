@@ -11,18 +11,18 @@ namespace nova
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
-        }), context->pAlloc, &impl->queryPool));
+        }), context->alloc, &impl->query_pool));
 
         return { impl };
     }
 
     static
-    void EnsureGeometries(AccelerationStructureBuilder builder, u32 geometryIndex)
+    void EnsureGeometries(AccelerationStructureBuilder builder, u32 geometry_index)
     {
-        if (geometryIndex >= builder->geometries.size()) {
-            builder->geometries.resize(geometryIndex + 1);
-            builder->ranges.resize(geometryIndex + 1);
-            builder->primitiveCounts.resize(geometryIndex + 1);
+        if (geometry_index >= builder->geometries.size()) {
+            builder->geometries.resize(geometry_index + 1);
+            builder->ranges.resize(geometry_index + 1);
+            builder->primitive_counts.resize(geometry_index + 1);
         }
     }
 
@@ -32,65 +32,65 @@ namespace nova
             return;
         }
 
-        impl->context->vkDestroyQueryPool(impl->context->device, impl->queryPool, impl->context->pAlloc);
+        impl->context->vkDestroyQueryPool(impl->context->device, impl->query_pool, impl->context->alloc);
 
         delete impl;
         impl = nullptr;
     }
 
-    void AccelerationStructureBuilder::SetInstances(u32 geometryIndex, u64 deviceAddress, u32 count) const
+    void AccelerationStructureBuilder::SetInstances(u32 geometry_index, u64 device_address, u32 count) const
     {
-        EnsureGeometries(*this, geometryIndex);
+        EnsureGeometries(*this, geometry_index);
 
-        auto& instances = impl->geometries[geometryIndex];
+        auto& instances = impl->geometries[geometry_index];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         instances.geometry.instances = {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,
-            .data = {{ deviceAddress }},
+            .data = {{ device_address }},
         };
 
-        auto& range = impl->ranges[geometryIndex];
+        auto& range = impl->ranges[geometry_index];
         range.primitiveCount = count;
 
-        impl->primitiveCounts[geometryIndex] = count;
-        impl->sizeDirty = true;
+        impl->primitive_counts[geometry_index] = count;
+        impl->size_dirty = true;
     }
 
-    void AccelerationStructureBuilder::SetTriangles(u32 geometryIndex,
-        u64 vertexAddress, Format vertexFormat, u32 vertexStride, u32 maxVertex,
-        u64 indexAddress, IndexType indexType, u32 triangleCount) const
+    void AccelerationStructureBuilder::SetTriangles(u32 geometry_index,
+        u64 vertex_address, Format vertex_format, u32 vertex_stride, u32 max_vertex,
+        u64 index_address, IndexType index_type, u32 triangle_count) const
     {
-        EnsureGeometries(*this, geometryIndex);
+        EnsureGeometries(*this, geometry_index);
 
-        auto& instances = impl->geometries[geometryIndex];
+        auto& instances = impl->geometries[geometry_index];
         instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         instances.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         instances.geometry.triangles = {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
-            .vertexFormat = GetVulkanFormat(vertexFormat).vkFormat,
-            .vertexData = {{ vertexAddress }},
-            .vertexStride = vertexStride,
-            .maxVertex = maxVertex,
-            .indexType = GetVulkanIndexType(indexType),
-            .indexData = {{ indexAddress }},
+            .vertexFormat = GetVulkanFormat(vertex_format).vk_format,
+            .vertexData = {{ vertex_address }},
+            .vertexStride = vertex_stride,
+            .maxVertex = max_vertex,
+            .indexType = GetVulkanIndexType(index_type),
+            .indexData = {{ index_address }},
         };
 
-        auto& range = impl->ranges[geometryIndex];
-        range.primitiveCount = triangleCount;
+        auto& range = impl->ranges[geometry_index];
+        range.primitiveCount = triangle_count;
 
-        impl->primitiveCounts[geometryIndex] = triangleCount;
-        impl->sizeDirty = true;
+        impl->primitive_counts[geometry_index] = triangle_count;
+        impl->size_dirty = true;
     }
 
     void AccelerationStructureBuilder::Prepare(AccelerationStructureType _type, AccelerationStructureFlags _flags,
-        u32 _geometryCount, u32 _firstGeometry) const
+        u32 _geometry_count, u32 _first_geometry) const
     {
         impl->type = GetVulkanAccelStructureType(_type);
         impl->flags = GetVulkanAccelStructureBuildFlags(_flags);
-        impl->geometryCount = _geometryCount;
-        impl->firstGeometry = _firstGeometry;
-        impl->sizeDirty = true;
+        impl->geometry_count = _geometry_count;
+        impl->first_geometry = _first_geometry;
+        impl->size_dirty = true;
     }
 
     u32 AccelerationStructureBuilder::GetInstanceSize() const
@@ -99,35 +99,35 @@ namespace nova
     }
 
     void AccelerationStructureBuilder::WriteInstance(
-        void* bufferAddress, u32 index,
+        void* buffer_address, u32 index,
         HAccelerationStructure structure,
         const Mat4& M,
-        u32 customIndex, u8 mask,
-        u32 sbtOffset, GeometryInstanceFlags geomFlags) const
+        u32 custom_index, u8 mask,
+        u32 sbt_offset, GeometryInstanceFlags geom_flags) const
     {
-        VkGeometryInstanceFlagsKHR vkFlags = 0;
+        VkGeometryInstanceFlagsKHR vk_flags = 0;
 
-        if (geomFlags >= GeometryInstanceFlags::TriangleCullCounterClockwise) {
-            vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
+        if (geom_flags >= GeometryInstanceFlags::TriangleCullCounterClockwise) {
+            vk_flags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR;
 
-        } else if (!(geomFlags >= GeometryInstanceFlags::TriangleCullClockwise)) {
-            vkFlags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        } else if (!(geom_flags >= GeometryInstanceFlags::TriangleCullClockwise)) {
+            vk_flags |= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
         }
 
-        if (geomFlags >= GeometryInstanceFlags::InstanceForceOpaque) {
-            vkFlags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+        if (geom_flags >= GeometryInstanceFlags::InstanceForceOpaque) {
+            vk_flags |= VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
         }
 
-        static_cast<VkAccelerationStructureInstanceKHR*>(bufferAddress)[index] = {
+        static_cast<VkAccelerationStructureInstanceKHR*>(buffer_address)[index] = {
             .transform = {
                 M[0][0], M[1][0], M[2][0], M[3][0],
                 M[0][1], M[1][1], M[2][1], M[3][1],
                 M[0][2], M[1][2], M[2][2], M[3][2],
             },
-            .instanceCustomIndex = customIndex,
+            .instanceCustomIndex = custom_index,
             .mask = mask,
-            .instanceShaderBindingTableRecordOffset = sbtOffset,
-            .flags = vkFlags,
+            .instanceShaderBindingTableRecordOffset = sbt_offset,
+            .flags = vk_flags,
             .accelerationStructureReference = structure.Unwrap().GetAddress(),
         };
     }
@@ -135,7 +135,7 @@ namespace nova
     static
     void EnsureSizes(HContext context, AccelerationStructureBuilder builder)
     {
-        if (!builder->sizeDirty) {
+        if (!builder->size_dirty) {
             return;
         }
 
@@ -148,41 +148,41 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = builder->type,
                 .flags = builder->flags,
-                .geometryCount = builder->geometryCount,
-                .pGeometries = builder->geometries.data() + builder->firstGeometry,
-            }), builder->primitiveCounts.data(), &sizes);
+                .geometryCount = builder->geometry_count,
+                .pGeometries = builder->geometries.data() + builder->first_geometry,
+            }), builder->primitive_counts.data(), &sizes);
 
-        builder->buildSize = sizes.accelerationStructureSize;
+        builder->build_size = sizes.accelerationStructureSize;
 
-        u64 scratchAlign = context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-        builder->updateScratchSize = sizes.updateScratchSize + scratchAlign;
-        builder->buildScratchSize = sizes.buildScratchSize + scratchAlign;
+        u64 scratch_align = context->accel_structure_properties.minAccelerationStructureScratchOffsetAlignment;
+        builder->update_scratch_size = sizes.updateScratchSize + scratch_align;
+        builder->build_scratch_size = sizes.buildScratchSize + scratch_align;
 
-        builder->sizeDirty = false;
+        builder->size_dirty = false;
     }
 
     u64 AccelerationStructureBuilder::GetBuildSize() const
     {
         EnsureSizes(impl->context, *this);
-        return impl->buildSize;
+        return impl->build_size;
     }
 
     u64 AccelerationStructureBuilder::GetBuildScratchSize() const
     {
         EnsureSizes(impl->context, *this);
-        return impl->buildScratchSize;
+        return impl->build_scratch_size;
     }
 
     u64 AccelerationStructureBuilder::GetUpdateScratchSize() const
     {
         EnsureSizes(impl->context, *this);
-        return impl->updateScratchSize;
+        return impl->update_scratch_size;
     }
 
     u64 AccelerationStructureBuilder::GetCompactSize() const
     {
         VkDeviceSize size;
-        vkh::Check(impl->context->vkGetQueryPoolResults(impl->context->device, impl->queryPool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
+        vkh::Check(impl->context->vkGetQueryPoolResults(impl->context->device, impl->query_pool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
         return size;
     }
 
@@ -192,8 +192,8 @@ namespace nova
     {
         auto impl = new Impl;
         impl->context = context;
-        impl->ownBuffer = !buffer;
-        if (impl->ownBuffer) {
+        impl->own_buffer = !buffer;
+        if (impl->own_buffer) {
             impl->buffer = Buffer::Create(context, size, nova::BufferUsage::AccelStorage, nova::BufferFlags::DeviceLocal);
         } else {
             impl->buffer = buffer;
@@ -205,7 +205,7 @@ namespace nova
             .offset = offset,
             .size = impl->buffer->size,
             .type = GetVulkanAccelStructureType(type),
-        }), context->pAlloc, &impl->structure));
+        }), context->alloc, &impl->structure));
 
         impl->address = context->vkGetAccelerationStructureDeviceAddressKHR(
             context->device,
@@ -223,8 +223,8 @@ namespace nova
             return;
         }
 
-        impl->context->vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->pAlloc);
-        if (impl->ownBuffer) {
+        impl->context->vkDestroyAccelerationStructureKHR(impl->context->device, impl->structure, impl->context->alloc);
+        if (impl->own_buffer) {
             impl->buffer.Destroy();
         }
 
@@ -241,7 +241,7 @@ namespace nova
     {
         bool compact = builder->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
         if (compact) {
-            impl->context->vkCmdResetQueryPool(impl->buffer, builder->queryPool, 0, 1);
+            impl->context->vkCmdResetQueryPool(impl->buffer, builder->query_pool, 0, 1);
         }
 
         impl->context->vkCmdBuildAccelerationStructuresKHR(
@@ -251,10 +251,10 @@ namespace nova
                 .type = builder->type,
                 .flags = builder->flags,
                 .dstAccelerationStructure = structure->structure,
-                .geometryCount = builder->geometryCount,
-                .pGeometries = builder->geometries.data() + builder->firstGeometry,
+                .geometryCount = builder->geometry_count,
+                .pGeometries = builder->geometries.data() + builder->first_geometry,
                 .scratchData = {{ AlignUpPower2(scratch->address,
-                    impl->context->accelStructureProperties.minAccelerationStructureScratchOffsetAlignment) }},
+                    impl->context->accel_structure_properties.minAccelerationStructureScratchOffsetAlignment) }},
             }), Temp(builder->ranges.data()));
 
 
@@ -272,7 +272,7 @@ namespace nova
             impl->context->vkCmdWriteAccelerationStructuresPropertiesKHR(impl->buffer,
                 1, &structure->structure,
                 VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
-                builder->queryPool, 0);
+                builder->query_pool, 0);
         }
     }
 
