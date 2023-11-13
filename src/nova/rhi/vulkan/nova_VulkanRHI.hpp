@@ -2,9 +2,13 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
-#include <nova/core/nova_SubAllocation.hpp>
-
 #define VK_NO_PROTOTYPES
+#ifndef NOMINMAX
+#  define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+#endif
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>

@@ -3,6 +3,8 @@
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Ref.hpp>
 #include <nova/core/nova_Math.hpp>
+#include <nova/core/nova_Containers.hpp>
+#include <nova/core/nova_Flags.hpp>
 
 namespace nova
 {
@@ -25,7 +27,6 @@ namespace nova
     using HBuffer = Handle<struct Buffer>;
     using HCommandList = Handle<struct CommandList>;
     using HCommandPool = Handle<struct CommandPool>;
-    // using HDescriptorHeap = Handle<struct DescriptorHeap>;
     using HFence = Handle<struct Fence>;
     using HQueue = Handle<struct Queue>;
     using HSampler = Handle<struct Sampler>;

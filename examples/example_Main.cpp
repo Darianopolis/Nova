@@ -1,5 +1,7 @@
 #include "example_Main.hpp"
 
+#include <nova/core/nova_Debug.hpp>
+
 std::vector<ExampleListing>& GetExamples()
 {
     static std::vector<ExampleListing> examples;

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_SubAllocation.hpp>
 
 #include <imgui.h>
 #include <GLFW/glfw3.h>

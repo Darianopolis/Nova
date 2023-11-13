@@ -52,37 +52,7 @@ namespace nova
     };
 
     namespace files {
-        inline
-        std::vector<char> ReadBinaryFile(std::string_view filename)
-        {
-            std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
-            if (!file.is_open()) {
-                throw std::runtime_error("Failed to open file");
-            }
-
-            auto file_size = size_t(file.tellg());
-            std::vector<char> buffer(file_size);
-
-            file.seekg(0);
-            file.read(buffer.data(), file_size);
-
-            file.close();
-            return buffer;
-        }
-
-        inline
-        std::string ReadTextFile(std::string_view filename)
-        {
-            std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
-            if (!file.is_open()) {
-                throw std::runtime_error("Failed to open file");
-            }
-
-            std::string output;
-            output.reserve((size_t)file.tellg());
-            file.seekg(0);
-            output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-            return output;
-        }
+        std::vector<char> ReadBinaryFile(std::string_view filename);
+        std::string ReadTextFile(std::string_view filename);
     }
 }

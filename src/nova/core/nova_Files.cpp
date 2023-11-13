@@ -1,5 +1,7 @@
 #include "nova_Files.hpp"
 
+#include "nova_Debug.hpp"
+
 namespace nova
 {
     File::File(const char* path, bool write)
@@ -33,5 +35,38 @@ namespace nova
     int64_t File::GetOffset()
     {
         return ftell(file);
+    }
+
+// -----------------------------------------------------------------------------
+
+    std::vector<char> files::ReadBinaryFile(std::string_view filename)
+    {
+        std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file");
+        }
+
+        auto file_size = size_t(file.tellg());
+        std::vector<char> buffer(file_size);
+
+        file.seekg(0);
+        file.read(buffer.data(), file_size);
+
+        file.close();
+        return buffer;
+    }
+
+    std::string files::ReadTextFile(std::string_view filename)
+    {
+        std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file");
+        }
+
+        std::string output;
+        output.reserve((size_t)file.tellg());
+        file.seekg(0);
+        output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        return output;
     }
 }

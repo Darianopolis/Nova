@@ -1,22 +1,6 @@
-[X] Remove volk dependency
-[X] Remove mandatory mimalloc dependency
-[X] Change descriptor set layouts
-    [X] drop texel buffers and bindless uniforms
-    [X] 3 layouts
-        sampled images
-        storage images
-        samplers
-    [X] Drop DescriptorHeaps from API, "true bindless" textures/samplers
-[ ] Separate components into different sub-projects
-    [ ] nova-math
-    [ ] nova-containers?
-    [ ] nova-jobs
-    [ ] nova-io (files + json)
 [ ] Rename rhi/gpu/gpgpu?
 [ ] Add nova-window
-[ ] Sequester Windows.h (possibly lock behind nova-os/novs-window)
 [ ] pch
-[ ] Tidy up includes
 [ ] Add graphics utilities?
     [ ] BCn encoding/decoding
     [ ] Mipmap generation

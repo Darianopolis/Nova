@@ -4,11 +4,11 @@
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 #include <nova/rhi/vulkan/hlsl/nova_VulkanHlsl.hpp>
 
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-
 #include <nova/core/nova_Guards.hpp>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
@@ -117,28 +117,31 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    // auto compute_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
-    //     nova::hlsl::Compile(nova::ShaderStage::Compute, "main", "", {R"hlsl(
-    //         [[vk::binding(0, 0)]] RWTexture2D<float4> RWImage2DF4[];
-    //         [[vk::binding(0, 0)]] Texture2D Image2D[];
-    //         [[vk::binding(0, 0)]] SamplerState Sampler[];
-    //         struct PushConstants {
-    //             uint sampled_idx;
-    //             uint sampler_idx;
-    //             uint  target_idx;
-    //             float2      size;
-    //         };
-    //         [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
-    //         [numthreads(16, 16, 1)]
-    //         void main(uint2 id: SV_DispatchThreadID) {
-    //             float2 uv = float2(id) / pc.size;
-    //             float3 source = Image2D[pc.sampled_idx].SampleLevel(Sampler[pc.sampler_idx], uv, 0).rgb;
-    //             RWImage2DF4[pc.target_idx][id] = float4(source, 1.0);
-    //         }
-    //     )hlsl"}));
-    // NOVA_DEFER(&) { compute_shader.Destroy(); };
+    auto hlsl_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
+        nova::hlsl::Compile(nova::ShaderStage::Compute, "main", "", {R"hlsl(
+            [[vk::binding(0, 0)]] Texture2D               Image2D[];
+            [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
+            [[vk::binding(2, 0)]] SamplerState            Sampler[];
 
-    auto compute_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
+            struct PushConstants {
+                uint          image;
+                uint linear_sampler;
+                uint         target;
+                float2         size;
+            };
+
+            [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+
+            [numthreads(16, 16, 1)]
+            void main(uint2 id: SV_DispatchThreadID) {
+                float2 uv = float2(id) / pc.size;
+                float3 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0).rgb;
+                RWImage2DF4[pc.target][id] = float4(source, 1.0);
+            }
+        )hlsl"}));
+    NOVA_DEFER(&) { hlsl_shader.Destroy(); };
+
+    auto glsl_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
         nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_nonuniform_qualifier : require
@@ -147,13 +150,13 @@ NOVA_EXAMPLE(Compute, "compute")
 
             layout(set = 0, binding = 0) uniform texture2D Image2D[];
             layout(set = 0, binding = 1) uniform image2D RWImage2D[];
-            layout(set = 0, binding = 2) uniform sampler Sampler[];
+            layout(set = 0, binding = 2) uniform sampler   Sampler[];
 
             layout(push_constant, scalar) uniform PushConstants {
-                uint image;
+                uint          image;
                 uint linear_sampler;
-                uint target;
-                vec2 size;
+                uint         target;
+                vec2           size;
             } pc;
 
             layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
@@ -164,25 +167,32 @@ NOVA_EXAMPLE(Compute, "compute")
                 imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
             }
         )glsl"}));
-    NOVA_DEFER(&) { compute_shader.Destroy(); };
+    NOVA_DEFER(&) { glsl_shader.Destroy(); };
+
+    // Alternate shaders each frame
+
+    nova::Shader shaders[] = { glsl_shader, hlsl_shader };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
 // -----------------------------------------------------------------------------
 
     auto last_time = std::chrono::steady_clock::now();
-    auto frames = 0;
+    u64 frame_index = 0;
+    u64 frames = 0;
     NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
 
         // Debug output statistics
-        int fif = frames++ % 2;
+        frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
             NOVA_LOG("Frametime = {:.3f} ({} fps)", 1e6 / frames, frames);
             last_time = std::chrono::steady_clock::now();
             frames = 0;
         }
+
+        u32 fif = frame_index++ % 2;
 
         // Wait for previous frame and acquire new swapchain image
 
@@ -209,7 +219,7 @@ NOVA_EXAMPLE(Compute, "compute")
             .target = swapchain.GetCurrent().GetDescriptor(),
             .size = Vec2(swapchain.GetExtent()),
         });
-        cmd.BindShaders({compute_shader});
+        cmd.BindShaders({shaders[frame_index % 2]});
         cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
 
         // Submit and present work

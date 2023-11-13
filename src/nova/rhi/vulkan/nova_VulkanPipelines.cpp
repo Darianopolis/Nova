@@ -85,6 +85,7 @@ namespace nova
                     }),
                     .basePipelineIndex = -1,
                 }), context->alloc, &pipeline));
+
             auto dur = std::chrono::steady_clock::now() - start;
             if (context->config.trace) {
                 NOVA_LOG("Compiled new graphics vertex input    stage permutation in {}",
@@ -149,6 +150,7 @@ namespace nova
                     .layout = context->global_heap.pipeline_layout,
                     .basePipelineIndex = -1,
                 }), context->alloc, &pipeline));
+
             auto dur = std::chrono::steady_clock::now() - start;
             if (context->config.trace) {
                 NOVA_LOG("Compiled new graphics pre-raster      stage permutation in {}",
@@ -201,6 +203,7 @@ namespace nova
                     .layout = context->global_heap.pipeline_layout,
                     .basePipelineIndex = -1,
                 }), context->alloc, &pipeline));
+
             auto dur = std::chrono::steady_clock::now() - start;
             if (context->config.trace) {
                 NOVA_LOG("Compiled new graphics fragment shader stage permutation in {}",
@@ -230,8 +233,8 @@ namespace nova
         auto pipeline = context->fragment_output_stages[key];
 
         if (!pipeline) {
-            // Blend states
 
+            // Blend states
             auto attach_blend_states = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
 
             for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
@@ -294,6 +297,7 @@ namespace nova
                     }),
                     .basePipelineIndex = -1,
                 }), context->alloc, &pipeline));
+
             auto dur = std::chrono::steady_clock::now() - start;
             if (context->config.trace) {
                 NOVA_LOG("Compiled new graphics fragment output stage permutation in {}",
@@ -330,6 +334,7 @@ namespace nova
                     .layout = context->global_heap.pipeline_layout,
                     .basePipelineIndex = -1,
                 }), context->alloc, &pipeline));
+
             auto dur = std::chrono::steady_clock::now() - start;
             if (context->config.trace) {
                 NOVA_LOG("Linked new graphics library set permutation in {}",
