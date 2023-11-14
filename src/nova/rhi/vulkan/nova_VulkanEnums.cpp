@@ -22,16 +22,16 @@ namespace nova
         return out;
     }
 
-    VkImageUsageFlags GetVulkanImageUsage(TextureUsage usage)
+    VkImageUsageFlags GetVulkanImageUsage(ImageUsage usage)
     {
         VkImageUsageFlags out = 0;
 
-        if (usage >= TextureUsage::TransferSrc)        { out |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT; }
-        if (usage >= TextureUsage::TransferDst)        { out |= VK_IMAGE_USAGE_TRANSFER_DST_BIT; }
-        if (usage >= TextureUsage::Sampled)            { out |= VK_IMAGE_USAGE_SAMPLED_BIT; }
-        if (usage >= TextureUsage::Storage)            { out |= VK_IMAGE_USAGE_STORAGE_BIT; }
-        if (usage >= TextureUsage::ColorAttach)        { out |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; }
-        if (usage >= TextureUsage::DepthStencilAttach) { out |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; }
+        if (usage >= ImageUsage::TransferSrc)        { out |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT; }
+        if (usage >= ImageUsage::TransferDst)        { out |= VK_IMAGE_USAGE_TRANSFER_DST_BIT; }
+        if (usage >= ImageUsage::Sampled)            { out |= VK_IMAGE_USAGE_SAMPLED_BIT; }
+        if (usage >= ImageUsage::Storage)            { out |= VK_IMAGE_USAGE_STORAGE_BIT; }
+        if (usage >= ImageUsage::ColorAttach)        { out |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; }
+        if (usage >= ImageUsage::DepthStencilAttach) { out |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; }
 
         return out;
     }
@@ -208,8 +208,8 @@ namespace nova
     VkDescriptorType GetVulkanDescriptorType(DescriptorType type)
     {
         switch (type) {
-        break;case DescriptorType::SampledTexture:        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        break;case DescriptorType::StorageTexture:        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        break;case DescriptorType::SampledImage:        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        break;case DescriptorType::StorageImage:        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         break;case DescriptorType::Uniform:               return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         break;case DescriptorType::Storage:               return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         break;case DescriptorType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
@@ -305,16 +305,16 @@ namespace nova
         return out;
     };
 
-    VkImageLayout GetVulkanImageLayout(TextureLayout layout)
+    VkImageLayout GetVulkanImageLayout(ImageLayout layout)
     {
         switch (layout) {
-        break;case TextureLayout::Sampled:                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        break;case TextureLayout::GeneralImage:           return VK_IMAGE_LAYOUT_GENERAL;
-        break;case TextureLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        break;case TextureLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        break;case TextureLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        break;case ImageLayout::Sampled:                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        break;case ImageLayout::GeneralImage:           return VK_IMAGE_LAYOUT_GENERAL;
+        break;case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        break;case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        break;case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         }
 
-        NOVA_THROW("Unknown TextureLayout: {}", u32(layout));
+        NOVA_THROW("Unknown ImageLayout: {}", u32(layout));
     }
 }

@@ -33,8 +33,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     NOVA_DEFER(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
-        nova::TextureUsage::ColorAttach
-        | nova::TextureUsage::TransferDst,
+        nova::ImageUsage::ColorAttach
+        | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 

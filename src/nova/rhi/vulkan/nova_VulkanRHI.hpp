@@ -109,7 +109,7 @@ namespace nova
         bool graphics_state_dirty = false;
 
         void EnsureGraphicsState();
-        void Transition(HTexture, VkImageLayout, VkPipelineStageFlags2);
+        void Transition(HImage, VkImageLayout, VkPipelineStageFlags2);
     };
 
     template<>
@@ -117,15 +117,15 @@ namespace nova
     {
         Context context = {};
 
-        VkSurfaceKHR           surface = {};
-        VkSwapchainKHR       swapchain = {};
-        VkSurfaceFormatKHR      format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
-        TextureUsage             usage = {};
-        PresentMode       present_mode = PresentMode::Fifo;
-        std::vector<Texture>  textures = {};
-        uint32_t                 index = UINT32_MAX;
-        VkExtent2D              extent = { 0, 0 };
-        bool                   invalid = false;
+        VkSurfaceKHR       surface = {};
+        VkSwapchainKHR   swapchain = {};
+        VkSurfaceFormatKHR  format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        ImageUsage           usage = {};
+        PresentMode   present_mode = PresentMode::Fifo;
+        std::vector<Image>  images = {};
+        uint32_t             index = UINT32_MAX;
+        VkExtent2D          extent = { 0, 0 };
+        bool               invalid = false;
 
         std::vector<VkSemaphore> semaphores = {};
         u32                 semaphore_index = 0;
@@ -160,8 +160,8 @@ namespace nova
 
         void Bind(CommandList cmd, BindPoint bind_point);
 
-        void WriteStorage(u32 index, HTexture texture);
-        void WriteSampled(u32 index, HTexture texture);
+        void WriteStorage(u32 index, HImage image);
+        void WriteSampled(u32 index, HImage image);
         void WriteSampler(u32 index, HSampler sampler);
     };
 
@@ -223,14 +223,14 @@ namespace nova
     };
 
     template<>
-    struct Handle<Texture>::Impl
+    struct Handle<Image>::Impl
     {
         Context context = {};
 
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
-        TextureUsage        usage = {};
+        ImageUsage        usage = {};
         Format             format = Format::Undefined;
         VkImageAspectFlags aspect = VK_IMAGE_ASPECT_NONE;
 
@@ -361,7 +361,7 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     VkBufferUsageFlags GetVulkanBufferUsage(BufferUsage usage);
-    VkImageUsageFlags GetVulkanImageUsage(TextureUsage usage);
+    VkImageUsageFlags GetVulkanImageUsage(ImageUsage usage);
     const VulkanFormat& GetVulkanFormat(Format format);
     Format FromVulkanFormat(VkFormat format);
     VkIndexType GetVulkanIndexType(IndexType type);
@@ -381,7 +381,7 @@ namespace nova
     VkPrimitiveTopology GetVulkanTopology(Topology topology);
     VkQueueFlags GetVulkanQueueFlags(QueueFlags in);
     VkPipelineStageFlags2 GetVulkanPipelineStage(PipelineStage in);
-    VkImageLayout GetVulkanImageLayout(TextureLayout layout);
+    VkImageLayout GetVulkanImageLayout(ImageLayout layout);
 
     void* VulkanTrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
     void* VulkanTrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);

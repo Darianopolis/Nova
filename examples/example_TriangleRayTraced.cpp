@@ -37,7 +37,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Create surface and swapchain for GLFW window
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
-        nova::TextureUsage::Storage | nova::TextureUsage::TransferDst,
+        nova::ImageUsage::Storage | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
@@ -218,7 +218,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
         cmd.Transition(swapchain.GetCurrent(),
-            nova::TextureLayout::GeneralImage,
+            nova::ImageLayout::GeneralImage,
             nova::PipelineStage::RayTracing);
 
         // Trace rays

@@ -105,20 +105,20 @@ namespace nova::imgui
         ImGui::GetIO().Fonts->AddFontFromFileTTF(config.font, config.font_size, &font_config);
 
         {
-            // Upload texture
+            // Upload font
 
             unsigned char* pixels;
             int width, height;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-            font_texture = nova::Texture::Create(context,
+            font_image = nova::Image::Create(context,
                 { u32(width), u32(height), 0u },
-                nova::TextureUsage::Sampled,
+                nova::ImageUsage::Sampled,
                 nova::Format::RGBA8_UNorm, {});
-            io.Fonts->SetTexID(GetTextureID(font_texture));
+            io.Fonts->SetTexID(GetTextureID(font_image));
 
-            font_texture.Set({}, font_texture.GetExtent(), pixels);
-            font_texture.Transition(nova::TextureLayout::Sampled);
+            font_image.Set({}, font_image.GetExtent(), pixels);
+            font_image.Transition(nova::ImageLayout::Sampled);
         }
 
         ImGui::SetCurrentContext(last_imgui_ctx);
@@ -136,7 +136,7 @@ namespace nova::imgui
         index_buffer.Destroy();
         vertex_shader.Destroy();
         fragment_shader.Destroy();
-        font_texture.Destroy();
+        font_image.Destroy();
     }
 
     void ImGuiLayer::BeginFrame(LambdaRef<void()> fn)
@@ -213,7 +213,7 @@ namespace nova::imgui
         return ended;
     }
 
-    void ImGuiLayer::DrawFrame(CommandList cmd, Texture target, Fence fence)
+    void ImGuiLayer::DrawFrame(CommandList cmd, Image target, Fence fence)
     {
         EndFrame();
 

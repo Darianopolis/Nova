@@ -21,7 +21,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     NOVA_DEFER(&) { context.Destroy(); };
 
     auto present_mode = nova::PresentMode::Mailbox;
-    auto swapchain_usage = nova::TextureUsage::ColorAttach | nova::TextureUsage::Storage;
+    auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
 
     glfwInit();
     NOVA_DEFER(&) { glfwTerminate(); };

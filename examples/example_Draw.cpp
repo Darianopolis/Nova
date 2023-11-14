@@ -37,8 +37,8 @@ NOVA_EXAMPLE(Draw, "draw")
     NOVA_DEFER(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, hwnd,
-        nova::TextureUsage::TransferDst
-        | nova::TextureUsage::ColorAttach,
+        nova::ImageUsage::TransferDst
+        | nova::ImageUsage::ColorAttach,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
@@ -56,19 +56,19 @@ NOVA_EXAMPLE(Draw, "draw")
 
 // -----------------------------------------------------------------------------
 
-    nova::Texture texture;
+    nova::Image image;
     {
         i32 w, h, c;
         auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
         NOVA_DEFER(&) { stbi_image_free(data); };
 
-        texture = nova::Texture::Create(context,
+        image = nova::Image::Create(context,
             Vec3U(u32(w), u32(h), 0),
-            nova::TextureUsage::Sampled,
+            nova::ImageUsage::Sampled,
             nova::Format::RGBA8_UNorm);
 
-        texture.Set({}, {u32(w), u32(h), 1}, data);
-        texture.Transition(nova::TextureLayout::Sampled);
+        image.Set({}, {u32(w), u32(h), 1}, data);
+        image.Transition(nova::ImageLayout::Sampled);
     }
 
 // -----------------------------------------------------------------------------
@@ -91,7 +91,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 5.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = texture.GetDescriptor(),
+        .tex_idx = image.GetDescriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 1.f },
     };
@@ -105,7 +105,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = texture.GetDescriptor(),
+        .tex_idx = image.GetDescriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 0.5f },
     };
@@ -119,7 +119,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = texture.GetDescriptor(),
+        .tex_idx = image.GetDescriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 1.f, 0.5f },
     };

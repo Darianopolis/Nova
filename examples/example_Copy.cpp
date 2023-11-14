@@ -21,35 +21,35 @@ NOVA_EXAMPLE(Copy, "copy")
     };
 
     std::array<nova::Buffer, 4> buffers;
-    std::array<nova::Texture, 4> textures;
+    std::array<nova::Image, 4> images;
     for (u32 i = 0; i < 4; ++i) {
         buffers[i] = nova::Buffer::Create(context, 8192ull * 8192ull * 4, {}, nova::BufferFlags::DeviceLocal);
-        textures[i] = nova::Texture::Create(context, { 8192u, 8192u, 0u }, {}, nova::Format::RGBA8_UNorm, {});
+        images[i] = nova::Image::Create(context, { 8192u, 8192u, 0u }, {}, nova::Format::RGBA8_UNorm, {});
     }
     NOVA_DEFER(&) {
         for (u32 i = 0; i < 4; ++i) {
             buffers [i].Destroy();
-            textures[i].Destroy();
+            images[i].Destroy();
         }
     };
 
     for (u32 i = 0; i < 10; ++i) {
         auto cmd = cmd_pool.Begin();
 
-        for (auto& texture : textures) {
-            cmd.Transition(texture, nova::TextureLayout::GeneralImage, nova::PipelineStage::All);
+        for (auto& image : images) {
+            cmd.Transition(image, nova::ImageLayout::GeneralImage, nova::PipelineStage::All);
         }
 
         for (u32 j = 0; j < 100; ++j) {
             for (u32 k = 0; k < 4; ++k) {
                 cmd.CopyToBuffer(buffers[k], buffers[(k + 1) % 4], buffers[0].GetSize());
 
-                // vkCmdCopyBufferToImage(cmd->buffer, buffers[k]->buffer, textures[k]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkBufferImageCopy {
+                // vkCmdCopyBufferToImage(cmd->buffer, buffers[k]->buffer, images[k]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkBufferImageCopy {
                 //     .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
                 //     .imageExtent = {8192u, 8192u, 1u},
                 // }));
 
-                // vkCmdCopyImage(cmd->buffer, textures[k]->image, VK_IMAGE_LAYOUT_GENERAL, textures[(k + 1) % 4]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkImageCopy {
+                // vkCmdCopyImage(cmd->buffer, images[k]->image, VK_IMAGE_LAYOUT_GENERAL, images[(k + 1) % 4]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkImageCopy {
                 //     .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
                 //     .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
                 //     .extent = {8192u, 8192u, 1u},

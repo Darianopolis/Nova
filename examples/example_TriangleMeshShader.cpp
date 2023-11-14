@@ -20,8 +20,8 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         .mesh_shading = true,
     });
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
-        nova::TextureUsage::ColorAttach
-        | nova::TextureUsage::TransferDst,
+        nova::ImageUsage::ColorAttach
+        | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);

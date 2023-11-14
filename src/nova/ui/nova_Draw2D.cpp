@@ -193,13 +193,13 @@ namespace nova::draw
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
             }
 
-            glyph.texture = nova::Texture::Create(context,
+            glyph.image = nova::Image::Create(context,
                 Vec3(f32(w), f32(h), 0.f),
-                TextureUsage::Sampled,
+                ImageUsage::Sampled,
                 Format::RGBA8_UNorm);
 
-            glyph.texture.Set({}, glyph.texture.GetExtent(), pixels.data());
-            glyph.texture.Transition(nova::TextureLayout::Sampled);
+            glyph.image.Set({}, glyph.image.GetExtent(), pixels.data());
+            glyph.image.Transition(nova::ImageLayout::Sampled);
         }
 
         FT_Done_Face(face);
@@ -211,8 +211,8 @@ namespace nova::draw
     Font::~Font()
     {
         for (auto& glyph : glyphs) {
-            if (glyph.texture) {
-                glyph.texture.Destroy();
+            if (glyph.image) {
+                glyph.image.Destroy();
             }
         }
     }
@@ -243,12 +243,12 @@ namespace nova::draw
         for (auto c : str) {
             auto& g = font.glyphs[c];
 
-            if (g.texture) {
+            if (g.image) {
                 DrawRect(Rectangle {
                     .center_pos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                     .half_extent = { g.width / 2.f, g.height / 2.f },
                     .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
-                    .tex_idx = g.texture.GetDescriptor(),
+                    .tex_idx = g.image.GetDescriptor(),
                     .tex_center_pos = { 0.5f, 0.5f },
                     .tex_half_extent = { 0.5f, 0.5f },
                 });
@@ -277,7 +277,7 @@ namespace nova::draw
         return str_bounds;
     }
 
-    void Draw2D::Record(CommandList cmd, Texture target)
+    void Draw2D::Record(CommandList cmd, Image target)
     {
         cmd.ResetGraphicsState();
         cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});

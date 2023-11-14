@@ -37,7 +37,7 @@ namespace nova::draw
 
     struct Glyph
     {
-        Texture texture;
+        Image image;
 
         f32   width;
         f32  height;
@@ -93,6 +93,6 @@ namespace nova::draw
 
         Bounds2 MeasureString(std::string_view str, Font& font);
 
-        void Record(CommandList, Texture target);
+        void Record(CommandList, Image target);
     };
 }

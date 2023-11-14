@@ -32,7 +32,7 @@ namespace nova
     using HSampler = Handle<struct Sampler>;
     using HShader = Handle<struct Shader>;
     using HSwapchain = Handle<struct Swapchain>;
-    using HTexture = Handle<struct Texture>;
+    using HImage = Handle<struct Image>;
     using HAccelerationStructure = Handle<struct AccelerationStructure>;
     using HAccelerationStructureBuilder = Handle<struct AccelerationStructureBuilder>;
     using HRayTracingPipeline = Handle<struct RayTracingPipeline>;
@@ -66,15 +66,15 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(BufferUsage)
 
-    enum class TextureFlags : u32
+    enum class ImageFlags : u32
     {
         None,
         Array = 1 << 0,
         Mips  = 1 << 1,
     };
-    NOVA_DECORATE_FLAG_ENUM(TextureFlags)
+    NOVA_DECORATE_FLAG_ENUM(ImageFlags)
 
-    enum class TextureUsage : u32
+    enum class ImageUsage : u32
     {
         None,
         TransferSrc        = 1 << 0,
@@ -84,7 +84,7 @@ namespace nova
         ColorAttach        = 1 << 4,
         DepthStencilAttach = 1 << 5,
     };
-    NOVA_DECORATE_FLAG_ENUM(TextureUsage)
+    NOVA_DECORATE_FLAG_ENUM(ImageUsage)
 
     enum class Format : u32
     {
@@ -207,8 +207,8 @@ namespace nova
 
     enum class DescriptorType : u8
     {
-        SampledTexture,
-        StorageTexture,
+        SampledImage,
+        StorageImage,
         Uniform,
         Storage,
         AccelerationStructure,
@@ -287,7 +287,7 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(PipelineStage)
 
-    enum class TextureLayout : u32
+    enum class ImageLayout : u32
     {
         GeneralImage,
         ColorAttachment,
@@ -396,7 +396,7 @@ namespace nova
 
         void Barrier(PipelineStage src, PipelineStage dst) const;
 
-        void BeginRendering(Rect2D region, Span<HTexture> color_attachments, HTexture depth_attachment = {}, HTexture stencil_attachment = {}) const;
+        void BeginRendering(Rect2D region, Span<HImage> color_attachments, HImage depth_attachment = {}, HImage stencil_attachment = {}) const;
         void EndRendering() const;
         void BindIndexBuffer(HBuffer, IndexType, u64 offset = {}) const;
         void ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset = {}) const;
@@ -422,12 +422,12 @@ namespace nova
         void CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dst_offset = 0, u64 src_offset = 0) const;
         void Barrier(HBuffer, PipelineStage src, PipelineStage dst) const;
 
-        void Transition(HTexture, TextureLayout, PipelineStage) const;
-        void ClearColor(HTexture, std::variant<Vec4, Vec4U, Vec4I> value) const;
-        void CopyToTexture(HTexture dst, HBuffer src, u64 src_offset = 0) const;
-        void CopyFromTexture(HBuffer dst, HTexture src, Rect2D region) const;
-        void GenerateMips(HTexture) const;
-        void BlitImage(HTexture dst, HTexture src, Filter) const;
+        void Transition(HImage, ImageLayout, PipelineStage) const;
+        void ClearColor(HImage, std::variant<Vec4, Vec4U, Vec4I> value) const;
+        void CopyToImage(HImage dst, HBuffer src, u64 src_offset = 0) const;
+        void CopyFromImage(HBuffer dst, HImage src, Rect2D region) const;
+        void GenerateMips(HImage) const;
+        void BlitImage(HImage dst, HImage src, Filter) const;
 
         void BuildAccelerationStructure(HAccelerationStructureBuilder, HAccelerationStructure, HBuffer scratch) const;
         void CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const;
@@ -439,10 +439,10 @@ namespace nova
 
     struct Swapchain : Handle<Swapchain>
     {
-        static Swapchain Create(HContext, void* window, TextureUsage, PresentMode);
+        static Swapchain Create(HContext, void* window, ImageUsage, PresentMode);
         void Destroy();
 
-        Texture GetCurrent() const;
+        Image GetCurrent() const;
         Vec2U GetExtent() const;
         Format GetFormat() const;
     };
@@ -467,9 +467,9 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct Texture : Handle<Texture>
+    struct Image : Handle<Image>
     {
-        static Texture Create(HContext, Vec3U size, TextureUsage, Format, TextureFlags = {});
+        static Image Create(HContext, Vec3U size, ImageUsage, Format, ImageFlags = {});
         void Destroy();
 
         Vec3U GetExtent() const;
@@ -477,7 +477,7 @@ namespace nova
 
         // TODO: Handle row pitch, etc..
         void Set(Vec3I offset, Vec3U extent, const void* data) const;
-        void Transition(TextureLayout layout) const;
+        void Transition(ImageLayout layout) const;
 
         u32 GetDescriptor() const;
     };

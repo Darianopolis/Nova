@@ -126,10 +126,10 @@ namespace nova
     }
 
 // -----------------------------------------------------------------------------
-//                                Textures
+//                                 Images
 // -----------------------------------------------------------------------------
 
-    void DescriptorHeap::WriteSampled(u32 index, HTexture texture)
+    void DescriptorHeap::WriteSampled(u32 index, HImage image)
     {
         if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, Temp(VkDescriptorGetInfoEXT {
@@ -137,7 +137,7 @@ namespace nova
                 .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                 .data{
                     .pSampledImage = Temp(VkDescriptorImageInfo {
-                        .imageView = texture->view,
+                        .imageView = image->view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 }
@@ -152,7 +152,7 @@ namespace nova
                     .descriptorCount = 1,
                     .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                     .pImageInfo = Temp(VkDescriptorImageInfo {
-                        .imageView = texture->view,
+                        .imageView = image->view,
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 },
@@ -160,7 +160,7 @@ namespace nova
         }
     }
 
-    void DescriptorHeap::WriteStorage(u32 index, HTexture texture)
+    void DescriptorHeap::WriteStorage(u32 index, HImage image)
     {
         if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, Temp(VkDescriptorGetInfoEXT {
@@ -168,7 +168,7 @@ namespace nova
                 .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .data{
                     .pStorageImage = Temp(VkDescriptorImageInfo {
-                        .imageView = texture->view,
+                        .imageView = image->view,
                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                     }),
                 }
@@ -182,7 +182,7 @@ namespace nova
                 .descriptorCount = 1,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                 .pImageInfo = Temp(VkDescriptorImageInfo {
-                    .imageView = texture->view,
+                    .imageView = image->view,
                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                 }),
             }), 0, nullptr);

@@ -30,7 +30,7 @@ namespace nova::imgui
 
         Sampler default_sampler;
 
-        Texture font_texture;
+        Image font_image;
 
         Shader   vertex_shader;
         Shader fragment_shader;
@@ -47,20 +47,15 @@ namespace nova::imgui
         ImGuiLayer(const ImGuiConfig& config);
         ~ImGuiLayer();
 
-        ImTextureID GetTextureID(Texture texture)
+        ImTextureID GetTextureID(Image image, Sampler sampler = {})
         {
-            return std::bit_cast<ImTextureID>(Vec2U(texture.GetDescriptor(), default_sampler.GetDescriptor()));
-        }
-
-        ImTextureID GetTextureID(Texture texture, Sampler sampler)
-        {
-            return std::bit_cast<ImTextureID>(Vec2U(texture.GetDescriptor(), sampler.GetDescriptor()));
+            return std::bit_cast<ImTextureID>(Vec2U(image.GetDescriptor(), (sampler ? sampler : default_sampler).GetDescriptor()));
         }
 
         void BeginFrame(LambdaRef<void()> fn = []{});
         void EndFrame();
 
         bool HasDrawData();
-        void DrawFrame(CommandList cmd, Texture target, Fence fence);
+        void DrawFrame(CommandList cmd, Image target, Fence fence);
     };
 }

@@ -4,20 +4,20 @@
 
 namespace nova
 {
-    void CommandList::BeginRendering(Rect2D region, Span<HTexture> color_attachments, HTexture depth_attachment, HTexture stencil_attachment) const
+    void CommandList::BeginRendering(Rect2D region, Span<HImage> color_attachments, HImage depth_attachment, HImage stencil_attachment) const
     {
         impl->color_attachments_formats.resize(color_attachments.size());
 
         auto color_attachment_infos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, color_attachments.size());
         for (u32 i = 0; i < color_attachments.size(); ++i) {
-            auto texture = color_attachments[i];
+            auto image = color_attachments[i];
 
             impl->Transition(color_attachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
             color_attachment_infos[i] = VkRenderingAttachmentInfo {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                .imageView = texture->view,
+                .imageView = image->view,
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
 

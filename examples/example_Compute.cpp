@@ -41,9 +41,9 @@ NOVA_EXAMPLE(Compute, "compute")
     // Create surface and swapchain for GLFW window
 
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
-        nova::TextureUsage::Storage
-        | nova::TextureUsage::TransferDst
-        | nova::TextureUsage::ColorAttach,
+        nova::ImageUsage::Storage
+        | nova::ImageUsage::TransferDst
+        | nova::ImageUsage::ColorAttach,
         nova::PresentMode::Immediate);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
@@ -67,15 +67,15 @@ NOVA_EXAMPLE(Compute, "compute")
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 
-    nova::Texture texture;
-    NOVA_DEFER(&) { texture.Destroy(); };
+    nova::Image image;
+    NOVA_DEFER(&) { image.Destroy(); };
     {
         int width, height, channels;
         auto image_data = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
         NOVA_DEFER(&) { stbi_image_free(image_data); };
 
-        utils::image_u8 image{ u32(width), u32(height) };
-        std::memcpy(image.get_pixels().data(), image_data, width * height * 4);
+        utils::image_u8 src_image{ u32(width), u32(height) };
+        std::memcpy(src_image.get_pixels().data(), image_data, width * height * 4);
 
         constexpr bool use_bc7 = true;
 
@@ -84,27 +84,27 @@ NOVA_EXAMPLE(Compute, "compute")
             params.m_bc7enc_reduce_entropy = true;
 
             rdo_bc::rdo_bc_encoder encoder;
-            encoder.init(image, params);
+            encoder.init(src_image, params);
             encoder.encode();
 
-            texture = nova::Texture::Create(context,
+            image = nova::Image::Create(context,
                 Vec3U(u32(width), u32(height), 0),
-                nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
+                nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
                 nova::Format::BC7_Unorm,
                 {});
 
-            texture.Set({}, texture.GetExtent(), encoder.get_blocks());
+            image.Set({}, image.GetExtent(), encoder.get_blocks());
         } else {
-            texture = nova::Texture::Create(context,
+            image = nova::Image::Create(context,
                 Vec3U(u32(width), u32(height), 0),
-                nova::TextureUsage::Sampled | nova::TextureUsage::TransferDst,
+                nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
                 nova::Format::RGBA8_UNorm,
                 {});
 
-            texture.Set({}, texture.GetExtent(), image.get_pixels().data());
+            image.Set({}, image.GetExtent(), src_image.get_pixels().data());
         }
 
-        texture.Transition(nova::TextureLayout::Sampled);
+        image.Transition(nova::ImageLayout::Sampled);
     }
 
     // Shaders
@@ -208,13 +208,13 @@ NOVA_EXAMPLE(Compute, "compute")
         // Transition ready for writing compute output
 
         cmd.Transition(target,
-            nova::TextureLayout::GeneralImage,
+            nova::ImageLayout::GeneralImage,
             nova::PipelineStage::Compute);
 
         // Dispatch
 
         cmd.PushConstants(PushConstants {
-            .image = texture.GetDescriptor(),
+            .image = image.GetDescriptor(),
             .sampler = sampler.GetDescriptor(),
             .target = swapchain.GetCurrent().GetDescriptor(),
             .size = Vec2(swapchain.GetExtent()),

@@ -4,7 +4,7 @@
 
 namespace nova
 {
-    Swapchain Swapchain::Create(HContext context, void* window, TextureUsage usage, PresentMode present_mode)
+    Swapchain Swapchain::Create(HContext context, void* window, ImageUsage usage, PresentMode present_mode)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -41,8 +41,8 @@ namespace nova
             impl->context->vkDestroySemaphore(impl->context->device, semaphore, impl->context->alloc);
         }
 
-        for (auto& texture : impl->textures) {
-            texture.Destroy();
+        for (auto& image : impl->images) {
+            image.Destroy();
         }
 
         if (impl->swapchain) {
@@ -55,9 +55,9 @@ namespace nova
         impl = nullptr;
     }
 
-    Texture Swapchain::GetCurrent() const
+    Image Swapchain::GetCurrent() const
     {
-        return impl->textures[impl->index];
+        return impl->images[impl->index];
     }
 
     Vec2U Swapchain::GetExtent() const
@@ -130,29 +130,29 @@ namespace nova
                         }), impl->context->alloc, &semaphore));
                     }
 
-                    for (auto& texture : swapchain->textures) {
-                        texture.Destroy();
+                    for (auto& image : swapchain->images) {
+                        image.Destroy();
                     }
-                    swapchain->textures.resize(vk_images.size());
+                    swapchain->images.resize(vk_images.size());
                     for (uint32_t i = 0; i < vk_images.size(); ++i) {
-                        auto& texture = (swapchain->textures[i] = { new Texture::Impl });
-                        texture->context = impl->context;
+                        auto& image = (swapchain->images[i] = { new Image::Impl });
+                        image->context = impl->context;
 
-                        texture->usage = swapchain->usage;
-                        texture->format = swapchain.Unwrap().GetFormat();
-                        texture->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-                        texture->extent = Vec3(swapchain->extent.width, swapchain->extent.height, 1);
-                        texture->mips = 1;
-                        texture->layers = 1;
+                        image->usage = swapchain->usage;
+                        image->format = swapchain.Unwrap().GetFormat();
+                        image->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+                        image->extent = Vec3(swapchain->extent.width, swapchain->extent.height, 1);
+                        image->mips = 1;
+                        image->layers = 1;
 
-                        texture->image = vk_images[i];
+                        image->image = vk_images[i];
                         vkh::Check(impl->context->vkCreateImageView(impl->context->device, Temp(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                             .image = vk_images[i],
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
                             .format = swapchain->format.format,
                             .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                        }), impl->context->alloc, &texture->view));
+                        }), impl->context->alloc, &image->view));
                     }
                 }
 
