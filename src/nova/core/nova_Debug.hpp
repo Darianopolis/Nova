@@ -1,12 +1,17 @@
 #pragma once
 
 #include "nova_Core.hpp"
+#include "nova_Stack.hpp"
 
-#define NOVA_DEBUG() \
-    std::cout << std::format("    Debug :: {} - {}\n", __LINE__, __FILE__)
+#define NOVA_DEBUG() do {                                                         \
+    NOVA_STACK_POINT();                                                           \
+    std::cout << NOVA_STACK_FORMAT("    Debug :: {} - {}\n", __LINE__, __FILE__); \
+} while (0)
 
-#define NOVA_LOG(fmt, ...) \
-    std::cout << std::format(fmt"\n" __VA_OPT__(,) __VA_ARGS__)
+#define NOVA_LOG(fmt, ...) do {                                        \
+    NOVA_STACK_POINT();                                                \
+    std::cout << NOVA_STACK_FORMAT(fmt"\n" __VA_OPT__(,) __VA_ARGS__); \
+} while(0)
 
 #define NOVA_LOGEXPR(expr) do {           \
     std::osyncstream sso(std::cout);      \

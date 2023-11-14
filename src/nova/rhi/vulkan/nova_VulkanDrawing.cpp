@@ -6,9 +6,11 @@ namespace nova
 {
     void CommandList::BeginRendering(Rect2D region, Span<HImage> color_attachments, HImage depth_attachment, HImage stencil_attachment) const
     {
+        NOVA_STACK_POINT();
+
         impl->color_attachments_formats.resize(color_attachments.size());
 
-        auto color_attachment_infos = NOVA_ALLOC_STACK(VkRenderingAttachmentInfo, color_attachments.size());
+        auto color_attachment_infos = NOVA_STACK_ALLOC(VkRenderingAttachmentInfo, color_attachments.size());
         for (u32 i = 0; i < color_attachments.size(); ++i) {
             auto image = color_attachments[i];
 

@@ -13,6 +13,7 @@ if Project "nova" then
         "ankerl-maps",
         "glm",
         "simdutf",
+        "mimalloc",
     }
 
 -------- DB --------------------------------------------------------------------

@@ -177,7 +177,9 @@ namespace nova
 
         if (signals.size())
         {
-            auto wait_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, _swapchains.size());
+            NOVA_STACK_POINT();
+
+            auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i) {
                 auto swapchain = _swapchains[i];
                 wait_infos[i] = {
@@ -187,7 +189,7 @@ namespace nova
                 swapchain->semaphore_index = (swapchain->semaphore_index + 1) % swapchain->semaphores.size();
             }
 
-            auto signal_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
+            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, signals.size());
             for (u32 i = 0; i < signals.size(); ++i) {
                 auto signal = signals[i];
                 signal_infos[i] = {
@@ -214,11 +216,13 @@ namespace nova
 
     void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, bool host_wait) const
     {
+        NOVA_STACK_POINT();
+
         VkSemaphore* binary_waits = nullptr;
 
         if (host_wait && waits.size()) {
-            auto semaphores = NOVA_ALLOC_STACK(VkSemaphore, waits.size());
-            auto values = NOVA_ALLOC_STACK(u64, waits.size());
+            auto semaphores = NOVA_STACK_ALLOC(VkSemaphore, waits.size());
+            auto values = NOVA_STACK_ALLOC(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i) {
                 semaphores[i] = waits[i]->semaphore;
                 values[i] = waits[i]->value;
@@ -232,7 +236,7 @@ namespace nova
             }), UINT64_MAX));
 
         } else if (waits.size()) {
-            auto wait_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
+            auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, waits.size());
             for (u32 i = 0; i < waits.size(); ++i) {
                 wait_infos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -242,7 +246,7 @@ namespace nova
                 };
             }
 
-            auto signal_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, _swapchains.size());
+            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i) {
                 auto swapchain = _swapchains[i];
                 signal_infos[i] = {
@@ -261,7 +265,7 @@ namespace nova
             }), nullptr));
             rhi::stats::TimeAdaptingToPresent += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
-            binary_waits = NOVA_ALLOC_STACK(VkSemaphore, _swapchains.size());
+            binary_waits = NOVA_STACK_ALLOC(VkSemaphore, _swapchains.size());
             for (u32 i = 0; i < _swapchains.size(); ++i) {
                 auto swapchain = _swapchains[i];
                 binary_waits[i] = swapchain->semaphores[swapchain->semaphore_index];
@@ -269,15 +273,15 @@ namespace nova
             }
         }
 
-        auto vk_swapchains = NOVA_ALLOC_STACK(VkSwapchainKHR, _swapchains.size());
-        auto indices = NOVA_ALLOC_STACK(u32, _swapchains.size());
+        auto vk_swapchains = NOVA_STACK_ALLOC(VkSwapchainKHR, _swapchains.size());
+        auto indices = NOVA_STACK_ALLOC(u32, _swapchains.size());
         for (u32 i = 0; i < _swapchains.size(); ++i) {
             auto swapchain = _swapchains[i];
             vk_swapchains[i] = swapchain->swapchain;
             indices[i] = swapchain->index;
         }
 
-        auto results = NOVA_ALLOC_STACK(VkResult, _swapchains.size());
+        auto results = NOVA_STACK_ALLOC(VkResult, _swapchains.size());
         auto start = std::chrono::steady_clock::now();
         impl->context->vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,

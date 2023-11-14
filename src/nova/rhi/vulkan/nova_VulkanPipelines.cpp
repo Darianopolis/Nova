@@ -101,6 +101,8 @@ namespace nova
     static
     VkPipeline GetGraphicsPreRasterizationStage(Context context, Span<Shader> shaders, PolygonMode poly_mode)
     {
+        NOVA_STACK_POINT();
+
         auto key = GraphicsPipelinePreRasterizationStageKey {};
 
         // Set required fixed state
@@ -114,7 +116,7 @@ namespace nova
         auto pipeline = context->preraster_stages[key];
 
         if (!pipeline) {
-            auto stages = NOVA_ALLOC_STACK(VkPipelineShaderStageCreateInfo, shaders.size());
+            auto stages = NOVA_STACK_ALLOC(VkPipelineShaderStageCreateInfo, shaders.size());
             for (u32 i = 0; i < shaders.size(); ++i) {
                 stages[i] = shaders[i]->GetStageInfo();
             }
@@ -219,6 +221,8 @@ namespace nova
     static
     VkPipeline GetGraphicsFragmentOutputStage(CommandList::Impl* impl, Context context, RenderingDescription rendering_desc)
     {
+        NOVA_STACK_POINT();
+
         auto key = GraphicsPipelineFragmentOutputStageKey {};
 
         // Set rendering info
@@ -235,7 +239,7 @@ namespace nova
         if (!pipeline) {
 
             // Blend states
-            auto attach_blend_states = NOVA_ALLOC_STACK(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
+            auto attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
 
             for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
                 auto& attach_state = attach_blend_states[i];
@@ -256,7 +260,7 @@ namespace nova
 
             // Create
 
-            auto vk_formats = NOVA_ALLOC_STACK(VkFormat, rendering_desc.color_formats.size());
+            auto vk_formats = NOVA_STACK_ALLOC(VkFormat, rendering_desc.color_formats.size());
             for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
                 vk_formats[i] = GetVulkanFormat(rendering_desc.color_formats[i]).vk_format;
             }
@@ -420,10 +424,11 @@ namespace nova
         SetDepthState(false, false, CompareOp::Always);
     }
 
-    NOVA_NO_INLINE
     void CommandList::SetViewports(Span<Rect2I> viewports, bool copy_to_scissors) const
     {
-        auto vk_viewports = NOVA_ALLOC_STACK(VkViewport, viewports.size());
+        NOVA_STACK_POINT();
+
+        auto vk_viewports = NOVA_STACK_ALLOC(VkViewport, viewports.size());
         for (u32 i = 0; i < viewports.size(); ++i) {
             vk_viewports[i] = VkViewport {
                 .x = f32(viewports[i].offset.x),
@@ -441,10 +446,11 @@ namespace nova
         }
     }
 
-    NOVA_NO_INLINE
     void CommandList::SetScissors(Span<Rect2I> scissors) const
     {
-        auto vk_scissors = NOVA_ALLOC_STACK(VkRect2D, scissors.size());
+        NOVA_STACK_POINT();
+
+        auto vk_scissors = NOVA_STACK_ALLOC(VkRect2D, scissors.size());
         for (u32 i = 0; i < scissors.size(); ++i) {
             auto r = scissors[i];
             if (r.extent.x < 0) { r.offset.x -= (r.extent.x *= -1); }
@@ -488,9 +494,10 @@ namespace nova
         impl->context->vkCmdSetDepthCompareOp(impl->buffer, GetVulkanCompareOp(compare_op));
     }
 
-    NOVA_NO_INLINE
     void CommandList::SetBlendState(Span<bool> blends) const
     {
+        NOVA_STACK_POINT();
+
         if (!impl->using_shader_objects) {
             for (u32 i = 0; i < blends.size(); ++i) {
                 impl->blend_states.set(i, blends[i]);
@@ -503,10 +510,10 @@ namespace nova
         auto count = u32(blends.size());
         bool any_blend = std::any_of(blends.begin(), blends.end(), [](auto v) { return v; });
 
-        auto components = NOVA_ALLOC_STACK(VkColorComponentFlags, count);
-        auto blend_enable_bools = NOVA_ALLOC_STACK(VkBool32, count);
+        auto components = NOVA_STACK_ALLOC(VkColorComponentFlags, count);
+        auto blend_enable_bools = NOVA_STACK_ALLOC(VkBool32, count);
         auto blend_equations = any_blend
-            ? NOVA_ALLOC_STACK(VkColorBlendEquationEXT, count)
+            ? NOVA_STACK_ALLOC(VkColorBlendEquationEXT, count)
             : nullptr;
 
         for (u32 i = 0; i < count; ++i) {
@@ -542,9 +549,10 @@ namespace nova
         }
     }
 
-    NOVA_NO_INLINE
     void CommandList::BindShaders(Span<HShader> shaders) const
     {
+        NOVA_STACK_POINT();
+
         if (!impl->using_shader_objects) {
             if (shaders.size() == 1 && shaders[0]->stage == ShaderStage::Compute) {
 
@@ -585,8 +593,8 @@ namespace nova
         u32 count = u32(shaders.size());
         constexpr u32 MaxExtraSlots = 2;
 
-        auto stage_flags = NOVA_ALLOC_STACK(VkShaderStageFlagBits, count + MaxExtraSlots);
-        auto shader_objects = NOVA_ALLOC_STACK(VkShaderEXT, count + MaxExtraSlots);
+        auto stage_flags = NOVA_STACK_ALLOC(VkShaderStageFlagBits, count + MaxExtraSlots);
+        auto shader_objects = NOVA_STACK_ALLOC(VkShaderEXT, count + MaxExtraSlots);
 
         for (u32 i = 0; i < shaders.size(); ++i) {
             stage_flags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));

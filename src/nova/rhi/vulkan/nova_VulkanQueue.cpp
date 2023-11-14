@@ -26,7 +26,9 @@ namespace nova
 
     void Queue::Submit(Span<HCommandList> _command_lists, Span<HFence> waits, Span<HFence> signals) const
     {
-        auto buffer_infos = NOVA_ALLOC_STACK(VkCommandBufferSubmitInfo, _command_lists.size());
+        NOVA_STACK_POINT();
+
+        auto buffer_infos = NOVA_STACK_ALLOC(VkCommandBufferSubmitInfo, _command_lists.size());
         for (u32 i = 0; i < _command_lists.size(); ++i) {
             auto cmd = _command_lists[i];
             buffer_infos[i] = {
@@ -37,7 +39,7 @@ namespace nova
             vkh::Check(impl->context->vkEndCommandBuffer(cmd->buffer));
         }
 
-        auto wait_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, waits.size());
+        auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, waits.size());
         for (u32 i = 0; i < waits.size(); ++i) {
             auto wait = waits[i];
             wait_infos[i] = {
@@ -48,7 +50,7 @@ namespace nova
             };
         }
 
-        auto signal_infos = NOVA_ALLOC_STACK(VkSemaphoreSubmitInfo, signals.size());
+        auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, signals.size());
         for (u32 i = 0; i < signals.size(); ++i) {
             auto signal = signals[i];
             signal_infos[i] = {

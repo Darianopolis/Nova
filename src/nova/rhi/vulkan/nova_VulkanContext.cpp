@@ -77,6 +77,8 @@ Validation: {} ({})
 
     Context Context::Create(const ContextConfig& config)
     {
+        NOVA_STACK_POINT();
+
         auto impl = new Impl;
         impl->config = config;
 
@@ -391,7 +393,7 @@ Validation: {} ({})
         }
 
         // TODO: Move this into VulkanFeatureChain
-        auto device_extensions = NOVA_ALLOC_STACK(const char*, chain.extensions.size());
+        auto device_extensions = NOVA_STACK_ALLOC(const char*, chain.extensions.size());
         {
             u32 i = 0;
             for (const auto& ext : chain.extensions) {
@@ -455,12 +457,12 @@ Validation: {} ({})
             impl->compute_queues.emplace_back(queue);
         }
 
-        auto priorities = NOVA_ALLOC_STACK(float, impl->graphic_queues.size());
+        auto priorities = NOVA_STACK_ALLOC(float, impl->graphic_queues.size());
         for (u32 i = 0; i < impl->graphic_queues.size(); ++i) {
             priorities[i] = 1.f;
         }
 
-        auto low_priorities = NOVA_ALLOC_STACK(float, 8);
+        auto low_priorities = NOVA_STACK_ALLOC(float, 8);
         for (u32 i = 0; i < 8; ++i) {
             low_priorities[i] = 0.1f;
         }
