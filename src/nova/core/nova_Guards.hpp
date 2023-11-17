@@ -73,5 +73,5 @@ namespace nova
         };
     }
 
-#define NOVA_DEFER(...) ::nova::guards::DeferGuard NOVA_CONCAT(nova_defer_, __LINE__) = [__VA_ARGS__]([[maybe_unused]] i32 exceptions)
+#define NOVA_DEFER(...) ::nova::guards::DeferGuard NOVA_CONCAT(nova_defer_, __LINE__) = [__VA_ARGS__]([[maybe_unused]] ::nova::i32 exceptions)
 }

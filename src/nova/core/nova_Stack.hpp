@@ -19,7 +19,12 @@ namespace nova
             std::byte*                     ptr = stack.get();
         };
 
-        inline thread_local ThreadStack NovaStack;
+        NOVA_FORCE_INLINE
+        ThreadStack& GetThreadStack()
+        {
+            static thread_local ThreadStack NovaStack;
+            return NovaStack;
+        }
 
         class ThreadStackPoint
         {
@@ -27,12 +32,12 @@ namespace nova
 
         public:
             ThreadStackPoint() noexcept
-                : ptr(detail::NovaStack.ptr)
+                : ptr(GetThreadStack().ptr)
             {}
 
             ~ThreadStackPoint() noexcept
             {
-                detail::NovaStack.ptr = ptr;
+                GetThreadStack().ptr = ptr;
             }
 
             ThreadStackPoint(const ThreadStackPoint&) = delete;
@@ -43,43 +48,48 @@ namespace nova
     }
 
     template<class T>
-    NOVA_FORCE_INLINE
     T* StackAlloc(usz count)
     {
-        T* ptr = reinterpret_cast<T*>(detail::NovaStack.ptr);
-        detail::NovaStack.ptr = nova::AlignUpPower2(detail::NovaStack.ptr + sizeof(T) * count, 16);
+        auto& stack = detail::GetThreadStack();
+        T* ptr = reinterpret_cast<T*>(stack.ptr);
+        stack.ptr = nova::AlignUpPower2(stack.ptr + sizeof(T) * count, 16);
         return ptr;
     }
 
     template<class ...Args>
     std::string_view StackFormat(const std::format_string<Args...> fmt, Args&&... args)
     {
-        char* begin = reinterpret_cast<char*>(detail::NovaStack.ptr);
+        auto& stack = detail::GetThreadStack();
+        char* begin = reinterpret_cast<char*>(stack.ptr);
         char* end = std::vformat_to(begin, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
-        detail::NovaStack.ptr = nova::AlignUpPower2(reinterpret_cast<std::byte*>(end), 16);
+        stack.ptr = nova::AlignUpPower2(reinterpret_cast<std::byte*>(end), 16);
         return std::string_view { begin, end };
     }
 
     inline
     std::wstring_view StackToUtf16(std::string_view source)
     {
-        char16_t* begin = reinterpret_cast<char16_t*>(detail::NovaStack.ptr);
+        auto& stack = detail::GetThreadStack();
+        char16_t* begin = reinterpret_cast<char16_t*>(stack.ptr);
         auto size = simdutf::convert_utf8_to_utf16(source.data(), source.size(), begin);
-        detail::NovaStack.ptr = nova::AlignUpPower2(detail::NovaStack.ptr + size * sizeof(char16_t), 16);
+        begin[size] = L'\0';
+        stack.ptr = nova::AlignUpPower2(stack.ptr + (size + 1) * sizeof(char16_t), 16);
         return { reinterpret_cast<wchar_t*>(begin), size };
     }
 
     inline
     std::string_view StackFromUtf16(std::wstring_view source)
     {
-        char* begin = reinterpret_cast<char*>(detail::NovaStack.ptr);
+        auto& stack = detail::GetThreadStack();
+        char* begin = reinterpret_cast<char*>(stack.ptr);
         auto size = simdutf::convert_utf16_to_utf8(reinterpret_cast<const char16_t*>(source.data()), source.size(), begin);
-        detail::NovaStack.ptr = nova::AlignUpPower2(detail::NovaStack.ptr + size, 16);
+        begin[size] = '\0';
+        stack.ptr = nova::AlignUpPower2(stack.ptr + size + 1, 16);
         return { begin, size };
     }
 
     inline
-    const char* StackToCStr(std::string_view source)
+    char* StackToCStr(std::string_view source)
     {
         auto cstr = StackAlloc<char>(source.size() + 1);
         std::memcpy(cstr, source.data(), source.size());
@@ -88,7 +98,7 @@ namespace nova
     }
 
     inline
-    const wchar_t* StackToCStr(std::wstring_view source)
+    wchar_t* StackToCStr(std::wstring_view source)
     {
         auto cstr = StackAlloc<wchar_t>(source.size() + 1);
         std::wmemcpy(cstr, source.data(), source.size());

@@ -26,5 +26,4 @@ NOVA_EXAMPLE(Stack, "stack")
         }
         NOVA_TIMEIT();
     }
-
 }
