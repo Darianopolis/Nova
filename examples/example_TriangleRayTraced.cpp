@@ -31,6 +31,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto context = nova::Context::Create({
         .debug = true,
         .ray_tracing = true,
+        .compatibility = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -62,12 +63,12 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
         nova::glsl::Compile(nova::ShaderStage::RayGen, "main", "", {
             R"glsl(
-                #extension GL_EXT_ray_tracing                            : require
-                #extension GL_NV_shader_invocation_reorder               : require
-                #extension GL_EXT_shader_image_load_formatted            : require
-                #extension GL_EXT_scalar_block_layout                    : require
-                #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
-                #extension GL_EXT_nonuniform_qualifier                   : require
+                #extension GL_EXT_ray_tracing                      : require
+                #extension GL_NV_shader_invocation_reorder         : require
+                #extension GL_EXT_shader_image_load_formatted      : require
+                #extension GL_EXT_scalar_block_layout              : require
+                #extension GL_EXT_shader_explicit_arithmetic_types : require
+                #extension GL_EXT_nonuniform_qualifier             : require
 
                 layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 
@@ -96,6 +97,51 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                 }
         )glsl"}));
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
+
+    auto ray_query_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
+        nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {
+            R"glsl(
+                #extension GL_EXT_ray_tracing                      : require
+                #extension GL_EXT_shader_image_load_formatted      : require
+                #extension GL_EXT_scalar_block_layout              : require
+                #extension GL_EXT_shader_explicit_arithmetic_types : require
+                #extension GL_EXT_nonuniform_qualifier             : require
+                #extension GL_EXT_ray_query                        : require
+
+                layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+
+                layout(push_constant, scalar) uniform pc_ {
+                    uint64_t tlas;
+                    uint   target;
+                    uvec2    size;
+                } pc;
+
+                layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+                void main() {
+                    ivec2 tpos = ivec2(gl_GlobalInvocationID.xy);
+                    if (tpos.x > pc.size.x || tpos.y > pc.size.y) {
+                        return;
+                    }
+                    vec3 pos = vec3(vec2(tpos), 1);
+                    vec3 dir = vec3(0, 0, -1);
+                    vec3 color = vec3(0.1);
+
+                    rayQueryEXT hit;
+                    rayQueryInitializeEXT(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, pos, 0, dir, 2);
+                    while (rayQueryProceedEXT(hit)) {
+                        if (rayQueryGetIntersectionTypeEXT(hit, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+                            rayQueryConfirmIntersectionEXT(hit);
+                        }
+                    }
+                    if (rayQueryGetIntersectionTypeEXT(hit, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+                        vec2 bary = rayQueryGetIntersectionBarycentricsEXT(hit, true);
+                        color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+                    }
+
+                    imageStore(RWImage2D[pc.target], tpos, vec4(color, 1));
+                }
+        )glsl"}));
+    NOVA_DEFER(&) { ray_query_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader
 
@@ -194,6 +240,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 //                               Main Loop
 // -----------------------------------------------------------------------------
 
+    bool use_ray_query = false;
+
     NOVA_DEFER(&) { fence.Wait(); };
     while (!glfwWindowShouldClose(window)) {
 
@@ -216,10 +264,10 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         // Transition ready for writing ray trace output
 
-        cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing);
+        cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing | nova::PipelineStage::Compute);
         cmd.Transition(swapchain.GetCurrent(),
             nova::ImageLayout::GeneralImage,
-            nova::PipelineStage::RayTracing);
+            nova::PipelineStage::RayTracing | nova::PipelineStage::Compute);
 
         // Trace rays
 
@@ -227,13 +275,24 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
         {
             u64 tlas;
             u32 target;
+            Vec2U size;
         };
 
         cmd.PushConstants(PushConstants {
             .tlas = tlas.GetAddress(),
             .target = swapchain.GetCurrent().GetDescriptor(),
+            .size = swapchain.GetExtent(),
         });
-        cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1));
+
+        // Use rt pipeilne of ray query from compute
+
+        if (use_ray_query) {
+            cmd.BindShaders({ ray_query_shader });
+            cmd.Dispatch(Vec3U((swapchain.GetExtent() + Vec2U(15)) / Vec2U(16), 1));
+        } else {
+            cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1));
+        }
+        use_ray_query = !use_ray_query;
 
         // Submit and present work
 
