@@ -10,17 +10,31 @@ namespace nova
 //                                  Span
 // -----------------------------------------------------------------------------
 
+    template<class T>
+    concept IsContiguousContainer = requires(T t)
+    {
+        { t.begin() } -> std::random_access_iterator;
+    };
+
     template<typename T>
     struct Span
     {
         std::span<const T> span;
 
     public:
-        Span(std::initializer_list<T>&&      init) : span(init.begin(), init.end()) {}
-        Span(const std::vector<T>&      container) : span(container.begin(), container.end()) {}
-        template<usz Size>
-        Span(const std::array<T, Size>& container) : span(container.begin(), container.end()) {}
-        Span(const std::span<const T>&  container) : span(container.begin(), container.end()) {}
+        Span(const std::initializer_list<T>& init)
+            : span(init.begin(), init.end())
+        {}
+
+        template<class C>
+        requires IsContiguousContainer<C>
+        Span(C&& c)
+            : span(c.begin(), c.end())
+        {}
+
+        Span(const T& v)
+            : span(&v, 1ull)
+        {}
 
         Span(const T* first, usz count) : span(first, count) {}
 
