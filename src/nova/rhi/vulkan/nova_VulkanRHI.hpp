@@ -2,14 +2,9 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
-#define VK_NO_PROTOTYPES
-#ifndef NOMINMAX
-#  define NOMINMAX
+#ifndef VK_NO_PROTOTYPES
+#  define VK_NO_PROTOTYPES
 #endif
-#ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-#endif
-#define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
@@ -382,6 +377,9 @@ namespace nova
     VkQueueFlags GetVulkanQueueFlags(QueueFlags in);
     VkPipelineStageFlags2 GetVulkanPipelineStage(PipelineStage in);
     VkImageLayout GetVulkanImageLayout(ImageLayout layout);
+
+    PFN_vkGetInstanceProcAddr Platform_LoadGetInstanceProcAddr();
+    VkSurfaceKHR Platform_CreateVulkanSurface(Context, void* handle);
 
     void* VulkanTrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
     void* VulkanTrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);

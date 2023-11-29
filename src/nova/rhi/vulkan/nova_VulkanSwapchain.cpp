@@ -11,11 +11,7 @@ namespace nova
         impl->usage = usage;
         impl->present_mode = present_mode;
 
-        vkh::Check(impl->context->vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
-            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-            .hinstance = GetModuleHandle(nullptr),
-            .hwnd = HWND(window),
-        }), context->alloc, &impl->surface));
+        impl->surface = Platform_CreateVulkanSurface(context, window);
 
         std::vector<VkSurfaceFormatKHR> surface_formats;
         vkh::Enumerate(surface_formats, impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);

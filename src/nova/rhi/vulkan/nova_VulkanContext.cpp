@@ -111,13 +111,7 @@ Validation: {} ({})
 
         // Load pre-instance functions
 
-#ifdef _WIN32
-        HMODULE vulkan1 = LoadLibraryA("vulkan-1.dll");
-        if (!vulkan1) {
-            NOVA_THROW("Failed to load vulkan-1.dll");
-        }
-        impl->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(vulkan1, "vkGetInstanceProcAddr");
-#endif
+        impl->vkGetInstanceProcAddr = Platform_LoadGetInstanceProcAddr();
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
     auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name);        \
