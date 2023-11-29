@@ -1,12 +1,6 @@
 #include "nova_Timer.hpp"
 
-#ifndef NOMINMAX
-#  define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#  define WIN32_LEAN_AND_MEAN
-#endif
-#include "Windows.h"
+#include <nova/core/win32/nova_MinWinInclude.hpp>
 
 namespace nova
 {

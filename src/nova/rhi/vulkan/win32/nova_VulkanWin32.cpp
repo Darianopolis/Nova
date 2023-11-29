@@ -1,7 +1,6 @@
+#include <nova/core/win32/nova_MinWinInclude.hpp>
 
 #define VK_NO_PROTOTYPES
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 

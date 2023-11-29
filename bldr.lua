@@ -42,7 +42,6 @@ if Project "nova" then
         "imguizmo",
     }
 
-
 -------- Window ----------------------------------------------------------------
 
     Compile "src/nova/window/**"

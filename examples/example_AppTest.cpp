@@ -1,12 +1,10 @@
-#include "example_Main.hpp"
+#include "main/example_Main.hpp"
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/window/nova_Window.hpp>
 #include <nova/core/nova_Debug.hpp>
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <nova/core/win32/nova_MinWinInclude.hpp>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 

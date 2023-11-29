@@ -1,4 +1,4 @@
-#include "example_Main.hpp"
+#include "main/example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
@@ -6,9 +6,9 @@
 
 #include <nova/core/nova_Guards.hpp>
 
+#include <nova/core/win32/nova_MinWinInclude.hpp>
+
 #define GLFW_EXPOSE_NATIVE_WIN32
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 

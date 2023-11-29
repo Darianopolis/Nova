@@ -1,9 +1,11 @@
-#include "example_Main.hpp"
+#include "main/example_Main.hpp"
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_Draw2D.hpp>
+
+#include <nova/core/win32/nova_MinWinInclude.hpp>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
