@@ -16,7 +16,8 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     NOVA_DEFER(&) { glfwTerminate(); };
 
     auto context = nova::Context::Create({
-        .debug = true
+        .debug = true,
+        .compatibility = true,
     });
     auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
         nova::ImageUsage::ColorAttach
@@ -42,7 +43,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
             layout(location = 0) in vec3 in_color;
             layout(location = 0) out vec4 frag_color;
             void main() {
-                frag_color = vec4(in_color, 1);
+                frag_color = vec4(in_color, 0.1);
             }
         )glsl"}));
 
@@ -54,10 +55,10 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
-        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
+        cmd.ClearColor(0, Vec4(0.3f, 0.2f, 0.1f, 1.f), swapchain.GetExtent());
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
-        cmd.SetBlendState({false});
+        cmd.SetBlendState({true});
         cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
