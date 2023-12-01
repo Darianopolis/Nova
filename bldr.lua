@@ -1,50 +1,34 @@
 if Project "nova" then
-
---------------------------------------------------------------------------------
---                               Components
---------------------------------------------------------------------------------
-
     Include "src"
-
--------- Core ------------------------------------------------------------------
-
-    Compile "src/nova/core/**"
+    Compile "src/**"
     Import {
         "ankerl-maps",
+        "mimalloc",
         "glm",
         "simdutf",
-        "mimalloc",
-    }
 
--------- DB --------------------------------------------------------------------
+        "sqlite3",
 
-    Compile "src/nova/db/**"
-    Import { "sqlite3" }
-
--------- RHI -------------------------------------------------------------------
-
-    Compile "src/nova/rhi/**"
-    Import {
         "vulkan",
         "VulkanMemoryAllocator",
         "glslang",
         "DXC",
-    }
 
--------- UI --------------------------------------------------------------------
-
-    Compile "src/nova/ui/**"
-    Import {
         "freetype",
-        "glfw",
+        "harfbuzz",
+
         "imgui",
-        "imgui-glfw",
         "imguizmo",
+
+        "assimp",
+        "fastgltf",
+        "fast-obj",
+        "ufbx",
+
+        "stb",
+        "bc7enc",
+        "meshoptimizer",
     }
-
--------- Window ----------------------------------------------------------------
-
-    Compile "src/nova/window/**"
 
 end
 
@@ -54,10 +38,6 @@ end
 
 if Project "nova-examples" then
     Compile "examples/**"
-    Import {
-        "stb",
-        "nova",
-        "bc7enc",
-    }
+    Import "nova"
     Artifact { "out/example", type = "Console" }
 end

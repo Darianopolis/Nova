@@ -1,9 +1,26 @@
-[ ] Rename rhi/gpu/gpgpu?
-[ ] Add nova-window
-[ ] pch
-[ ] Add graphics utilities?
-    [ ] BCn encoding/decoding
-    [ ] Mipmap generation
-    [ ] Texture loading
-    [ ] mesh optimization
-    [ ] model loading
+Components
+    [ ] Core utilities
+    [X] Sqlite
+    [ ] RHI
+    [ ] 2D Renderer
+        [X] Rounded rectangles
+        [X] Basic text
+        [ ] Lazily rasterized fonts
+    [ ] Windowing
+    [ ] ImGui backend
+    [ ] Model loading & processing
+        [ ] Frontends
+            [ ] Wavefront obj
+            [ ] FBX
+            [ ] glTF
+            [ ] Fallback loader (Assimp)
+        [ ] Processing
+            [ ] Image resizing/filtering
+            [ ] Image transcoding
+            [ ] Image mipmap generation
+            [ ] Mesh meshletization
+            [ ] Mesh simplification
+            [ ] Mesh quantization
+
+Shortlist
+    [ ] Handle multi-window
