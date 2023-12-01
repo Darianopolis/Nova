@@ -122,6 +122,8 @@ namespace nova
 
         operator   bool() const noexcept { return impl; }
         auto operator->() const noexcept { return impl; }
+
+        bool operator==(Handle other) const noexcept { return impl == other.impl; }
     };
 
 // -----------------------------------------------------------------------------
