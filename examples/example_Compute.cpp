@@ -6,11 +6,7 @@
 
 #include <nova/core/nova_Guards.hpp>
 
-#include <nova/core/win32/nova_MinWinInclude.hpp>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include <nova/window/nova_Window.hpp>
 
 #include <stb_image.h>
 
@@ -23,10 +19,12 @@ NOVA_EXAMPLE(Compute, "compute")
 //                             GLFW Initialization
 // -----------------------------------------------------------------------------
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(720, 720, "Nova - Compute", nullptr, nullptr);
-    NOVA_DEFER(&) { glfwTerminate(); };
+    auto app = nova::Application::Create();
+    NOVA_DEFER(&) { app.Destroy(); };
+    auto window = nova::Window::Create(app, {
+        .title = "Nova - Compute",
+        .size = { 800, 800 },
+    });
 
 // -----------------------------------------------------------------------------
 //                             Nova Initialization
@@ -40,7 +38,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
+    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::Storage
         | nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
@@ -181,7 +179,7 @@ NOVA_EXAMPLE(Compute, "compute")
     u64 frame_index = 0;
     u64 frames = 0;
     NOVA_DEFER(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window)) {
+    while (app.IsRunning()) {
 
         // Debug output statistics
         frames++;
@@ -230,7 +228,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
         // Wait for window events
 
-        glfwPollEvents();
+        app.PollEvents();
 
         wait_values[fif] = fence.GetPendingValue();
     }

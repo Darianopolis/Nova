@@ -4,24 +4,22 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
-#include <nova/core/win32/nova_MinWinInclude.hpp>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include <nova/window/nova_Window.hpp>
 
 NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Mesh Shader", nullptr, nullptr);
-    NOVA_DEFER(&) { glfwTerminate(); };
+    auto app = nova::Application::Create();
+    NOVA_DEFER(&) { app.Destroy(); };
+    auto window = nova::Window::Create(app, {
+        .title = "Nova - Triangle Mesh Shader",
+        .size = { 1920, 1080 },
+    });
 
     auto context = nova::Context::Create({
         .debug = true,
         .mesh_shading = true,
     });
-    auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
+    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
@@ -69,7 +67,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
             }
         )glsl"}));
 
-    while (!glfwWindowShouldClose(window)) {
+    while (app.IsRunning()) {
 
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
@@ -89,6 +87,7 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 
-        glfwWaitEvents();
+        app.WaitEvents();
+        app.PollEvents();
     }
 }

@@ -3,7 +3,6 @@
 #include <nova/core/nova_Guards.hpp>
 
 #include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
 
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
@@ -40,6 +39,140 @@ namespace nova::imgui
                 uvec2       texture;
             } pc;
         )glsl"sv;
+    }
+
+    void ImGui_ImplNova_NewFrame(ImGuiLayer& layer)
+    {
+        auto& io = ImGui::GetIO();
+
+        {
+            // Update Display Size
+
+            auto size = layer.window.GetSize(WindowPart::Client);
+            io.DisplaySize.x = f32(size.x);
+            io.DisplaySize.y = f32(size.y);
+        }
+
+        {
+            // Update delta time
+
+            auto time = std::chrono::steady_clock::now();
+            auto delta = time - layer.last_time;
+            io.DeltaTime = std::min(std::chrono::duration_cast<std::chrono::duration<float>>(delta).count(), 1.f); // Ignore any time > 1s
+            layer.last_time = time;
+        }
+
+        if (!(io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) && io.WantCaptureMouse) {
+
+            // Update mouse cursor
+
+            auto imgui_cursor = ImGui::GetMouseCursor();
+
+            if (imgui_cursor == ImGuiMouseCursor_None || io.MouseDrawCursor) {
+                layer.window.SetCursor(Cursor::None);
+            } else {
+                switch (imgui_cursor) {
+                    break;case ImGuiMouseCursor_None:       layer.window.SetCursor(Cursor::None);
+                    break;case ImGuiMouseCursor_Arrow:      layer.window.SetCursor(Cursor::Arrow);
+                    break;case ImGuiMouseCursor_TextInput:  layer.window.SetCursor(Cursor::IBeam);
+                    break;case ImGuiMouseCursor_ResizeAll:  layer.window.SetCursor(Cursor::ResizeAll);
+                    break;case ImGuiMouseCursor_ResizeNS:   layer.window.SetCursor(Cursor::ResizeNS);
+                    break;case ImGuiMouseCursor_ResizeEW:   layer.window.SetCursor(Cursor::ResizeEW);
+                    break;case ImGuiMouseCursor_ResizeNESW: layer.window.SetCursor(Cursor::ResizeNESW);
+                    break;case ImGuiMouseCursor_ResizeNWSE: layer.window.SetCursor(Cursor::ResizeNWSE);
+                    break;case ImGuiMouseCursor_Hand:       layer.window.SetCursor(Cursor::Hand);
+                    break;case ImGuiMouseCursor_NotAllowed: layer.window.SetCursor(Cursor::NotAllowed);
+                }
+            }
+        }
+    }
+
+    void ImGui_ImplNova_Init(ImGuiLayer& layer)
+    {
+        auto app = layer.window.GetApplication();
+
+        app.SetCallback([&layer, app](const Event& event) {
+
+            if (event.window != layer.window) {
+                return;
+            }
+
+            auto& io = ImGui::GetIO();
+
+            switch (event.type)
+            {
+                break;case EventType::Button:
+                    {
+                        auto button = app.GetButton(event.button.code);
+
+                        switch (button)
+                        {
+                            break;case Button::LeftShift:
+                                  case Button::RightShift:
+                                io.AddKeyEvent(ImGuiMod_Shift, app.IsButtonDown(Button::LeftShift) || app.IsButtonDown(Button::RightShift));
+
+                            break;case Button::LeftControl:
+                                  case Button::RightControl:
+                                io.AddKeyEvent(ImGuiMod_Ctrl, app.IsButtonDown(Button::LeftControl) || app.IsButtonDown(Button::RightControl));
+
+                            break;case Button::LeftAlt:
+                                  case Button::RightAlt:
+                                io.AddKeyEvent(ImGuiMod_Alt, app.IsButtonDown(Button::LeftAlt) || app.IsButtonDown(Button::RightAlt));
+
+                            break;case Button::LeftSuper:
+                                  case Button::RightSuper:
+                                io.AddKeyEvent(ImGuiMod_Super, app.IsButtonDown(Button::LeftSuper) || app.IsButtonDown(Button::RightSuper));
+                        }
+
+                        switch (button) {
+
+                            break;case Button::MousePrimary:   io.AddMouseButtonEvent(ImGuiMouseButton_Left, event.button.pressed);
+                            break;case Button::MouseSecondary: io.AddMouseButtonEvent(ImGuiMouseButton_Right, event.button.pressed);
+                            break;case Button::MouseMiddle:    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, event.button.pressed);
+
+                            break;case Button::Tab: io.AddKeyEvent(ImGuiKey_Tab, event.button.pressed);
+
+                            break;case Button::Left:  io.AddKeyEvent(ImGuiKey_LeftArrow, event.button.pressed);
+                            break;case Button::Right: io.AddKeyEvent(ImGuiKey_RightArrow, event.button.pressed);
+                            break;case Button::Up:    io.AddKeyEvent(ImGuiKey_UpArrow, event.button.pressed);
+                            break;case Button::Down:  io.AddKeyEvent(ImGuiKey_DownArrow, event.button.pressed);
+
+                            break;case Button::PageUp:    io.AddKeyEvent(ImGuiKey_PageUp, event.button.pressed);
+                            break;case Button::PageDown:  io.AddKeyEvent(ImGuiKey_PageDown, event.button.pressed);
+                            break;case Button::Home:      io.AddKeyEvent(ImGuiKey_Home, event.button.pressed);
+                            break;case Button::End:       io.AddKeyEvent(ImGuiKey_End, event.button.pressed);
+                            break;case Button::Insert:    io.AddKeyEvent(ImGuiKey_Insert, event.button.pressed);
+                            break;case Button::Delete:    io.AddKeyEvent(ImGuiKey_Delete, event.button.pressed);
+                            break;case Button::Backspace: io.AddKeyEvent(ImGuiKey_Backspace, event.button.pressed);
+                            break;case Button::Space:     io.AddKeyEvent(ImGuiKey_Space, event.button.pressed);
+                            break;case Button::Enter:     io.AddKeyEvent(ImGuiKey_Enter, event.button.pressed);
+                            break;case Button::Escape:    io.AddKeyEvent(ImGuiKey_Escape, event.button.pressed);
+
+                            break;case Button::LeftShift:   io.AddKeyEvent(ImGuiKey_LeftShift, event.button.pressed);
+                            break;case Button::LeftControl: io.AddKeyEvent(ImGuiKey_LeftCtrl, event.button.pressed);
+                            break;case Button::LeftAlt:     io.AddKeyEvent(ImGuiKey_LeftAlt, event.button.pressed);
+                            break;case Button::LeftSuper:   io.AddKeyEvent(ImGuiKey_LeftSuper, event.button.pressed);
+
+                            break;case Button::RightShift:   io.AddKeyEvent(ImGuiKey_RightShift, event.button.pressed);
+                            break;case Button::RightControl: io.AddKeyEvent(ImGuiKey_RightCtrl, event.button.pressed);
+                            break;case Button::RightAlt:     io.AddKeyEvent(ImGuiKey_RightAlt, event.button.pressed);
+                            break;case Button::RightSuper:   io.AddKeyEvent(ImGuiKey_RightSuper, event.button.pressed);
+                        }
+                    }
+                break;case EventType::MouseMove:
+                    io.AddMousePosEvent(event.mouse_move.position.x, event.mouse_move.position.y);
+
+                break;case EventType::MouseScroll:
+                    io.AddMouseWheelEvent(event.scroll.scrolled.x, event.scroll.scrolled.y);
+
+                break;case EventType::Text:
+                    io.AddInputCharactersUTF8(event.text.text);
+
+                break;case EventType::WindowFocus:
+                    if      (event.focus.gaining == layer.window) io.AddFocusEvent(true);
+                    else if (event.focus.losing  == layer.window) io.AddFocusEvent(false);
+            }
+        });
     }
 
     ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
@@ -94,7 +227,9 @@ namespace nova::imgui
         auto& io = ImGui::GetIO();
         io.ConfigFlags |= config.flags;
         io.ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
-        ImGui_ImplGlfw_InitForOther(config.window, true);
+
+        window = config.window;
+        ImGui_ImplNova_Init(*this);
 
         // Rescale UI and fonts
 
@@ -128,7 +263,7 @@ namespace nova::imgui
     {
         last_imgui_ctx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imgui_ctx);
-        ImGui_ImplGlfw_Shutdown();
+        // ImGui_ImplGlfw_Shutdown();
         ImGui::SetCurrentContext(last_imgui_ctx);
         ImGui::DestroyContext(imgui_ctx);
 
@@ -144,7 +279,8 @@ namespace nova::imgui
         last_imgui_ctx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imgui_ctx);
 
-        ImGui_ImplGlfw_NewFrame();
+        // ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplNova_NewFrame(*this);
         ImGui::NewFrame();
 
         ImGuizmo::BeginFrame();
@@ -198,10 +334,8 @@ namespace nova::imgui
             ended = true;
 
             if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-                auto contextBackup = glfwGetCurrentContext();
                 ImGui::UpdatePlatformWindows();
                 ImGui::RenderPlatformWindowsDefault();
-                glfwMakeContextCurrent(contextBackup);
             }
 
             ImGui::SetCurrentContext(last_imgui_ctx);

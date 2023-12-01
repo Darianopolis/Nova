@@ -56,6 +56,22 @@ namespace nova
         HMODULE module;
 
         std::vector<Window> windows;
+
+        Callback callback;
+
+        bool running = true;
+
+        char16_t high_surrogate;
+
+        void Send(Event event);
+    };
+
+    template<>
+    struct Handle<Display>::Impl
+    {
+        Application app;
+
+        HMONITOR monitor;
     };
 
     template<>

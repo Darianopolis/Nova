@@ -4,11 +4,7 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
-#include <nova/core/win32/nova_MinWinInclude.hpp>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include <nova/window/nova_Window.hpp>
 
 NOVA_EXAMPLE(RayTracing, "tri-rt")
 {
@@ -16,13 +12,12 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 //                             GLFW Initialization
 // -----------------------------------------------------------------------------
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    auto window = glfwCreateWindow(1920, 1200, "Nova - Triangle Ray Traced", nullptr, nullptr);
-    NOVA_DEFER(&) { glfwTerminate(); };
-
-    i32 width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+    auto app = nova::Application::Create();
+    NOVA_DEFER(&) { app.Destroy(); };
+    auto window = nova::Window::Create(app, {
+        .title = "Nova - Triangle Ray Traced",
+        .size = { 1920, 1080 },
+    });
 
 // -----------------------------------------------------------------------------
 //                             Nova Initialization
@@ -39,7 +34,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, glfwGetWin32Window(window),
+    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::Storage | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
@@ -245,7 +240,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     bool use_ray_query = false;
 
     NOVA_DEFER(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window)) {
+    while (app.IsRunning()) {
 
         // Wait for previous frame and acquire new swapchain image
 
@@ -286,7 +281,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
             .size = swapchain.GetExtent(),
         });
 
-        // Use rt pipeilne of ray query from compute
+        // Use rt pipeline of ray query from compute
 
         if (use_ray_query) {
             cmd.BindShaders({ ray_query_shader });
@@ -304,6 +299,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         // Wait for window events
 
-        glfwWaitEvents();
+        app.WaitEvents();
+        app.PollEvents();
     }
 }

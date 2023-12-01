@@ -4,41 +4,43 @@
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_Draw2D.hpp>
-
-#include <nova/core/win32/nova_MinWinInclude.hpp>
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include <nova/window/nova_Window.hpp>
 
 #include <stb_image.h>
 
 NOVA_EXAMPLE(Draw, "draw")
 {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    auto window = glfwCreateWindow(1920, 1200, "Nova - Draw", nullptr, nullptr);
-    NOVA_DEFER(&) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-    };
+    // glfwInit();
+    // glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+    // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    // auto window = glfwCreateWindow(1920, 1200, "Nova - Draw", nullptr, nullptr);
+    // NOVA_DEFER(&) {
+    //     glfwDestroyWindow(window);
+    //     glfwTerminate();
+    // };
 
-    HWND hwnd = glfwGetWin32Window(window);
-    SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+    // HWND hwnd = glfwGetWin32Window(window);
+    // SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
 
-    // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
-    //   Or, do full screeen pass to filter out unintentional chroma key matches and
-    //   apply chroma key based on alpha.
-    SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+    // // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
+    // //   Or, do full screeen pass to filter out unintentional chroma key matches and
+    // //   apply chroma key based on alpha.
+    // SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+
+    auto app = nova::Application::Create();
+    NOVA_DEFER(&) { app.Destroy(); };
+    auto window = nova::Window::Create(app, {
+        .title = "Nova - Draw",
+        .size = { 1920, 1080 },
+    });
 
     auto context = nova::Context::Create({
         .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
-    auto swapchain = nova::Swapchain::Create(context, hwnd,
+    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
         nova::PresentMode::Fifo);
@@ -76,18 +78,19 @@ NOVA_EXAMPLE(Draw, "draw")
 // -----------------------------------------------------------------------------
 
     int count;
-    auto mode = glfwGetVideoMode(glfwGetMonitors(&count)[0]);
-    int width = mode->width;
-    int height = mode->height;
+    // auto mode = glfwGetVideoMode(glfwGetMonitors(&count)[0]);
+    // int width = mode->width;
+    // int height = mode->height;
+    auto size = app.GetPrimaryDisplay().GetSize();
 
-    std::cout << "Monitor size = " << width << ", " << height << '\n';
+    std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
     auto font = im_draw.LoadFont("assets/fonts/arial.ttf", 20.f);
 
     nova::draw::Rectangle box1 {
         .center_color = { 1.f, 0.f, 0.f, 0.5f },
         .border_color = { 0.2f, 0.2f, 0.2f, 1.f },
-        .center_pos = { width * 0.25f, height * 0.25f },
+        .center_pos = { size.x * 0.25f, size.y * 0.25f },
         .half_extent = { 100.f, 200.f },
         .corner_radius = 15.f,
         .border_width = 5.f,
@@ -101,7 +104,7 @@ NOVA_EXAMPLE(Draw, "draw")
     nova::draw::Rectangle box2 {
         .center_color = { 0.f, 1.f, 0.f, 0.5f },
         .border_color = { 0.4f, 0.4f, 0.4f, 1.f },
-        .center_pos = { width * 0.5f, height * 0.5f },
+        .center_pos = { size.x * 0.5f, size.y * 0.5f },
         .half_extent = { 100.f, 100.f },
         .corner_radius = 15.f,
         .border_width = 10.f,
@@ -115,7 +118,7 @@ NOVA_EXAMPLE(Draw, "draw")
     nova::draw::Rectangle box3 {
         .center_color = { 0.f, 0.f, 1.f, 0.5f },
         .border_color = { 0.6f, 0.6f, 0.6f, 1.f },
-        .center_pos = { width * 0.75f, height * 0.75f },
+        .center_pos = { size.x * 0.75f, size.y * 0.75f },
         .half_extent = { 200.f, 100.f },
         .corner_radius = 25.f,
         .border_width = 10.f,
@@ -132,23 +135,26 @@ NOVA_EXAMPLE(Draw, "draw")
     auto last_frame = std::chrono::steady_clock::now();
 
     NOVA_DEFER(&) { fence.Wait(); };
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    while (app.IsRunning()) {
+        app.PollEvents();
+        if (!app.IsRunning()) {
+            break;
+        }
 
 // -----------------------------------------------------------------------------
 
         if (!skip_update) {
-            auto MoveBox = [&](nova::draw::Rectangle& box, int left, int right, int up, int down) {
+            auto MoveBox = [&](nova::draw::Rectangle& box, nova::Button left, nova::Button right, nova::Button up, nova::Button down) {
                 float speed = 5.f;
-                if (glfwGetKey(window, left))  { box.center_pos.x -= speed; redraw = true; }
-                if (glfwGetKey(window, right)) { box.center_pos.x += speed; redraw = true; }
-                if (glfwGetKey(window, up))    { box.center_pos.y -= speed; redraw = true; }
-                if (glfwGetKey(window, down))  { box.center_pos.y += speed; redraw = true; }
+                if (app.IsButtonDown(left))  { box.center_pos.x -= speed; redraw = true; }
+                if (app.IsButtonDown(right)) { box.center_pos.x += speed; redraw = true; }
+                if (app.IsButtonDown(up))    { box.center_pos.y -= speed; redraw = true; }
+                if (app.IsButtonDown(down))  { box.center_pos.y += speed; redraw = true; }
             };
 
-            MoveBox(box1, GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S);
-            MoveBox(box2, GLFW_KEY_J, GLFW_KEY_L, GLFW_KEY_I, GLFW_KEY_K);
-            MoveBox(box3, GLFW_KEY_LEFT, GLFW_KEY_RIGHT, GLFW_KEY_UP, GLFW_KEY_DOWN);
+            // MoveBox(box1, GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S);
+            // MoveBox(box2, GLFW_KEY_J, GLFW_KEY_L, GLFW_KEY_I, GLFW_KEY_K);
+            MoveBox(box3, nova::Button::Left, nova::Button::Right, nova::Button::Up, nova::Button::Down);
         }
         else {
             redraw = true;
@@ -157,7 +163,7 @@ NOVA_EXAMPLE(Draw, "draw")
         skip_update = false;
 
         if (!redraw) {
-            glfwWaitEvents();
+            app.WaitEvents();
             skip_update = true;
         }
         redraw = false;
@@ -172,7 +178,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
         im_draw.DrawString(
             "C:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive/BeamNG.drive.exe",
-            Vec2(width * 0.25f, height * 0.4f),
+            Vec2(size.x * 0.25f, size.y * 0.4f),
             *font);
 
 // -----------------------------------------------------------------------------
@@ -186,8 +192,8 @@ NOVA_EXAMPLE(Draw, "draw")
 
         // Update window size, record primary buffer and present
 
-        glfwSetWindowSize(window, i32(im_draw.GetBounds().Width()), i32(im_draw.GetBounds().Height()));
-        glfwSetWindowPos(window, i32(im_draw.GetBounds().min.x), i32(im_draw.GetBounds().min.y));
+        window.SetSize({ im_draw.GetBounds().Width(), im_draw.GetBounds().Height() }, nova::WindowPart::Client);
+        window.SetPosition({ im_draw.GetBounds().min.x, im_draw.GetBounds().min.y }, nova::WindowPart::Client);
 
         queue.Acquire({swapchain}, {fence});
 

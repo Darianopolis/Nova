@@ -1,9 +1,9 @@
 #pragma once
 
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/window/nova_Window.hpp>
 
 #include <imgui.h>
-#include <GLFW/glfw3.h>
 
 namespace nova::imgui
 {
@@ -15,7 +15,7 @@ namespace nova::imgui
         Vec2 glyph_offset = Vec2(1.f, 1.67f);
         i32         flags = 0;
 
-        GLFWwindow* window;
+        Window window;
 
         Context context;
         Sampler sampler;
@@ -24,6 +24,8 @@ namespace nova::imgui
     struct ImGuiLayer
     {
         Context context;
+
+        Window window;
 
         ImGuiContext*      imgui_ctx = {};
         ImGuiContext* last_imgui_ctx = {};
@@ -37,6 +39,8 @@ namespace nova::imgui
 
         Buffer vertex_buffer;
         Buffer  index_buffer;
+
+        std::chrono::steady_clock::time_point last_time = {};
 
         bool ended = false;
 
