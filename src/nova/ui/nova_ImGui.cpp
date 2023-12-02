@@ -101,25 +101,29 @@ namespace nova::imgui
 
             switch (event.type)
             {
-                break;case EventType::Button:
+                break;case EventType::Input:
                     {
                         auto vk = app.ToVirtualKey(event.input.channel);
 
                         switch (vk)
                         {
-                            break;case VirtualKey::LeftShift:
+                            break;case VirtualKey::Shift:
+                                  case VirtualKey::LeftShift:
                                   case VirtualKey::RightShift:
                                 io.AddKeyEvent(ImGuiMod_Shift, app.IsVirtualKeyDown(VirtualKey::LeftShift) || app.IsVirtualKeyDown(VirtualKey::RightShift));
 
-                            break;case VirtualKey::LeftControl:
+                            break;case VirtualKey::Control:
+                                  case VirtualKey::LeftControl:
                                   case VirtualKey::RightControl:
                                 io.AddKeyEvent(ImGuiMod_Ctrl, app.IsVirtualKeyDown(VirtualKey::LeftControl) || app.IsVirtualKeyDown(VirtualKey::RightControl));
 
-                            break;case VirtualKey::LeftAlt:
+                            break;case VirtualKey::Alt:
+                                  case VirtualKey::LeftAlt:
                                   case VirtualKey::RightAlt:
                                 io.AddKeyEvent(ImGuiMod_Alt, app.IsVirtualKeyDown(VirtualKey::LeftAlt) || app.IsVirtualKeyDown(VirtualKey::RightAlt));
 
-                            break;case VirtualKey::LeftSuper:
+                            break;case VirtualKey::Super:
+                                  case VirtualKey::LeftSuper:
                                   case VirtualKey::RightSuper:
                                 io.AddKeyEvent(ImGuiMod_Super, app.IsVirtualKeyDown(VirtualKey::LeftSuper) || app.IsVirtualKeyDown(VirtualKey::RightSuper));
                         }

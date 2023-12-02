@@ -52,7 +52,7 @@ namespace nova
         u64 device;
     };
 
-    enum class VirtualKey
+    enum class VirtualKey : u32
     {
         Unknown,
 
@@ -60,8 +60,8 @@ namespace nova
         MouseMiddle,
         MouseSecondary,
 
-        // MouseForward,
-        // MouseBack,
+        MouseForward,
+        MouseBack,
 
         Tab,
 
@@ -82,42 +82,48 @@ namespace nova
         Enter,
         Escape,
 
-        // Apostrophe,
-        // Comma,
-        // Minus,
-        // Period,
-        // Slash,
-        // Semicolon,
-        // Equal,
-        // LeftBracket,
-        // Backslash,
-        // RightBracket,
-        // GraveAccent,
+        Apostrophe,
+        Comma,
+        Minus,
+        Period,
+        Slash,
+        Semicolon,
+        Backtick,
+        Equal,
+        LeftBracket,
+        Backslash,
+        RightBracket,
+        Hash,
 
-        // CapsLock,
-        // ScrollLock,
-        // NumLock,
-        // PrintScreen,
-        // Pause,
+        CapsLock,
+        ScrollLock,
+        NumLock,
+        PrintScreen,
+        Pause,
 
-        // Num0,
-        // Num1,
-        // Num2,
-        // Num3,
-        // Num4,
-        // Num5,
-        // Num6,
-        // Num7,
-        // Num8,
-        // Num9,
+        Num0,
+        Num1,
+        Num2,
+        Num3,
+        Num4,
+        Num5,
+        Num6,
+        Num7,
+        Num8,
+        Num9,
 
-        // NumDecimal,
-        // NumDivide,
-        // NumMultiply,
-        // NumSubtract,
-        // NumAdd,
-        // NumEnter,
-        // NumEqual,
+        NumDecimal,
+        NumDivide,
+        NumMultiply,
+        NumSubtract,
+        NumAdd,
+        NumEnter,
+        NumEqual,
+
+        Shift,
+        Control,
+        Alt,
+        Super,
 
         LeftShift,
         LeftControl,
@@ -129,11 +135,10 @@ namespace nova
         RightAlt,
         RightSuper,
 
-        // Menu,
-        // _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
-        // A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, w, X, Y, Z,
-        // F1,  F2,  F3,  F4,  F5,  F6,  F7,  F8,  F9,  F10, F11, F12,
-        // F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24,
+        _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
+        A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, w, X, Y, Z,
+        F1,  F2,  F3,  F4,  F5,  F6,  F7,  F8,  F9,  F10, F11, F12,
+        F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24,
     };
 
     enum class Modifier
@@ -165,7 +170,7 @@ namespace nova
     enum class EventType
     {
         Text,
-        Button,
+        Input,
         MouseMove,
         MouseScroll,
 
@@ -243,6 +248,7 @@ namespace nova
         bool IsRunning() const;
 
         VirtualKey ToVirtualKey(InputChannel channel) const;
+        std::string_view VirtualKeyToString(VirtualKey key) const;
         bool IsVirtualKeyDown(VirtualKey button) const;
 
         InputChannelState GetInputState(InputChannel) const;

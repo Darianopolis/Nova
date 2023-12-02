@@ -2,94 +2,188 @@
 
 namespace nova
 {
-    VirtualKey Application::ToVirtualKey(InputChannel channel) const
+    struct Win32VirtualKeyMapping {
+        VirtualKey nova_mapping;
+        u32       win32_mapping;
+        std::string_view   name;
+    };
+
+    constexpr auto Win32VirtualKeyMappings = std::to_array<Win32VirtualKeyMapping>({
+        { VirtualKey::MousePrimary,   VK_LBUTTON,  "MousePrimary"   },
+        { VirtualKey::MouseMiddle,    VK_MBUTTON,  "MouseMiddle"    },
+        { VirtualKey::MouseSecondary, VK_RBUTTON,  "MouseSecondary" },
+        { VirtualKey::MouseForward,   VK_XBUTTON1, "MouseForward"   },
+        { VirtualKey::MouseBack,      VK_XBUTTON2, "MouseBack"      },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::Tab,       VK_TAB,    "Tab"       },
+        { VirtualKey::Left,      VK_LEFT,   "Left"      },
+        { VirtualKey::Right,     VK_RIGHT,  "Right"     },
+        { VirtualKey::Up,        VK_UP,     "Up"        },
+        { VirtualKey::Down,      VK_DOWN,   "Down"      },
+        { VirtualKey::PageUp,    VK_PRIOR,  "PageUp"    },
+        { VirtualKey::PageDown,  VK_NEXT,   "PageDown"  },
+        { VirtualKey::Home,      VK_HOME,   "Home"      },
+        { VirtualKey::End,       VK_END,    "End"       },
+        { VirtualKey::Insert,    VK_INSERT, "Insert"    },
+        { VirtualKey::Delete,    VK_DELETE, "Delete"    },
+        { VirtualKey::Backspace, VK_BACK,   "Backspace" },
+        { VirtualKey::Space,     VK_SPACE,  "Space"     },
+        { VirtualKey::Enter,     VK_RETURN, "Enter"     },
+        { VirtualKey::Escape,    VK_ESCAPE, "Escape"    },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::Comma,  VK_OEM_COMMA,  "Comma"  },
+        { VirtualKey::Minus,  VK_OEM_MINUS,  "Minus"  },
+        { VirtualKey::Period, VK_OEM_PERIOD, "Period" },
+        { VirtualKey::Equal,  VK_OEM_PLUS,   "Equal"  },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::Semicolon,    VK_OEM_1, "Semicolon"    }, // * (OK for assuming qwerty)
+        { VirtualKey::Slash,        VK_OEM_2, "Slash"        }, // *
+        { VirtualKey::Apostrophe,   VK_OEM_3, "Apostrophe"   }, // *
+        { VirtualKey::LeftBracket,  VK_OEM_4, "LeftBracket"  }, // *
+        { VirtualKey::Backslash,    VK_OEM_5, "Backslash"    }, // *
+        { VirtualKey::RightBracket, VK_OEM_6, "RightBracket" }, // *
+        { VirtualKey::Hash,         VK_OEM_7, "Hash"         }, // *
+        { VirtualKey::Backtick,     VK_OEM_8, "Backtick"     }, // * (Backtick on UK-ISO, Tilde on US keyboards)
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::CapsLock,    VK_CAPITAL, "CapsLock"    },
+        { VirtualKey::ScrollLock,  VK_SCROLL,  "ScrollLock"  },
+        { VirtualKey::NumLock,     VK_NUMLOCK, "NumLock"     },
+        { VirtualKey::PrintScreen, VK_PRINT,   "PrintScreen" },
+        { VirtualKey::Pause,       VK_PAUSE,   "Pause"       },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::Num0,        VK_NUMPAD0,  "Num0"        },
+        { VirtualKey::Num1,        VK_NUMPAD1,  "Num1"        },
+        { VirtualKey::Num2,        VK_NUMPAD2,  "Num2"        },
+        { VirtualKey::Num3,        VK_NUMPAD3,  "Num3"        },
+        { VirtualKey::Num4,        VK_NUMPAD4,  "Num4"        },
+        { VirtualKey::Num5,        VK_NUMPAD5,  "Num5"        },
+        { VirtualKey::Num6,        VK_NUMPAD6,  "Num6"        },
+        { VirtualKey::Num7,        VK_NUMPAD7,  "Num7"        },
+        { VirtualKey::Num8,        VK_NUMPAD8,  "Num8"        },
+        { VirtualKey::Num9,        VK_NUMPAD9,  "Num9"        },
+        { VirtualKey::NumDecimal,  VK_DECIMAL,  "NumDecimal"  },
+        { VirtualKey::NumDivide,   VK_DIVIDE,   "NumDivide"   },
+        { VirtualKey::NumMultiply, VK_MULTIPLY, "NumMultiply" },
+        { VirtualKey::NumSubtract, VK_SUBTRACT, "NumSubtract" },
+        { VirtualKey::NumAdd,      VK_ADD,      "NumAdd"      },
+        { VirtualKey::NumEnter,    VK_RETURN,   "NumEnter"    },
+// -------------------------------------------------------------------------------------------------------------
+        // TODO: Use scan codes to differentiate
+        { VirtualKey::LeftShift,    VK_LSHIFT,   "LeftShift"    },
+        { VirtualKey::LeftControl,  VK_LCONTROL, "LeftControl"  },
+        { VirtualKey::LeftAlt,      VK_LMENU,    "LeftAlt"      },
+        { VirtualKey::RightShift,   VK_RSHIFT,   "RightShift"   },
+        { VirtualKey::RightControl, VK_RCONTROL, "RightControl" },
+        { VirtualKey::RightAlt,     VK_RMENU,    "RightAlt"     },
+        { VirtualKey::RightSuper,   VK_RWIN,     "RightSuper"   },
+        { VirtualKey::Shift,        VK_SHIFT,    "Shift"        },
+        { VirtualKey::Control,      VK_CONTROL,  "Control"      },
+        { VirtualKey::Alt,          VK_MENU,     "Alt"          },
+        { VirtualKey::Super,        VK_LWIN,     "Super"        },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::_0, 0x30 + 0, "0" },
+        { VirtualKey::_1, 0x30 + 1, "1" },
+        { VirtualKey::_2, 0x30 + 2, "2" },
+        { VirtualKey::_3, 0x30 + 3, "3" },
+        { VirtualKey::_4, 0x30 + 4, "4" },
+        { VirtualKey::_5, 0x30 + 5, "5" },
+        { VirtualKey::_6, 0x30 + 6, "6" },
+        { VirtualKey::_7, 0x30 + 7, "7" },
+        { VirtualKey::_8, 0x30 + 8, "8" },
+        { VirtualKey::_9, 0x30 + 9, "9" },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::A, int('A'), "A" },
+        { VirtualKey::B, int('B'), "B" },
+        { VirtualKey::C, int('C'), "C" },
+        { VirtualKey::D, int('D'), "D" },
+        { VirtualKey::E, int('E'), "E" },
+        { VirtualKey::F, int('F'), "F" },
+        { VirtualKey::G, int('G'), "G" },
+        { VirtualKey::H, int('H'), "H" },
+        { VirtualKey::I, int('I'), "I" },
+        { VirtualKey::J, int('J'), "J" },
+        { VirtualKey::K, int('K'), "K" },
+        { VirtualKey::L, int('L'), "L" },
+        { VirtualKey::M, int('M'), "M" },
+        { VirtualKey::N, int('N'), "N" },
+        { VirtualKey::O, int('O'), "O" },
+        { VirtualKey::P, int('P'), "P" },
+        { VirtualKey::Q, int('Q'), "Q" },
+        { VirtualKey::R, int('R'), "R" },
+        { VirtualKey::S, int('S'), "S" },
+        { VirtualKey::T, int('T'), "T" },
+        { VirtualKey::U, int('U'), "U" },
+        { VirtualKey::V, int('V'), "V" },
+        { VirtualKey::w, int('w'), "w" },
+        { VirtualKey::X, int('X'), "X" },
+        { VirtualKey::Y, int('Y'), "Y" },
+        { VirtualKey::Z, int('Z'), "Z" },
+// -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::F1,  VK_F1,  "F1"  },
+        { VirtualKey::F2,  VK_F2,  "F2"  },
+        { VirtualKey::F3,  VK_F3,  "F3"  },
+        { VirtualKey::F4,  VK_F4,  "F4"  },
+        { VirtualKey::F5,  VK_F5,  "F5"  },
+        { VirtualKey::F6,  VK_F6,  "F6"  },
+        { VirtualKey::F7,  VK_F7,  "F7"  },
+        { VirtualKey::F8,  VK_F8,  "F8"  },
+        { VirtualKey::F9,  VK_F9,  "F9"  },
+        { VirtualKey::F10, VK_F10, "F10" },
+        { VirtualKey::F11, VK_F11, "F11" },
+        { VirtualKey::F12, VK_F12, "F12" },
+        { VirtualKey::F13, VK_F13, "F13" },
+        { VirtualKey::F14, VK_F14, "F14" },
+        { VirtualKey::F15, VK_F15, "F15" },
+        { VirtualKey::F16, VK_F16, "F16" },
+        { VirtualKey::F17, VK_F17, "F17" },
+        { VirtualKey::F18, VK_F18, "F18" },
+        { VirtualKey::F19, VK_F19, "F19" },
+        { VirtualKey::F20, VK_F20, "F20" },
+        { VirtualKey::F21, VK_F21, "F21" },
+        { VirtualKey::F22, VK_F22, "F22" },
+        { VirtualKey::F23, VK_F23, "F23" },
+        { VirtualKey::F24, VK_F24, "F24" },
+    });
+
+    void Application::Impl::InitMappings()
     {
-        switch (channel.code)
-        {
-            break;case VK_LBUTTON: return VirtualKey::MousePrimary;
-            break;case VK_RBUTTON: return VirtualKey::MouseSecondary;
-            break;case VK_MBUTTON: return VirtualKey::MouseMiddle;
-
-            break;case VK_TAB: return VirtualKey::Tab;
-
-            break;case VK_LEFT:  return VirtualKey::Left;
-            break;case VK_RIGHT: return VirtualKey::Right;
-            break;case VK_UP:    return VirtualKey::Up;
-            break;case VK_DOWN:  return VirtualKey::Down;
-
-            break;case VK_PRIOR:  return VirtualKey::PageUp;
-            break;case VK_NEXT:   return VirtualKey::PageDown;
-            break;case VK_HOME:   return VirtualKey::Home;
-            break;case VK_END:    return VirtualKey::End;
-            break;case VK_INSERT: return VirtualKey::Insert;
-            break;case VK_DELETE: return VirtualKey::Delete;
-            break;case VK_BACK:   return VirtualKey::Backspace;
-            break;case VK_SPACE:  return VirtualKey::Space;
-            break;case VK_RETURN: return VirtualKey::Enter;
-            break;case VK_ESCAPE: return VirtualKey::Escape;
-
-            break;case VK_SHIFT:   return VirtualKey::LeftShift;
-            break;case VK_CONTROL: return VirtualKey::LeftControl;
-            break;case VK_MENU:    return VirtualKey::LeftAlt;
-
-            break;case VK_LSHIFT:   return VirtualKey::LeftShift;
-            break;case VK_LCONTROL: return VirtualKey::LeftControl;
-            break;case VK_LMENU:    return VirtualKey::LeftAlt;
-            break;case VK_LWIN:     return VirtualKey::LeftSuper;
-
-            break;case VK_RSHIFT:   return VirtualKey::RightShift;
-            break;case VK_RCONTROL: return VirtualKey::RightControl;
-            break;case VK_RMENU:    return VirtualKey::RightAlt;
-            break;case VK_RWIN:     return VirtualKey::RightSuper;
+        u32 max_win_key = 0;
+        u32 max_nova_key = 0;
+        for (auto& mapping : Win32VirtualKeyMappings) {
+            max_win_key = std::max(max_win_key, mapping.win32_mapping);
+            max_nova_key = std::max(max_nova_key, u32(mapping.nova_mapping));
         }
 
-        return VirtualKey::Unknown;
+        key_win_to_nova.resize(max_win_key,  u32(VirtualKey::Unknown));
+        key_nova_to_win.resize(max_nova_key, 0);
+        key_nova_to_str.resize(max_nova_key, "Unknown"sv);
+
+        for (auto& mapping : Win32VirtualKeyMappings) {
+            key_win_to_nova[mapping.win32_mapping] = u32(mapping.nova_mapping);
+            key_nova_to_win[u32(mapping.nova_mapping)] = mapping.win32_mapping;
+            key_nova_to_str[u32(mapping.nova_mapping)] = mapping.name;
+        }
+    }
+
+    VirtualKey Application::ToVirtualKey(InputChannel channel) const
+    {
+        return VirtualKey(impl->key_win_to_nova[channel.code]);
     }
 
     static
-    u32 GetVirtualKeyForButton(VirtualKey button)
+    u32 ToWin32VirtualKey(Application app, VirtualKey key)
     {
-        switch (button)
-        {
-            break;case VirtualKey::MousePrimary:   return VK_LBUTTON;
-            break;case VirtualKey::MouseSecondary: return VK_RBUTTON;
-            break;case VirtualKey::MouseMiddle:    return VK_MBUTTON;
+        return app->key_nova_to_win[u32(key)];
+    }
 
-            break;case VirtualKey::Tab: return VK_TAB;
-
-            break;case VirtualKey::Left:  return VK_LEFT;
-            break;case VirtualKey::Right: return VK_RIGHT;
-            break;case VirtualKey::Up:    return VK_UP;
-            break;case VirtualKey::Down:  return VK_DOWN;
-
-            break;case VirtualKey::PageUp:    return VK_PRIOR;
-            break;case VirtualKey::PageDown:  return VK_NEXT;
-            break;case VirtualKey::Home:      return VK_HOME;
-            break;case VirtualKey::End:       return VK_END;
-            break;case VirtualKey::Insert:    return VK_INSERT;
-            break;case VirtualKey::Delete:    return VK_DELETE;
-            break;case VirtualKey::Backspace: return VK_BACK;
-            break;case VirtualKey::Space:     return VK_SPACE;
-            break;case VirtualKey::Enter:     return VK_RETURN;
-            break;case VirtualKey::Escape:    return VK_ESCAPE;
-
-            break;case VirtualKey::LeftShift:   return VK_LSHIFT;
-            break;case VirtualKey::LeftControl: return VK_LCONTROL;
-            break;case VirtualKey::LeftAlt:     return VK_LMENU;
-            break;case VirtualKey::LeftSuper:   return VK_LWIN;
-
-            break;case VirtualKey::RightShift:   return VK_RSHIFT;
-            break;case VirtualKey::RightControl: return VK_RCONTROL;
-            break;case VirtualKey::RightAlt:     return VK_RMENU;
-            break;case VirtualKey::RightSuper:   return VK_RWIN;
-        }
-
-        return 0;
+    std::string_view Application::VirtualKeyToString(VirtualKey key) const
+    {
+        return impl->key_nova_to_str[u32(key)];
     }
 
     bool Application::IsVirtualKeyDown(VirtualKey button) const
     {
-        auto code = GetVirtualKeyForButton(button);
+        auto code = ToWin32VirtualKey(*this, button);
         if (!code) return false;
 
         return GetKeyState(code) & 0x8000;

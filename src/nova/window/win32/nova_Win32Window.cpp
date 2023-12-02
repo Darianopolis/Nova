@@ -74,7 +74,7 @@ namespace nova
                     for (u32 i = 0; i < repeat; ++i) {
                         window->app->Send({
                             .window = window,
-                            .type = EventType::Button,
+                            .type = EventType::Input,
                             .input = {
                                 .channel = {
                                     .code = code,

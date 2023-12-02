@@ -8,6 +8,8 @@ namespace nova
 
         impl->module = GetModuleHandleW(nullptr);
 
+        impl->InitMappings();
+
         detail::Check(TRUE, SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
 
         WNDCLASSW class_info {
@@ -52,44 +54,13 @@ namespace nova
                     NOVA_LOG("Application :: Text({})", event.text.text);
                 }
 
-            break;case EventType::Button:
+            break;case EventType::Input:
                 {
-                    const char* mapped = "Unknown";
-                    switch (Application(this).ToVirtualKey(event.input.channel)) {
-                        break;case VirtualKey::MousePrimary:   mapped = "MousePrimary";
-                        break;case VirtualKey::MouseSecondary: mapped = "MouseSecondary";
-                        break;case VirtualKey::MouseMiddle:    mapped = "MouseMiddle";
+                    auto app = Application(this);
 
-                        break;case VirtualKey::Tab: mapped = "Tab";
-
-                        break;case VirtualKey::Left:  mapped = "Left";
-                        break;case VirtualKey::Right: mapped = "Right";
-                        break;case VirtualKey::Up:    mapped = "Up";
-                        break;case VirtualKey::Down:  mapped = "Down";
-
-                        break;case VirtualKey::PageUp:    mapped = "PageUp";
-                        break;case VirtualKey::PageDown:  mapped = "PageDown";
-                        break;case VirtualKey::Home:      mapped = "Home";
-                        break;case VirtualKey::End:       mapped = "End";
-                        break;case VirtualKey::Insert:    mapped = "Insert";
-                        break;case VirtualKey::Delete:    mapped = "Delete";
-                        break;case VirtualKey::Backspace: mapped = "Backspace";
-                        break;case VirtualKey::Space:     mapped = "Space";
-                        break;case VirtualKey::Enter:     mapped = "Enter";
-                        break;case VirtualKey::Escape:    mapped = "Escape";
-
-                        break;case VirtualKey::LeftShift:   mapped = "LeftShift";
-                        break;case VirtualKey::LeftControl: mapped = "LeftControl";
-                        break;case VirtualKey::LeftAlt:     mapped = "LeftAlt";
-                        break;case VirtualKey::LeftSuper:   mapped = "LeftSuper";
-
-                        break;case VirtualKey::RightShift:   mapped = "RightShift";
-                        break;case VirtualKey::RightControl: mapped = "RightControl";
-                        break;case VirtualKey::RightAlt:     mapped = "RightAlt";
-                        break;case VirtualKey::RightSuper:   mapped = "RightSuper";
-                    }
                     NOVA_LOG("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
-                        event.input.channel.code, event.input.pressed, mapped);
+                        event.input.channel.code, event.input.pressed,
+                        app.VirtualKeyToString(app.ToVirtualKey(event.input.channel)));
                 }
 
             // break;case EventType::MouseMove:

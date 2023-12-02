@@ -63,6 +63,12 @@ namespace nova
 
         char16_t high_surrogate;
 
+        std::vector<u32>              key_win_to_nova;
+        std::vector<u32>              key_nova_to_win;
+        std::vector<std::string_view> key_nova_to_str;
+
+        void InitMappings();
+
         void Send(Event event);
     };
 
