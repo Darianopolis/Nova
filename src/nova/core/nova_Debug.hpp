@@ -3,6 +3,29 @@
 #include "nova_Core.hpp"
 #include "nova_Stack.hpp"
 
+namespace nova
+{
+    struct Exception : std::exception
+    {
+        Exception(std::string msg,
+            const std::source_location& loc = std::source_location::current(),
+            std::stacktrace           trace = std::stacktrace::current())
+            : message(std::move(msg))
+            , source_location(std::move(loc))
+            , back_trace(std::move(trace))
+        {}
+
+        const char*                     what() const { return message.c_str(); }
+        const std::source_location& location() const { return source_location; }
+        const std::stacktrace&         stack() const { return back_trace;      }
+
+    private:
+        std::string                         message;
+        const std::source_location& source_location;
+        const std::stacktrace            back_trace;
+    };
+}
+
 #define NOVA_DEBUG() do {                                                         \
     NOVA_STACK_POINT();                                                           \
     std::cout << NOVA_STACK_FORMAT("    Debug :: {} - {}\n", __LINE__, __FILE__); \
@@ -18,12 +41,8 @@
     sso << #expr " = " << (expr) << '\n'; \
 } while (0)
 
-#define NOVA_THROW(fmt, ...) do {                          \
-    auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
-    std::cout << std::stacktrace::current();               \
-    NOVA_LOG("\nERROR: {}", msg);                          \
-    throw std::runtime_error(std::move(msg));              \
-} while (0)
+#define NOVA_THROW(fmt, ...) \
+    throw ::nova::Exception(std::format(fmt __VA_OPT__(,) __VA_ARGS__));
 
 #define NOVA_ASSERT(condition, fmt, ...) do { \
     if (!(condition)) [[unlikely]]            \

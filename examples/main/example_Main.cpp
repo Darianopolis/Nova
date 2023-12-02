@@ -28,7 +28,15 @@ int main(int argc, char* argv[]) try
                 try {
                     example.fn();
                 } catch (std::exception& e) {
+                    NOVA_LOG("--------------------------------------------------------------------------------");
+                    if (auto* ne = dynamic_cast<nova::Exception*>(&e)) {
+                        NOVA_LOG("Location: {}({})", ne->location().file_name(), ne->location().line());
+                        NOVA_LOG("--------------------------------------------------------------------------------");
+                        std::cout << ne->stack() << '\n';
+                        NOVA_LOG("--------------------------------------------------------------------------------");
+                    }
                     NOVA_LOG("Error: {}", e.what());
+                    NOVA_LOG("--------------------------------------------------------------------------------");
                 } catch (...) {
                     NOVA_LOG("Unknown Error");
                 }

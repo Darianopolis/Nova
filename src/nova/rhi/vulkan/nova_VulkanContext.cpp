@@ -22,18 +22,16 @@ namespace nova
         std::cout << std::stacktrace::current();
         NOVA_LOG(R"(
 --------------------------------------------------------------------------------
-Validation: {} ({})
+Validation-VUID({}): {}
 --------------------------------------------------------------------------------
 {}
 --------------------------------------------------------------------------------
 )",
-            data->pMessageIdName,
             data->messageIdNumber,
+            data->pMessageIdName,
             data->pMessage);
 
         std::terminate();
-
-        // return VK_FALSE;
     }
 
     struct VulkanFeatureChain

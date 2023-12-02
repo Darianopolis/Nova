@@ -13,10 +13,10 @@ namespace nova
     namespace vkh
     {
         inline
-        void Check(VkResult res)
+        void Check(VkResult res, const std::source_location& loc = std::source_location::current())
         {
             if (res != VK_SUCCESS) {
-                NOVA_THROW("Error: {}", int(res));
+                throw Exception(std::format("Error: {}", int(res)), loc);
             }
         }
 
