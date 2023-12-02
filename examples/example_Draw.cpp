@@ -21,7 +21,7 @@ NOVA_EXAMPLE(Draw, "draw")
     window.SetTransparent(true, { 0, 0, 0 });
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -127,14 +127,15 @@ NOVA_EXAMPLE(Draw, "draw")
 
         if (!skip_update) {
             auto MoveBox = [&](nova::draw::Rectangle& box, nova::VirtualKey left, nova::VirtualKey right, nova::VirtualKey up, nova::VirtualKey down) {
-                float speed = 5.f;
+                float speed = 10.f;
                 if (app.IsVirtualKeyDown(left))  { box.center_pos.x -= speed; redraw = true; }
                 if (app.IsVirtualKeyDown(right)) { box.center_pos.x += speed; redraw = true; }
                 if (app.IsVirtualKeyDown(up))    { box.center_pos.y -= speed; redraw = true; }
                 if (app.IsVirtualKeyDown(down))  { box.center_pos.y += speed; redraw = true; }
             };
 
-            MoveBox(box1, nova::VirtualKey::Delete, nova::VirtualKey::PageDown, nova::VirtualKey::Home, nova::VirtualKey::End);
+            MoveBox(box1, nova::VirtualKey::A, nova::VirtualKey::D, nova::VirtualKey::W, nova::VirtualKey::S);
+            MoveBox(box2, nova::VirtualKey::J, nova::VirtualKey::L, nova::VirtualKey::I, nova::VirtualKey::K);
             MoveBox(box3, nova::VirtualKey::Left, nova::VirtualKey::Right, nova::VirtualKey::Up, nova::VirtualKey::Down);
         }
         else {
@@ -174,16 +175,21 @@ NOVA_EXAMPLE(Draw, "draw")
         // Update window size, record primary buffer and present
 
         window.SetSize({ im_draw.GetBounds().Width(), im_draw.GetBounds().Height() }, nova::WindowPart::Client);
-        window.SetPosition({ im_draw.GetBounds().min.x, im_draw.GetBounds().min.y }, nova::WindowPart::Client);
 
         queue.Acquire({swapchain}, {fence});
 
-        cmd.ClearColor(swapchain.GetCurrent(), Vec4(0.f));
+        Vec3 color = { 0.3f, 0.2f, 0.5f };
+        f32 alpha = 0.4f;
+        cmd.ClearColor(swapchain.GetCurrent(), Vec4(color * alpha, alpha));
+
+        // cmd.ClearColor(swapchain.GetCurrent(), Vec4(0.f));
         im_draw.Record(cmd, swapchain.GetCurrent());
 
         cmd.Present(swapchain);
 
         queue.Submit({cmd}, {fence}, {fence});
+        fence.Wait();
+        window.SetPosition({ im_draw.GetBounds().min.x, im_draw.GetBounds().min.y }, nova::WindowPart::Client);
         queue.Present({swapchain}, {fence});
     }
 }

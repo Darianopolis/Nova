@@ -18,14 +18,14 @@ namespace nova
         }
 
         NOVA_LOG(R"(
---------------------------------------------------------------------------------)");
+────────────────────────────────────────────────────────────────────────────────)");
         std::cout << std::stacktrace::current();
         NOVA_LOG(R"(
---------------------------------------------------------------------------------
+────────────────────────────────────────────────────────────────────────────────
 Validation-VUID({}): {}
---------------------------------------------------------------------------------
+────────────────────────────────────────────────────────────────────────────────
 {}
---------------------------------------------------------------------------------
+────────────────────────────────────────────────────────────────────────────────
 )",
             data->messageIdNumber,
             data->pMessageIdName,
@@ -219,6 +219,13 @@ Validation-VUID({}): {}
                 f.features.drawIndirectFirstInstance = VK_TRUE;
                 f.features.fragmentStoresAndAtomics = VK_TRUE;
                 f.features.multiViewport = VK_TRUE;
+            }
+
+            {
+                // External memory imports (for DXGI interop)
+
+                chain.Extension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+                chain.Extension("VK_KHR_external_memory_win32");
             }
 
             {

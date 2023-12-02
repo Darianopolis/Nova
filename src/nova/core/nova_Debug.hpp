@@ -22,7 +22,7 @@ namespace nova
     private:
         std::string                         message;
         const std::source_location& source_location;
-        const std::stacktrace            back_trace;
+        std::stacktrace                  back_trace;
     };
 }
 
@@ -41,8 +41,15 @@ namespace nova
     sso << #expr " = " << (expr) << '\n'; \
 } while (0)
 
-#define NOVA_THROW(fmt, ...) \
-    throw ::nova::Exception(std::format(fmt __VA_OPT__(,) __VA_ARGS__));
+// #define NOVA_THROW(fmt, ...) \
+//     throw ::nova::Exception(std::format(fmt __VA_OPT__(,) __VA_ARGS__));
+
+#define NOVA_THROW(fmt, ...) do {                          \
+    auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
+    std::cout << std::stacktrace::current();               \
+    NOVA_LOG("\nERROR: {}", msg);                          \
+    throw ::nova::Exception(std::move(msg));               \
+} while (0)
 
 #define NOVA_ASSERT(condition, fmt, ...) do { \
     if (!(condition)) [[unlikely]]            \

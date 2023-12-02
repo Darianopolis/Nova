@@ -114,7 +114,7 @@ namespace nova
         { VirtualKey::T, int('T'), "T" },
         { VirtualKey::U, int('U'), "U" },
         { VirtualKey::V, int('V'), "V" },
-        { VirtualKey::w, int('w'), "w" },
+        { VirtualKey::W, int('W'), "W" },
         { VirtualKey::X, int('X'), "X" },
         { VirtualKey::Y, int('Y'), "Y" },
         { VirtualKey::Z, int('Z'), "Z" },
