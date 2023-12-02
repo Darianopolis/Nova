@@ -6,8 +6,6 @@
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
 
-#include <nova/core/win32/nova_Win32Include.hpp>
-
 #include <stb_image.h>
 
 NOVA_EXAMPLE(Draw, "draw")
@@ -19,20 +17,8 @@ NOVA_EXAMPLE(Draw, "draw")
         .size = { 1920, 1080 },
     });
 
-    {
-        // Undecorate and enable chroma-keyed transparency
-        // TODO: Handle this in nova::Window
-
-        auto hwnd = HWND(window.GetNativeHandle());
-
-        SetWindowLongW(hwnd, GWL_STYLE, GetWindowLongW(hwnd, GWL_STYLE) & ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU));
-        SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-
-        // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
-        //   Or, do full screeen pass to filter out unintentional chroma key matches and
-        //   apply chroma key based on alpha.
-        SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
-    }
+    window.SetDecorated(false);
+    window.SetTransparent(true, { 0, 0, 0 });
 
     auto context = nova::Context::Create({
         .debug = true,

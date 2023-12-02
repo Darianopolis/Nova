@@ -16,13 +16,13 @@ namespace nova
             auto pcreate = reinterpret_cast<CREATESTRUCTW*>(lparam);
             window = std::bit_cast<Window>(pcreate->lpCreateParams);
             window->handle = hwnd;
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, std::bit_cast<LONG_PTR>(window));
+            ::SetWindowLongPtrW(hwnd, GWLP_USERDATA, std::bit_cast<LONG_PTR>(window));
         } else {
-            window = std::bit_cast<Window>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+            window = std::bit_cast<Window>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         }
 
         if (!window) {
-            return DefWindowProcW(hwnd, msg, wparam, lparam);
+            return ::DefWindowProcW(hwnd, msg, wparam, lparam);
         }
 
         // {
@@ -39,7 +39,7 @@ namespace nova
             break;case WM_NCDESTROY:
                 NOVA_LOG("Window destroyed, freeing handle");
                 delete window.impl;
-                PostQuitMessage(0);
+                ::PostQuitMessage(0);
                 return 0;
             break;case WM_LBUTTONDOWN:
                   case WM_LBUTTONUP:
@@ -162,7 +162,7 @@ namespace nova
                 }
         }
 
-        return DefWindowProcW(hwnd, msg, wparam, lparam);
+        return ::DefWindowProcW(hwnd, msg, wparam, lparam);
     }
 
     Window Window::Create(Application app, const WindowInfo& info)
@@ -177,7 +177,7 @@ namespace nova
         {
             NOVA_STACK_POINT();
 
-            DWORD ex_style = 0;
+            DWORD ex_style = WS_EX_APPWINDOW;
             DWORD style = WS_OVERLAPPEDWINDOW;
 
             int cx = CW_USEDEFAULT, cy = CW_USEDEFAULT;
@@ -186,7 +186,7 @@ namespace nova
                 cy = int(info.size.y);
             }
 
-            impl->handle = CreateWindowExW(
+            impl->handle = ::CreateWindowExW(
                 ex_style,
                 Win32WndClassName,
                 NOVA_STACK_TO_UTF16(info.title).data(),
@@ -198,12 +198,12 @@ namespace nova
                 impl);
 
             if (!impl->handle) {
-                auto res = GetLastError();
+                auto res = ::GetLastError();
                 detail::DebugRes(res);
                 NOVA_THROW("Error creating window: {:#x}", u32(HRESULT_FROM_WIN32(res)));
             }
 
-            ShowWindow(impl->handle, SW_SHOW);
+            ::ShowWindow(impl->handle, SW_SHOW);
         }
 
         return { impl };
@@ -234,11 +234,11 @@ namespace nova
     {
         if (part == WindowPart::Window) {
             RECT rect;
-            GetWindowRect(impl->handle, &rect);
+            ::GetWindowRect(impl->handle, &rect);
             return{ u32(rect.right - rect.left), u32(rect.bottom - rect.top) };
         } else {
             RECT rect;
-            GetClientRect(impl->handle, &rect);
+            ::GetClientRect(impl->handle, &rect);
             return{ u32(rect.right), u32(rect.bottom) };
         }
     }
@@ -247,16 +247,16 @@ namespace nova
     {
         if (part == WindowPart::Client) {
             RECT client;
-            GetClientRect(impl->handle, &client);
+            ::GetClientRect(impl->handle, &client);
 
             RECT window;
-            GetWindowRect(impl->handle, &window);
+            ::GetWindowRect(impl->handle, &window);
 
             new_size.x += (window.right - window.left) - client.right;
             new_size.y += (window.bottom - window.top) - client.bottom;
         }
 
-        SetWindowPos(impl->handle, HWND_NOTOPMOST, 0, 0,
+        ::SetWindowPos(impl->handle, HWND_NOTOPMOST, 0, 0,
             i32(new_size.x), i32(new_size.y),
             SWP_NOMOVE | SWP_NOOWNERZORDER);
     }
@@ -265,11 +265,11 @@ namespace nova
     {
         if (part == WindowPart::Window) {
             RECT rect;
-            GetWindowRect(impl->handle, &rect);
+            ::GetWindowRect(impl->handle, &rect);
             return{ rect.left, rect.top };
         } else {
             POINT point = {};
-            ClientToScreen(impl->handle, &point);
+            ::ClientToScreen(impl->handle, &point);
             return{ point.x, point.y };
         }
     }
@@ -278,16 +278,16 @@ namespace nova
     {
         if (part == WindowPart::Client) {
             RECT window_rect;
-            GetWindowRect(impl->handle, &window_rect);
+            ::GetWindowRect(impl->handle, &window_rect);
 
             POINT client_point;
-            ClientToScreen(impl->handle, &client_point);
+            ::ClientToScreen(impl->handle, &client_point);
 
             pos.x += window_rect.left - client_point.x;
             pos.y += window_rect.top - client_point.y;
         }
 
-        SetWindowPos(impl->handle, HWND_NOTOPMOST, pos.x, pos.y, 0, 0,
+        ::SetWindowPos(impl->handle, HWND_NOTOPMOST, pos.x, pos.y, 0, 0,
             SWP_NOSIZE | SWP_NOOWNERZORDER);
     }
 
@@ -316,13 +316,70 @@ namespace nova
         }
 
         // TODO: Preload cursors and keep handles around
-        auto handle = LoadCursorW(nullptr, resource);
+        auto handle = ::LoadCursorW(nullptr, resource);
 
         ::SetCursor(handle);
     }
 
+    void Window::SetTitle(std::string_view title) const
+    {
+        NOVA_STACK_POINT();
+        ::SetWindowTextW(impl->handle, NOVA_STACK_TO_UTF16(title).data());
+    }
+
+    void Win32_UpdateStyles(HWND hwnd, u32 add, u32 remove, u32 add_ext, u32 remove_ext)
+    {
+        auto old = (u32)::GetWindowLongPtrW(hwnd, GWL_STYLE);
+        ::SetWindowLongPtrW(hwnd, GWL_STYLE, LONG_PTR((old & ~remove) | add));
+
+        auto old_ext = (u32)::GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        ::SetWindowLongPtrW(hwnd, GWL_EXSTYLE, LONG_PTR((old_ext & ~remove_ext) | add_ext));
+    }
+
+    void Window::SetDecorated(bool state) const
+    {
+        if (state) {
+            Win32_UpdateStyles(impl->handle, WS_OVERLAPPEDWINDOW, 0, 0, 0);
+        } else {
+            Win32_UpdateStyles(impl->handle, 0, WS_OVERLAPPEDWINDOW, 0, 0);
+        }
+    }
+
+    void Window::SetTransparent(bool state, Vec3U chroma_key) const
+    {
+        if (state) {
+            Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT, 0);
+            ::SetLayeredWindowAttributes(impl->handle, RGB(chroma_key.r, chroma_key.g, chroma_key.b), 0, LWA_COLORKEY);
+        } else {
+            Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+        }
+    }
+
     void Window::SetFullscreen(bool enabled) const
     {
-        // TODO
+        if (enabled) {
+            {
+                RECT rect;
+                ::GetWindowRect(impl->handle, &rect);
+                impl->restore.rect = {
+                    .offset = { rect.left, rect.top },
+                    .extent = { rect.right - rect.left, rect.bottom - rect.top }
+                };
+            }
+
+            // Pick monitor based on window location
+            auto monitor = impl->app.GetPrimaryDisplay();
+
+            SetDecorated(false);
+            SetPosition(monitor.GetPosition(), WindowPart::Window);
+            SetSize(monitor.GetSize(), WindowPart::Client);
+            ::ShowWindow(impl->handle, SW_MAXIMIZE);
+
+        } else {
+            SetDecorated(true);
+            SetPosition(impl->restore.rect.offset, WindowPart::Window);
+            SetSize(impl->restore.rect.extent, WindowPart::Window);
+            ::ShowWindow(impl->handle, SW_NORMAL);
+        }
     }
 }

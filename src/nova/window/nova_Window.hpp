@@ -259,7 +259,8 @@ namespace nova
 
     struct Display : Handle<Display>
     {
-        Vec2 GetSize() const;
+        Vec2I GetSize() const;
+        Vec2I GetPosition() const;
 
         // TODO: Additional display info
     };
@@ -279,7 +280,10 @@ namespace nova
         void SetPosition(Vec2I pos, WindowPart) const;
 
         void SetCursor(Cursor cursor) const;
-
+        void SetTitle(std::string_view title) const;
+        void SetDecorated(bool state) const;
+        // TODO: Chroma key is bad and you should feel bad
+        void SetTransparent(bool state, Vec3U chroma_key) const;
         void SetFullscreen(bool enabled) const;
     };
 }

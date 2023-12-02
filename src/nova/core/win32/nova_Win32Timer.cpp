@@ -37,7 +37,7 @@ namespace nova
 
     Timer::Timer()
     {
-        handle = CreateWaitableTimerW(nullptr, true, nullptr);
+        handle = ::CreateWaitableTimerW(nullptr, true, nullptr);
         if (!handle) {
             NOVA_THROW("Failed to create Win32 timer");
         }
@@ -46,7 +46,7 @@ namespace nova
     Timer::~Timer()
     {
         if (handle) {
-            CloseHandle(handle);
+            ::CloseHandle(handle);
         }
     }
 
@@ -54,7 +54,7 @@ namespace nova
     {
         LARGE_INTEGER li;
         li.QuadPart = 0;
-        SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false);
+        ::SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false);
     }
 
     bool Timer::WaitNanos(std::chrono::nanoseconds duration, bool preempt)
@@ -75,11 +75,11 @@ namespace nova
 
         LARGE_INTEGER li;
         li.QuadPart = -(nanos.count() / 100);
-        if (!SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false)) {
+        if (!::SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false)) {
             NOVA_THROW("Timer::Wait - Failed to set Win32 timer");
         }
 
-        if (auto res = WaitForSingleObject(handle, INFINITE); res != WAIT_OBJECT_0) {
+        if (auto res = ::WaitForSingleObject(handle, INFINITE); res != WAIT_OBJECT_0) {
             NOVA_THROW("Timer::Wait - Failed to wait on Win32 timer");
         }
 

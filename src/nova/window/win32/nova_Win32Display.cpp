@@ -12,7 +12,7 @@ namespace nova
         return{ display };
     }
 
-    Vec2 Display::GetSize() const
+    Vec2I Display::GetSize() const
     {
         MONITORINFO info{};
         info.cbSize = sizeof(info);
@@ -22,6 +22,19 @@ namespace nova
         return {
             info.rcMonitor.right - info.rcMonitor.left,
             info.rcMonitor.bottom - info.rcMonitor.top
+        };
+    }
+
+    Vec2I Display::GetPosition() const
+    {
+        MONITORINFO info{};
+        info.cbSize = sizeof(info);
+
+        GetMonitorInfoW(impl->monitor, &info);
+
+        return {
+            info.rcMonitor.left,
+            info.rcMonitor.top
         };
     }
 }

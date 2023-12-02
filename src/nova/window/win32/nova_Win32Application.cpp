@@ -6,23 +6,23 @@ namespace nova
     {
         auto impl = new Impl;
 
-        impl->module = GetModuleHandleW(nullptr);
+        impl->module = ::GetModuleHandleW(nullptr);
 
         impl->InitMappings();
 
-        detail::Check(TRUE, SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
+        detail::Check(TRUE, ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
 
         WNDCLASSW class_info {
             .lpfnWndProc = Window::Impl::WindowProc,
             .cbWndExtra = 8,
             .hInstance = impl->module,
-            .hCursor = LoadCursorW(nullptr, IDC_ARROW),
+            .hCursor = ::LoadCursorW(nullptr, IDC_ARROW),
             .lpszClassName = Win32WndClassName,
         };
 
-        detail::CheckNot(ATOM(0), RegisterClassW(&class_info));
+        detail::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
 
-        SetConsoleOutputCP(CP_UTF8);
+        ::SetConsoleOutputCP(CP_UTF8);
 
         return { impl };
     }
@@ -35,7 +35,7 @@ namespace nova
 
     void Application::WaitEvents() const
     {
-        WaitMessage();
+        ::WaitMessage();
     }
 
     void Application::SetCallback(Callback callback) const
@@ -108,7 +108,7 @@ namespace nova
     void Application::PollEvents() const
     {
         MSG msg = {};
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             switch (msg.message) {
                 break;case WM_HOTKEY:
                     NOVA_LOG("hotkey");
@@ -119,8 +119,8 @@ namespace nova
                     impl->running = false;
                     impl->Send({ .type = EventType::Shutdown });
                 break;default:
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
+                    ::TranslateMessage(&msg);
+                    ::DispatchMessageW(&msg);
             }
         }
     }

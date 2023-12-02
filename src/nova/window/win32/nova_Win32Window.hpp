@@ -87,6 +87,10 @@ namespace nova
 
         HWND handle;
 
+        struct Restore {
+            Rect2I rect;
+        } restore;
+
         static
         LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
     };
