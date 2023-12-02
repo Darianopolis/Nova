@@ -1,10 +1,9 @@
-#include "nova_Timer.hpp"
+#include <nova/core/nova_Timer.hpp>
 
-#include <nova/core/win32/nova_MinWinInclude.hpp>
+#include <nova/core/win32/nova_Win32Include.hpp>
 
 namespace nova
 {
-#ifdef _WIN32
     using NTSTATUS = uint32_t;
     using ZwSetTimerResolutionType = NTSTATUS(__stdcall *)(IN ULONG RequestedResolution, IN BOOLEAN Set, OUT PULONG ActualResolution);
 
@@ -50,15 +49,12 @@ namespace nova
             CloseHandle(handle);
         }
     }
-#endif
 
     void Timer::Signal()
     {
-#ifdef _WIN32
         LARGE_INTEGER li;
         li.QuadPart = 0;
         SetWaitableTimer(handle, &li, 0, nullptr, nullptr, false);
-#endif
     }
 
     bool Timer::WaitNanos(std::chrono::nanoseconds duration, bool preempt)
@@ -69,7 +65,6 @@ namespace nova
 
         auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
 
-#ifdef _WIN32
         if (preempt) {
             if (duration < GetMinQuantum()) {
                 return true;
@@ -87,9 +82,7 @@ namespace nova
         if (auto res = WaitForSingleObject(handle, INFINITE); res != WAIT_OBJECT_0) {
             NOVA_THROW("Timer::Wait - Failed to wait on Win32 timer");
         }
-#else
-        std::this_thread::sleep_for(duration);
-#endif
+
         return preempt;
     }
 };

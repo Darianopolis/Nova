@@ -1,4 +1,4 @@
-#include <nova/core/win32/nova_MinWinInclude.hpp>
+#include <nova/core/win32/nova_Win32Include.hpp>
 
 #define VK_NO_PROTOTYPES
 #define VK_USE_PLATFORM_WIN32_KHR

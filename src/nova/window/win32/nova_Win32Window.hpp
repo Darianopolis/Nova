@@ -4,7 +4,7 @@
 
 #include <nova/core/nova_Debug.hpp>
 
-#include <nova/core/win32/nova_MinWinInclude.hpp>
+#include <nova/core/win32/nova_Win32Include.hpp>
 
 namespace nova
 {
