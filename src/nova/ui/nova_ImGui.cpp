@@ -103,60 +103,60 @@ namespace nova::imgui
             {
                 break;case EventType::Button:
                     {
-                        auto button = app.GetButton(event.button.code);
+                        auto vk = app.ToVirtualKey(event.input.channel);
 
-                        switch (button)
+                        switch (vk)
                         {
-                            break;case Button::LeftShift:
-                                  case Button::RightShift:
-                                io.AddKeyEvent(ImGuiMod_Shift, app.IsButtonDown(Button::LeftShift) || app.IsButtonDown(Button::RightShift));
+                            break;case VirtualKey::LeftShift:
+                                  case VirtualKey::RightShift:
+                                io.AddKeyEvent(ImGuiMod_Shift, app.IsVirtualKeyDown(VirtualKey::LeftShift) || app.IsVirtualKeyDown(VirtualKey::RightShift));
 
-                            break;case Button::LeftControl:
-                                  case Button::RightControl:
-                                io.AddKeyEvent(ImGuiMod_Ctrl, app.IsButtonDown(Button::LeftControl) || app.IsButtonDown(Button::RightControl));
+                            break;case VirtualKey::LeftControl:
+                                  case VirtualKey::RightControl:
+                                io.AddKeyEvent(ImGuiMod_Ctrl, app.IsVirtualKeyDown(VirtualKey::LeftControl) || app.IsVirtualKeyDown(VirtualKey::RightControl));
 
-                            break;case Button::LeftAlt:
-                                  case Button::RightAlt:
-                                io.AddKeyEvent(ImGuiMod_Alt, app.IsButtonDown(Button::LeftAlt) || app.IsButtonDown(Button::RightAlt));
+                            break;case VirtualKey::LeftAlt:
+                                  case VirtualKey::RightAlt:
+                                io.AddKeyEvent(ImGuiMod_Alt, app.IsVirtualKeyDown(VirtualKey::LeftAlt) || app.IsVirtualKeyDown(VirtualKey::RightAlt));
 
-                            break;case Button::LeftSuper:
-                                  case Button::RightSuper:
-                                io.AddKeyEvent(ImGuiMod_Super, app.IsButtonDown(Button::LeftSuper) || app.IsButtonDown(Button::RightSuper));
+                            break;case VirtualKey::LeftSuper:
+                                  case VirtualKey::RightSuper:
+                                io.AddKeyEvent(ImGuiMod_Super, app.IsVirtualKeyDown(VirtualKey::LeftSuper) || app.IsVirtualKeyDown(VirtualKey::RightSuper));
                         }
 
-                        switch (button) {
+                        switch (vk) {
 
-                            break;case Button::MousePrimary:   io.AddMouseButtonEvent(ImGuiMouseButton_Left, event.button.pressed);
-                            break;case Button::MouseSecondary: io.AddMouseButtonEvent(ImGuiMouseButton_Right, event.button.pressed);
-                            break;case Button::MouseMiddle:    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, event.button.pressed);
+                            break;case VirtualKey::MousePrimary:   io.AddMouseButtonEvent(ImGuiMouseButton_Left, event.input.pressed);
+                            break;case VirtualKey::MouseSecondary: io.AddMouseButtonEvent(ImGuiMouseButton_Right, event.input.pressed);
+                            break;case VirtualKey::MouseMiddle:    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, event.input.pressed);
 
-                            break;case Button::Tab: io.AddKeyEvent(ImGuiKey_Tab, event.button.pressed);
+                            break;case VirtualKey::Tab: io.AddKeyEvent(ImGuiKey_Tab, event.input.pressed);
 
-                            break;case Button::Left:  io.AddKeyEvent(ImGuiKey_LeftArrow, event.button.pressed);
-                            break;case Button::Right: io.AddKeyEvent(ImGuiKey_RightArrow, event.button.pressed);
-                            break;case Button::Up:    io.AddKeyEvent(ImGuiKey_UpArrow, event.button.pressed);
-                            break;case Button::Down:  io.AddKeyEvent(ImGuiKey_DownArrow, event.button.pressed);
+                            break;case VirtualKey::Left:  io.AddKeyEvent(ImGuiKey_LeftArrow, event.input.pressed);
+                            break;case VirtualKey::Right: io.AddKeyEvent(ImGuiKey_RightArrow, event.input.pressed);
+                            break;case VirtualKey::Up:    io.AddKeyEvent(ImGuiKey_UpArrow, event.input.pressed);
+                            break;case VirtualKey::Down:  io.AddKeyEvent(ImGuiKey_DownArrow, event.input.pressed);
 
-                            break;case Button::PageUp:    io.AddKeyEvent(ImGuiKey_PageUp, event.button.pressed);
-                            break;case Button::PageDown:  io.AddKeyEvent(ImGuiKey_PageDown, event.button.pressed);
-                            break;case Button::Home:      io.AddKeyEvent(ImGuiKey_Home, event.button.pressed);
-                            break;case Button::End:       io.AddKeyEvent(ImGuiKey_End, event.button.pressed);
-                            break;case Button::Insert:    io.AddKeyEvent(ImGuiKey_Insert, event.button.pressed);
-                            break;case Button::Delete:    io.AddKeyEvent(ImGuiKey_Delete, event.button.pressed);
-                            break;case Button::Backspace: io.AddKeyEvent(ImGuiKey_Backspace, event.button.pressed);
-                            break;case Button::Space:     io.AddKeyEvent(ImGuiKey_Space, event.button.pressed);
-                            break;case Button::Enter:     io.AddKeyEvent(ImGuiKey_Enter, event.button.pressed);
-                            break;case Button::Escape:    io.AddKeyEvent(ImGuiKey_Escape, event.button.pressed);
+                            break;case VirtualKey::PageUp:    io.AddKeyEvent(ImGuiKey_PageUp, event.input.pressed);
+                            break;case VirtualKey::PageDown:  io.AddKeyEvent(ImGuiKey_PageDown, event.input.pressed);
+                            break;case VirtualKey::Home:      io.AddKeyEvent(ImGuiKey_Home, event.input.pressed);
+                            break;case VirtualKey::End:       io.AddKeyEvent(ImGuiKey_End, event.input.pressed);
+                            break;case VirtualKey::Insert:    io.AddKeyEvent(ImGuiKey_Insert, event.input.pressed);
+                            break;case VirtualKey::Delete:    io.AddKeyEvent(ImGuiKey_Delete, event.input.pressed);
+                            break;case VirtualKey::Backspace: io.AddKeyEvent(ImGuiKey_Backspace, event.input.pressed);
+                            break;case VirtualKey::Space:     io.AddKeyEvent(ImGuiKey_Space, event.input.pressed);
+                            break;case VirtualKey::Enter:     io.AddKeyEvent(ImGuiKey_Enter, event.input.pressed);
+                            break;case VirtualKey::Escape:    io.AddKeyEvent(ImGuiKey_Escape, event.input.pressed);
 
-                            break;case Button::LeftShift:   io.AddKeyEvent(ImGuiKey_LeftShift, event.button.pressed);
-                            break;case Button::LeftControl: io.AddKeyEvent(ImGuiKey_LeftCtrl, event.button.pressed);
-                            break;case Button::LeftAlt:     io.AddKeyEvent(ImGuiKey_LeftAlt, event.button.pressed);
-                            break;case Button::LeftSuper:   io.AddKeyEvent(ImGuiKey_LeftSuper, event.button.pressed);
+                            break;case VirtualKey::LeftShift:   io.AddKeyEvent(ImGuiKey_LeftShift, event.input.pressed);
+                            break;case VirtualKey::LeftControl: io.AddKeyEvent(ImGuiKey_LeftCtrl, event.input.pressed);
+                            break;case VirtualKey::LeftAlt:     io.AddKeyEvent(ImGuiKey_LeftAlt, event.input.pressed);
+                            break;case VirtualKey::LeftSuper:   io.AddKeyEvent(ImGuiKey_LeftSuper, event.input.pressed);
 
-                            break;case Button::RightShift:   io.AddKeyEvent(ImGuiKey_RightShift, event.button.pressed);
-                            break;case Button::RightControl: io.AddKeyEvent(ImGuiKey_RightCtrl, event.button.pressed);
-                            break;case Button::RightAlt:     io.AddKeyEvent(ImGuiKey_RightAlt, event.button.pressed);
-                            break;case Button::RightSuper:   io.AddKeyEvent(ImGuiKey_RightSuper, event.button.pressed);
+                            break;case VirtualKey::RightShift:   io.AddKeyEvent(ImGuiKey_RightShift, event.input.pressed);
+                            break;case VirtualKey::RightControl: io.AddKeyEvent(ImGuiKey_RightCtrl, event.input.pressed);
+                            break;case VirtualKey::RightAlt:     io.AddKeyEvent(ImGuiKey_RightAlt, event.input.pressed);
+                            break;case VirtualKey::RightSuper:   io.AddKeyEvent(ImGuiKey_RightSuper, event.input.pressed);
                         }
                     }
                 break;case EventType::MouseMove:

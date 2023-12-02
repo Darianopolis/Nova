@@ -55,41 +55,41 @@ namespace nova
             break;case EventType::Button:
                 {
                     const char* mapped = "Unknown";
-                    switch (Application(this).GetButton(event.button.code)) {
-                        break;case Button::MousePrimary:   mapped = "MousePrimary";
-                        break;case Button::MouseSecondary: mapped = "MouseSecondary";
-                        break;case Button::MouseMiddle:    mapped = "MouseMiddle";
+                    switch (Application(this).ToVirtualKey(event.input.channel)) {
+                        break;case VirtualKey::MousePrimary:   mapped = "MousePrimary";
+                        break;case VirtualKey::MouseSecondary: mapped = "MouseSecondary";
+                        break;case VirtualKey::MouseMiddle:    mapped = "MouseMiddle";
 
-                        break;case Button::Tab: mapped = "Tab";
+                        break;case VirtualKey::Tab: mapped = "Tab";
 
-                        break;case Button::Left:  mapped = "Left";
-                        break;case Button::Right: mapped = "Right";
-                        break;case Button::Up:    mapped = "Up";
-                        break;case Button::Down:  mapped = "Down";
+                        break;case VirtualKey::Left:  mapped = "Left";
+                        break;case VirtualKey::Right: mapped = "Right";
+                        break;case VirtualKey::Up:    mapped = "Up";
+                        break;case VirtualKey::Down:  mapped = "Down";
 
-                        break;case Button::PageUp:    mapped = "PageUp";
-                        break;case Button::PageDown:  mapped = "PageDown";
-                        break;case Button::Home:      mapped = "Home";
-                        break;case Button::End:       mapped = "End";
-                        break;case Button::Insert:    mapped = "Insert";
-                        break;case Button::Delete:    mapped = "Delete";
-                        break;case Button::Backspace: mapped = "Backspace";
-                        break;case Button::Space:     mapped = "Space";
-                        break;case Button::Enter:     mapped = "Enter";
-                        break;case Button::Escape:    mapped = "Escape";
+                        break;case VirtualKey::PageUp:    mapped = "PageUp";
+                        break;case VirtualKey::PageDown:  mapped = "PageDown";
+                        break;case VirtualKey::Home:      mapped = "Home";
+                        break;case VirtualKey::End:       mapped = "End";
+                        break;case VirtualKey::Insert:    mapped = "Insert";
+                        break;case VirtualKey::Delete:    mapped = "Delete";
+                        break;case VirtualKey::Backspace: mapped = "Backspace";
+                        break;case VirtualKey::Space:     mapped = "Space";
+                        break;case VirtualKey::Enter:     mapped = "Enter";
+                        break;case VirtualKey::Escape:    mapped = "Escape";
 
-                        break;case Button::LeftShift:   mapped = "LeftShift";
-                        break;case Button::LeftControl: mapped = "LeftControl";
-                        break;case Button::LeftAlt:     mapped = "LeftAlt";
-                        break;case Button::LeftSuper:   mapped = "LeftSuper";
+                        break;case VirtualKey::LeftShift:   mapped = "LeftShift";
+                        break;case VirtualKey::LeftControl: mapped = "LeftControl";
+                        break;case VirtualKey::LeftAlt:     mapped = "LeftAlt";
+                        break;case VirtualKey::LeftSuper:   mapped = "LeftSuper";
 
-                        break;case Button::RightShift:   mapped = "RightShift";
-                        break;case Button::RightControl: mapped = "RightControl";
-                        break;case Button::RightAlt:     mapped = "RightAlt";
-                        break;case Button::RightSuper:   mapped = "RightSuper";
+                        break;case VirtualKey::RightShift:   mapped = "RightShift";
+                        break;case VirtualKey::RightControl: mapped = "RightControl";
+                        break;case VirtualKey::RightAlt:     mapped = "RightAlt";
+                        break;case VirtualKey::RightSuper:   mapped = "RightSuper";
                     }
-                    NOVA_LOG("Application :: Button(code = {0} ({0:#x}), repeat = {1}, pressed = {2}, mapped = {3})",
-                        event.button.code, event.button.repeat, event.button.pressed, mapped);
+                    NOVA_LOG("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
+                        event.input.channel.code, event.input.pressed, mapped);
                 }
 
             // break;case EventType::MouseMove:
@@ -117,7 +117,7 @@ namespace nova
                     NOVA_LOG("Application :: WindowState(...)");
                 }
 
-            break;case EventType::WindowClosedRequested:
+            break;case EventType::WindowCloseRequested:
                 {
                     NOVA_LOG("Application :: WindowCloseRequested(...)");
                 }

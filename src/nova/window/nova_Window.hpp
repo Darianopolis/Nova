@@ -45,7 +45,14 @@ namespace nova
         NotAllowed,
     };
 
-    enum class Button
+    struct InputChannel
+    {
+        u32 code;
+        u32 category;
+        u64 device;
+    };
+
+    enum class VirtualKey
     {
         Unknown,
 
@@ -138,11 +145,11 @@ namespace nova
     };
 
     inline
-    bool IsMouseButton(Button button)
+    bool IsMouseButton(VirtualKey button)
     {
-        return button == Button::MousePrimary
-            || button == Button::MouseSecondary
-            || button == Button::MouseMiddle;
+        return button == VirtualKey::MousePrimary
+            || button == VirtualKey::MouseSecondary
+            || button == VirtualKey::MouseMiddle;
     }
 
 // -----------------------------------------------------------------------------
@@ -166,7 +173,7 @@ namespace nova
         WindowResized,
         WindowState,
 
-        WindowClosedRequested,
+        WindowCloseRequested,
 
         Shutdown,
     };
@@ -176,11 +183,12 @@ namespace nova
         c8 text[5];
     };
 
-    struct ButtonEvent
+    struct InputChannelState
     {
-        u64     code;
-        u32   repeat;
-        bool pressed;
+        InputChannel channel;
+        bool         pressed;
+        bool         toggled;
+        float          value;
     };
 
     struct MouseMoveEvent
@@ -210,7 +218,7 @@ namespace nova
         union
         {
             TextEvent            text;
-            ButtonEvent        button;
+            InputChannelState   input;
             MouseMoveEvent mouse_move;
             MouseScrollEvent   scroll;
             WindowFocusEvent    focus;
@@ -234,8 +242,10 @@ namespace nova
 
         bool IsRunning() const;
 
-        Button GetButton(u64 code) const;
-        bool IsButtonDown(Button button) const;
+        VirtualKey ToVirtualKey(InputChannel channel) const;
+        bool IsVirtualKeyDown(VirtualKey button) const;
+
+        InputChannelState GetInputState(InputChannel) const;
 
         // TODO: Provide enumeration of displays; Get display for point/rect/window
         Display GetPrimaryDisplay() const;

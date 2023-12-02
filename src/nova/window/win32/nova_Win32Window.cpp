@@ -3,6 +3,8 @@
 #include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Stack.hpp>
 
+#include <nova/window/win32/nova_Win32Debug.hpp>
+
 #include <windowsx.h>
 
 namespace nova
@@ -23,6 +25,13 @@ namespace nova
             return DefWindowProcW(hwnd, msg, wparam, lparam);
         }
 
+        // {
+        //     auto str = Win32MessageToString(msg);
+        //     if (str.size()) {
+        //         NOVA_LOG("MSG: {:3} ({:#5x} :: {:15}), WPARAM: {:8} ({:#10x}), LPARAM: {:8} ({:#10x})", msg, msg, str, wparam, wparam, lparam, lparam);
+        //     }
+        // }
+
         switch (msg) {
             break;case WM_DESTROY:
                 NOVA_LOG("Destroying window...");
@@ -38,30 +47,43 @@ namespace nova
                   case WM_MBUTTONUP:
                   case WM_RBUTTONDOWN:
                   case WM_RBUTTONUP:
+
                   case WM_KEYDOWN:
                   case WM_KEYUP:
+
+                  case WM_SYSKEYDOWN:
+                  case WM_SYSKEYUP:
                 {
-                    u64 code;
+                    u32 code;
+                    u32 repeat;
                     bool pressed;
-                    switch (msg)
-                    {
-                        break;case WM_LBUTTONDOWN: code = VK_LBUTTON;  pressed = true;
-                        break;case WM_LBUTTONUP:   code = VK_LBUTTON;  pressed = false;
-                        break;case WM_MBUTTONDOWN: code = VK_MBUTTON;  pressed = true;
-                        break;case WM_MBUTTONUP:   code = VK_MBUTTON;  pressed = false;
-                        break;case WM_RBUTTONDOWN: code = VK_RBUTTON;  pressed = true;
-                        break;case WM_RBUTTONUP:   code = VK_RBUTTON;  pressed = false;
-                        break;case WM_KEYDOWN:     code = u32(wparam); pressed = true;
-                        break;case WM_KEYUP:       code = u32(wparam); pressed = false;
+
+                    switch (msg) {
+                        break;case WM_LBUTTONDOWN: code = VK_LBUTTON;  pressed = true;  repeat = 1;
+                        break;case WM_LBUTTONUP:   code = VK_LBUTTON;  pressed = false; repeat = 1;
+                        break;case WM_MBUTTONDOWN: code = VK_MBUTTON;  pressed = true;  repeat = 1;
+                        break;case WM_MBUTTONUP:   code = VK_MBUTTON;  pressed = false; repeat = 1;
+                        break;case WM_RBUTTONDOWN: code = VK_RBUTTON;  pressed = true;  repeat = 1;
+                        break;case WM_RBUTTONUP:   code = VK_RBUTTON;  pressed = false; repeat = 1;
+                        break;case WM_KEYDOWN:     code = u32(wparam); pressed = true;  repeat = lparam & 0xFFFF;
+                        break;case WM_KEYUP:       code = u32(wparam); pressed = false; repeat = lparam & 0xFFFF;
+                        break;case WM_SYSKEYDOWN:  code = u32(wparam); pressed = true;  repeat = lparam & 0xFFFF;
+                        break;case WM_SYSKEYUP:    code = u32(wparam); pressed = false; repeat = lparam & 0xFFFF;
                     }
-                    window->app->Send({
-                        .window = window,
-                        .type = EventType::Button,
-                        .button = {
-                            .code = code,
-                            .pressed = pressed,
-                        }
-                    });
+
+                    for (u32 i = 0; i < repeat; ++i) {
+                        window->app->Send({
+                            .window = window,
+                            .type = EventType::Button,
+                            .input = {
+                                .channel = {
+                                    .code = code,
+                                },
+                                .pressed = pressed,
+                                .value = pressed ? 1.f : 0.f,
+                            }
+                        });
+                    }
 
                     return 0;
                 }
@@ -99,32 +121,28 @@ namespace nova
                 {
                     char16_t codeunit = char16_t(wparam);
 
-                    NOVA_LOG("WM_CHAR: {:6} : {:#6x} : {:3} : high = {}, low = {}",
-                        u32(codeunit), u32(codeunit), char(codeunit), IS_HIGH_SURROGATE(codeunit), IS_LOW_SURROGATE(codeunit));
-
                     TextEvent event;
 
                     if (IS_HIGH_SURROGATE(codeunit)) {
-                        NOVA_LOG("    high surrogate, storing");
                         window->app->high_surrogate = codeunit;
                         return 0;
                     } else if (IS_LOW_SURROGATE(codeunit)) {
-                        NOVA_LOG("    low surrogate, transcoding pair with stored high surrogate");
                         auto len = simdutf::convert_utf16_to_utf8(std::array{ window->app->high_surrogate, codeunit }.data(), 2, event.text);
                         event.text[len] = '\0';
                     } else {
-                        NOVA_LOG("    Basic encoding");
                         auto len = simdutf::convert_utf16_to_utf8(&codeunit, 1, event.text);
                         event.text[len] = '\0';
                     }
 
-                    NOVA_LOG("  Text: [{}]", event.text);
+                    u32 repeat = lparam & 0xFFFF;
 
-                    window->app->Send({
-                        .window = window,
-                        .type = EventType::Text,
-                        .text = event,
-                    });
+                    for (u32 i = 0; i < repeat; ++i) {
+                        window->app->Send({
+                            .window = window,
+                            .type = EventType::Text,
+                            .text = event,
+                        });
+                    }
 
                     return 0;
                 }
@@ -153,6 +171,8 @@ namespace nova
         NOVA_DEFER(&) { if (exceptions) delete impl; };
 
         impl->app = app;
+
+        app->windows.push_back({ impl });
 
         {
             NOVA_STACK_POINT();

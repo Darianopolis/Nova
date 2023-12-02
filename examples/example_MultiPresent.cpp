@@ -18,24 +18,6 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     auto present_mode = nova::PresentMode::Mailbox;
     auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
 
-    // glfwInit();
-    // NOVA_DEFER(&) { glfwTerminate(); };
-
-    // glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // auto windows = std::array {
-    //     glfwCreateWindow(1920, 1200, "Nova - Multi Present #1", nullptr, nullptr),
-    //     glfwCreateWindow(1920, 1200, "Nova - Multi Present #2", nullptr, nullptr),
-    // };
-
-    // auto swapchains = std::array {
-    //     nova::Swapchain::Create(context, glfwGetWin32Window(windows[0]), swapchain_usage, present_mode),
-    //     nova::Swapchain::Create(context, glfwGetWin32Window(windows[1]), swapchain_usage, present_mode),
-    // };
-    // NOVA_DEFER(&) {
-    //     swapchains[0].Destroy();
-    //     swapchains[1].Destroy();
-    // };
-
     auto app = nova::Application::Create();
     auto windows = std::array {
         nova::Window::Create(app, { .title = "Nova - Multi Present #1", .size = { 1920, 1080 } }),
@@ -136,18 +118,6 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
 
     NOVA_DEFER(&) { fence.Wait(); };
-
-    // for (auto window : windows) {
-    //     glfwSetWindowUserPointer(window, &update);
-    //     glfwSetWindowSizeCallback(window, [](auto w, int,int) {
-    //         (*static_cast<decltype(update)*>(glfwGetWindowUserPointer(w)))();
-    //     });
-    // }
-
-    // while (!glfwWindowShouldClose(windows[0]) && !glfwWindowShouldClose(windows[1])) {
-    //     update();
-    //     glfwPollEvents();
-    // }
 
     while (app.IsRunning()) {
         update();

@@ -6,34 +6,33 @@
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
 
+#include <nova/core/win32/nova_MinWinInclude.hpp>
+
 #include <stb_image.h>
 
 NOVA_EXAMPLE(Draw, "draw")
 {
-    // glfwInit();
-    // glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
-    // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-    // auto window = glfwCreateWindow(1920, 1200, "Nova - Draw", nullptr, nullptr);
-    // NOVA_DEFER(&) {
-    //     glfwDestroyWindow(window);
-    //     glfwTerminate();
-    // };
-
-    // HWND hwnd = glfwGetWin32Window(window);
-    // SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-
-    // // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
-    // //   Or, do full screeen pass to filter out unintentional chroma key matches and
-    // //   apply chroma key based on alpha.
-    // SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
-
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app, {
         .title = "Nova - Draw",
         .size = { 1920, 1080 },
     });
+
+    {
+        // Undecorate and enable chroma-keyed transparency
+        // TODO: Handle this in nova::Window
+
+        auto hwnd = HWND(window.GetNativeHandle());
+
+        SetWindowLongW(hwnd, GWL_STYLE, GetWindowLongW(hwnd, GWL_STYLE) & ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU));
+        SetWindowLongW(hwnd, GWL_EXSTYLE, GetWindowLongW(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+        // TODO: Chroma key is an ugly hack, use nchittest to do analytical transparency
+        //   Or, do full screeen pass to filter out unintentional chroma key matches and
+        //   apply chroma key based on alpha.
+        SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+    }
 
     auto context = nova::Context::Create({
         .debug = true,
@@ -78,9 +77,6 @@ NOVA_EXAMPLE(Draw, "draw")
 // -----------------------------------------------------------------------------
 
     int count;
-    // auto mode = glfwGetVideoMode(glfwGetMonitors(&count)[0]);
-    // int width = mode->width;
-    // int height = mode->height;
     auto size = app.GetPrimaryDisplay().GetSize();
 
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
@@ -144,17 +140,16 @@ NOVA_EXAMPLE(Draw, "draw")
 // -----------------------------------------------------------------------------
 
         if (!skip_update) {
-            auto MoveBox = [&](nova::draw::Rectangle& box, nova::Button left, nova::Button right, nova::Button up, nova::Button down) {
+            auto MoveBox = [&](nova::draw::Rectangle& box, nova::VirtualKey left, nova::VirtualKey right, nova::VirtualKey up, nova::VirtualKey down) {
                 float speed = 5.f;
-                if (app.IsButtonDown(left))  { box.center_pos.x -= speed; redraw = true; }
-                if (app.IsButtonDown(right)) { box.center_pos.x += speed; redraw = true; }
-                if (app.IsButtonDown(up))    { box.center_pos.y -= speed; redraw = true; }
-                if (app.IsButtonDown(down))  { box.center_pos.y += speed; redraw = true; }
+                if (app.IsVirtualKeyDown(left))  { box.center_pos.x -= speed; redraw = true; }
+                if (app.IsVirtualKeyDown(right)) { box.center_pos.x += speed; redraw = true; }
+                if (app.IsVirtualKeyDown(up))    { box.center_pos.y -= speed; redraw = true; }
+                if (app.IsVirtualKeyDown(down))  { box.center_pos.y += speed; redraw = true; }
             };
 
-            // MoveBox(box1, GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S);
-            // MoveBox(box2, GLFW_KEY_J, GLFW_KEY_L, GLFW_KEY_I, GLFW_KEY_K);
-            MoveBox(box3, nova::Button::Left, nova::Button::Right, nova::Button::Up, nova::Button::Down);
+            MoveBox(box1, nova::VirtualKey::Delete, nova::VirtualKey::PageDown, nova::VirtualKey::Home, nova::VirtualKey::End);
+            MoveBox(box3, nova::VirtualKey::Left, nova::VirtualKey::Right, nova::VirtualKey::Up, nova::VirtualKey::Down);
         }
         else {
             redraw = true;
