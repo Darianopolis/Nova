@@ -171,7 +171,7 @@ namespace nova
         return v;
     }
 
-    inline constexpr
+    inline
     glm::quat QuatFromVec4(glm::vec4 v) noexcept
     {
         glm::quat q;
@@ -182,7 +182,7 @@ namespace nova
         return q;
     }
 
-    inline constexpr
+    inline
     glm::vec4 QuatToVec4(glm::quat q) noexcept
     {
         return { q.x, q.y, q.z, q.w };
