@@ -4,6 +4,7 @@
 #include <nova/core/nova_Stack.hpp>
 
 #include <nova/window/win32/nova_Win32Debug.hpp>
+#include <nova/core/win32/nova_Win32Utility.hpp>
 
 #include <windowsx.h>
 
@@ -199,7 +200,7 @@ namespace nova
 
             if (!impl->handle) {
                 auto res = ::GetLastError();
-                detail::DebugRes(res);
+                win::DebugRes(res);
                 NOVA_THROW("Error creating window: {:#x}", u32(HRESULT_FROM_WIN32(res)));
             }
 

@@ -154,9 +154,9 @@ namespace nova
             max_nova_key = std::max(max_nova_key, u32(mapping.nova_mapping));
         }
 
-        key_win_to_nova.resize(max_win_key,  u32(VirtualKey::Unknown));
-        key_nova_to_win.resize(max_nova_key, 0);
-        key_nova_to_str.resize(max_nova_key, "Unknown"sv);
+        key_win_to_nova.resize(max_win_key + 1,  u32(VirtualKey::Unknown));
+        key_nova_to_win.resize(max_nova_key + 1, 0);
+        key_nova_to_str.resize(max_nova_key + 1, "Unknown"sv);
 
         for (auto& mapping : Win32VirtualKeyMappings) {
             key_win_to_nova[mapping.win32_mapping] = u32(mapping.nova_mapping);
@@ -167,7 +167,9 @@ namespace nova
 
     VirtualKey Application::ToVirtualKey(InputChannel channel) const
     {
-        return VirtualKey(impl->key_win_to_nova[channel.code]);
+        return channel.code < impl->key_win_to_nova.size()
+            ? VirtualKey(impl->key_win_to_nova[channel.code])
+            : VirtualKey::Unknown;
     }
 
     static

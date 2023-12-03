@@ -434,7 +434,7 @@ namespace nova
         }
 
         for (auto swapchain : _swapchains) {
-            dxswapchain->Present1(1, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
+            dxswapchain->Present1(0, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
             dcomp_visual->SetContent(dxswapchain);
             dcomp_target->SetRoot(dcomp_visual);
             dcomp_device->Commit();

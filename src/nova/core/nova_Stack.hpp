@@ -6,7 +6,7 @@
 #include <simdutf.h>
 
 #ifndef NOVA_STACK_SIZE
-#  define NOVA_STACK_SIZE 4 * 1024 * 1024
+#  define NOVA_STACK_SIZE 128ull * 1024 * 1024
 #endif
 
 namespace nova
@@ -15,8 +15,10 @@ namespace nova
     {
         struct ThreadStack
         {
-            std::unique_ptr<std::byte[]> stack = std::make_unique<std::byte[]>(NOVA_STACK_SIZE);
-            std::byte*                     ptr = stack.get();
+            std::byte* ptr;
+
+            ThreadStack();
+            ~ThreadStack();
         };
 
         NOVA_FORCE_INLINE
@@ -31,14 +33,8 @@ namespace nova
             std::byte* ptr;
 
         public:
-            ThreadStackPoint() noexcept
-                : ptr(GetThreadStack().ptr)
-            {}
-
-            ~ThreadStackPoint() noexcept
-            {
-                GetThreadStack().ptr = ptr;
-            }
+            ThreadStackPoint() noexcept;
+            ~ThreadStackPoint() noexcept;
 
             ThreadStackPoint(const ThreadStackPoint&) = delete;
             auto   operator=(const ThreadStackPoint&) = delete;

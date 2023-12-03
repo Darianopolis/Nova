@@ -1,6 +1,7 @@
 #include "nova_Files.hpp"
 
 #include "nova_Debug.hpp"
+#include "nova_Stack.hpp"
 
 namespace nova
 {
@@ -41,9 +42,11 @@ namespace nova
 
     std::vector<char> files::ReadBinaryFile(std::string_view filename)
     {
-        std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
+        NOVA_STACK_POINT();
+
+        std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file");
+            NOVA_THROW("Failed to open file: [{}]", filename);
         }
 
         auto file_size = size_t(file.tellg());
@@ -58,9 +61,11 @@ namespace nova
 
     std::string files::ReadTextFile(std::string_view filename)
     {
-        std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
+        NOVA_STACK_POINT();
+
+        std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
-            throw std::runtime_error("Failed to open file");
+            NOVA_THROW("Failed to open file: [{}]", filename);
         }
 
         std::string output;

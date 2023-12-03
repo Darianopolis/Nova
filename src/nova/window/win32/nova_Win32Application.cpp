@@ -1,5 +1,7 @@
 #include "nova_Win32Window.hpp"
 
+#include <nova/core/win32/nova_Win32Utility.hpp>
+
 namespace nova
 {
     Application Application::Create()
@@ -10,7 +12,7 @@ namespace nova
 
         impl->InitMappings();
 
-        detail::Check(TRUE, ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
+        win::Check(TRUE, ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
 
         WNDCLASSW class_info {
             .lpfnWndProc = Window::Impl::WindowProc,
@@ -20,7 +22,7 @@ namespace nova
             .lpszClassName = Win32WndClassName,
         };
 
-        detail::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
+        win::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
 
         ::SetConsoleOutputCP(CP_UTF8);
 
