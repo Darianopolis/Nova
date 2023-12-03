@@ -377,9 +377,9 @@ namespace nova
 
         } else {
             SetDecorated(true);
+            ::ShowWindow(impl->handle, SW_NORMAL);
             SetPosition(impl->restore.rect.offset, WindowPart::Window);
             SetSize(impl->restore.rect.extent, WindowPart::Window);
-            ::ShowWindow(impl->handle, SW_NORMAL);
         }
     }
 }

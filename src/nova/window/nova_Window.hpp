@@ -215,7 +215,7 @@ namespace nova
         HWindow gaining;
     };
 
-    struct Event
+    struct AppEvent
     {
         HApplication app;
         HWindow   window;
@@ -233,14 +233,17 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    using Callback = std::function<void(const Event&)>;
+    using Callback = std::function<void(const AppEvent&)>;
 
     struct Application : Handle<Application>
     {
         static Application Create();
         void Destroy();
 
-        void SetCallback(Callback callback) const;
+        // TODO: Unregister callback
+        // TODO: Sort
+        // TODO: Consuming events
+        void AddCallback(Callback callback) const;
 
         void WaitEvents() const;
         void PollEvents() const;

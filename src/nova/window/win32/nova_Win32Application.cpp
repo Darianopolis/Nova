@@ -38,12 +38,12 @@ namespace nova
         ::WaitMessage();
     }
 
-    void Application::SetCallback(Callback callback) const
+    void Application::AddCallback(Callback callback) const
     {
-        impl->callback = std::move(callback);
+        impl->callbacks.emplace_back(std::move(callback));
     }
 
-    void Application::Impl::Send(Event event)
+    void Application::Impl::Send(AppEvent event)
     {
         event.app = Application(this);
 
@@ -100,7 +100,7 @@ namespace nova
 
         }
 
-        if (callback) {
+        for (auto& callback : callbacks) {
             callback(event);
         }
     }

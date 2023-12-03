@@ -91,7 +91,7 @@ namespace nova::imgui
     {
         auto app = layer.window.GetApplication();
 
-        app.SetCallback([&layer, app](const Event& event) {
+        app.AddCallback([&layer, app](const AppEvent& event) {
 
             if (event.window != layer.window) {
                 return;

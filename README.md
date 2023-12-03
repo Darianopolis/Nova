@@ -75,3 +75,28 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 #### ImGuiLayer
 - Tiny ImGui backend
 - Integrates glfw + custom drawing backend
+
+# Components
+
+  `[ ]` Core utilities
+  `[X]` Sqlite
+  `[ ]` RHI
+  `[ ]` 2D Renderer
+      `[X]` Rounded rectangles
+      `[X]` Basic text
+      `[ ]` Lazily rasterized fonts
+  `[ ]` Windowing
+  `[ ]` ImGui backend
+  `[ ]` Model loading & processing
+      `[ ]` Frontends
+          `[ ]` Wavefront obj
+          `[ ]` FBX
+          `[ ]` glTF
+          `[ ]` Fallback loader (Assimp)
+      `[ ]` Processing
+          `[ ]` Image resizing/filtering
+          `[ ]` Image transcoding
+          `[ ]` Image mipmap generation
+          `[ ]` Mesh meshletization
+          `[ ]` Mesh simplification
+          `[ ]` Mesh quantization

@@ -57,7 +57,7 @@ namespace nova
 
         std::vector<Window> windows;
 
-        Callback callback;
+        std::vector<Callback> callbacks;
 
         bool running = true;
 
@@ -69,7 +69,7 @@ namespace nova
 
         void InitMappings();
 
-        void Send(Event event);
+        void Send(AppEvent event);
     };
 
     template<>
