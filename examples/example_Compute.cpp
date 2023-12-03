@@ -1,8 +1,6 @@
 #include "main/example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
-#include <nova/rhi/vulkan/hlsl/nova_VulkanHlsl.hpp>
 
 #include <nova/core/nova_Guards.hpp>
 
@@ -115,8 +113,8 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    auto hlsl_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
-        nova::hlsl::Compile(nova::ShaderStage::Compute, "main", "", {R"hlsl(
+    auto hlsl_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
             [[vk::binding(0, 0)]] Texture2D               Image2D[];
             [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
             [[vk::binding(2, 0)]] SamplerState            Sampler[];
@@ -136,11 +134,11 @@ NOVA_EXAMPLE(Compute, "compute")
                 float3 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0).rgb;
                 RWImage2DF4[pc.target][id] = float4(source, 1.0);
             }
-        )hlsl"}));
+        )hlsl"});
     NOVA_DEFER(&) { hlsl_shader.Destroy(); };
 
-    auto glsl_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
-        nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {R"glsl(
+    auto glsl_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_nonuniform_qualifier : require
             #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
@@ -164,7 +162,7 @@ NOVA_EXAMPLE(Compute, "compute")
                 vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv).rgb;
                 imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
             }
-        )glsl"}));
+        )glsl"});
     NOVA_DEFER(&) { glsl_shader.Destroy(); };
 
     // Alternate shaders each frame

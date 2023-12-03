@@ -2,7 +2,6 @@
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
@@ -27,8 +26,8 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    auto vertex_shader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-        nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
+    auto vertex_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {R"glsl(
             layout(location = 0) out vec3 color;
             const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
             const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
@@ -36,16 +35,16 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
                 color = colors[gl_VertexIndex];
                 gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
             }
-        )glsl"}));
+        )glsl"});
 
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
+    auto fragment_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {R"glsl(
             layout(location = 0) in vec3 in_color;
             layout(location = 0) out vec4 frag_color;
             void main() {
                 frag_color = vec4(in_color, 0.1);
             }
-        )glsl"}));
+        )glsl"});
 
     while (app.IsRunning()) {
 

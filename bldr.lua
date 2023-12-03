@@ -1,6 +1,12 @@
 if Project "nova" then
+
+    local win32 = true
+
+    local vulkan = true
+    local vkdxgi = false
+
     Include "src"
-    Compile "src/**"
+
     Import {
         "ankerl-maps",
         "mimalloc",
@@ -8,11 +14,6 @@ if Project "nova" then
         "simdutf",
 
         "sqlite3",
-
-        "vulkan",
-        "VulkanMemoryAllocator",
-        "glslang",
-        "DXC",
 
         "freetype",
         "harfbuzz",
@@ -29,6 +30,46 @@ if Project "nova" then
         "bc7enc",
         "meshoptimizer",
     }
+
+    Compile {
+        "src/nova/core/*",
+        "src/nova/db/*",
+        "src/nova/ui/*",
+    }
+
+--------------------------------------------------------------------------------
+
+    if win32 then
+        Compile {
+            "src/nova/core/win32/*",
+            "src/nova/window/win32/*",
+        }
+    end
+
+--------------------------------------------------------------------------------
+
+    if vulkan then
+        Import {
+            "vulkan",
+            "VulkanMemoryAllocator",
+            "glslang",
+            "DXC",
+        }
+
+        Compile {
+            "src/nova/rhi/vulkan/*",
+        }
+
+        if win32 then
+            Compile "src/nova/rhi/vulkan/win32/*"
+        end
+
+        if vkdxgi then
+            Compile "src/nova/rhi/vulkan/dxgi/*"
+        else
+            Compile "src/nova/rhi/vulkan/khr/*"
+        end
+    end
 
 end
 

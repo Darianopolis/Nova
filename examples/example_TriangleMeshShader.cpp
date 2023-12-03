@@ -2,7 +2,6 @@
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
@@ -27,18 +26,18 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
-    auto task_shader = nova::Shader::Create(context, nova::ShaderStage::Task, "main",
-        nova::glsl::Compile(nova::ShaderStage::Task, "main", "", {R"glsl(
+    auto task_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Task, "main", "", {R"glsl(
             #extension GL_EXT_mesh_shader : require
 
             void main()
             {
                 EmitMeshTasksEXT(1, 1, 1);
             }
-        )glsl"}));
+        )glsl"});
 
-    auto mesh_shader = nova::Shader::Create(context, nova::ShaderStage::Mesh, "main",
-        nova::glsl::Compile(nova::ShaderStage::Mesh, "main", "", {R"glsl(
+    auto mesh_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Mesh, "main", "", {R"glsl(
             #extension GL_EXT_mesh_shader : require
 
             layout(triangles, max_vertices = 3, max_primitives = 1) out;
@@ -56,16 +55,16 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
                 }
                 gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0, 1, 2);
             }
-        )glsl"}));
+        )glsl"});
 
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
+    auto fragment_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {R"glsl(
             layout(location = 0) in vec3 in_color;
             layout(location = 0) out vec4 frag_color;
             void main() {
                 frag_color = vec4(in_color, 1);
             }
-        )glsl"}));
+        )glsl"});
 
     while (app.IsRunning()) {
 

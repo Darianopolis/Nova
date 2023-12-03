@@ -2,7 +2,6 @@
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
@@ -68,8 +67,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Shaders
 
-    auto vertex_shader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-        nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {R"glsl(
+    auto vertex_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_buffer_reference2    : require
             #extension GL_EXT_nonuniform_qualifier : require
@@ -91,18 +90,18 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
                 color = v.color;
                 gl_Position = vec4(v.position + pc.offset, 1);
             }
-        )glsl"}));
+        )glsl"});
     NOVA_DEFER(&) { vertex_shader.Destroy(); };
 
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-        nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {R"glsl(
+    auto fragment_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {R"glsl(
             layout(location = 0) in vec3 in_color;
             layout(location = 0) out vec4 frag_color;
 
             void main() {
                 frag_color = vec4(in_color, 1);
             }
-        )glsl"}));
+        )glsl"});
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Draw

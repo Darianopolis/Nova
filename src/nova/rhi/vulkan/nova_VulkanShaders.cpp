@@ -2,11 +2,21 @@
 
 namespace nova
 {
-    Shader Shader::Create(HContext context, ShaderStage stage, std::string entry, Span<u32> spirv)
+    Shader Shader::Create(HContext context, ShaderLang lang, ShaderStage stage, std::string entry, std::string_view filename, Span<std::string_view> fragments)
     {
         auto impl = new Impl;
         impl->context = context;
         impl->stage = stage;
+
+        std::vector<u32> spirv;
+        switch (lang) {
+            break;case ShaderLang::Glsl:
+                spirv = Vulkan_CompileGlslToSpirv(stage, entry, filename, fragments);
+            break;case ShaderLang::Hlsl:
+                spirv = Vulkan_CompileHlslToSpirv(stage, entry, filename, fragments);
+            break;default:
+                NOVA_THROW("Unknown shader language");
+        }
 
         Shader shader{ impl };
 

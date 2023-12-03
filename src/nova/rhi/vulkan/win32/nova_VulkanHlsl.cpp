@@ -1,6 +1,4 @@
-#include "nova_VulkanHlsl.hpp"
-
-#include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <nova/core/nova_Files.hpp>
 
@@ -76,12 +74,14 @@ namespace nova
         virtual ULONG   STDMETHODCALLTYPE Release() { return 1; }
     };
 
-    std::vector<uint32_t> hlsl::Compile(
+    std::vector<u32> Vulkan_CompileHlslToSpirv(
             ShaderStage stage,
             std::string_view entry,
-            const std::string& filename,
+            std::string_view filename,
             Span<std::string_view> fragments)
     {
+        NOVA_STACK_POINT();
+
         // Init
 
         ComPtr<IDxcLibrary> library;
@@ -134,22 +134,11 @@ namespace nova
         }
 #undef NOVA_HLSL_SM
 
-        // TODO: String utilities
-        auto to_wide = [](std::string_view str) -> std::wstring {
-            std::wstring out;
-            out.resize(simdutf::utf16_length_from_utf8(str.data(), str.size()));
-            simdutf::convert_valid_utf8_to_utf16(str.data(), str.size(), reinterpret_cast<char16_t*>(out.data()));
-            return out;
-        };
-
-        auto wide_filename = to_wide(filename);
-        auto wide_entry = to_wide(entry);
-
         auto arguments = std::to_array<const wchar_t*>({
 
             // Input
-            wide_filename.c_str(),
-            L"-E", wide_entry.c_str(),
+            NOVA_STACK_TO_UTF16(filename).data(),
+            L"-E", NOVA_STACK_TO_UTF16(entry).data(),
 
             // Include
             L"-I", L".",

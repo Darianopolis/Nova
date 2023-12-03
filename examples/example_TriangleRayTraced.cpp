@@ -2,7 +2,6 @@
 
 #include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
@@ -57,8 +56,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderStage::RayGen, "main",
-        nova::glsl::Compile(nova::ShaderStage::RayGen, "main", "", {
+    auto ray_gen_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
             R"glsl(
                 #extension GL_EXT_ray_tracing                      : require
                 #extension GL_NV_shader_invocation_reorder         : require
@@ -92,11 +91,11 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
                     }
                     imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
                 }
-        )glsl"}));
+        )glsl"});
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
-    auto ray_query_shader = nova::Shader::Create(context, nova::ShaderStage::Compute, "main",
-        nova::glsl::Compile(nova::ShaderStage::Compute, "main", "", {
+    auto ray_query_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
             R"glsl(
                 #extension GL_EXT_ray_tracing                      : require
                 #extension GL_EXT_shader_image_load_formatted      : require
@@ -137,7 +136,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
                     imageStore(RWImage2D[pc.target], tpos, vec4(color, 1));
                 }
-        )glsl"}));
+        )glsl"});
     NOVA_DEFER(&) { ray_query_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader

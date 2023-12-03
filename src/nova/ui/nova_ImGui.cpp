@@ -4,8 +4,6 @@
 
 #include <imgui.h>
 
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
-
 #include <ImGuizmo.h>
 
 namespace nova::imgui
@@ -191,8 +189,8 @@ namespace nova::imgui
             nova::BufferUsage::Index,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
 
-        vertex_shader = nova::Shader::Create(context, nova::ShaderStage::Vertex, "main",
-            nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {
+        vertex_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(location = 0) out vec2 out_uv;
@@ -204,10 +202,10 @@ namespace nova::imgui
                         gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
                     }
                 )glsl"
-            }));
+            });
 
-        fragment_shader = nova::Shader::Create(context, nova::ShaderStage::Fragment, "main",
-            nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
+        fragment_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(set = 0, binding = 0) uniform texture2D Image2D[];
@@ -220,7 +218,7 @@ namespace nova::imgui
                             * in_color;
                     }
                 )glsl"
-            }));
+            });
 
         // Create ImGui context and initialize
 

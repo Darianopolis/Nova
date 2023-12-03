@@ -1,9 +1,7 @@
-#include "nova_VulkanGlsl.hpp"
-
 #include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Files.hpp>
 
-#include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/ResourceLimits.h>
@@ -90,12 +88,14 @@ namespace nova
         ankerl::unordered_dense::set<std::filesystem::path> included;
     };
 
-    std::vector<uint32_t> glsl::Compile(
+    std::vector<uint32_t> Vulkan_CompileGlslToSpirv(
             ShaderStage stage,
             std::string_view entry,
-            const std::string& filename,
+            std::string_view filename,
             Span<std::string_view> fragments)
     {
+        NOVA_STACK_POINT();
+
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
 
@@ -139,7 +139,7 @@ namespace nova
 
         const char* source = glsl.data();
         i32 source_length = i32(glsl.size());
-        const char* source_name = filename.c_str();
+        const char* source_name = NOVA_STACK_TO_CSTR(filename);
 
         glslang_shader.setStringsWithLengthsAndNames(&source, &source_length, &source_name, 1);
         glslang_shader.setPreamble("#extension GL_GOOGLE_include_directive : require\n");

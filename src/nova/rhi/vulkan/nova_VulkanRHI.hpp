@@ -362,11 +362,14 @@ namespace nova
     PFN_vkGetInstanceProcAddr Platform_LoadGetInstanceProcAddr();
     VkSurfaceKHR Platform_CreateVulkanSurface(Context, void* handle);
 
-    void* VulkanTrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
-    void* VulkanTrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
-    void  VulkanTrackedFree(      void* userdata, void* memory);
-    void  VulkanNotifyAllocation( void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
-    void  VulkanNotifyFree(       void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
+    std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
+    std::vector<u32> Vulkan_CompileHlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
+
+    void* Vulkan_TrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
+    void* Vulkan_TrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
+    void  Vulkan_TrackedFree(      void* userdata, void* memory);
+    void  Vulkan_NotifyAllocation( void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
+    void  Vulkan_NotifyFree(       void* userdata,                 size_t size, VkInternalAllocationType, VkSystemAllocationScope);
 
 // -----------------------------------------------------------------------------
 //                                 Context
@@ -435,11 +438,11 @@ namespace nova
 // -----------------------------------------------------------------------------
 
         VkAllocationCallbacks alloc_notify = {
-            .pfnAllocation = VulkanTrackedAllocate,
-            .pfnReallocation = VulkanTrackedReallocate,
-            .pfnFree = VulkanTrackedFree,
-            .pfnInternalAllocation = VulkanNotifyAllocation,
-            .pfnInternalFree = VulkanNotifyFree,
+            .pfnAllocation = Vulkan_TrackedAllocate,
+            .pfnReallocation = Vulkan_TrackedReallocate,
+            .pfnFree = Vulkan_TrackedFree,
+            .pfnInternalAllocation = Vulkan_NotifyAllocation,
+            .pfnInternalFree = Vulkan_NotifyFree,
         };
         VkAllocationCallbacks* alloc = &alloc_notify;
     };

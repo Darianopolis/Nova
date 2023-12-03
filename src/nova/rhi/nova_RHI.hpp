@@ -304,6 +304,12 @@ namespace nova
     };
     NOVA_DECORATE_FLAG_ENUM(PresentFlag);
 
+    enum class ShaderLang
+    {
+        Glsl,
+        Hlsl
+    };
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -459,7 +465,9 @@ namespace nova
 
     struct Shader : Handle<Shader>
     {
-        static Shader Create(HContext, ShaderStage, std::string entry, Span<u32> bytecode);
+        static Shader Create(HContext, ShaderLang, ShaderStage, std::string entry,
+            std::string_view filename, Span<std::string_view> fragments = {});
+
         void Destroy();
     };
 

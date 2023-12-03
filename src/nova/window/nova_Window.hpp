@@ -135,6 +135,14 @@ namespace nova
         RightAlt,
         RightSuper,
 
+        VolumeMute,
+        VolumeUp,
+        VolumeDown,
+        MediaStop,
+        MediaPlayPause,
+        MediaPrev,
+        MediaNext,
+
         _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
         A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
         F1,  F2,  F3,  F4,  F5,  F6,  F7,  F8,  F9,  F10, F11, F12,

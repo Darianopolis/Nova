@@ -613,7 +613,7 @@ Validation-VUID({}): {}
         return impl->config;
     }
 
-    void* VulkanTrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
+    void* Vulkan_TrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
     {
         align = std::max(8ull, align);
 
@@ -634,7 +634,7 @@ Validation-VUID({}): {}
         return ByteOffsetPointer(ptr, 8);
     }
 
-    void* VulkanTrackedReallocate(void*, void* orig, size_t size, size_t align, VkSystemAllocationScope)
+    void* Vulkan_TrackedReallocate(void*, void* orig, size_t size, size_t align, VkSystemAllocationScope)
     {
         align = std::max(8ull, align);
 
@@ -663,7 +663,7 @@ Validation-VUID({}): {}
         return ByteOffsetPointer(ptr, 8);
     }
 
-    void VulkanTrackedFree(void*, void* ptr)
+    void Vulkan_TrackedFree(void*, void* ptr)
     {
         if (ptr) {
             usz size = static_cast<usz*>(ptr)[-1];
@@ -681,7 +681,7 @@ Validation-VUID({}): {}
         _aligned_free(ptr);
     }
 
-    void VulkanNotifyAllocation(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
+    void Vulkan_NotifyAllocation(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
     {
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
         NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
@@ -692,7 +692,7 @@ Validation-VUID({}): {}
 
     }
 
-    void VulkanNotifyFree(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
+    void Vulkan_NotifyFree(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
     {
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
         NOVA_LOG("Internal free of size {}, type = {}", size, int(type));

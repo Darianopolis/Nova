@@ -81,6 +81,14 @@ namespace nova
         { VirtualKey::Alt,          VK_MENU,     "Alt"          },
         { VirtualKey::Super,        VK_LWIN,     "Super"        },
 // -------------------------------------------------------------------------------------------------------------
+        { VirtualKey::VolumeMute,     VK_VOLUME_MUTE,      "VolumeMute"     },
+        { VirtualKey::VolumeUp,       VK_VOLUME_UP,        "VolumeUp"       },
+        { VirtualKey::VolumeDown,     VK_VOLUME_DOWN,      "VolumeDown"     },
+        { VirtualKey::MediaStop,      VK_MEDIA_STOP,       "MediaStop"      },
+        { VirtualKey::MediaPlayPause, VK_MEDIA_PLAY_PAUSE, "MediaPlayPause" },
+        { VirtualKey::MediaPrev,      VK_MEDIA_PREV_TRACK, "MediaPrev"      },
+        { VirtualKey::MediaNext,      VK_MEDIA_NEXT_TRACK, "MediaNext"      },
+// -------------------------------------------------------------------------------------------------------------
         { VirtualKey::_0, 0x30 + 0, "0" },
         { VirtualKey::_1, 0x30 + 1, "1" },
         { VirtualKey::_2, 0x30 + 2, "2" },

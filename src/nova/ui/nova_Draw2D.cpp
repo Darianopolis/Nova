@@ -1,7 +1,5 @@
 #include "nova_Draw2D.hpp"
 
-#include <nova/rhi/vulkan/glsl/nova_VulkanGlsl.hpp>
-
 #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
 #include <ft2build.h>
 #include <freetype/freetype.h>
@@ -58,8 +56,8 @@ namespace nova::draw
             BorderColor::TransparentBlack,
             16.f);
 
-        rect_vert_shader = nova::Shader::Create(context, ShaderStage::Vertex, "main",
-            nova::glsl::Compile(nova::ShaderStage::Vertex, "main", "", {
+        rect_vert_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
                 R"glsl(
                     const vec2[6] deltas = vec2[] (
@@ -80,10 +78,10 @@ namespace nova::draw
                         gl_Position = vec4(((delta * box.half_extent) + box.center_pos - pc.center_pos) * pc.inv_half_extent, 0, 1);
                     }
                 )glsl"
-            }));
+            });
 
-        rect_frag_shader = nova::Shader::Create(context, ShaderStage::Fragment, "main",
-            nova::glsl::Compile(nova::ShaderStage::Fragment, "main", "", {
+        rect_frag_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
                 R"glsl(
                     layout(set = 0, binding = 0) uniform texture2D Image2D[];
@@ -123,7 +121,7 @@ namespace nova::draw
                         }
                     }
                 )glsl"
-            }));
+            });
 
         rect_buffer = nova::Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,
