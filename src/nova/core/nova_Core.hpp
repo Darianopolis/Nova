@@ -101,6 +101,7 @@ namespace nova
 
 #define NOVA_CONCAT_INTERNAL(a, b) a##b
 #define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
+#define NOVA_UNIQUE_VAR() NOVA_CONCAT(nova_var, __COUNTER__)
 
 // -----------------------------------------------------------------------------
 

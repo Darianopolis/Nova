@@ -102,7 +102,7 @@ namespace nova
         }
     }
 
-#define NOVA_STACK_POINT()            ::nova::detail::ThreadStackPoint NOVA_CONCAT(nova_stack_point_, __LINE__)
+#define NOVA_STACK_POINT()            ::nova::detail::ThreadStackPoint NOVA_UNIQUE_VAR()
 #define NOVA_STACK_ALLOC(type, count) ::nova::detail::StackAlloc<type>(count)
 #define NOVA_STACK_FORMAT(...)        ::nova::detail::StackFormat(__VA_ARGS__)
 #define NOVA_STACK_TO_UTF16(source)   ::nova::detail::StackToUtf16(source)

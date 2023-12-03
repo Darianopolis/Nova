@@ -31,8 +31,8 @@ namespace nova
         };
     }
 
-#define NOVA_DO_ONCE(...) static ::nova::guards::DoOnceGuard NOVA_CONCAT(nova_do_once_, __LINE__) = [__VA_ARGS__]
-#define NOVA_ON_EXIT(...) static ::nova::guards::OnExitGuard NOVA_CONCAT(nova_on_exit_, __LINE__) = [__VA_ARGS__]
+#define NOVA_DO_ONCE(...) static ::nova::guards::DoOnceGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]
+#define NOVA_ON_EXIT(...) static ::nova::guards::OnExitGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 
@@ -73,5 +73,5 @@ namespace nova
         };
     }
 
-#define NOVA_DEFER(...) ::nova::guards::DeferGuard NOVA_CONCAT(nova_defer_, __LINE__) = [__VA_ARGS__]([[maybe_unused]] ::nova::i32 exceptions)
+#define NOVA_DEFER(...) ::nova::guards::DeferGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]([[maybe_unused]] ::nova::i32 exceptions)
 }

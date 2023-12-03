@@ -228,6 +228,8 @@ namespace nova
 
     void Win32_ResizeSwapchain(Swapchain swapchain, u32 width, u32 height)
     {
+        NOVA_STACK_POINT();
+
         if (swapchain->extent.width == width && swapchain->extent.height == height) {
             return;
         }
@@ -243,7 +245,7 @@ namespace nova
 
         auto res = swapchain->dxswapchain->ResizeBuffers1(0, width, height, DXGI_FORMAT_UNKNOWN, 0, node_masks, queues);
         if (FAILED(res)) {
-            NOVA_THROW("Error resizing swapchain: {} ({:#x})", u32(res), u32(res));
+            NOVA_THROW("Error resizing swapchain: {0} ({0:#x})", u32(res));
         }
 
         swapchain->extent = { width, height };
@@ -302,18 +304,13 @@ namespace nova
             VkImage vkimage;
             vkh::Check(swapchain->context->vkCreateImage(swapchain->context->device, &ii, swapchain->context->alloc, &vkimage));
 
-            // TODO: Required?
-            // std::wstring shared_handle_name = std::wstring(L"Local\\SwapchainImage") + std::to_wstring(i);
-            NOVA_STACK_POINT();
-            auto shared_handle_name = NOVA_STACK_TO_UTF16(NOVA_STACK_FORMAT("Local\\SwapchainImage:{}", (void*)vkimage));
-
             HANDLE handle = nullptr;
-            swapchain->dxdevice->CreateSharedHandle(dx_image, nullptr, GENERIC_ALL, shared_handle_name.data(), &handle);
+            swapchain->dxdevice->CreateSharedHandle(dx_image, nullptr, GENERIC_ALL, nullptr, &handle);
             swapchain->dxhandles[i] = handle;
 
             VkMemoryWin32HandlePropertiesKHR win32_mem_props{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR,
-                .memoryTypeBits = 0xCDCDCDCD,
+                .memoryTypeBits = ~0u,
             };
 
             vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(swapchain->context->device,
@@ -324,12 +321,7 @@ namespace nova
             VkMemoryRequirements mem_req;
             swapchain->context->vkGetImageMemoryRequirements(swapchain->context->device, vkimage, &mem_req);
 
-            if (win32_mem_props.memoryTypeBits == 0xCDCDCDCD) {
-                // AMD Driver workaround
-                win32_mem_props.memoryTypeBits = mem_req.memoryTypeBits;
-            } else {
-                win32_mem_props.memoryTypeBits &= mem_req.memoryTypeBits;
-            }
+            win32_mem_props.memoryTypeBits &= mem_req.memoryTypeBits;
 
             VkPhysicalDeviceMemoryProperties mem_props;
 			swapchain->context->vkGetPhysicalDeviceMemoryProperties(swapchain->context->gpu, &mem_props);
