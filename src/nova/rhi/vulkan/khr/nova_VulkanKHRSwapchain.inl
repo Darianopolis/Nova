@@ -4,6 +4,25 @@
 
 namespace nova
 {
+    template<>
+    struct Handle<Swapchain>::Impl
+    {
+        Context context = {};
+
+        VkSurfaceKHR      surface = {};
+        VkSwapchainKHR  swapchain = {};
+        VkSurfaceFormatKHR format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
+        ImageUsage          usage = {};
+        PresentMode  present_mode = PresentMode::Fifo;
+        std::vector<Image> images = {};
+        uint32_t            index = UINT32_MAX;
+        VkExtent2D         extent = { 0, 0 };
+        bool              invalid = false;
+
+        std::vector<VkSemaphore> semaphores = {};
+        u32                 semaphore_index = 0;
+    };
+
     Swapchain Swapchain::Create(HContext context, void* window, ImageUsage usage, PresentMode present_mode)
     {
         auto impl = new Impl;

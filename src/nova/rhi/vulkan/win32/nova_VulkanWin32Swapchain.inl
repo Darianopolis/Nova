@@ -18,8 +18,42 @@
 
 namespace nova
 {
-    void Win32_Init(Context context);
+    template<>
+    struct Handle<Swapchain>::Impl
+    {
+        Context context = {};
+
+        // TODO: This DX state should be centralized >:(
+        IDXGIFactory7*    dxfactory = nullptr;
+        IDXGIAdapter4*    dxadapter = nullptr;
+        ID3D12Device5*     dxdevice = nullptr;
+        ID3D12CommandQueue* dxqueue = nullptr;
+        IDXGIDevice*    dxgi_device = nullptr;
+
+        bool                 comp_enabled = true;
+        IDCompositionDevice* dcomp_device = nullptr;
+        IDCompositionVisual* dcomp_visual = nullptr;
+        IDCompositionTarget* dcomp_target = nullptr;
+
+        HWND dxhwnd = nullptr;
+        IDXGISwapChain4*         dxswapchain = nullptr;
+        std::vector<VkDeviceMemory> dxmemory;
+        std::vector<HANDLE>        dxhandles;
+
+        PFN_vkGetMemoryWin32HandlePropertiesKHR vkGetMemoryWin32HandlePropertiesKHR = nullptr;
+
+        u32           image_count = 0;
+        Format             format = {};
+        ImageUsage          usage = {};
+        PresentMode  present_mode = PresentMode::Fifo;
+        std::vector<Image> images = {};
+        uint32_t            index = UINT32_MAX;
+        VkExtent2D         extent = { 0, 0 };
+    };
+
+    void Win32_Init(Swapchain swapchain);
     void Win32_CreateSwapchain(Swapchain swapchain, HWND hwnd, u32 width, u32 height);
+    void Win32_DestroySwapchainImages(Swapchain swapchain);
     void Win32_GetSwapchainImages(Swapchain swapchain);
 
     Swapchain Swapchain::Create(HContext context, void* window, ImageUsage usage, PresentMode present_mode)
@@ -28,28 +62,22 @@ namespace nova
         impl->context = context;
         impl->usage = usage;
         impl->present_mode = present_mode;
+        impl->image_count = 3;
+        impl->format = Format::RGBA8_UNorm;
 
-        // impl->surface = Platform_CreateVulkanSurface(context, window);
+        // TODO: Supported formats (RGBA/BGRA)
+        // TODO: HDR?
 
         RECT rect;
         GetClientRect((HWND)window, &rect);
 
-        Win32_Init(context);
-        Win32_CreateSwapchain({ impl }, (HWND)window, (u32)rect.right, (u32)rect.bottom);
-        Win32_GetSwapchainImages({ impl });
+        Swapchain swapchain = { impl };
 
-        // std::vector<VkSurfaceFormatKHR> surface_formats;
-        // vkh::Enumerate(surface_formats, impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
+        Win32_Init(swapchain);
+        Win32_CreateSwapchain(swapchain, (HWND)window, u32(rect.right), u32(rect.bottom));
+        Win32_GetSwapchainImages(swapchain);
 
-        // for (auto& surface_format : surface_formats) {
-        //     if ((surface_format.format == VK_FORMAT_B8G8R8A8_UNORM
-        //             || surface_format.format == VK_FORMAT_R8G8B8A8_UNORM)) {
-        //         impl->format = surface_format;
-        //         break;
-        //     }
-        // }
-
-        return { impl };
+        return swapchain;
     }
 
     void Swapchain::Destroy()
@@ -58,19 +86,22 @@ namespace nova
             return;
         }
 
-        for (auto semaphore : impl->semaphores) {
-            impl->context->vkDestroySemaphore(impl->context->device, semaphore, impl->context->alloc);
+        Win32_DestroySwapchainImages(*this);
+
+        impl->dxswapchain->Release();
+
+        if (impl->comp_enabled) {
+            impl->dcomp_target->Release();
+            impl->dcomp_visual->Release();
+            impl->dcomp_device->Release();
         }
 
-        for (auto& image : impl->images) {
-            image.Destroy();
-        }
+        impl->dxgi_device->Release();
 
-        if (impl->swapchain) {
-            impl->context->vkDestroySwapchainKHR(impl->context->device, impl->swapchain, impl->context->alloc);
-        }
-
-        impl->context->vkDestroySurfaceKHR(impl->context->instance, impl->surface, impl->context->alloc);
+        impl->dxqueue->Release();
+        impl->dxdevice->Release();
+        impl->dxadapter->Release();
+        impl->dxfactory->Release();
 
         delete impl;
         impl = nullptr;
@@ -88,32 +119,16 @@ namespace nova
 
     Format Swapchain::GetFormat() const
     {
-        return FromVulkanFormat(impl->format.format);
+        return impl->format;
     }
 
 // -----------------------------------------------------------------------------
 
-    namespace {
-        IDXGIFactory7* dxfactory = nullptr;
-        IDXGIAdapter4* dxadapter = nullptr;
-        ID3D12Device5* dxdevice = nullptr;
-        ID3D12CommandQueue* dxqueue = nullptr;
-
-        IDXGIDevice* dxgi_device = nullptr;
-
-        IDCompositionDevice* dcomp_device = nullptr;
-        IDCompositionVisual* dcomp_visual = nullptr;
-        IDCompositionTarget* dcomp_target = nullptr;
-
-        HWND dxhwnd = nullptr;
-        IDXGISwapChain4* dxswapchain = nullptr;
-        std::vector<VkDeviceMemory> dxmemory;
-        std::vector<HANDLE> dxhandles;
-    }
-
-    void Win32_Init(Context context)
+    void Win32_Init(Swapchain swapchain)
     {
-        CreateDXGIFactory2(0, IID_PPV_ARGS(&dxfactory));
+        auto context = swapchain->context;
+
+        ::CreateDXGIFactory2(0, IID_PPV_ARGS(&swapchain->dxfactory));
 
         VkPhysicalDeviceIDProperties id_props { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES };
         context->vkGetPhysicalDeviceProperties2(context->gpu, Temp(VkPhysicalDeviceProperties2KHR {
@@ -121,23 +136,24 @@ namespace nova
             .pNext = &id_props,
         }));
 
-        NOVA_LOGEXPR(id_props.deviceLUIDValid);
-
         LUID* pluid = reinterpret_cast<LUID*>(&id_props.deviceLUID);
 
-        dxfactory->EnumAdapterByLuid(*pluid, IID_PPV_ARGS(&dxdevice));
+        swapchain->dxfactory->EnumAdapterByLuid(*pluid, IID_PPV_ARGS(&swapchain->dxadapter));
 
-        ::D3D12CreateDevice(dxadapter, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&dxdevice));
+        ::D3D12CreateDevice(swapchain->dxadapter, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&swapchain->dxdevice));
 
-        dxdevice->CreateCommandQueue(Temp(D3D12_COMMAND_QUEUE_DESC {
+        swapchain->dxdevice->CreateCommandQueue(Temp(D3D12_COMMAND_QUEUE_DESC {
             .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
             .Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
             .Flags = D3D12_COMMAND_QUEUE_FLAG_NONE,
             .NodeMask = 1,
-        }), IID_PPV_ARGS(&dxqueue));
+        }), IID_PPV_ARGS(&swapchain->dxqueue));
+
         {
             ID3D11Device* d11_device = nullptr;
-            D3D11CreateDevice(nullptr,
+            NOVA_DEFER(&) { if (d11_device) d11_device->Release(); };
+
+            ::D3D11CreateDevice(nullptr,
                 D3D_DRIVER_TYPE_HARDWARE,
                 nullptr,
                 D3D11_CREATE_DEVICE_BGRA_SUPPORT,
@@ -147,18 +163,35 @@ namespace nova
                 &d11_device,
                 nullptr,
                 nullptr);
-            d11_device->QueryInterface(&dxgi_device);
-            if (!dxgi_device) {
-                NOVA_THROW("Failed to query dxgi device");
+
+            d11_device->QueryInterface(&swapchain->dxgi_device);
+            if (!swapchain->dxgi_device) {
+                NOVA_THROW("DXGI Swapchain :: Failed to get DXGI device");
             }
         }
-        DCompositionCreateDevice(dxgi_device, IID_PPV_ARGS(&dcomp_device));
-        dcomp_device->CreateVisual(&dcomp_visual);
+
+        if (swapchain->comp_enabled) {
+            DCompositionCreateDevice(swapchain->dxgi_device, IID_PPV_ARGS(&swapchain->dcomp_device));
+
+            swapchain->dcomp_device->CreateVisual(&swapchain->dcomp_visual);
+        }
+
+        swapchain->vkGetMemoryWin32HandlePropertiesKHR = (PFN_vkGetMemoryWin32HandlePropertiesKHR)
+            swapchain->context->vkGetInstanceProcAddr(swapchain->context->instance, "vkGetMemoryWin32HandlePropertiesKHR");
+
+        if (!swapchain->vkGetMemoryWin32HandlePropertiesKHR) {
+            NOVA_THROW("DXGI Swapchain :: Failed to load vkGetMemoryWin32HandlePropertiesKHR");
+        }
     }
 
     void Win32_CreateSwapchain(Swapchain swapchain, HWND hwnd, u32 width, u32 height)
     {
-        dcomp_device->CreateTargetForHwnd(hwnd, false, &dcomp_target);
+        if (swapchain->comp_enabled) {
+            swapchain->dcomp_device->CreateTargetForHwnd(hwnd, false, &swapchain->dcomp_target);
+        }
+
+        swapchain->dxhwnd = hwnd;
+        swapchain->extent = { width, height };
 
         DXGI_SWAP_CHAIN_DESC1 desc {
             .Width = width,
@@ -167,83 +200,77 @@ namespace nova
             .Stereo = FALSE,
             .SampleDesc = { 1, 0 },
             .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            .BufferCount = 2,
+            .BufferCount = swapchain->image_count,
             .Scaling = DXGI_SCALING_STRETCH,
             .SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
             .AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED,
             .Flags = 0,
         };
 
-        dxhwnd = hwnd;
+        // TODO: DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT
 
-        swapchain->extent.width = width;
-        swapchain->extent.height = height;
-
-        IDXGISwapChain1* swapchain1;
-        if (auto res = dxfactory->CreateSwapChainForComposition(
-                dxqueue, &desc, nullptr, &swapchain1); FAILED(res)) {
-            NOVA_LOG("Failed to create swapchain: {:#x}", (u32)res);
-            std::terminate();
+        IDXGISwapChain1* swapchain1 = nullptr;
+        HRESULT res;
+        if (swapchain->comp_enabled) {
+            res = swapchain->dxfactory->CreateSwapChainForComposition(swapchain->dxqueue, &desc, nullptr, &swapchain1);
+        } else {
+            desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+            res = swapchain->dxfactory->CreateSwapChainForHwnd(swapchain->dxqueue, hwnd, &desc, nullptr, nullptr, &swapchain1);
         }
-        swapchain1->QueryInterface(&dxswapchain);
-        dxfactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
-        swapchain->format = { VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+        if (FAILED(res)) {
+            NOVA_THROW("Failed to create swapchain: {:#x}", (u32)res);
+        }
+
+        swapchain1->QueryInterface(&swapchain->dxswapchain);
+
+        swapchain->dxfactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER);
     }
 
     void Win32_ResizeSwapchain(Swapchain swapchain, u32 width, u32 height)
     {
-        ID3D12Resource* image;
-        dxswapchain->GetBuffer(0, IID_PPV_ARGS(&image));
-        auto desc = image->GetDesc();
-        image->Release();
-        if (desc.Width == width && desc.Height == height) {
+        if (swapchain->extent.width == width && swapchain->extent.height == height) {
             return;
         }
-        // for (u32 i = 0; i < 2; ++i) {
-        //     ID3D12Resource* dximage;
-        //     dxswapchain->GetBuffer(i, IID_PPV_ARGS(&dximage));
-        //     auto counts = dximage->Release();
-        //     NOVA_LOG("Remaining count[{}] = {}", i, counts);
-        // }
-        // NOVA_LOG("Resizing ({}, {}) to ({}, {})", desc.Width, desc.Height, width, height);
-        for (u32 i = 0; i < 2; ++i) {
-            swapchain->context->vkFreeMemory(swapchain->context->device, dxmemory[i], swapchain->context->alloc);
+
+        Win32_DestroySwapchainImages(swapchain);
+
+        auto node_masks = NOVA_STACK_ALLOC(UINT, swapchain->image_count);
+        auto queues = NOVA_STACK_ALLOC(IUnknown*, swapchain->image_count);
+        for (u32 i = 0; i < swapchain->image_count; ++i) {
+            node_masks[i] = 1;
+            queues[i] = swapchain->dxqueue;
         }
-        for (auto handle : dxhandles) {
-            CloseHandle(handle);
+
+        auto res = swapchain->dxswapchain->ResizeBuffers1(0, width, height, DXGI_FORMAT_UNKNOWN, 0, node_masks, queues);
+        if (FAILED(res)) {
+            NOVA_THROW("Error resizing swapchain: {} ({:#x})", u32(res), u32(res));
         }
-        for (auto image : swapchain->images) {
-            auto vkimage = image->image;
-            image.Destroy();
+
+        swapchain->extent = { width, height };
+
+        Win32_GetSwapchainImages(swapchain);
+    }
+
+    void Win32_DestroySwapchainImages(Swapchain swapchain)
+    {
+        for (u32 i = 0; i < swapchain->image_count; ++i) {
+            swapchain->context->vkFreeMemory(swapchain->context->device, swapchain->dxmemory[i], swapchain->context->alloc);
+            ::CloseHandle(swapchain->dxhandles[i]);
+            auto vkimage = swapchain->images[i]->image;
+            swapchain->images[i].Destroy();
             swapchain->context->vkDestroyImage(swapchain->context->device, vkimage, swapchain->context->alloc);
         }
-        UINT node_masks[2] = { 1, 1 };
-        IUnknown* queues[2] = { dxqueue, dxqueue };
-        auto res = dxswapchain->ResizeBuffers1(0, width, height, DXGI_FORMAT_UNKNOWN, 0, node_masks, queues);
-        swapchain->extent.width = width;
-        swapchain->extent.height = height;
-        if (FAILED(res)) {
-            NOVA_LOG("Error resizing swapchain: {} ({:#x})", u32(res), u32(res));
-            std::terminate();
-        }
-        Win32_GetSwapchainImages(swapchain);
     }
 
     void Win32_GetSwapchainImages(Swapchain swapchain)
     {
-        u32 image_count = 2;
-        std::vector<ID3D12Resource*> dx_images(image_count);
-        for (u32 i = 0; i < image_count; ++i) {
-            dxswapchain->GetBuffer(i, IID_PPV_ARGS(&dx_images[i]));
-        }
+        swapchain->images.resize(swapchain->image_count);
+        swapchain->dxhandles.resize(swapchain->image_count);
+        swapchain->dxmemory.resize(swapchain->image_count);
 
-        swapchain->images.resize(image_count);
-        dxhandles.resize(image_count);
-        dxmemory.resize(image_count);
-
-        for (u32 i = 0; i < image_count; ++i) {
-            auto* dx_image = dx_images[i];
-            // NOVA_LOGEXPR(dx_image);
+        for (u32 i = 0; i < swapchain->image_count; ++i) {
+            ID3D12Resource* dx_image = nullptr;
+            swapchain->dxswapchain->GetBuffer(i, IID_PPV_ARGS(&dx_image));
             NOVA_DEFER(&) { dx_image->Release(); };
             auto  dx_image_desc = dx_image->GetDesc();
 
@@ -266,7 +293,8 @@ namespace nova
                 .mipLevels = 1,
                 .arrayLayers = 1,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
-                .usage = GetVulkanImageUsage(swapchain->usage),
+                .usage = GetVulkanImageUsage(swapchain->usage)
+                    | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             };
@@ -275,24 +303,20 @@ namespace nova
             vkh::Check(swapchain->context->vkCreateImage(swapchain->context->device, &ii, swapchain->context->alloc, &vkimage));
 
             // TODO: Required?
-            std::wstring shared_handle_name = std::wstring(L"Local\\SwapchainImage{}") + std::to_wstring(i);
+            // std::wstring shared_handle_name = std::wstring(L"Local\\SwapchainImage") + std::to_wstring(i);
+            NOVA_STACK_POINT();
+            auto shared_handle_name = NOVA_STACK_TO_UTF16(NOVA_STACK_FORMAT("Local\\SwapchainImage:{}", (void*)vkimage));
+
             HANDLE handle = nullptr;
-            dxdevice->CreateSharedHandle(dx_image, nullptr, GENERIC_ALL, shared_handle_name.c_str(), &handle);
-            dxhandles[i] = handle;
+            swapchain->dxdevice->CreateSharedHandle(dx_image, nullptr, GENERIC_ALL, shared_handle_name.data(), &handle);
+            swapchain->dxhandles[i] = handle;
 
             VkMemoryWin32HandlePropertiesKHR win32_mem_props{
                 .sType = VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR,
                 .memoryTypeBits = 0xCDCDCDCD,
             };
 
-#define NOVA_LOAD(context, function)
-
-            auto vkGetMemoryWin32HandlePropertiesKHR = (PFN_vkGetMemoryWin32HandlePropertiesKHR)swapchain->context->vkGetInstanceProcAddr(swapchain->context->instance, "vkGetMemoryWin32HandlePropertiesKHR");
-
-            // NOVA_LOGEXPR(vkGetMemoryWin32HandlePropertiesKHR);
-            // NOVA_LOGEXPR(handle);
-
-            vkh::Check(vkGetMemoryWin32HandlePropertiesKHR(swapchain->context->device,
+            vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(swapchain->context->device,
                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
                 handle,
                 &win32_mem_props));
@@ -347,7 +371,7 @@ namespace nova
                 .memoryTypeIndex = mem_type_index,
             }), swapchain->context->alloc, &memory));
 
-            dxmemory[i] = memory;
+            swapchain->dxmemory[i] = memory;
 
             vkh::Check(swapchain->context->vkBindImageMemory(swapchain->context->device, vkimage, memory, 0));
 
@@ -367,7 +391,7 @@ namespace nova
                     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                     .image = vkimage,
                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                    .format = swapchain->format.format,
+                    .format = GetVulkanFormat(swapchain->format).vk_format,
                     .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
                 }), swapchain->context->alloc, &image->view));
             }
@@ -380,10 +404,10 @@ namespace nova
 
         for (auto swapchain : _swapchains) {
             RECT rect;
-            GetClientRect(dxhwnd, &rect);
+            GetClientRect(swapchain->dxhwnd, &rect);
             Win32_ResizeSwapchain(swapchain, u32(rect.right), u32(rect.bottom));
 
-            swapchain->index = dxswapchain->GetCurrentBackBufferIndex();
+            swapchain->index = swapchain->dxswapchain->GetCurrentBackBufferIndex();
         }
 
         if (signals.size())
@@ -434,11 +458,19 @@ namespace nova
         }
 
         for (auto swapchain : _swapchains) {
-            dxswapchain->Present1(0, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
-            dcomp_visual->SetContent(dxswapchain);
-            dcomp_target->SetRoot(dcomp_visual);
-            dcomp_device->Commit();
-            dcomp_device->WaitForCommitCompletion();
+            // TODO: Parameterize sync interval on present mode
+            // TODO: Allow tearing
+            swapchain->dxswapchain->Present1(1, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
+            if (swapchain->comp_enabled) {
+                swapchain->dcomp_visual->SetContent(swapchain->dxswapchain);
+                swapchain->dcomp_target->SetRoot(swapchain->dcomp_visual);
+                swapchain->dcomp_device->Commit();
+            }
+        }
+        for (auto swapchain : _swapchains) {
+            if (swapchain->comp_enabled) {
+                swapchain->dcomp_device->WaitForCommitCompletion();
+            }
         }
     }
 
