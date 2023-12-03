@@ -296,6 +296,14 @@ namespace nova
         Present,
     };
 
+    enum class PresentFlag : u32
+    {
+        None,
+
+        HostWaitOnFences = 1 << 0,
+    };
+    NOVA_DECORATE_FLAG_ENUM(PresentFlag);
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -348,7 +356,7 @@ namespace nova
 
         void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals) const;
         bool Acquire(Span<HSwapchain>, Span<HFence> signals) const;
-        void Present(Span<HSwapchain>, Span<HFence> waits, bool host_wait = false) const;
+        void Present(Span<HSwapchain>, Span<HFence> waits, PresentFlag flags = {}) const;
     };
 
 // -----------------------------------------------------------------------------

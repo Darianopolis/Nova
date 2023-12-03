@@ -437,7 +437,7 @@ namespace nova
         return any_resized;
     }
 
-    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, bool host_wait) const
+    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 

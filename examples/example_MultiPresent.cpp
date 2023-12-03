@@ -112,7 +112,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         queue.Submit({cmd}, {fence}, {fence});
 
         // Present both swapchains
-        queue.Present({swapchains[0], swapchains[1]}, {fence}, false);
+        queue.Present({swapchains[0], swapchains[1]}, {fence});
 
         wait_values[fif] = fence.GetPendingValue();
     };

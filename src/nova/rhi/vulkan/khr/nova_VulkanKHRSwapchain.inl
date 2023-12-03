@@ -229,13 +229,13 @@ namespace nova
         return any_resized;
     }
 
-    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, bool host_wait) const
+    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 
         VkSemaphore* binary_waits = nullptr;
 
-        if (host_wait && waits.size()) {
+        if ((flags >= PresentFlag::HostWaitOnFences) && waits.size()) {
             auto semaphores = NOVA_STACK_ALLOC(VkSemaphore, waits.size());
             auto values = NOVA_STACK_ALLOC(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i) {
