@@ -19,6 +19,11 @@ namespace nova
         return (PFN_vkGetInstanceProcAddr)(void(*)(void))GetProcAddress(vulkan1, "vkGetInstanceProcAddr");
     }
 
+    void Platform_AddPlatformExtensions(std::vector<const char*>& extensions)
+    {
+        extensions.push_back("VK_KHR_win32_surface");
+    }
+
     VkSurfaceKHR Platform_CreateVulkanSurface(Context context, void* handle)
     {
         VkSurfaceKHR surface;

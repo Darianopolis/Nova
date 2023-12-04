@@ -361,6 +361,7 @@ namespace nova
 
     PFN_vkGetInstanceProcAddr Platform_LoadGetInstanceProcAddr();
     VkSurfaceKHR Platform_CreateVulkanSurface(Context, void* handle);
+    void Platform_AddPlatformExtensions(std::vector<const char*>& extensions);
 
     std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
     std::vector<u32> Vulkan_CompileHlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);

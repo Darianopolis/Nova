@@ -5,6 +5,8 @@ if Project "nova" then
     local vulkan = true
     local vkdxgi = false
 
+--------------------------------------------------------------------------------
+
     Include "src"
 
     Import {
@@ -40,6 +42,7 @@ if Project "nova" then
 --------------------------------------------------------------------------------
 
     if win32 then
+        Define "NOVA_PLATFORM_WINDOWS"
         Compile {
             "src/nova/core/win32/*",
             "src/nova/window/win32/*",

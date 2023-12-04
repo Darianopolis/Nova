@@ -94,9 +94,8 @@ Validation-VUID({}): {}
         }
 
         std::vector<const char*> instance_extensions = { VK_KHR_SURFACE_EXTENSION_NAME };
-#ifdef _WIN32
-        instance_extensions.push_back("VK_KHR_win32_surface");
-#endif
+        Platform_AddPlatformExtensions(instance_extensions);
+
         if (config.debug) {
             instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
             instance_extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);

@@ -105,13 +105,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-#ifdef _WIN32
-#  define NOVA_NO_INLINE __declspec(noinline)
-#  define NOVA_FORCE_INLINE __forceinline
-#endif
-
-// -----------------------------------------------------------------------------
-
 inline
 void* __cdecl operator new[](size_t size, const char* /* name */, int /* flags */, unsigned /* debug_flags */, const char* /* file */, int /* line */)
 {
@@ -123,3 +116,9 @@ void* __cdecl operator new[](size_t size, size_t align, size_t /* ??? */, const 
 {
     return ::operator new(size, std::align_val_t(align));
 }
+
+// -----------------------------------------------------------------------------
+
+#ifdef NOVA_PLATFORM_WINDOWS
+#include "win32/nova_Win32Core.hpp"
+#endif
