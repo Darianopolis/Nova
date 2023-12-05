@@ -147,8 +147,10 @@ namespace nova
     }
 
     static
-    std::vector<b8> ConvertToBCn(EditImage& image, u32 bcn_format, bool use_alpha, bool use_signed)
+    std::vector<b8> ConvertToBCn(EditImage& image, u32 bcn_format, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
     {
+        // TODO: sRGB nonlinearity for rgcbx BC1/3 and bc7enc BC7?
+
         rgbcx::init();
 
         u32 hblocks = (image.extent.x + 3) / 4;
@@ -159,7 +161,8 @@ namespace nova
         switch (bcn_format) {
             break;case 1:
                   case 4: block_size = 8;
-            break;case 3:
+            break;case 2:
+                  case 3:
                   case 5:
                   case 6:
                   case 7: block_size = 16;
@@ -175,7 +178,12 @@ namespace nova
                 if (use_alpha) {
                     CreateOptionsBC1(&cmp_options);
                     if (!cmp_options) NOVA_THROW("Failed to create BC1 encoder options");
+                    SetSrgbBC1(cmp_options, is_srgb_nonlinear);
                 }
+            break;case 2:
+                CreateOptionsBC2(&cmp_options);
+                if (!cmp_options) NOVA_THROW("Failed to create BC2 encoder options");
+                SetSrgbBC2(cmp_options, is_srgb_nonlinear);
             break;case 4:
                 if (use_signed) {
                     CreateOptionsBC4(&cmp_options);
@@ -197,6 +205,7 @@ namespace nova
         NOVA_DEFER(&) {
             switch (bcn_format) {
                 break;case 1: DestroyOptionsBC1(cmp_options);
+                break;case 2: DestroyOptionsBC2(cmp_options);
                 break;case 4: DestroyOptionsBC4(cmp_options);
                 break;case 5: DestroyOptionsBC5(cmp_options);
                 break;case 6: DestroyOptionsBC6(cmp_options);
@@ -230,6 +239,14 @@ namespace nova
                         });
 
                         switch (bcn_format) {
+                            break;case 7:
+                                  case 3:
+                                  case 2:
+                                  case 1:
+                                source_u8x4[dy][dx][0] = u8(std::clamp(pos.r, 0.f, 1.f) * 255.f);
+                                source_u8x4[dy][dx][1] = u8(std::clamp(pos.g, 0.f, 1.f) * 255.f);
+                                source_u8x4[dy][dx][2] = u8(std::clamp(pos.b, 0.f, 1.f) * 255.f);
+                                source_u8x4[dy][dx][3] = u8(std::clamp(pos.a, 0.f, 1.f) * 255.f);
                             break;case 6:
                                 source_f16x3[dy][dx][0] = glm::detail::toFloat16(pos.r);
                                 source_f16x3[dy][dx][1] = glm::detail::toFloat16(pos.g);
@@ -248,11 +265,6 @@ namespace nova
                                 } else {
                                     source_u8x1[dy][dx] = u8(std::clamp(pos.r, 0.f, 1.f) * 255.f);
                                 }
-                            break;default:
-                                source_u8x4[dy][dx][0] = u8(std::clamp(pos.r, 0.f, 1.f) * 255.f);
-                                source_u8x4[dy][dx][1] = u8(std::clamp(pos.g, 0.f, 1.f) * 255.f);
-                                source_u8x4[dy][dx][2] = u8(std::clamp(pos.b, 0.f, 1.f) * 255.f);
-                                source_u8x4[dy][dx][3] = u8(std::clamp(pos.a, 0.f, 1.f) * 255.f);
                         }
                     }
                 }
@@ -272,6 +284,11 @@ namespace nova
                                 reinterpret_cast<const u8*>(&source_u8x4),
                                 true, false);
                         }
+                    break;case 2:
+                        CompressBlockBC2(
+                            reinterpret_cast<const unsigned char*>(&source_u8x4), 16,
+                            reinterpret_cast<unsigned char*>(output_block),
+                            cmp_options);
                     break;case 3:
                         rgbcx::encode_bc3_hq(rgbcx::MAX_LEVEL,
                             output_block,
@@ -279,7 +296,7 @@ namespace nova
                     break;case 4:
                         if (use_signed) {
                             CompressBlockBC4S(
-                                reinterpret_cast<char*>(&source_i8x1), 4,
+                                reinterpret_cast<const char*>(&source_i8x1), 4,
                                 reinterpret_cast<unsigned char*>(output_block),
                                 cmp_options);
                         } else {
@@ -290,8 +307,8 @@ namespace nova
                     break;case 5:
                         if (use_signed) {
                             CompressBlockBC5S(
-                                reinterpret_cast<char*>(&source_i8x1), 1,
-                                reinterpret_cast<char*>(&source_i8x1_2), 1,
+                                reinterpret_cast<const char*>(&source_i8x1), 1,
+                                reinterpret_cast<const char*>(&source_i8x1_2), 1,
                                 reinterpret_cast<unsigned char*>(output_block),
                                 cmp_options);
                         } else {
@@ -317,32 +334,37 @@ namespace nova
         return output;
     }
 
-    std::vector<b8> EditImage::ConvertToBC1(bool use_alpha)
+    std::vector<b8> EditImage::ConvertToBC1(bool use_alpha, bool is_srgb_nonlinear)
     {
-        return ConvertToBCn(*this, 1, use_alpha, false);
+        return ConvertToBCn(*this, 1, use_alpha, false, is_srgb_nonlinear);
     }
 
-    std::vector<b8> EditImage::ConvertToBC3()
+    std::vector<b8> EditImage::ConvertToBC2(bool is_srgb_nonlinear)
     {
-        return ConvertToBCn(*this, 3, true, false);
+        return ConvertToBCn(*this, 2, false, false, is_srgb_nonlinear);
+    }
+
+    std::vector<b8> EditImage::ConvertToBC3(bool is_srgb_nonlinear)
+    {
+        return ConvertToBCn(*this, 3, false, false, is_srgb_nonlinear);
     }
 
     std::vector<b8> EditImage::ConvertToBC4(bool use_signed)
     {
-        return ConvertToBCn(*this, 4, false, use_signed);
+        return ConvertToBCn(*this, 4, false, use_signed, false);
     }
 
     std::vector<b8> EditImage::ConvertToBC5(bool use_signed)
     {
-        return ConvertToBCn(*this, 5, false, use_signed);
+        return ConvertToBCn(*this, 5, false, use_signed, false);
     }
 
     std::vector<b8> EditImage::ConvertToBC6(bool use_signed)
     {
-        return ConvertToBCn(*this, 6, false, use_signed);
+        return ConvertToBCn(*this, 6, false, use_signed, false);
     }
 
-    std::vector<b8> EditImage::ConvertToBC7(bool reduce_entropy)
+    std::vector<b8> EditImage::ConvertToBC7(bool is_srgb_nonlinear, bool reduce_entropy)
     {
         if (reduce_entropy) {
             auto data = ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
@@ -362,7 +384,7 @@ namespace nova
 
             return data;
         } else {
-            return ConvertToBCn(*this, 7, true, false);
+            return ConvertToBCn(*this, 7, false, false, is_srgb_nonlinear);
         }
     }
 }
