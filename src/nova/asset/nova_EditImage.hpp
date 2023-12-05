@@ -36,8 +36,13 @@ namespace nova
         void ToLinear();
         void ToNonLinear();
 
-        std::vector<b8> ConvertToUnorm(Span<u8> channels, u32 channel_size, u32 row_align = 1);
-        std::vector<b8> ConvertToBC7();
+        std::vector<b8> ConvertToPacked(Span<u8> channels, u32 channel_size, bool to_signed, u32 row_align = 1);
+
+        std::vector<b8> ConvertToBC1(bool use_alpha);
         std::vector<b8> ConvertToBC3();
+        std::vector<b8> ConvertToBC4(bool use_signed);
+        std::vector<b8> ConvertToBC5(bool use_signed);
+        std::vector<b8> ConvertToBC6(bool use_signed);
+        std::vector<b8> ConvertToBC7(bool reduce_entropy = false);
     };
 }

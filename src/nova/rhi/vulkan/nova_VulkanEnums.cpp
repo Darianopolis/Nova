@@ -40,25 +40,38 @@ namespace nova
     auto VulkanFormats = [] {
         std::array<VulkanFormat, usz(Format::_count)> formats;
 
-        formats[std::to_underlying(Format::Undefined)]     = { Format::Undefined,     VK_FORMAT_UNDEFINED,           0        };
-        formats[std::to_underlying(Format::RGBA8_UNorm)]   = { Format::RGBA8_UNorm,   VK_FORMAT_R8G8B8A8_UNORM,      4        };
-        formats[std::to_underlying(Format::RGBA8_SRGB)]    = { Format::RGBA8_SRGB,    VK_FORMAT_R8G8B8A8_SRGB,       4        };
-        formats[std::to_underlying(Format::RGBA16_SFloat)] = { Format::RGBA16_SFloat, VK_FORMAT_R16G16B16A16_SFLOAT, 8        };
-        formats[std::to_underlying(Format::RGBA32_SFloat)] = { Format::RGBA32_SFloat, VK_FORMAT_R32G32B32A32_SFLOAT, 16       };
-        formats[std::to_underlying(Format::BGRA8_UNorm)]   = { Format::BGRA8_UNorm,   VK_FORMAT_B8G8R8A8_UNORM,      4        };
-        formats[std::to_underlying(Format::BGRA8_SRGB)]    = { Format::BGRA8_SRGB,    VK_FORMAT_B8G8R8A8_SRGB,       4        };
-        formats[std::to_underlying(Format::RGB32_SFloat)]  = { Format::RGB32_SFloat,  VK_FORMAT_R32G32B32_SFLOAT,    12       };
-        formats[std::to_underlying(Format::R8_UNorm)]      = { Format::R8_UNorm,      VK_FORMAT_R8_UNORM,            1        };
-        formats[std::to_underlying(Format::RG8_UNorm)]     = { Format::RG8_UNorm,     VK_FORMAT_R8G8_UNORM,          2        };
-        formats[std::to_underlying(Format::R32_SFloat)]    = { Format::R32_SFloat,    VK_FORMAT_R32_SFLOAT,          4        };
-        formats[std::to_underlying(Format::R8_UInt)]       = { Format::R8_UInt,       VK_FORMAT_R8_UINT,             1        };
-        formats[std::to_underlying(Format::R16_UInt)]      = { Format::R16_UInt,      VK_FORMAT_R16_UINT,            2        };
-        formats[std::to_underlying(Format::R32_UInt)]      = { Format::R32_UInt,      VK_FORMAT_R32_UINT,            4        };
-        formats[std::to_underlying(Format::D24_UNorm)]     = { Format::D24_UNorm,     VK_FORMAT_X8_D24_UNORM_PACK32, 4        };
-        formats[std::to_underlying(Format::S8_D24_UNorm)]  = { Format::S8_D24_UNorm,  VK_FORMAT_D24_UNORM_S8_UINT,   4        };
-        formats[std::to_underlying(Format::D32_SFloat)]    = { Format::D32_SFloat,    VK_FORMAT_D32_SFLOAT,          4        };
-        formats[std::to_underlying(Format::BC7_SRGB)]      = { Format::BC7_SRGB,      VK_FORMAT_BC7_SRGB_BLOCK,      16, 4, 4 };
-        formats[std::to_underlying(Format::BC7_Unorm)]     = { Format::BC7_Unorm,     VK_FORMAT_BC7_UNORM_BLOCK,     16, 4, 4 };
+        formats[std::to_underlying(Format::Undefined)]     = { Format::Undefined,     VK_FORMAT_UNDEFINED,            0        };
+        formats[std::to_underlying(Format::RGBA8_UNorm)]   = { Format::RGBA8_UNorm,   VK_FORMAT_R8G8B8A8_UNORM,       4        };
+        formats[std::to_underlying(Format::RGBA8_SRGB)]    = { Format::RGBA8_SRGB,    VK_FORMAT_R8G8B8A8_SRGB,        4        };
+        formats[std::to_underlying(Format::RGBA16_SFloat)] = { Format::RGBA16_SFloat, VK_FORMAT_R16G16B16A16_SFLOAT,  8        };
+        formats[std::to_underlying(Format::RGBA32_SFloat)] = { Format::RGBA32_SFloat, VK_FORMAT_R32G32B32A32_SFLOAT,  16       };
+        formats[std::to_underlying(Format::BGRA8_UNorm)]   = { Format::BGRA8_UNorm,   VK_FORMAT_B8G8R8A8_UNORM,       4        };
+        formats[std::to_underlying(Format::BGRA8_SRGB)]    = { Format::BGRA8_SRGB,    VK_FORMAT_B8G8R8A8_SRGB,        4        };
+        formats[std::to_underlying(Format::RGB32_SFloat)]  = { Format::RGB32_SFloat,  VK_FORMAT_R32G32B32_SFLOAT,     12       };
+        formats[std::to_underlying(Format::R8_UNorm)]      = { Format::R8_UNorm,      VK_FORMAT_R8_UNORM,             1        };
+        formats[std::to_underlying(Format::RG8_UNorm)]     = { Format::RG8_UNorm,     VK_FORMAT_R8G8_UNORM,           2        };
+        formats[std::to_underlying(Format::R32_SFloat)]    = { Format::R32_SFloat,    VK_FORMAT_R32_SFLOAT,           4        };
+        formats[std::to_underlying(Format::R8_UInt)]       = { Format::R8_UInt,       VK_FORMAT_R8_UINT,              1        };
+        formats[std::to_underlying(Format::R16_UInt)]      = { Format::R16_UInt,      VK_FORMAT_R16_UINT,             2        };
+        formats[std::to_underlying(Format::R32_UInt)]      = { Format::R32_UInt,      VK_FORMAT_R32_UINT,             4        };
+        formats[std::to_underlying(Format::D24_UNorm)]     = { Format::D24_UNorm,     VK_FORMAT_X8_D24_UNORM_PACK32,  4        };
+        formats[std::to_underlying(Format::S8_D24_UNorm)]  = { Format::S8_D24_UNorm,  VK_FORMAT_D24_UNORM_S8_UINT,    4        };
+        formats[std::to_underlying(Format::D32_SFloat)]    = { Format::D32_SFloat,    VK_FORMAT_D32_SFLOAT,           4        };
+
+        formats[std::to_underlying(Format::BC1_SRGB)]      = { Format::BC1_SRGB,      VK_FORMAT_BC1_RGB_SRGB_BLOCK,   8,  4, 4 };
+        formats[std::to_underlying(Format::BC1_Unorm)]     = { Format::BC1_Unorm,     VK_FORMAT_BC1_RGB_UNORM_BLOCK,  8,  4, 4 };
+        formats[std::to_underlying(Format::BC1A_SRGB)]     = { Format::BC1A_SRGB,     VK_FORMAT_BC1_RGBA_SRGB_BLOCK,  8,  4, 4 };
+        formats[std::to_underlying(Format::BC1A_Unorm)]    = { Format::BC1A_Unorm,    VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8,  4, 4 };
+        formats[std::to_underlying(Format::BC3_SRGB)]      = { Format::BC3_SRGB,      VK_FORMAT_BC3_SRGB_BLOCK,       16, 4, 4 };
+        formats[std::to_underlying(Format::BC3_UNorm)]     = { Format::BC3_UNorm,     VK_FORMAT_BC3_UNORM_BLOCK,      16, 4, 4 };
+        formats[std::to_underlying(Format::BC4_UNorm)]     = { Format::BC4_UNorm,     VK_FORMAT_BC4_UNORM_BLOCK,      8,  4, 4 };
+        formats[std::to_underlying(Format::BC4_SNorm)]     = { Format::BC4_SNorm,     VK_FORMAT_BC4_SNORM_BLOCK,      8,  4, 4 };
+        formats[std::to_underlying(Format::BC5_UNorm)]     = { Format::BC5_UNorm,     VK_FORMAT_BC5_UNORM_BLOCK,      16, 4, 4 };
+        formats[std::to_underlying(Format::BC5_SNorm)]     = { Format::BC5_SNorm,     VK_FORMAT_BC5_SNORM_BLOCK,      16, 4, 4 };
+        formats[std::to_underlying(Format::BC6_UFloat)]    = { Format::BC6_UFloat,    VK_FORMAT_BC6H_UFLOAT_BLOCK,    16, 4, 4 };
+        formats[std::to_underlying(Format::BC6_SFloat)]    = { Format::BC6_SFloat,    VK_FORMAT_BC6H_SFLOAT_BLOCK,    16, 4, 4 };
+        formats[std::to_underlying(Format::BC7_SRGB)]      = { Format::BC7_SRGB,      VK_FORMAT_BC7_SRGB_BLOCK,       16, 4, 4 };
+        formats[std::to_underlying(Format::BC7_Unorm)]     = { Format::BC7_Unorm,     VK_FORMAT_BC7_UNORM_BLOCK,      16, 4, 4 };
 
         return formats;
     }();
@@ -71,25 +84,38 @@ namespace nova
     Format FromVulkanFormat(VkFormat format)
     {
         switch (format) {
-        break;case VK_FORMAT_UNDEFINED:           return Format::Undefined;
-        break;case VK_FORMAT_R8G8B8A8_UNORM:      return Format::RGBA8_UNorm;
-        break;case VK_FORMAT_R8G8B8A8_SRGB:       return Format::RGBA8_SRGB;
-        break;case VK_FORMAT_R16G16B16A16_SFLOAT: return Format::RGBA16_SFloat;
-        break;case VK_FORMAT_R32G32B32A32_SFLOAT: return Format::RGBA32_SFloat;
-        break;case VK_FORMAT_B8G8R8A8_UNORM:      return Format::BGRA8_UNorm;
-        break;case VK_FORMAT_B8G8R8A8_SRGB:       return Format::BGRA8_SRGB;
-        break;case VK_FORMAT_R32G32B32_SFLOAT:    return Format::RGB32_SFloat;
-        break;case VK_FORMAT_R8_UNORM:            return Format::R8_UNorm;
-        break;case VK_FORMAT_R8G8_UNORM:          return Format::RG8_UNorm;
-        break;case VK_FORMAT_R32_SFLOAT:          return Format::R32_SFloat;
-        break;case VK_FORMAT_R8_UINT:             return Format::R8_UInt;
-        break;case VK_FORMAT_R16_UINT:            return Format::R16_UInt;
-        break;case VK_FORMAT_R32_UINT:            return Format::R32_UInt;
-        break;case VK_FORMAT_X8_D24_UNORM_PACK32: return Format::D24_UNorm;
-        break;case VK_FORMAT_D24_UNORM_S8_UINT:   return Format::S8_D24_UNorm;
-        break;case VK_FORMAT_D32_SFLOAT:          return Format::D32_SFloat;
-        break;case VK_FORMAT_BC7_SRGB_BLOCK:      return Format::BC7_SRGB;
-        break;case VK_FORMAT_BC7_UNORM_BLOCK:     return Format::BC7_Unorm;
+            break;case VK_FORMAT_UNDEFINED:           return Format::Undefined;
+            break;case VK_FORMAT_R8G8B8A8_UNORM:      return Format::RGBA8_UNorm;
+            break;case VK_FORMAT_R8G8B8A8_SRGB:       return Format::RGBA8_SRGB;
+            break;case VK_FORMAT_R16G16B16A16_SFLOAT: return Format::RGBA16_SFloat;
+            break;case VK_FORMAT_R32G32B32A32_SFLOAT: return Format::RGBA32_SFloat;
+            break;case VK_FORMAT_B8G8R8A8_UNORM:      return Format::BGRA8_UNorm;
+            break;case VK_FORMAT_B8G8R8A8_SRGB:       return Format::BGRA8_SRGB;
+            break;case VK_FORMAT_R32G32B32_SFLOAT:    return Format::RGB32_SFloat;
+            break;case VK_FORMAT_R8_UNORM:            return Format::R8_UNorm;
+            break;case VK_FORMAT_R8G8_UNORM:          return Format::RG8_UNorm;
+            break;case VK_FORMAT_R32_SFLOAT:          return Format::R32_SFloat;
+            break;case VK_FORMAT_R8_UINT:             return Format::R8_UInt;
+            break;case VK_FORMAT_R16_UINT:            return Format::R16_UInt;
+            break;case VK_FORMAT_R32_UINT:            return Format::R32_UInt;
+            break;case VK_FORMAT_X8_D24_UNORM_PACK32: return Format::D24_UNorm;
+            break;case VK_FORMAT_D24_UNORM_S8_UINT:   return Format::S8_D24_UNorm;
+            break;case VK_FORMAT_D32_SFLOAT:          return Format::D32_SFloat;
+
+            break;case VK_FORMAT_BC1_RGB_SRGB_BLOCK:   return Format::BC1_SRGB;
+            break;case VK_FORMAT_BC1_RGB_UNORM_BLOCK:  return Format::BC1_Unorm;
+            break;case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:  return Format::BC1A_SRGB;
+            break;case VK_FORMAT_BC1_RGBA_UNORM_BLOCK: return Format::BC1A_Unorm;
+            break;case VK_FORMAT_BC3_SRGB_BLOCK:       return Format::BC3_SRGB;
+            break;case VK_FORMAT_BC3_UNORM_BLOCK:      return Format::BC3_UNorm;
+            break;case VK_FORMAT_BC4_UNORM_BLOCK:      return Format::BC4_UNorm;
+            break;case VK_FORMAT_BC4_SNORM_BLOCK:      return Format::BC4_SNorm;
+            break;case VK_FORMAT_BC5_UNORM_BLOCK:      return Format::BC5_UNorm;
+            break;case VK_FORMAT_BC5_SNORM_BLOCK:      return Format::BC5_SNorm;
+            break;case VK_FORMAT_BC6H_UFLOAT_BLOCK:    return Format::BC6_UFloat;
+            break;case VK_FORMAT_BC6H_SFLOAT_BLOCK:    return Format::BC6_SFloat;
+            break;case VK_FORMAT_BC7_SRGB_BLOCK:       return Format::BC7_SRGB;
+            break;case VK_FORMAT_BC7_UNORM_BLOCK:      return Format::BC7_Unorm;
         }
 
         NOVA_THROW("Unknown VkFormat: {}", u32(format));
@@ -98,9 +124,9 @@ namespace nova
     VkIndexType GetVulkanIndexType(IndexType type)
     {
         switch (type) {
-        break;case IndexType::U16: return VK_INDEX_TYPE_UINT16;
-        break;case IndexType::U32: return VK_INDEX_TYPE_UINT32;
-        break;case IndexType::U8:  return VK_INDEX_TYPE_UINT8_EXT;
+            break;case IndexType::U16: return VK_INDEX_TYPE_UINT16;
+            break;case IndexType::U32: return VK_INDEX_TYPE_UINT32;
+            break;case IndexType::U8:  return VK_INDEX_TYPE_UINT8_EXT;
         }
 
         NOVA_THROW("Unknown IndexType: {}", u32(type));
@@ -109,8 +135,8 @@ namespace nova
     VkFilter GetVulkanFilter(Filter filter)
     {
         switch (filter) {
-        break;case Filter::Linear:  return VK_FILTER_LINEAR;
-        break;case Filter::Nearest: return VK_FILTER_NEAREST;
+            break;case Filter::Linear:  return VK_FILTER_LINEAR;
+            break;case Filter::Nearest: return VK_FILTER_NEAREST;
         }
 
         NOVA_THROW("Unknown Filter: {}", u32(filter));
@@ -119,10 +145,10 @@ namespace nova
     VkSamplerAddressMode GetVulkanAddressMode(AddressMode mode)
     {
         switch (mode) {
-        break;case AddressMode::Repeat:         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        break;case AddressMode::RepeatMirrored: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-        break;case AddressMode::Edge:           return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        break;case AddressMode::Border:         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+            break;case AddressMode::Repeat:         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            break;case AddressMode::RepeatMirrored: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+            break;case AddressMode::Edge:           return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            break;case AddressMode::Border:         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
 
         NOVA_THROW("Unknown AddressMode: {}", u32(mode));
@@ -131,9 +157,9 @@ namespace nova
     VkBorderColor GetVulkanBorderColor(BorderColor color)
     {
         switch (color) {
-        break;case BorderColor::TransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-        break;case BorderColor::Black:            return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-        break;case BorderColor::White:            return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+            break;case BorderColor::TransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+            break;case BorderColor::Black:            return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+            break;case BorderColor::White:            return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         }
 
         NOVA_THROW("Unknown BorderColor: {}", u32(color));
@@ -163,10 +189,10 @@ namespace nova
     VkPresentModeKHR GetVulkanPresentMode(PresentMode mode)
     {
         switch (mode) {
-        break;case PresentMode::Immediate:   return VK_PRESENT_MODE_IMMEDIATE_KHR;
-        break;case PresentMode::Mailbox:     return VK_PRESENT_MODE_MAILBOX_KHR;
-        break;case PresentMode::Fifo:        return VK_PRESENT_MODE_FIFO_KHR;
-        break;case PresentMode::FifoRelaxed: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+            break;case PresentMode::Immediate:   return VK_PRESENT_MODE_IMMEDIATE_KHR;
+            break;case PresentMode::Mailbox:     return VK_PRESENT_MODE_MAILBOX_KHR;
+            break;case PresentMode::Fifo:        return VK_PRESENT_MODE_FIFO_KHR;
+            break;case PresentMode::FifoRelaxed: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
         }
 
         NOVA_THROW("Unknown PresentMode: {}", u32(mode));
@@ -175,9 +201,9 @@ namespace nova
     VkPipelineBindPoint GetVulkanPipelineBindPoint(BindPoint point)
     {
         switch (point) {
-        break;case BindPoint::Graphics:   return VK_PIPELINE_BIND_POINT_GRAPHICS;
-        break;case BindPoint::Compute:    return VK_PIPELINE_BIND_POINT_COMPUTE;
-        break;case BindPoint::RayTracing: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+            break;case BindPoint::Graphics:   return VK_PIPELINE_BIND_POINT_GRAPHICS;
+            break;case BindPoint::Compute:    return VK_PIPELINE_BIND_POINT_COMPUTE;
+            break;case BindPoint::RayTracing: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
         }
 
         NOVA_THROW("Unknown BindPoint: {}", u32(point));
@@ -186,8 +212,8 @@ namespace nova
     VkAccelerationStructureTypeKHR GetVulkanAccelStructureType(AccelerationStructureType type)
     {
         switch (type) {
-        break;case AccelerationStructureType::BottomLevel: return VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        break;case AccelerationStructureType::TopLevel:    return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+            break;case AccelerationStructureType::BottomLevel: return VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            break;case AccelerationStructureType::TopLevel:    return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
         }
 
         NOVA_THROW("Unknown AccelerationStructureType: {}", u32(type));
@@ -208,11 +234,11 @@ namespace nova
     VkDescriptorType GetVulkanDescriptorType(DescriptorType type)
     {
         switch (type) {
-        break;case DescriptorType::SampledImage:        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        break;case DescriptorType::StorageImage:        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        break;case DescriptorType::Uniform:               return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        break;case DescriptorType::Storage:               return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        break;case DescriptorType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+            break;case DescriptorType::SampledImage:        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            break;case DescriptorType::StorageImage:        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            break;case DescriptorType::Uniform:               return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            break;case DescriptorType::Storage:               return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            break;case DescriptorType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
 
         NOVA_THROW("Unknown DescriptorType: {}", u32(type));
@@ -221,14 +247,14 @@ namespace nova
     VkCompareOp GetVulkanCompareOp(CompareOp op)
     {
         switch (op) {
-        break;case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
-        break;case CompareOp::Less:           return VK_COMPARE_OP_LESS;
-        break;case CompareOp::Equal:          return VK_COMPARE_OP_EQUAL;
-        break;case CompareOp::LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
-        break;case CompareOp::Greater:        return VK_COMPARE_OP_GREATER;
-        break;case CompareOp::NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
-        break;case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
-        break;case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
+            break;case CompareOp::Never:          return VK_COMPARE_OP_NEVER;
+            break;case CompareOp::Less:           return VK_COMPARE_OP_LESS;
+            break;case CompareOp::Equal:          return VK_COMPARE_OP_EQUAL;
+            break;case CompareOp::LessOrEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
+            break;case CompareOp::Greater:        return VK_COMPARE_OP_GREATER;
+            break;case CompareOp::NotEqual:       return VK_COMPARE_OP_NOT_EQUAL;
+            break;case CompareOp::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+            break;case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
         }
 
         NOVA_THROW("Unknown CompareOp: {}", u32(op));
@@ -247,8 +273,8 @@ namespace nova
     VkFrontFace GetVulkanFrontFace(FrontFace face)
     {
         switch (face) {
-        break;case FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        break;case FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
+            break;case FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            break;case FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
         }
 
         NOVA_THROW("Unknown FrontFace: {}", u32(face));
@@ -257,9 +283,9 @@ namespace nova
     VkPolygonMode GetVulkanPolygonMode(PolygonMode mode)
     {
         switch (mode) {
-        break;case PolygonMode::Fill:  return VK_POLYGON_MODE_FILL;
-        break;case PolygonMode::Line:  return VK_POLYGON_MODE_LINE;
-        break;case PolygonMode::Point: return VK_POLYGON_MODE_POINT;
+            break;case PolygonMode::Fill:  return VK_POLYGON_MODE_FILL;
+            break;case PolygonMode::Line:  return VK_POLYGON_MODE_LINE;
+            break;case PolygonMode::Point: return VK_POLYGON_MODE_POINT;
         }
 
         NOVA_THROW("Unknown PolygonMode: {}", u32(mode));
@@ -268,13 +294,13 @@ namespace nova
     VkPrimitiveTopology GetVulkanTopology(Topology topology)
     {
         switch (topology) {
-        break;case Topology::Points:        return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-        break;case Topology::Lines:         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-        break;case Topology::LineStrip:     return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-        break;case Topology::Triangles:     return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        break;case Topology::TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-        break;case Topology::TriangleFan:   return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-        break;case Topology::Patches:       return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+            break;case Topology::Points:        return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            break;case Topology::Lines:         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+            break;case Topology::LineStrip:     return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+            break;case Topology::Triangles:     return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            break;case Topology::TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+            break;case Topology::TriangleFan:   return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+            break;case Topology::Patches:       return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
         }
 
         NOVA_THROW("Unknown Topology: {}", u32(topology));
@@ -308,11 +334,11 @@ namespace nova
     VkImageLayout GetVulkanImageLayout(ImageLayout layout)
     {
         switch (layout) {
-        break;case ImageLayout::Sampled:                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        break;case ImageLayout::GeneralImage:           return VK_IMAGE_LAYOUT_GENERAL;
-        break;case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        break;case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        break;case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            break;case ImageLayout::Sampled:                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            break;case ImageLayout::GeneralImage:           return VK_IMAGE_LAYOUT_GENERAL;
+            break;case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            break;case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            break;case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         }
 
         NOVA_THROW("Unknown ImageLayout: {}", u32(layout));

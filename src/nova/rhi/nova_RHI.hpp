@@ -111,6 +111,18 @@ namespace nova
         D32_SFloat,
         S8_D24_UNorm,
 
+        BC1A_SRGB,
+        BC1A_Unorm,
+        BC1_SRGB,
+        BC1_Unorm,
+        BC3_SRGB,
+        BC3_UNorm,
+        BC4_UNorm,
+        BC4_SNorm,
+        BC5_UNorm,
+        BC5_SNorm,
+        BC6_UFloat,
+        BC6_SFloat,
         BC7_SRGB,
         BC7_Unorm,
 

@@ -20,7 +20,7 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app, {
         .title = "Nova - Compute",
-        .size = { 800, 800 },
+        .size = { 2048, 2048 },
     });
 
 // -----------------------------------------------------------------------------
@@ -65,23 +65,16 @@ NOVA_EXAMPLE(Compute, "compute")
     nova::Image image;
     NOVA_DEFER(&) { image.Destroy(); };
     {
-        NOVA_TIMEIT_RESET();
-        auto loaded = nova::EditImage::LoadFromFile("assets/textures/statue.jpg");
-        NOVA_TIMEIT("loading");
+        auto loaded = nova::EditImage::LoadFromFile("assets/textures/rungholt-RGBA.png");
         if (!loaded) NOVA_THROW("Failed to load image");
 
         auto data = loaded->ConvertToBC7();
-        NOVA_TIMEIT("convert-to-bc7");
-
         image = nova::Image::Create(context,
             Vec3U(loaded->extent, 0u),
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
             nova::Format::BC7_Unorm);
-
         image.Set({}, image.GetExtent(), data.data());
         image.Transition(nova::ImageLayout::Sampled);
-
-        NOVA_TIMEIT("upload");
     }
 
     // Shaders
@@ -112,8 +105,9 @@ NOVA_EXAMPLE(Compute, "compute")
             [numthreads(16, 16, 1)]
             void main(uint2 id: SV_DispatchThreadID) {
                 float2 uv = float2(id) / pc.size;
-                float3 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0).rgb;
-                RWImage2DF4[pc.target][id] = float4(source, 1.0);
+                float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+                if (source.a < 0.5) source = float4(1, 0, 1, 1);
+                RWImage2DF4[pc.target][id] = source;
             }
         )hlsl"});
     NOVA_DEFER(&) { hlsl_shader.Destroy(); };
@@ -140,8 +134,9 @@ NOVA_EXAMPLE(Compute, "compute")
             void main() {
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
-                vec3 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv).rgb;
-                imageStore(RWImage2D[pc.target], pos, vec4(source, 1.0));
+                vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
+                if (source.a < 0.5) source = vec4(1, 0, 1, 1);
+                imageStore(RWImage2D[pc.target], pos, source);
             }
         )glsl"});
     NOVA_DEFER(&) { glsl_shader.Destroy(); };

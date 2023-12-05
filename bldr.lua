@@ -30,6 +30,7 @@ if Project "nova" then
 
         "stb",
         "bc7enc",
+        "Compressonator",
         "meshoptimizer",
     }
 
