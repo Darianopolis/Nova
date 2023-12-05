@@ -7,10 +7,10 @@ namespace nova
     Queue Context::GetQueue(QueueFlags flags, u32 index) const
     {
         if (flags >= QueueFlags::Graphics) {
-            if (index >= impl->graphic_queues.size()) {
+            if (index >= impl->graphics_queues.size()) {
                 NOVA_THROW("Tried to access graphics queue out of bounds - {}", index);
             }
-            return impl->graphic_queues[index];
+            return impl->graphics_queues[index];
         }
 
         if (flags >= QueueFlags::Transfer) {

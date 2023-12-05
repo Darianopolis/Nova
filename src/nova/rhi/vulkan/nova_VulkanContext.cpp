@@ -436,7 +436,7 @@ Validation-VUID({}): {}
             queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
             queue->family = 0;
             queue->flags = properties[0].queueFlags;
-            impl->graphic_queues.emplace_back(queue);
+            impl->graphics_queues.emplace_back(queue);
         }
         for (u32 i = 0; i < 2; ++i) {
             auto queue = new Queue::Impl;
@@ -455,8 +455,8 @@ Validation-VUID({}): {}
             impl->compute_queues.emplace_back(queue);
         }
 
-        auto priorities = NOVA_STACK_ALLOC(float, impl->graphic_queues.size());
-        for (u32 i = 0; i < impl->graphic_queues.size(); ++i) {
+        auto priorities = NOVA_STACK_ALLOC(float, impl->graphics_queues.size());
+        for (u32 i = 0; i < impl->graphics_queues.size(); ++i) {
             priorities[i] = 1.f;
         }
 
@@ -474,8 +474,8 @@ Validation-VUID({}): {}
             .pQueueCreateInfos = std::array {
                 VkDeviceQueueCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->graphic_queues.front()->family,
-                    .queueCount = u32(impl->graphic_queues.size()),
+                    .queueFamilyIndex = impl->graphics_queues.front()->family,
+                    .queueCount = u32(impl->graphics_queues.size()),
                     .pQueuePriorities = priorities,
                 },
                 VkDeviceQueueCreateInfo {
@@ -512,8 +512,8 @@ Validation-VUID({}): {}
 
         // Get queues
 
-        for (u32 i = 0; i < impl->graphic_queues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->graphic_queues[i]->family, i, &impl->graphic_queues[i]->handle);
+        for (u32 i = 0; i < impl->graphics_queues.size(); ++i) {
+            impl->vkGetDeviceQueue(impl->device, impl->graphics_queues[i]->family, i, &impl->graphics_queues[i]->handle);
         }
 
         for (u32 i = 0; i < impl->transfer_queues.size(); ++i) {
@@ -569,7 +569,7 @@ Validation-VUID({}): {}
 
         WaitIdle();
 
-        for (auto& queue : impl->graphic_queues)  { delete queue.impl; }
+        for (auto& queue : impl->graphics_queues)  { delete queue.impl; }
         for (auto& queue : impl->compute_queues)  { delete queue.impl; }
         for (auto& queue : impl->transfer_queues) { delete queue.impl; }
 

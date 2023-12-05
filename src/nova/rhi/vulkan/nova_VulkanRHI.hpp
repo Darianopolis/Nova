@@ -394,7 +394,7 @@ namespace nova
         DescriptorHeap       global_heap;
         TransferManager transfer_manager;
 
-        std::vector<Queue>  graphic_queues = {};
+        std::vector<Queue>  graphics_queues = {};
         std::vector<Queue> transfer_queues = {};
         std::vector<Queue>  compute_queues = {};
 

@@ -3,12 +3,11 @@
 #include <nova/rhi/nova_RHI.hpp>
 
 #include <nova/core/nova_Guards.hpp>
+#include <nova/core/nova_Timer.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
-#include <stb_image.h>
-
-#include <rdo_bc_encoder.h>
+#include <nova/asset/nova_EditImage.hpp>
 
 NOVA_EXAMPLE(Compute, "compute")
 {
@@ -66,41 +65,23 @@ NOVA_EXAMPLE(Compute, "compute")
     nova::Image image;
     NOVA_DEFER(&) { image.Destroy(); };
     {
-        int width, height, channels;
-        auto image_data = stbi_load("assets/textures/statue.jpg", &width, &height, &channels, STBI_rgb_alpha);
-        NOVA_DEFER(&) { stbi_image_free(image_data); };
+        NOVA_TIMEIT_RESET();
+        auto loaded = nova::EditImage::LoadFromFile("assets/textures/statue.jpg");
+        NOVA_TIMEIT("loading");
+        if (!loaded) NOVA_THROW("Failed to load image");
 
-        utils::image_u8 src_image{ u32(width), u32(height) };
-        std::memcpy(src_image.get_pixels().data(), image_data, width * height * 4);
+        auto data = loaded->ConvertToBC7();
+        NOVA_TIMEIT("convert-to-bc7");
 
-        constexpr bool use_bc7 = true;
+        image = nova::Image::Create(context,
+            Vec3U(loaded->extent, 0u),
+            nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
+            nova::Format::BC7_Unorm);
 
-        if (use_bc7) {
-            rdo_bc::rdo_bc_params params;
-            params.m_bc7enc_reduce_entropy = true;
-
-            rdo_bc::rdo_bc_encoder encoder;
-            encoder.init(src_image, params);
-            encoder.encode();
-
-            image = nova::Image::Create(context,
-                Vec3U(u32(width), u32(height), 0),
-                nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
-                nova::Format::BC7_Unorm,
-                {});
-
-            image.Set({}, image.GetExtent(), encoder.get_blocks());
-        } else {
-            image = nova::Image::Create(context,
-                Vec3U(u32(width), u32(height), 0),
-                nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
-                nova::Format::RGBA8_UNorm,
-                {});
-
-            image.Set({}, image.GetExtent(), src_image.get_pixels().data());
-        }
-
+        image.Set({}, image.GetExtent(), data.data());
         image.Transition(nova::ImageLayout::Sampled);
+
+        NOVA_TIMEIT("upload");
     }
 
     // Shaders

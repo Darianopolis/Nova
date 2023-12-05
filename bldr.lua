@@ -37,6 +37,7 @@ if Project "nova" then
         "src/nova/core/*",
         "src/nova/db/*",
         "src/nova/ui/*",
+        "src/nova/asset/*",
     }
 
 --------------------------------------------------------------------------------
