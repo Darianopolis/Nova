@@ -274,6 +274,8 @@ namespace nova
                 .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
             }));
 
+            NOVA_LOG("Copying, offset = {}, extent = {}", glm::to_string(offset), glm::to_string(extent));
+
             impl->context->vkCopyMemoryToImageEXT(impl->context->device, Temp(VkCopyMemoryToImageInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,
                 .dstImage = impl->image,

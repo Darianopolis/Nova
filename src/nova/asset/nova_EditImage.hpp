@@ -17,16 +17,34 @@ namespace nova
     //     Provide allocator customization for images
     //   SIMD optimizations?
 
+    enum class ImageFileFormat
+    {
+        Unknown,
+
+        PNG,
+        JPG,
+        TGA,
+        GIF,
+        EXR,
+        HDR,
+        DDS,
+        KTX,
+    };
+
+    ImageFileFormat ImageFileFormatFromName(std::string_view filename);
+
     struct EditImage
     {
         std::vector<Vec4> data;
         Vec2U           extent;
 
+        // TODO: Loading from memory
+        // TODO: Loading BCn images without a decoding step
         static std::optional<EditImage> LoadFromFile(std::string_view);
         static EditImage Create(Vec2U extent, Vec4 value = { 0.f, 0.f, 0.f, 1.f });
 
         NOVA_FORCE_INLINE
-        usz ToIndex(Vec2U pos) const { return pos.x + pos.y * extent.y; }
+        usz ToIndex(Vec2U pos) const { return pos.x + pos.y * extent.x; }
 
         decltype(auto) operator[](this auto&& self, Vec2U pos) { return self.data[self.ToIndex(pos)]; }
         decltype(auto)        Get(this auto&& self, Vec2U pos) { return self.data[self.ToIndex(pos)]; }

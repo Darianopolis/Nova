@@ -28,7 +28,8 @@ if Project "nova" then
         "fast-obj",
         "ufbx",
 
-        "stb",
+        "stb_image",
+        "tinyexr",
         "bc7enc",
         "Compressonator",
         "meshoptimizer",

@@ -11,6 +11,32 @@
 
 NOVA_EXAMPLE(Compute, "compute")
 {
+    if (args.size() < 2) {
+        NOVA_LOG("Usage: <encoding> <file>");
+        return;
+    }
+
+    auto encoding = args[0];
+    {
+        bool found_encoding = false;
+        for (auto& _enc : { "rgba", "bc1", "bc2", "bc3", "bc4", "bc5", "bc6", "bc7" }) {
+            if (encoding == _enc) {
+                found_encoding = true;
+                break;
+            }
+        }
+        if (!found_encoding) {
+            NOVA_LOG("Unrecognized encoding: {}", encoding);
+            NOVA_LOG("Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7");
+            return;
+        }
+    }
+
+    auto file = args[1];
+    if (!std::filesystem::exists(file)) {
+        NOVA_LOG("Could not file: {}", file);
+        return;
+    }
 
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
@@ -20,7 +46,7 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app, {
         .title = "Nova - Compute",
-        .size = { 2048, 2048 },
+        .size = { 800, 800 },
     });
 
 // -----------------------------------------------------------------------------
@@ -65,16 +91,51 @@ NOVA_EXAMPLE(Compute, "compute")
     nova::Image image;
     NOVA_DEFER(&) { image.Destroy(); };
     {
-        auto loaded = nova::EditImage::LoadFromFile("assets/textures/rungholt-RGBA.png");
+        NOVA_TIMEIT_RESET();
+        auto loaded = nova::EditImage::LoadFromFile(file);
         if (!loaded) NOVA_THROW("Failed to load image");
 
-        auto data = loaded->ConvertToBC7();
+        NOVA_TIMEIT("image-load");
+        NOVA_LOG("Loaded, size = {}, {}", loaded->extent.x, loaded->extent.y);
+        NOVA_TIMEIT_RESET();
+
+        window.SetSize(loaded->extent, nova::WindowPart::Client);
+
+        std::vector<b8> data;
+        nova::Format format;
+        if (encoding == "rgba") {
+            data = loaded->ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
+            format = nova::Format::RGBA8_UNorm;
+        } else if (encoding == "bc1") {
+            data = loaded->ConvertToBC1(true);
+            format = nova::Format::BC1A_UNorm;
+        } else if (encoding == "bc2") {
+            data = loaded->ConvertToBC2();
+            format = nova::Format::BC2_UNorm;
+        } else if (encoding == "bc3") {
+            data = loaded->ConvertToBC3();
+            format = nova::Format::BC3_UNorm;
+        } else if (encoding == "bc4") {
+            data = loaded->ConvertToBC4(false);
+            format = nova::Format::BC4_UNorm;
+        } else if (encoding == "bc5") {
+            data = loaded->ConvertToBC5(false);
+            format = nova::Format::BC5_UNorm;
+        } else if (encoding == "bc6") {
+            data = loaded->ConvertToBC6(false);
+            format = nova::Format::BC6_UFloat;
+        } else if (encoding == "bc7") {
+            data = loaded->ConvertToBC7();
+            format = nova::Format::BC7_Unorm;
+        }
+        NOVA_TIMEIT("image-encode");
         image = nova::Image::Create(context,
             Vec3U(loaded->extent, 0u),
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
-            nova::Format::BC7_Unorm);
+            format);
         image.Set({}, image.GetExtent(), data.data());
         image.Transition(nova::ImageLayout::Sampled);
+        NOVA_TIMEIT("image-upload");
     }
 
     // Shaders

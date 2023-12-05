@@ -8,7 +8,7 @@ std::vector<ExampleListing>& GetExamples()
     return examples;
 }
 
-std::monostate RegisterExample(const char* name, void(*fn)())
+std::monostate RegisterExample(const char* name, ExampleEntryFnPtr fn)
 {
     GetExamples().emplace_back(name, fn);
     return {};
@@ -26,7 +26,8 @@ int main(int argc, char* argv[]) try
         for (auto& example : GetExamples()) {
             if (!strcmp(example.name, argv[1])) {
                 try {
-                    example.fn();
+                    std::vector<std::string_view> args(&argv[2], &argv[2] + std::max(0, argc - 2));
+                    example.fn(args);
                 } catch (std::exception& e) {
                     NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
                     if (auto* ne = dynamic_cast<nova::Exception*>(&e)) {

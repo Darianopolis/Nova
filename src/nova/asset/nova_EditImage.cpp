@@ -6,11 +6,9 @@
 #include <nova/core/nova_Math.hpp>
 
 #include <stb_image.h>
-
+#include <tinyexr.h>
 #include <rdo_bc_encoder.h>
-
 #include <rgbcx.h>
-
 #include <cmp_core.h>
 
 namespace nova
@@ -29,29 +27,95 @@ namespace nova
             : std::pow((v + 0.055f) / 1.055f, 2.4f);
     }
 
+    ImageFileFormat ImageFileFormatFromName(std::string_view filename)
+    {
+        if (filename.size() < 4) return ImageFileFormat::Unknown;
+
+        NOVA_STACK_POINT();
+        auto copy = NOVA_STACK_TO_CSTR(filename);
+        std::transform(copy, copy + filename.size(), copy, [](char c) { return char(std::toupper(c)); });
+        std::string_view str = { copy, filename.size() };
+
+        if (str.ends_with(".PNG")) return ImageFileFormat::PNG;
+        if (str.ends_with(".JPG") || str.ends_with(".JPEG"))
+                                   return ImageFileFormat::JPG;
+        if (str.ends_with(".TGA")) return ImageFileFormat::TGA;
+        if (str.ends_with(".GIF")) return ImageFileFormat::GIF;
+        if (str.ends_with(".EXR")) return ImageFileFormat::EXR;
+        if (str.ends_with(".HDR")) return ImageFileFormat::HDR;
+        if (str.ends_with(".DDS")) return ImageFileFormat::DDS;
+        if (str.ends_with(".KTX")) return ImageFileFormat::KTX;
+
+        return ImageFileFormat::Unknown;
+    }
+
     std::optional<EditImage> EditImage::LoadFromFile(std::string_view filename)
     {
         NOVA_STACK_POINT();
 
-        int w, h, c;
-        auto data = stbi_load(NOVA_STACK_TO_CSTR(filename), &w, &h, &c, STBI_rgb_alpha);
-        if (!data) return std::nullopt;
+        auto format = ImageFileFormatFromName(filename);
 
-        NOVA_DEFER(&) { stbi_image_free(data); };
+        switch (format) {
+            break;case ImageFileFormat::PNG:
+                  case ImageFileFormat::TGA:
+                  case ImageFileFormat::JPG:
+                  case ImageFileFormat::GIF:
+                {
+                    int w, h, c;
+                    auto data = stbi_load(NOVA_STACK_TO_CSTR(filename), &w, &h, &c, STBI_rgb_alpha);
+                    if (!data) return std::nullopt;
+                    NOVA_DEFER(&) { stbi_image_free(data); };
 
-        auto output = Create({ u32(w), u32(h) });
+                    auto output = Create({ u32(w), u32(h) });
 
-        u32 size = w * h;
-        for (u32 i = 0; i < size; ++i) {
-            output.data[i] = {
-                data[i * 4 + 0] / 255.f,
-                data[i * 4 + 1] / 255.f,
-                data[i * 4 + 2] / 255.f,
-                data[i * 4 + 3] / 255.f,
-            };
+                    u32 size = w * h;
+                    for (u32 i = 0; i < size; ++i) {
+                        output.data[i] = {
+                            data[i * 4 + 0] / 255.f,
+                            data[i * 4 + 1] / 255.f,
+                            data[i * 4 + 2] / 255.f,
+                            data[i * 4 + 3] / 255.f,
+                        };
+                    }
+
+                    return output;
+                }
+            break;case ImageFileFormat::EXR:
+                {
+                    int w, h;
+                    float* data = nullptr;
+                    const char* err = nullptr;
+                    if (LoadEXRWithLayer(&data, &w, &h, NOVA_STACK_TO_CSTR(filename), nullptr, &err) < 0) {
+                        NOVA_THROW("Error loading EXR: {}", err ? err : "N/A");
+                    }
+
+                    NOVA_DEFER(&) { free(data); };
+
+                    auto output = Create({ u32(w), u32(h) });
+                    std::memcpy(output.data.data(), data, w * h * 4 * sizeof(f32));
+
+                    return output;
+                }
+            break;case ImageFileFormat::HDR:
+                {
+                    int w, h, c;
+                    auto data = stbi_loadf(NOVA_STACK_TO_CSTR(filename), &w, &h, &c, STBI_rgb_alpha);
+                    if (!data) return std::nullopt;
+                    NOVA_DEFER(&) { stbi_image_free(data); };
+
+                    auto output = Create({ u32(w), u32(h) });
+                    std::memcpy(output.data.data(), data, w * h * 4 * sizeof(f32));
+
+                    return output;
+                }
+            break;case ImageFileFormat::DDS:
+                  case ImageFileFormat::KTX:
+                NOVA_THROW("TODO: Support DDS and KTX loading");
         }
 
-        return output;
+        // TODO: Inspect file contents to determine/guess file type
+
+        return std::nullopt;
     }
 
     EditImage EditImage::Create(Vec2U extent, Vec4 value)
@@ -100,8 +164,6 @@ namespace nova
         u32 pixel_size = u32(channels.size()) * channel_size;
         u32 row_pitch = AlignUpPower2(extent.x * pixel_size, row_align);
         u32 out_size = row_pitch * extent.y;
-
-        u32 in_size = extent.x * extent.y;
 
         std::vector<b8> output(out_size);
 
@@ -198,10 +260,12 @@ namespace nova
                 CreateOptionsBC6(&cmp_options);
                 if (!cmp_options) NOVA_THROW("Failed to create BC6 encoder options");
                 SetSignedBC6(cmp_options, use_signed);
+                SetQualityBC6(cmp_options, 0.75f);
             break;case 7:
                 bc7enc_compress_block_params_init(&bc7_params);
                 bc7enc_compress_block_init();
         }
+
         NOVA_DEFER(&) {
             switch (bcn_format) {
                 break;case 1: DestroyOptionsBC1(cmp_options);
