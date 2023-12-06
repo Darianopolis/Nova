@@ -7,12 +7,12 @@
 
 #include <nova/window/nova_Window.hpp>
 
-#include <nova/asset/nova_EditImage.hpp>
+#include <nova/asset/nova_Image2D.hpp>
 
 NOVA_EXAMPLE(Compute, "compute")
 {
-    if (args.size() < 2) {
-        NOVA_LOG("Usage: <encoding> <file>");
+    if (args.size() < 3) {
+        NOVA_LOG("Usage: <encoding> <file> <mip>");
         return;
     }
 
@@ -37,6 +37,8 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_LOG("Could not file: {}", file);
         return;
     }
+
+    auto requested_mip = std::atoi(args[2].data());
 
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
@@ -91,46 +93,69 @@ NOVA_EXAMPLE(Compute, "compute")
     nova::Image image;
     NOVA_DEFER(&) { image.Destroy(); };
     {
+        // Load file
+
         NOVA_TIMEIT_RESET();
-        auto loaded = nova::EditImage::LoadFromFile(file);
+        auto loaded = nova::Image2D::LoadFromFile(file);
         if (!loaded) NOVA_THROW("Failed to load image");
-
         NOVA_TIMEIT("image-load");
-        NOVA_LOG("Loaded, size = {}, {}", loaded->extent.x, loaded->extent.y);
+        NOVA_LOG("Loaded, size = ({}, {})", loaded->extent.x, loaded->extent.y);
+
+        // Generate mip chain
+
         NOVA_TIMEIT_RESET();
+        std::vector<nova::Image2D> mips{ std::move(*loaded) };
+        nova::Image2D::GenerateMipChain(mips);
+        NOVA_TIMEIT("image-mip");
+        NOVA_LOGEXPR(mips.size());
+        for (auto[i, mip] : nova::Enumerate(mips)) {
+            NOVA_LOG("mip[{}] = ({}, {})", i, mip.extent.x, mip.extent.y);
+        }
 
-        window.SetSize(loaded->extent, nova::WindowPart::Client);
+        // Select mip
 
+        auto selected_mip_index = std::clamp(requested_mip, 0, int(mips.size()) - 1);
+        auto& selected_mip = mips[selected_mip_index];
+        NOVA_LOG("Loading mip: {} (requested: {})", selected_mip_index, requested_mip);
+        NOVA_LOG("Mip size = ({}, {})", selected_mip.extent.x, selected_mip.extent.y);
+        window.SetSize(selected_mip.extent, nova::WindowPart::Client);
+
+        // Convert to output format
+
+        NOVA_TIMEIT_RESET();
         std::vector<b8> data;
         nova::Format format;
         if (encoding == "rgba") {
-            data = loaded->ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
+            data = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
             format = nova::Format::RGBA8_UNorm;
         } else if (encoding == "bc1") {
-            data = loaded->ConvertToBC1(true);
+            data = selected_mip.ConvertToBC1(true);
             format = nova::Format::BC1A_UNorm;
         } else if (encoding == "bc2") {
-            data = loaded->ConvertToBC2();
+            data = selected_mip.ConvertToBC2();
             format = nova::Format::BC2_UNorm;
         } else if (encoding == "bc3") {
-            data = loaded->ConvertToBC3();
+            data = selected_mip.ConvertToBC3();
             format = nova::Format::BC3_UNorm;
         } else if (encoding == "bc4") {
-            data = loaded->ConvertToBC4(false);
+            data = selected_mip.ConvertToBC4(false);
             format = nova::Format::BC4_UNorm;
         } else if (encoding == "bc5") {
-            data = loaded->ConvertToBC5(false);
+            data = selected_mip.ConvertToBC5(false);
             format = nova::Format::BC5_UNorm;
         } else if (encoding == "bc6") {
-            data = loaded->ConvertToBC6(false);
+            data = selected_mip.ConvertToBC6(false);
             format = nova::Format::BC6_UFloat;
         } else if (encoding == "bc7") {
-            data = loaded->ConvertToBC7();
+            data = selected_mip.ConvertToBC7();
             format = nova::Format::BC7_Unorm;
         }
         NOVA_TIMEIT("image-encode");
+
+        // Upload to GPU image
+
         image = nova::Image::Create(context,
-            Vec3U(loaded->extent, 0u),
+            Vec3U(selected_mip.extent, 0u),
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
             format);
         image.Set({}, image.GetExtent(), data.data());

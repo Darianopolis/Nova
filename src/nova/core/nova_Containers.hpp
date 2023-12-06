@@ -180,3 +180,10 @@ namespace nova
             return detail::wyhash::hash(&key, sizeof(key));                    \
         }                                                                      \
     };
+
+// -----------------------------------------------------------------------------
+
+namespace nova
+{
+    inline constexpr const auto& Enumerate = std::ranges::views::enumerate;
+}

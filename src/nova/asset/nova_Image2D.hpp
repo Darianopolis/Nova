@@ -33,15 +33,15 @@ namespace nova
 
     ImageFileFormat ImageFileFormatFromName(std::string_view filename);
 
-    struct EditImage
+    struct Image2D
     {
         std::vector<Vec4> data;
         Vec2U           extent;
 
         // TODO: Loading from memory
         // TODO: Loading BCn images without a decoding step
-        static std::optional<EditImage> LoadFromFile(std::string_view);
-        static EditImage Create(Vec2U extent, Vec4 value = { 0.f, 0.f, 0.f, 1.f });
+        static std::optional<Image2D> LoadFromFile(std::string_view);
+        static Image2D Create(Vec2U extent, Vec4 value = { 0.f, 0.f, 0.f, 1.f });
 
         NOVA_FORCE_INLINE
         usz ToIndex(Vec2U pos) const { return pos.x + pos.y * extent.x; }
@@ -50,9 +50,15 @@ namespace nova
         decltype(auto)        Get(this auto&& self, Vec2U pos) { return self.data[self.ToIndex(pos)]; }
 
         void SwizzleChannels(Span<u8> output_channels);
-        void CopySwizzled(EditImage& source, Span<std::pair<u8, u8>> channel_copies);
+        void CopySwizzled(Image2D& source, Span<std::pair<u8, u8>> channel_copies);
         void ToLinear();
         void ToNonLinear();
+
+        Image2D GenerateNextMip();
+        bool CanMip() { return extent.x > 1 && extent.y > 1 && std::popcount(extent.x) == 1 && std::popcount(extent.y) == 1; }
+
+        static
+        void GenerateMipChain(std::vector<Image2D>& chain);
 
         std::vector<b8> ConvertToPacked(Span<u8> channels, u32 channel_size, bool to_signed, u32 row_align = 1);
 

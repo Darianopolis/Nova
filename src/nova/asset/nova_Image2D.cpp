@@ -1,4 +1,4 @@
-#include "nova_EditImage.hpp"
+#include "nova_Image2D.hpp"
 
 #include <nova/core/nova_Stack.hpp>
 #include <nova/core/nova_Guards.hpp>
@@ -49,7 +49,7 @@ namespace nova
         return ImageFileFormat::Unknown;
     }
 
-    std::optional<EditImage> EditImage::LoadFromFile(std::string_view filename)
+    std::optional<Image2D> Image2D::LoadFromFile(std::string_view filename)
     {
         NOVA_STACK_POINT();
 
@@ -118,15 +118,15 @@ namespace nova
         return std::nullopt;
     }
 
-    EditImage EditImage::Create(Vec2U extent, Vec4 value)
+    Image2D Image2D::Create(Vec2U extent, Vec4 value)
     {
-        return EditImage {
+        return Image2D {
             .data = std::vector(extent.x * extent.y, value),
             .extent = extent,
         };
     }
 
-    void EditImage::SwizzleChannels(Span<u8> output_channels)
+    void Image2D::SwizzleChannels(Span<u8> output_channels)
     {
         u8 remaps[4] = { 0, 1, 2, 3 };
         for (u32 i = 0; i < output_channels.size(); ++i) {
@@ -145,7 +145,7 @@ namespace nova
         }
     }
 
-    void EditImage::CopySwizzled(EditImage& source, Span<std::pair<u8, u8>> channel_copies)
+    void Image2D::CopySwizzled(Image2D& source, Span<std::pair<u8, u8>> channel_copies)
     {
         if (extent != source.extent) {
             NOVA_THROW("Source extent does not match target extent");
@@ -159,7 +159,7 @@ namespace nova
         }
     }
 
-    std::vector<b8> EditImage::ConvertToPacked(Span<u8> channels, u32 channel_size, bool to_signed, u32 row_align)
+    std::vector<b8> Image2D::ConvertToPacked(Span<u8> channels, u32 channel_size, bool to_signed, u32 row_align)
     {
         u32 pixel_size = u32(channels.size()) * channel_size;
         u32 row_pitch = AlignUpPower2(extent.x * pixel_size, row_align);
@@ -186,7 +186,7 @@ namespace nova
         return output;
     }
 
-    void EditImage::ToLinear()
+    void Image2D::ToLinear()
     {
         u32 size = extent.x * extent.y;
         for (u32 i = 0; i < size; ++i) {
@@ -197,7 +197,7 @@ namespace nova
         }
     }
 
-    void EditImage::ToNonLinear()
+    void Image2D::ToNonLinear()
     {
         u32 size = extent.x * extent.y;
         for (u32 i = 0; i < size; ++i) {
@@ -208,8 +208,51 @@ namespace nova
         }
     }
 
+    Image2D Image2D::GenerateNextMip()
+    {
+        if (extent.x <= 1 && extent.y <= 1) {
+            NOVA_THROW("Image can have no further mips!");
+        }
+
+        if (std::popcount(extent.x) != 1 || std::popcount(extent.y) != 1) {
+            NOVA_THROW("Image dimensions must both be powers of 2 for mips");
+        }
+
+        auto mip = Image2D::Create({
+            std::max(1u, extent.x / 2u),
+            std::max(1u, extent.y / 2u),
+        });
+
+        auto max_x = extent.x - 1;
+        auto max_y = extent.y - 1;
+
+        for (u32 y = 0; y < mip.extent.y; ++y) {
+            for (u32 x = 0; x < mip.extent.x; ++x) {
+                mip.Get({ x, y }) =
+                    (
+                          Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2)    ) })
+                        + Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2) + 1) })
+                        + Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2)    ) })
+                        + Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2) + 1) })
+                    ) / 4.f;
+            }
+
+        }
+
+        return mip;
+    }
+
+    void Image2D::GenerateMipChain(std::vector<Image2D>& chain)
+    {
+        if (chain.empty()) NOVA_THROW("Nothing to mip");
+
+        while (chain.back().CanMip()) {
+            chain.emplace_back(chain.back().GenerateNextMip());
+        }
+    }
+
     static
-    std::vector<b8> ConvertToBCn(EditImage& image, u32 bcn_format, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
+    std::vector<b8> ConvertToBCn(Image2D& image, u32 bcn_format, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
     {
         // TODO: sRGB nonlinearity for rgcbx BC1/3 and bc7enc BC7?
 
@@ -398,37 +441,37 @@ namespace nova
         return output;
     }
 
-    std::vector<b8> EditImage::ConvertToBC1(bool use_alpha, bool is_srgb_nonlinear)
+    std::vector<b8> Image2D::ConvertToBC1(bool use_alpha, bool is_srgb_nonlinear)
     {
         return ConvertToBCn(*this, 1, use_alpha, false, is_srgb_nonlinear);
     }
 
-    std::vector<b8> EditImage::ConvertToBC2(bool is_srgb_nonlinear)
+    std::vector<b8> Image2D::ConvertToBC2(bool is_srgb_nonlinear)
     {
         return ConvertToBCn(*this, 2, false, false, is_srgb_nonlinear);
     }
 
-    std::vector<b8> EditImage::ConvertToBC3(bool is_srgb_nonlinear)
+    std::vector<b8> Image2D::ConvertToBC3(bool is_srgb_nonlinear)
     {
         return ConvertToBCn(*this, 3, false, false, is_srgb_nonlinear);
     }
 
-    std::vector<b8> EditImage::ConvertToBC4(bool use_signed)
+    std::vector<b8> Image2D::ConvertToBC4(bool use_signed)
     {
         return ConvertToBCn(*this, 4, false, use_signed, false);
     }
 
-    std::vector<b8> EditImage::ConvertToBC5(bool use_signed)
+    std::vector<b8> Image2D::ConvertToBC5(bool use_signed)
     {
         return ConvertToBCn(*this, 5, false, use_signed, false);
     }
 
-    std::vector<b8> EditImage::ConvertToBC6(bool use_signed)
+    std::vector<b8> Image2D::ConvertToBC6(bool use_signed)
     {
         return ConvertToBCn(*this, 6, false, use_signed, false);
     }
 
-    std::vector<b8> EditImage::ConvertToBC7(bool is_srgb_nonlinear, bool reduce_entropy)
+    std::vector<b8> Image2D::ConvertToBC7(bool is_srgb_nonlinear, bool reduce_entropy)
     {
         if (reduce_entropy) {
             auto data = ConvertToPacked({ 0, 1, 2, 3 }, 1, false);

@@ -4,7 +4,7 @@
 build/
 out/
 CMakeLists.txt
-TODO
+TODO.txt
 
 # Assets
 assets/models/
