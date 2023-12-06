@@ -125,28 +125,36 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_TIMEIT_RESET();
         std::vector<b8> data;
         nova::Format format;
+        u32 bcn_format = 0;
         if (encoding == "rgba") {
             data = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
             format = nova::Format::RGBA8_UNorm;
         } else if (encoding == "bc1") {
+            bcn_format = 1;
             data = selected_mip.ConvertToBC1(true);
             format = nova::Format::BC1A_UNorm;
         } else if (encoding == "bc2") {
+            bcn_format = 2;
             data = selected_mip.ConvertToBC2();
             format = nova::Format::BC2_UNorm;
         } else if (encoding == "bc3") {
+            bcn_format = 3;
             data = selected_mip.ConvertToBC3();
             format = nova::Format::BC3_UNorm;
         } else if (encoding == "bc4") {
+            bcn_format = 4;
             data = selected_mip.ConvertToBC4(false);
             format = nova::Format::BC4_UNorm;
         } else if (encoding == "bc5") {
+            bcn_format = 5;
             data = selected_mip.ConvertToBC5(false);
             format = nova::Format::BC5_UNorm;
         } else if (encoding == "bc6") {
+            bcn_format = 6;
             data = selected_mip.ConvertToBC6(false);
             format = nova::Format::BC6_UFloat;
         } else if (encoding == "bc7") {
+            bcn_format = 7;
             data = selected_mip.ConvertToBC7();
             format = nova::Format::BC7_Unorm;
         }

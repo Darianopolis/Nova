@@ -248,77 +248,208 @@ namespace nova
         }
     }
 
-    static
-    std::vector<b8> ConvertToBCn(Image2D& image, u32 bcn_format, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
+    struct BCnSettings
     {
-        // TODO: sRGB nonlinearity for rgcbx BC1/3 and bc7enc BC7?
+        u32 hblocks;
+        u32 vblocks;
+        u32 blocks;
+        u32 block_size;
 
-        rgbcx::init();
-
-        u32 hblocks = (image.extent.x + 3) / 4;
-        u32 vblocks = (image.extent.y + 3) / 4;
-        u32 blocks = hblocks * vblocks;
-        u32 block_size = 0;
-
-        switch (bcn_format) {
-            break;case 1:
-                  case 4: block_size = 8;
-            break;case 2:
-                  case 3:
-                  case 5:
-                  case 6:
-                  case 7: block_size = 16;
-        }
-
-        std::vector<b8> output(blocks * block_size);
-
+        u32 bcn_format;
         void* cmp_options = nullptr;
         bc7enc_compress_block_params bc7_params;
 
-        switch (bcn_format) {
-            break;case 1:
-                if (use_alpha) {
-                    CreateOptionsBC1(&cmp_options);
-                    if (!cmp_options) NOVA_THROW("Failed to create BC1 encoder options");
-                    SetSrgbBC1(cmp_options, is_srgb_nonlinear);
-                }
-            break;case 2:
-                CreateOptionsBC2(&cmp_options);
-                if (!cmp_options) NOVA_THROW("Failed to create BC2 encoder options");
-                SetSrgbBC2(cmp_options, is_srgb_nonlinear);
-            break;case 4:
-                if (use_signed) {
-                    CreateOptionsBC4(&cmp_options);
-                    if (!cmp_options) NOVA_THROW("Failed to create BC4 encoder options");
-                }
-            break;case 5:
-                if (use_signed) {
-                    CreateOptionsBC5(&cmp_options);
-                    if (!cmp_options) NOVA_THROW("Failed to create BC5 encoder options");
-                }
-            break;case 6:
-                CreateOptionsBC6(&cmp_options);
-                if (!cmp_options) NOVA_THROW("Failed to create BC6 encoder options");
-                SetSignedBC6(cmp_options, use_signed);
-                SetQualityBC6(cmp_options, 0.75f);
-            break;case 7:
-                bc7enc_compress_block_params_init(&bc7_params);
-                bc7enc_compress_block_init();
+        BCnSettings(u32 bcn_format, Vec2U extent, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
+        {
+            // TODO: sRGB nonlinearity for rgcbx BC1/3 and bc7enc BC7?
+
+            rgbcx::init();
+
+            hblocks = (extent.x + 3) / 4;
+            vblocks = (extent.y + 3) / 4;
+            blocks = hblocks * vblocks;
+            block_size = 0;
+
+            switch (bcn_format) {
+                break;case 1:
+                    case 4: block_size = 8;
+                break;case 2:
+                    case 3:
+                    case 5:
+                    case 6:
+                    case 7: block_size = 16;
+                break;default:
+                    NOVA_THROW("Invalid BCn format");
+            }
+
+            switch (bcn_format) {
+                break;case 1:
+                    if (use_alpha) {
+                        CreateOptionsBC1(&cmp_options);
+                        if (!cmp_options) NOVA_THROW("Failed to create BC1 encoder options");
+                        SetSrgbBC1(cmp_options, is_srgb_nonlinear);
+                    }
+                break;case 2:
+                    CreateOptionsBC2(&cmp_options);
+                    if (!cmp_options) NOVA_THROW("Failed to create BC2 encoder options");
+                    SetSrgbBC2(cmp_options, is_srgb_nonlinear);
+                break;case 6:
+                    CreateOptionsBC6(&cmp_options);
+                    if (!cmp_options) NOVA_THROW("Failed to create BC6 encoder options");
+                    SetSignedBC6(cmp_options, use_signed);
+                    SetQualityBC6(cmp_options, 0.75f);
+                break;case 7:
+                    bc7enc_compress_block_params_init(&bc7_params);
+                    bc7enc_compress_block_init();
+            }
         }
 
-        NOVA_DEFER(&) {
+        ~BCnSettings()
+        {
             switch (bcn_format) {
                 break;case 1: DestroyOptionsBC1(cmp_options);
                 break;case 2: DestroyOptionsBC2(cmp_options);
-                break;case 4: DestroyOptionsBC4(cmp_options);
-                break;case 5: DestroyOptionsBC5(cmp_options);
                 break;case 6: DestroyOptionsBC6(cmp_options);
             }
-        };
+        }
+    };
+
+    void Image2D::ReadFromBCn(u32 bcn_format, const void* bcn_data, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
+    {
+        BCnSettings settings(bcn_format, extent, use_alpha, use_signed, is_srgb_nonlinear);
 
 #pragma omp parallel for
-        for (u32 by = 0; by < vblocks; ++by) {
-            for (u32 bx = 0; bx < hblocks; ++bx) {
+        for (u32 by = 0; by < settings.vblocks; ++by) {
+            for (u32 bx = 0; bx < settings.hblocks; ++bx) {
+                auto x = bx * 4, y = by * 4;
+
+                union {
+                    struct {
+                        u8 source_u8x1  [4][4];
+                        u8 source_u8x1_2[4][4];
+                    };
+                    struct {
+                        i8 source_i8x1  [4][4];
+                        i8 source_i8x1_2[4][4];
+                    };
+                    u8   source_u8x2[4][4][2];
+                    u8   source_u8x4[4][4][4];
+                    u16 source_f16x3[4][4][3];
+                };
+
+                const void* bcn_block = static_cast<const b8*>(bcn_data) + (by * settings.hblocks + bx) * settings.block_size;
+
+                switch (bcn_format) {
+                    break;case 1:
+                        DecompressBlockBC1(
+                            static_cast<const unsigned char*>(bcn_block),
+                            reinterpret_cast<unsigned char*>(&source_u8x4),
+                            settings.cmp_options);
+                    break;case 2:
+                        DecompressBlockBC2(
+                            reinterpret_cast<const unsigned char*>(bcn_block),
+                            reinterpret_cast<unsigned char*>(&source_u8x4),
+                            settings.cmp_options);
+                    break;case 3:
+                        DecompressBlockBC3(
+                            reinterpret_cast<const unsigned char*>(bcn_block),
+                            reinterpret_cast<unsigned char*>(&source_u8x4),
+                            settings.cmp_options);
+                    break;case 4:
+                        if (use_signed) {
+                            DecompressBlockBC4S(
+                                reinterpret_cast<const unsigned char*>(bcn_block),
+                                reinterpret_cast<char*>(&source_i8x1),
+                                settings.cmp_options);
+                        } else {
+                            DecompressBlockBC4(
+                                reinterpret_cast<const unsigned char*>(bcn_block),
+                                reinterpret_cast<unsigned char*>(&source_u8x1),
+                                settings.cmp_options);
+                        }
+                    break;case 5:
+                        if (use_signed) {
+                            DecompressBlockBC5S(
+                                reinterpret_cast<const unsigned char*>(bcn_block),
+                                reinterpret_cast<char*>(&source_i8x1),
+                                reinterpret_cast<char*>(&source_i8x1_2),
+                                settings.cmp_options);
+                        } else {
+                            DecompressBlockBC5(
+                                reinterpret_cast<const unsigned char*>(bcn_block),
+                                reinterpret_cast<unsigned char*>(&source_u8x1),
+                                reinterpret_cast<unsigned char*>(&source_u8x1_2),
+                                settings.cmp_options);
+                        }
+                    break;case 6:
+                        DecompressBlockBC6(
+                            static_cast<const unsigned char*>(bcn_block),
+                            reinterpret_cast<unsigned short*>(&source_f16x3),
+                            settings.cmp_options);
+                    break;case 7:
+                        DecompressBlockBC7(
+                            reinterpret_cast<const unsigned char*>(bcn_block),
+                            reinterpret_cast<unsigned char*>(&source_u8x4),
+                            settings.cmp_options);
+                }
+
+                u32 end_dx = std::min(4u, extent.x - x);
+                u32 end_dy = std::min(4u, extent.y - y);
+
+                for (u32 dy = 0; dy < end_dx; ++dy) {
+                    for (u32 dx = 0; dx < end_dy; ++dx) {
+                        auto& res = Get({ x + dx, y + dy });
+
+                        switch (bcn_format) {
+                            break;case 7:
+                                  case 3:
+                                  case 2:
+                                  case 1:
+                                res.r = f32(source_u8x4[dy][dx][0]) / 255.f;
+                                res.g = f32(source_u8x4[dy][dx][1]) / 255.f;
+                                res.b = f32(source_u8x4[dy][dx][2]) / 255.f;
+                                res.a = f32(source_u8x4[dy][dx][3]) / 255.f;
+                            break;case 6:
+                                res.r = glm::detail::toFloat32(source_f16x3[dy][dx][0]);
+                                res.g = glm::detail::toFloat32(source_f16x3[dy][dx][1]);
+                                res.b = glm::detail::toFloat32(source_f16x3[dy][dx][2]);
+                                res.a = 1.f;
+                            break;case 5:
+                                if (use_signed) {
+                                    res.r = std::clamp(f32(source_i8x1  [dy][dx]) / 127.f, -1.f, 1.f);
+                                    res.g = std::clamp(f32(source_i8x1_2[dy][dx]) / 127.f, -1.f, 1.f);
+                                } else {
+                                    res.r = f32(source_u8x1  [dy][dx]) / 255.f;
+                                    res.g = f32(source_u8x1_2[dy][dx]) / 255.f;
+                                }
+                                res.b = 0.f;
+                                res.a = 1.f;
+                            break;case 4:
+                                if (use_signed) {
+                                    res.r = std::clamp(f32(source_i8x1  [dy][dx]) / 127.f, -1.f, 1.f);
+                                } else {
+                                    res.r = f32(source_u8x1  [dy][dx]) / 255.f;
+                                }
+                                res.g = 0.f;
+                                res.b = 0.f;
+                                res.a = 1.f;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    static
+    std::vector<b8> ConvertToBCn(Image2D& image, u32 bcn_format, bool use_alpha, bool use_signed, bool is_srgb_nonlinear)
+    {
+        BCnSettings settings(bcn_format, image.extent, use_alpha, use_signed, is_srgb_nonlinear);
+
+        std::vector<b8> output(settings.blocks * settings.block_size);
+
+#pragma omp parallel for
+        for (u32 by = 0; by < settings.vblocks; ++by) {
+            for (u32 bx = 0; bx < settings.hblocks; ++bx) {
                 auto x = bx * 4, y = by * 4;
 
                 union {
@@ -373,7 +504,7 @@ namespace nova
                     }
                 }
 
-                void* output_block = output.data() + (by * hblocks + bx) * block_size;
+                void* output_block = output.data() + (by * settings.hblocks + bx) * settings.block_size;
 
                 switch (bcn_format) {
                     break;case 1:
@@ -381,7 +512,7 @@ namespace nova
                             CompressBlockBC1(
                                 reinterpret_cast<const unsigned char*>(&source_u8x4), 16,
                                 static_cast<unsigned char*>(output_block),
-                                cmp_options);
+                                settings.cmp_options);
                         } else {
                             rgbcx::encode_bc1(rgbcx::MAX_LEVEL,
                                 output_block,
@@ -392,7 +523,7 @@ namespace nova
                         CompressBlockBC2(
                             reinterpret_cast<const unsigned char*>(&source_u8x4), 16,
                             reinterpret_cast<unsigned char*>(output_block),
-                            cmp_options);
+                            settings.cmp_options);
                     break;case 3:
                         rgbcx::encode_bc3_hq(rgbcx::MAX_LEVEL,
                             output_block,
@@ -402,7 +533,7 @@ namespace nova
                             CompressBlockBC4S(
                                 reinterpret_cast<const char*>(&source_i8x1), 4,
                                 reinterpret_cast<unsigned char*>(output_block),
-                                cmp_options);
+                                settings.cmp_options);
                         } else {
                             rgbcx::encode_bc4_hq(
                                 output_block,
@@ -414,7 +545,7 @@ namespace nova
                                 reinterpret_cast<const char*>(&source_i8x1), 1,
                                 reinterpret_cast<const char*>(&source_i8x1_2), 1,
                                 reinterpret_cast<unsigned char*>(output_block),
-                                cmp_options);
+                                settings.cmp_options);
                         } else {
                             rgbcx::encode_bc5_hq(
                                 output_block,
@@ -425,12 +556,12 @@ namespace nova
                         CompressBlockBC6(
                             reinterpret_cast<const unsigned short*>(&source_f16x3), 12,
                             static_cast<unsigned char*>(output_block),
-                            cmp_options);
+                            settings.cmp_options);
                     break;case 7:
                         bc7enc_compress_block(
                             output_block,
                             reinterpret_cast<const void*>(&source_u8x4),
-                            &bc7_params);
+                            &settings.bc7_params);
                 }
             }
         }

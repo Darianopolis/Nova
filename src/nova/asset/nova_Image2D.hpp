@@ -69,5 +69,7 @@ namespace nova
         std::vector<b8> ConvertToBC5(bool use_signed);
         std::vector<b8> ConvertToBC6(bool use_signed);
         std::vector<b8> ConvertToBC7(bool is_srgb_nonlinear = true, bool reduce_entropy = false);
+
+        void ReadFromBCn(u32 bcn_format, const void* bcn_data, bool use_alpha, bool use_signed, bool is_srgb_nonlinear);
     };
 }
