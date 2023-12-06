@@ -1,6 +1,7 @@
 #include "nova_VulkanRHI.hpp"
 
 #include <nova/core/nova_Stack.hpp>
+#include <nova/core/nova_Debug.hpp>
 
 namespace nova
 {

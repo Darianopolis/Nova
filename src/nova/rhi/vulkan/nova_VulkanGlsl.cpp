@@ -54,7 +54,7 @@ namespace nova
                     userdata->content = nova::files::ReadTextFile(userdata->name);
                 }
             } else {
-                userdata->content = std::format("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
+                userdata->content = NOVA_FORMAT("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
                 NOVA_LOG("{}", userdata->content);
             }
 

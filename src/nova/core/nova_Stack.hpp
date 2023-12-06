@@ -3,6 +3,8 @@
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Math.hpp>
 
+#include <fmt/format.h>
+
 #include <simdutf.h>
 
 #ifndef NOVA_STACK_SIZE
@@ -52,11 +54,11 @@ namespace nova
         }
 
         template<class ...Args>
-        std::string_view StackFormat(const std::format_string<Args...> fmt, Args&&... args)
+        std::string_view StackFormat(const fmt::format_string<Args...> fmt, Args&&... args)
         {
             auto& stack = detail::GetThreadStack();
             char* begin = reinterpret_cast<char*>(stack.ptr);
-            char* end = std::vformat_to(begin, fmt.get(), std::make_format_args(std::forward<Args>(args)...));
+            char* end = fmt::vformat_to(begin, fmt.get(), fmt::make_format_args(args...));
             stack.ptr = nova::AlignUpPower2(reinterpret_cast<std::byte*>(end), 16);
             return std::string_view { begin, end };
         }

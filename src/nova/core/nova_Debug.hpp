@@ -3,6 +3,9 @@
 #include "nova_Core.hpp"
 #include "nova_Stack.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ostream.h>
+
 namespace nova
 {
     struct Exception : std::exception
@@ -41,20 +44,25 @@ namespace nova
     sso << #expr " = " << (expr) << '\n'; \
 } while (0)
 
-// #define NOVA_THROW(fmt, ...) \
-//     throw ::nova::Exception(std::format(fmt __VA_OPT__(,) __VA_ARGS__));
+#define NOVA_FORMAT(fmt_str, ...) \
+    fmt::format(fmt_str __VA_OPT__(,) __VA_ARGS__)
 
-#define NOVA_THROW(fmt, ...) do {                          \
-    auto msg = std::format(fmt __VA_OPT__(,) __VA_ARGS__); \
-    std::cout << std::stacktrace::current();               \
-    NOVA_LOG("\nERROR: {}", msg);                          \
-    throw ::nova::Exception(std::move(msg));               \
+#define NOVA_THROW(fmt_str, ...) do {                          \
+    auto msg = NOVA_FORMAT(fmt_str __VA_OPT__(,) __VA_ARGS__); \
+    std::cout << std::stacktrace::current();                   \
+    NOVA_LOG("\nERROR: {}", msg);                              \
+    throw ::nova::Exception(std::move(msg));                   \
 } while (0)
 
-#define NOVA_ASSERT(condition, fmt, ...) do { \
-    if (!(condition)) [[unlikely]]            \
-        NOVA_THROW(fmt, __VA_ARGS__);         \
+#define NOVA_ASSERT(condition, fmt_str, ...) do { \
+    if (!(condition)) [[unlikely]]                \
+        NOVA_THROW(fmt_str, __VA_ARGS__);         \
 } while (0)
 
 #define NOVA_ASSERT_NONULL(condition) \
     NOVA_ASSERT(condition, "Expected non-null: " #condition)
+
+// -----------------------------------------------------------------------------
+
+template<class ... DurationT>
+struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};

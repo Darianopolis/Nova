@@ -14,6 +14,7 @@ if Project "nova" then
         "mimalloc",
         "glm",
         "simdutf",
+        "spdlog",
 
         "sqlite3",
 
