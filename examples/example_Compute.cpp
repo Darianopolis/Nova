@@ -193,6 +193,8 @@ NOVA_EXAMPLE(Compute, "compute")
                 float2 uv = float2(id) / pc.size;
                 float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
                 if (source.a < 0.5) source = float4(1, 0, 1, 1);
+                float4 dest = float4(1, 0, 1, 1);
+                float3 color = lerp(dest.rgb, source.rgb, source.a);
                 RWImage2DF4[pc.target][id] = source;
             }
         )hlsl"});
@@ -221,8 +223,9 @@ NOVA_EXAMPLE(Compute, "compute")
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
                 vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
-                if (source.a < 0.5) source = vec4(1, 0, 1, 1);
-                imageStore(RWImage2D[pc.target], pos, source);
+                vec4 dest = vec4(1, 0, 1, 1);
+                vec3 color = mix(dest.rgb, source.rgb, source.a);
+                imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
             }
         )glsl"});
     NOVA_DEFER(&) { glsl_shader.Destroy(); };

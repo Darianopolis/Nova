@@ -228,15 +228,12 @@ namespace nova
 
         for (u32 y = 0; y < mip.extent.y; ++y) {
             for (u32 x = 0; x < mip.extent.x; ++x) {
-                mip.Get({ x, y }) =
-                    (
-                          Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2)    ) })
-                        + Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2) + 1) })
-                        + Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2)    ) })
-                        + Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2) + 1) })
-                    ) / 4.f;
+                auto v0 = Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2)    ) });
+                auto v1 = Get({ std::min(max_x, (x * 2)    ), std::min(max_y, (y * 2) + 1) });
+                auto v2 = Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2)    ) });
+                auto v3 = Get({ std::min(max_x, (x * 2) + 1), std::min(max_y, (y * 2) + 1) });
+                mip.Get({ x, y }) = (v0 + v1 + v2 + v3) * 0.25f;
             }
-
         }
 
         return mip;
