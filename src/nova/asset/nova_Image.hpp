@@ -114,7 +114,7 @@ namespace nova
 //                            Image File Loading
 // -----------------------------------------------------------------------------
 
-    enum class ImageFileFormat_
+    enum class ImageFileFormat
     {
         Unknown,
 
@@ -131,12 +131,14 @@ namespace nova
     struct ImageLoadData
     {
         void* data = nullptr;
+        usz   size = 0;
+        usz offset = 0;
         void(*deleter)(void*) = nullptr;
 
         void Destroy()
         {
             if (deleter) {
-                deleter(data);
+                deleter((b8*)data - offset);
             }
         }
     };

@@ -31,6 +31,7 @@ if Project "nova" then
 
         "stb_image",
         "tinyexr",
+        "dds-ktx",
         "bc7enc",
         "Compressonator",
         "meshoptimizer",

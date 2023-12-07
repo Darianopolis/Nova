@@ -100,6 +100,21 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_DEFER(&) { src.Destroy(); };
         NOVA_TIMEIT("image-load");
 
+        // Debug source format
+
+        switch (desc.format) {
+            break;case nova::ImageFormat::RGBA8:        NOVA_LOG("Loading: RGBA8");
+            break;case nova::ImageFormat::RGBA16_Float: NOVA_LOG("Loading: RGBA16_Float");
+            break;case nova::ImageFormat::RGBA32_Float: NOVA_LOG("Loading: RGBA32_Float");
+            break;case nova::ImageFormat::BC1:          NOVA_LOG("Loading: BC1");
+            break;case nova::ImageFormat::BC2:          NOVA_LOG("Loading: BC2");
+            break;case nova::ImageFormat::BC3:          NOVA_LOG("Loading: BC3");
+            break;case nova::ImageFormat::BC4:          NOVA_LOG("Loading: BC4");
+            break;case nova::ImageFormat::BC5:          NOVA_LOG("Loading: BC5");
+            break;case nova::ImageFormat::BC6:          NOVA_LOG("Loading: BC6");
+            break;case nova::ImageFormat::BC7:          NOVA_LOG("Loading: BC7");
+        }
+
         // Resize window
 
         Vec3U extent = { desc.width, desc.height, 0u };

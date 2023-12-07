@@ -2,12 +2,9 @@
 
 #include <nova/core/nova_Debug.hpp>
 
-#include <stb_image.h>
-#include <tinyexr.h>
 #include <rdo_bc_encoder.h>
 #include <rgbcx.h>
 #include <cmp_core.h>
-#include <compressonator.h>
 #include <encoders/bcn_common_kernel.h>
 
 namespace nova
