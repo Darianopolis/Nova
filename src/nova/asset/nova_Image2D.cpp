@@ -288,6 +288,7 @@ namespace nova
                         CreateOptionsBC1(&cmp_options);
                         if (!cmp_options) NOVA_THROW("Failed to create BC1 encoder options");
                         SetSrgbBC1(cmp_options, is_srgb_nonlinear);
+                        NOVA_LOG("Create BC1 settings");
                     }
                 break;case 2:
                     CreateOptionsBC2(&cmp_options);
@@ -482,6 +483,7 @@ namespace nova
                                 source_u8x4[dy][dx][1] = u8(std::clamp(pos.g, 0.f, 1.f) * 255.f);
                                 source_u8x4[dy][dx][2] = u8(std::clamp(pos.b, 0.f, 1.f) * 255.f);
                                 source_u8x4[dy][dx][3] = u8(std::clamp(pos.a, 0.f, 1.f) * 255.f);
+                                // source_u8x4[dy][dx][3] = 0;
                             break;case 6:
                                 source_f16x3[dy][dx][0] = glm::detail::toFloat16(pos.r);
                                 source_f16x3[dy][dx][1] = glm::detail::toFloat16(pos.g);
@@ -514,10 +516,10 @@ namespace nova
                                 static_cast<unsigned char*>(output_block),
                                 settings.cmp_options);
                         } else {
-                            rgbcx::encode_bc1(rgbcx::MAX_LEVEL,
-                                output_block,
-                                reinterpret_cast<const u8*>(&source_u8x4),
-                                true, false);
+                            // rgbcx::encode_bc1(rgbcx::MAX_LEVEL,
+                            //     output_block,
+                            //     reinterpret_cast<const u8*>(&source_u8x4),
+                            //     true, false);
                         }
                     break;case 2:
                         CompressBlockBC2(

@@ -59,7 +59,7 @@ namespace nova
         formats[std::to_underlying(Format::D32_SFloat)]    = { Format::D32_SFloat,    VK_FORMAT_D32_SFLOAT,           4        };
 
         formats[std::to_underlying(Format::BC1_SRGB)]      = { Format::BC1_SRGB,      VK_FORMAT_BC1_RGB_SRGB_BLOCK,   8,  4, 4 };
-        formats[std::to_underlying(Format::BC1_Unorm)]     = { Format::BC1_Unorm,     VK_FORMAT_BC1_RGB_UNORM_BLOCK,  8,  4, 4 };
+        formats[std::to_underlying(Format::BC1_UNorm)]     = { Format::BC1_UNorm,     VK_FORMAT_BC1_RGB_UNORM_BLOCK,  8,  4, 4 };
         formats[std::to_underlying(Format::BC1A_SRGB)]     = { Format::BC1A_SRGB,     VK_FORMAT_BC1_RGBA_SRGB_BLOCK,  8,  4, 4 };
         formats[std::to_underlying(Format::BC1A_UNorm)]    = { Format::BC1A_UNorm,    VK_FORMAT_BC1_RGBA_UNORM_BLOCK, 8,  4, 4 };
         formats[std::to_underlying(Format::BC2_SRGB)]      = { Format::BC2_SRGB,      VK_FORMAT_BC2_SRGB_BLOCK,       16, 4, 4 };
@@ -105,7 +105,7 @@ namespace nova
             break;case VK_FORMAT_D32_SFLOAT:          return Format::D32_SFloat;
 
             break;case VK_FORMAT_BC1_RGB_SRGB_BLOCK:   return Format::BC1_SRGB;
-            break;case VK_FORMAT_BC1_RGB_UNORM_BLOCK:  return Format::BC1_Unorm;
+            break;case VK_FORMAT_BC1_RGB_UNORM_BLOCK:  return Format::BC1_UNorm;
             break;case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:  return Format::BC1A_SRGB;
             break;case VK_FORMAT_BC1_RGBA_UNORM_BLOCK: return Format::BC1A_UNorm;
             break;case VK_FORMAT_BC2_SRGB_BLOCK:       return Format::BC2_SRGB;

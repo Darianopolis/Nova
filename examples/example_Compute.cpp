@@ -8,6 +8,7 @@
 #include <nova/window/nova_Window.hpp>
 
 #include <nova/asset/nova_Image2D.hpp>
+#include <nova/asset/nova_ImageAccessor.hpp>
 
 NOVA_EXAMPLE(Compute, "compute")
 {
@@ -122,43 +123,79 @@ NOVA_EXAMPLE(Compute, "compute")
 
         // Convert to output format
 
-        NOVA_TIMEIT_RESET();
+        // NOVA_TIMEIT_RESET();
+        // std::vector<b8> data;
+        // nova::Format format;
+        // u32 bcn_format = 0;
+        // if (encoding == "rgba") {
+        //     data = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
+        //     format = nova::Format::RGBA8_UNorm;
+        // } else if (encoding == "bc1") {
+        //     bcn_format = 1;
+        //     data = selected_mip.ConvertToBC1(true);
+        //     format = nova::Format::BC1A_UNorm;
+        // } else if (encoding == "bc2") {
+        //     bcn_format = 2;
+        //     data = selected_mip.ConvertToBC2();
+        //     format = nova::Format::BC2_UNorm;
+        // } else if (encoding == "bc3") {
+        //     bcn_format = 3;
+        //     data = selected_mip.ConvertToBC3();
+        //     format = nova::Format::BC3_UNorm;
+        // } else if (encoding == "bc4") {
+        //     bcn_format = 4;
+        //     data = selected_mip.ConvertToBC4(false);
+        //     format = nova::Format::BC4_UNorm;
+        // } else if (encoding == "bc5") {
+        //     bcn_format = 5;
+        //     data = selected_mip.ConvertToBC5(false);
+        //     format = nova::Format::BC5_UNorm;
+        // } else if (encoding == "bc6") {
+        //     bcn_format = 6;
+        //     data = selected_mip.ConvertToBC6(false);
+        //     format = nova::Format::BC6_UFloat;
+        // } else if (encoding == "bc7") {
+        //     bcn_format = 7;
+        //     data = selected_mip.ConvertToBC7();
+        //     format = nova::Format::BC7_Unorm;
+        // }
+        // NOVA_TIMEIT("image-encode");
+
+        // {
+        //     auto temp = nova::Image2D::Create(selected_mip.extent);
+        //     temp.ReadFromBCn(2, data.data(), true, false, true);
+        //     data = temp.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
+        //     format = nova::Format::RGBA8_UNorm;
+        // }
+
         std::vector<b8> data;
-        nova::Format format;
-        u32 bcn_format = 0;
-        if (encoding == "rgba") {
-            data = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
-            format = nova::Format::RGBA8_UNorm;
-        } else if (encoding == "bc1") {
-            bcn_format = 1;
-            data = selected_mip.ConvertToBC1(true);
-            format = nova::Format::BC1A_UNorm;
-        } else if (encoding == "bc2") {
-            bcn_format = 2;
-            data = selected_mip.ConvertToBC2();
-            format = nova::Format::BC2_UNorm;
-        } else if (encoding == "bc3") {
-            bcn_format = 3;
-            data = selected_mip.ConvertToBC3();
-            format = nova::Format::BC3_UNorm;
-        } else if (encoding == "bc4") {
-            bcn_format = 4;
-            data = selected_mip.ConvertToBC4(false);
-            format = nova::Format::BC4_UNorm;
-        } else if (encoding == "bc5") {
-            bcn_format = 5;
-            data = selected_mip.ConvertToBC5(false);
-            format = nova::Format::BC5_UNorm;
-        } else if (encoding == "bc6") {
-            bcn_format = 6;
-            data = selected_mip.ConvertToBC6(false);
-            format = nova::Format::BC6_UFloat;
-        } else if (encoding == "bc7") {
-            bcn_format = 7;
-            data = selected_mip.ConvertToBC7();
-            format = nova::Format::BC7_Unorm;
+        nova::Format format = nova::Format::BC1A_UNorm;
+        {
+            auto src = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
+            // auto src = selected_mip.ConvertToBC1(true);
+            nova::ImageAccessor src_accessor({
+                .format = nova::ImageFormat::RGBA8,
+                // .format = nova::ImageFormat::BC1,
+                .width = selected_mip.extent.x,
+                .height = selected_mip.extent.y,
+                .layers = 1,
+                .mips = 1,
+            });
+
+            nova::ImageAccessor target_accessor({
+                .format = nova::ImageFormat::BC1,
+                .width = selected_mip.extent.x,
+                .height = selected_mip.extent.y,
+                .layers = 1,
+                .mips = 1,
+            });
+
+            data.resize(target_accessor.GetSize());
+
+            NOVA_LOG("Transcoding RGBA8 to BC1, {} -> {}", src.size(), data.size());
+
+            nova::Image_Copy(src_accessor, src.data(), target_accessor, data.data());
         }
-        NOVA_TIMEIT("image-encode");
 
         // Upload to GPU image
 
@@ -181,32 +218,31 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    auto hlsl_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
-            [[vk::binding(0, 0)]] Texture2D               Image2D[];
-            [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
-            [[vk::binding(2, 0)]] SamplerState            Sampler[];
+    // auto hlsl_shader = nova::Shader::Create(context,
+    //         nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
+    //         [[vk::binding(0, 0)]] Texture2D               Image2D[];
+    //         [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
+    //         [[vk::binding(2, 0)]] SamplerState            Sampler[];
 
-            struct PushConstants {
-                uint          image;
-                uint linear_sampler;
-                uint         target;
-                float2         size;
-            };
+    //         struct PushConstants {
+    //             uint          image;
+    //             uint linear_sampler;
+    //             uint         target;
+    //             float2         size;
+    //         };
 
-            [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+    //         [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
 
-            [numthreads(16, 16, 1)]
-            void main(uint2 id: SV_DispatchThreadID) {
-                float2 uv = float2(id) / pc.size;
-                float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
-                if (source.a < 0.5) source = float4(1, 0, 1, 1);
-                float4 dest = float4(1, 0, 1, 1);
-                float3 color = lerp(dest.rgb, source.rgb, source.a);
-                RWImage2DF4[pc.target][id] = source;
-            }
-        )hlsl"});
-    NOVA_DEFER(&) { hlsl_shader.Destroy(); };
+    //         [numthreads(16, 16, 1)]
+    //         void main(uint2 id: SV_DispatchThreadID) {
+    //             float2 uv = float2(id) / pc.size;
+    //             float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+    //             float4 dest = float4(1, 0, 1, 1);
+    //             float3 color = lerp(dest.rgb, source.rgb, source.a);
+    //             RWImage2DF4[pc.target][id] = float4(color, 1);
+    //         }
+    //     )hlsl"});
+    // NOVA_DEFER(&) { hlsl_shader.Destroy(); };
 
     auto glsl_shader = nova::Shader::Create(context,
             nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {R"glsl(
@@ -231,12 +267,15 @@ NOVA_EXAMPLE(Compute, "compute")
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
                 vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
-                vec4 dest = vec4(1, 0, 1, 1);
-                vec3 color = mix(dest.rgb, source.rgb, source.a);
+                vec3 color = source.a >= 0.5 ? source.rgb : vec3(1, 0, 1);
+                // vec4 dest = vec4(1, 0, 1, 1);
+                // vec3 color = mix(dest.rgb, source.rgb, source.a);
                 imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
             }
         )glsl"});
     NOVA_DEFER(&) { glsl_shader.Destroy(); };
+
+    auto hlsl_shader = glsl_shader;
 
     // Alternate shaders each frame
 

@@ -114,7 +114,7 @@ namespace nova
         BC1A_SRGB,
         BC1A_UNorm,
         BC1_SRGB,
-        BC1_Unorm,
+        BC1_UNorm,
         BC2_SRGB,
         BC2_UNorm,
         BC3_SRGB,

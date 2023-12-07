@@ -31,6 +31,20 @@ namespace nova
         KTX,
     };
 
+    enum class ImageFormatType : u32
+    {
+        Integer,
+        Normalized,
+        Float,
+        BC1,
+        BC2,
+        BC3,
+        BC4,
+        BC5,
+        BC6,
+        BC7,
+    };
+
     ImageFileFormat ImageFileFormatFromName(std::string_view filename);
 
     struct Image2D
