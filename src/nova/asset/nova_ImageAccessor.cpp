@@ -7,6 +7,7 @@
 #include <rdo_bc_encoder.h>
 #include <rgbcx.h>
 #include <cmp_core.h>
+#include <encoders/bcn_common_kernel.h>
 
 namespace nova
 {
@@ -63,7 +64,8 @@ namespace nova
         switch (desc.format) {
             break;case ImageFormat::BC1:
                 CreateOptionsBC1(&enc_settings);
-                SetAlphaThresholdBC1(enc_settings, 240);
+                // Hack to get punchthrough alpha encoding working
+                static_cast<CMP_BC15Options*>(enc_settings)->m_bUseAlpha = true;
         }
 
         switch (desc.format) {

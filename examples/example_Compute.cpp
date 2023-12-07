@@ -172,10 +172,9 @@ NOVA_EXAMPLE(Compute, "compute")
         nova::Format format = nova::Format::BC1A_UNorm;
         {
             auto src = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
-            // auto src = selected_mip.ConvertToBC1(true);
+
             nova::ImageAccessor src_accessor({
                 .format = nova::ImageFormat::RGBA8,
-                // .format = nova::ImageFormat::BC1,
                 .width = selected_mip.extent.x,
                 .height = selected_mip.extent.y,
                 .layers = 1,
@@ -183,7 +182,7 @@ NOVA_EXAMPLE(Compute, "compute")
             });
 
             nova::ImageAccessor target_accessor({
-                .format = nova::ImageFormat::BC1,
+                .format = nova::ImageFormat::BC7,
                 .width = selected_mip.extent.x,
                 .height = selected_mip.extent.y,
                 .layers = 1,
@@ -192,9 +191,37 @@ NOVA_EXAMPLE(Compute, "compute")
 
             data.resize(target_accessor.GetSize());
 
-            NOVA_LOG("Transcoding RGBA8 to BC1, {} -> {}", src.size(), data.size());
+            NOVA_LOG("Encoding RGBA8 to BC7, {} -> {}", src.size(), data.size());
 
             nova::Image_Copy(src_accessor, src.data(), target_accessor, data.data());
+
+            nova::ImageAccessor target2_accessor({
+                .format = nova::ImageFormat::BC3,
+                .width = selected_mip.extent.x,
+                .height = selected_mip.extent.y,
+                .layers = 1,
+                .mips = 1,
+            });
+
+            NOVA_LOG("Transcoding BC7 to BC3 in place");
+
+            nova::Image_Copy(target_accessor, data.data(), target2_accessor, data.data());
+
+            nova::ImageAccessor target3_accessor({
+                .format = nova::ImageFormat::BC1,
+                .width = selected_mip.extent.x,
+                .height = selected_mip.extent.y,
+                .layers = 1,
+                .mips = 1,
+            });
+
+            src.resize(target3_accessor.GetSize());
+
+            NOVA_LOG("Transcoding BC3 to BC1, {} -> {}", data.size(), src.size());
+
+            nova::Image_Copy(target2_accessor, data.data(), target3_accessor, src.data());
+
+            data = std::move(src);
         }
 
         // Upload to GPU image
@@ -218,31 +245,31 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    // auto hlsl_shader = nova::Shader::Create(context,
-    //         nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
-    //         [[vk::binding(0, 0)]] Texture2D               Image2D[];
-    //         [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
-    //         [[vk::binding(2, 0)]] SamplerState            Sampler[];
+    auto hlsl_shader = nova::Shader::Create(context,
+            nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
+            [[vk::binding(0, 0)]] Texture2D               Image2D[];
+            [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
+            [[vk::binding(2, 0)]] SamplerState            Sampler[];
 
-    //         struct PushConstants {
-    //             uint          image;
-    //             uint linear_sampler;
-    //             uint         target;
-    //             float2         size;
-    //         };
+            struct PushConstants {
+                uint          image;
+                uint linear_sampler;
+                uint         target;
+                float2         size;
+            };
 
-    //         [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+            [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
 
-    //         [numthreads(16, 16, 1)]
-    //         void main(uint2 id: SV_DispatchThreadID) {
-    //             float2 uv = float2(id) / pc.size;
-    //             float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
-    //             float4 dest = float4(1, 0, 1, 1);
-    //             float3 color = lerp(dest.rgb, source.rgb, source.a);
-    //             RWImage2DF4[pc.target][id] = float4(color, 1);
-    //         }
-    //     )hlsl"});
-    // NOVA_DEFER(&) { hlsl_shader.Destroy(); };
+            [numthreads(16, 16, 1)]
+            void main(uint2 id: SV_DispatchThreadID) {
+                float2 uv = float2(id) / pc.size;
+                float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+                float4 dest = float4(1, 0, 1, 1);
+                float3 color = lerp(dest.rgb, source.rgb, source.a);
+                RWImage2DF4[pc.target][id] = float4(color, 1);
+            }
+        )hlsl"});
+    NOVA_DEFER(&) { hlsl_shader.Destroy(); };
 
     auto glsl_shader = nova::Shader::Create(context,
             nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {R"glsl(
@@ -267,15 +294,12 @@ NOVA_EXAMPLE(Compute, "compute")
                 ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
                 vec2 uv = vec2(pos) / pc.size;
                 vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
-                vec3 color = source.a >= 0.5 ? source.rgb : vec3(1, 0, 1);
-                // vec4 dest = vec4(1, 0, 1, 1);
-                // vec3 color = mix(dest.rgb, source.rgb, source.a);
+                vec4 dest = vec4(1, 0, 1, 1);
+                vec3 color = mix(dest.rgb, source.rgb, source.a);
                 imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
             }
         )glsl"});
     NOVA_DEFER(&) { glsl_shader.Destroy(); };
-
-    auto hlsl_shader = glsl_shader;
 
     // Alternate shaders each frame
 
