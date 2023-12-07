@@ -4,12 +4,17 @@
 
 namespace nova
 {
+// -----------------------------------------------------------------------------
+//                            Image Accessing
+// -----------------------------------------------------------------------------
+
     enum class ImageFormat
     {
         Undefined,
 
         RGBA8,
         RGBA16_Float,
+        RGBA32_Float,
         BC1,
         BC2,
         BC3,
@@ -86,9 +91,11 @@ namespace nova
     {
         ImageDescription desc;
 
-        void* enc_settings = nullptr;
-        void(* read_func)(const ImageAccessor&, const void* data, ImagePos,       Block&);
-        void(*write_func)(const ImageAccessor&,       void* data, ImagePos, const Block&);
+        void* read_payload = nullptr;
+        void(*read_func)(const ImageAccessor&, const void* data, ImagePos, Block&);
+
+        void* write_payload = nullptr;
+        void(*write_func)(const ImageAccessor&, void* data, ImagePos, const Block&);
 
         u32 block_pitch;
 
@@ -103,5 +110,44 @@ namespace nova
         void Write(void* data, ImagePos pos, const Block& block) const;
     };
 
+// -----------------------------------------------------------------------------
+//                            Image File Loading
+// -----------------------------------------------------------------------------
+
+    enum class ImageFileFormat_
+    {
+        Unknown,
+
+        PNG,
+        JPG,
+        TGA,
+        GIF,
+        EXR,
+        HDR,
+        DDS,
+        KTX,
+    };
+
+    struct ImageLoadData
+    {
+        void* data = nullptr;
+        void(*deleter)(void*) = nullptr;
+
+        void Destroy()
+        {
+            if (deleter) {
+                deleter(data);
+            }
+        }
+    };
+
+    void Image_Load(ImageDescription* desc, ImageLoadData* data, std::string_view filename);
     void Image_Copy(const ImageAccessor& src, const void* src_data, const ImageAccessor& dst, void* dst_data);
+
+// -----------------------------------------------------------------------------
+//                            Image Processing
+// -----------------------------------------------------------------------------
+
+    f32 SRGB_ToNonLinear(f32);
+    f32 SRGB_ToLinear(f32);
 }

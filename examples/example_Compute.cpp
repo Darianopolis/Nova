@@ -7,13 +7,12 @@
 
 #include <nova/window/nova_Window.hpp>
 
-#include <nova/asset/nova_Image2D.hpp>
-#include <nova/asset/nova_ImageAccessor.hpp>
+#include <nova/asset/nova_Image.hpp>
 
 NOVA_EXAMPLE(Compute, "compute")
 {
-    if (args.size() < 3) {
-        NOVA_LOG("Usage: <encoding> <file> <mip>");
+    if (args.size() < 2) {
+        NOVA_LOG("Usage: <encoding> <file>");
         return;
     }
 
@@ -38,8 +37,6 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_LOG("Could not file: {}", file);
         return;
     }
-
-    auto requested_mip = std::atoi(args[2].data());
 
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
@@ -94,140 +91,64 @@ NOVA_EXAMPLE(Compute, "compute")
     nova::Image image;
     NOVA_DEFER(&) { image.Destroy(); };
     {
-        // Load file
+        // Load image
 
         NOVA_TIMEIT_RESET();
-        auto loaded = nova::Image2D::LoadFromFile(file);
-        if (!loaded) NOVA_THROW("Failed to load image");
+        nova::ImageDescription desc;
+        nova::ImageLoadData src;
+        nova::Image_Load(&desc, &src, file);
+        NOVA_DEFER(&) { src.Destroy(); };
         NOVA_TIMEIT("image-load");
-        NOVA_LOG("Loaded, size = ({}, {})", loaded->extent.x, loaded->extent.y);
 
-        // Generate mip chain
+        // Resize window
+
+        Vec3U extent = { desc.width, desc.height, 0u };
+        window.SetSize({ desc.width, desc.height }, nova::WindowPart::Client);
+
+        // Select target format
+
+        auto target_desc = desc;
+        target_desc.is_signed = false;
+        nova::Format format;
+        if (encoding == "rgba") {
+            target_desc.format = nova::ImageFormat::RGBA8;
+            format = nova::Format::RGBA8_UNorm;
+        } else if (encoding == "bc1") {
+            target_desc.format = nova::ImageFormat::BC1;
+            format = nova::Format::BC1A_UNorm;
+        } else if (encoding == "bc2") {
+            target_desc.format = nova::ImageFormat::BC2;
+            format = nova::Format::BC2_UNorm;
+        } else if (encoding == "bc3") {
+            target_desc.format = nova::ImageFormat::BC3;
+            format = nova::Format::BC3_UNorm;
+        } else if (encoding == "bc4") {
+            target_desc.format = nova::ImageFormat::BC4;
+            format = nova::Format::BC4_UNorm;
+        } else if (encoding == "bc5") {
+            target_desc.format = nova::ImageFormat::BC5;
+            format = nova::Format::BC5_UNorm;
+        } else if (encoding == "bc6") {
+            target_desc.format = nova::ImageFormat::BC6;
+            format = nova::Format::BC6_UFloat;
+        } else if (encoding == "bc7") {
+            target_desc.format = nova::ImageFormat::BC7;
+            format = nova::Format::BC7_Unorm;
+        }
+
+        // Encode
 
         NOVA_TIMEIT_RESET();
-        std::vector<nova::Image2D> mips{ std::move(*loaded) };
-        nova::Image2D::GenerateMipChain(mips);
-        NOVA_TIMEIT("image-mip");
-        NOVA_LOGEXPR(mips.size());
-        for (auto[i, mip] : nova::Enumerate(mips)) {
-            NOVA_LOG("mip[{}] = ({}, {})", i, mip.extent.x, mip.extent.y);
-        }
+        nova::ImageAccessor target_accessor(target_desc);
+        std::vector<b8> data(target_accessor.GetSize());
+        nova::Image_Copy(desc, src.data, target_accessor, data.data());
+        NOVA_TIMEIT("image-encode");
 
-        // Select mip
+        // Upload to GPU
 
-        auto selected_mip_index = std::clamp(requested_mip, 0, int(mips.size()) - 1);
-        auto& selected_mip = mips[selected_mip_index];
-        NOVA_LOG("Loading mip: {} (requested: {})", selected_mip_index, requested_mip);
-        NOVA_LOG("Mip size = ({}, {})", selected_mip.extent.x, selected_mip.extent.y);
-        window.SetSize(selected_mip.extent, nova::WindowPart::Client);
-
-        // Convert to output format
-
-        // NOVA_TIMEIT_RESET();
-        // std::vector<b8> data;
-        // nova::Format format;
-        // u32 bcn_format = 0;
-        // if (encoding == "rgba") {
-        //     data = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
-        //     format = nova::Format::RGBA8_UNorm;
-        // } else if (encoding == "bc1") {
-        //     bcn_format = 1;
-        //     data = selected_mip.ConvertToBC1(true);
-        //     format = nova::Format::BC1A_UNorm;
-        // } else if (encoding == "bc2") {
-        //     bcn_format = 2;
-        //     data = selected_mip.ConvertToBC2();
-        //     format = nova::Format::BC2_UNorm;
-        // } else if (encoding == "bc3") {
-        //     bcn_format = 3;
-        //     data = selected_mip.ConvertToBC3();
-        //     format = nova::Format::BC3_UNorm;
-        // } else if (encoding == "bc4") {
-        //     bcn_format = 4;
-        //     data = selected_mip.ConvertToBC4(false);
-        //     format = nova::Format::BC4_UNorm;
-        // } else if (encoding == "bc5") {
-        //     bcn_format = 5;
-        //     data = selected_mip.ConvertToBC5(false);
-        //     format = nova::Format::BC5_UNorm;
-        // } else if (encoding == "bc6") {
-        //     bcn_format = 6;
-        //     data = selected_mip.ConvertToBC6(false);
-        //     format = nova::Format::BC6_UFloat;
-        // } else if (encoding == "bc7") {
-        //     bcn_format = 7;
-        //     data = selected_mip.ConvertToBC7();
-        //     format = nova::Format::BC7_Unorm;
-        // }
-        // NOVA_TIMEIT("image-encode");
-
-        // {
-        //     auto temp = nova::Image2D::Create(selected_mip.extent);
-        //     temp.ReadFromBCn(2, data.data(), true, false, true);
-        //     data = temp.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
-        //     format = nova::Format::RGBA8_UNorm;
-        // }
-
-        std::vector<b8> data;
-        nova::Format format = nova::Format::BC1A_UNorm;
-        {
-            auto src = selected_mip.ConvertToPacked({ 0, 1, 2, 3 }, 1, false);
-
-            nova::ImageAccessor src_accessor({
-                .format = nova::ImageFormat::RGBA8,
-                .width = selected_mip.extent.x,
-                .height = selected_mip.extent.y,
-                .layers = 1,
-                .mips = 1,
-            });
-
-            nova::ImageAccessor target_accessor({
-                .format = nova::ImageFormat::BC7,
-                .width = selected_mip.extent.x,
-                .height = selected_mip.extent.y,
-                .layers = 1,
-                .mips = 1,
-            });
-
-            data.resize(target_accessor.GetSize());
-
-            NOVA_LOG("Encoding RGBA8 to BC7, {} -> {}", src.size(), data.size());
-
-            nova::Image_Copy(src_accessor, src.data(), target_accessor, data.data());
-
-            nova::ImageAccessor target2_accessor({
-                .format = nova::ImageFormat::BC3,
-                .width = selected_mip.extent.x,
-                .height = selected_mip.extent.y,
-                .layers = 1,
-                .mips = 1,
-            });
-
-            NOVA_LOG("Transcoding BC7 to BC3 in place");
-
-            nova::Image_Copy(target_accessor, data.data(), target2_accessor, data.data());
-
-            nova::ImageAccessor target3_accessor({
-                .format = nova::ImageFormat::BC1,
-                .width = selected_mip.extent.x,
-                .height = selected_mip.extent.y,
-                .layers = 1,
-                .mips = 1,
-            });
-
-            src.resize(target3_accessor.GetSize());
-
-            NOVA_LOG("Transcoding BC3 to BC1, {} -> {}", data.size(), src.size());
-
-            nova::Image_Copy(target2_accessor, data.data(), target3_accessor, src.data());
-
-            data = std::move(src);
-        }
-
-        // Upload to GPU image
-
+        NOVA_TIMEIT_RESET();
         image = nova::Image::Create(context,
-            Vec3U(selected_mip.extent, 0u),
+            extent,
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
             format);
         image.Set({}, image.GetExtent(), data.data());
