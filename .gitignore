@@ -1,9 +1,17 @@
 # Configuration
 .vscode/
 .idea/
+.bldr/
+.cmake/
+.vs/
 build/
 out/
 CMakeLists.txt
+CMakeSettings.json
+cmake-build-debug/
+cmake-build-release/
+
+# Misc
 TODO.txt
 
 # Assets

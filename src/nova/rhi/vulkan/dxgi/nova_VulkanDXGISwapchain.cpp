@@ -390,11 +390,11 @@ namespace nova
         }
     }
 
-    bool Queue::Acquire(Span<HSwapchain> _swapchains, Span<HFence> signals) const
+    bool Queue::Acquire(Span<HSwapchain> swapchains, Span<HFence> signals) const
     {
         bool any_resized = false;
 
-        for (auto swapchain : _swapchains) {
+        for (auto swapchain : swapchains) {
             RECT rect;
             GetClientRect(swapchain->dxhwnd, &rect);
             Win32_ResizeSwapchain(swapchain, u32(rect.right), u32(rect.bottom));
@@ -429,7 +429,7 @@ namespace nova
         return any_resized;
     }
 
-    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, PresentFlag flags) const
+    void Queue::Present(Span<HSwapchain> swapchains, Span<HFence> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 
@@ -449,7 +449,7 @@ namespace nova
             }), UINT64_MAX));
         }
 
-        for (auto swapchain : _swapchains) {
+        for (auto swapchain : swapchains) {
             // TODO: Parameterize sync interval on present mode
             // TODO: Allow tearing
             swapchain->dxswapchain->Present1(1, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
@@ -459,7 +459,7 @@ namespace nova
                 swapchain->dcomp_device->Commit();
             }
         }
-        for (auto swapchain : _swapchains) {
+        for (auto swapchain : swapchains) {
             if (swapchain->comp_enabled) {
                 swapchain->dcomp_device->WaitForCommitCompletion();
             }

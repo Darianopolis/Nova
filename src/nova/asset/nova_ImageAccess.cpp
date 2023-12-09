@@ -3,7 +3,6 @@
 #include <nova/core/nova_Debug.hpp>
 
 #include <rdo_bc_encoder.h>
-#include <rgbcx.h>
 #include <cmp_core.h>
 #include <encoders/bcn_common_kernel.h>
 
@@ -150,6 +149,7 @@ namespace nova
                     }
                 }
             }
+
             if constexpr (sizeof...(Channels) == 2) {
                 CompressFn((FnChannelT*)&decoded[0][0][0], 4, (FnChannelT*)&decoded[1][0][0], 4, block_ptr, accessor.write_payload);
             } else {
@@ -159,7 +159,7 @@ namespace nova
 
         struct Float16
         {
-            u16 data;
+            i16 data;
 
             Float16() = default;
 
@@ -246,6 +246,8 @@ namespace nova
                 write_payload = params;
 
                 read_func  = &ImageBlockReadBC12367 <u8, uc8, 1.f / 255.f, false, 0.f, 1.f, decltype(&DecompressBlockBC7), &DecompressBlockBC7, 0, 1, 2, 3>;
+                write_func = &ImageBlockWriteBC12367<u8, uc8,       255.f, true,   0.f, 1.f, decltype(&CompressBlockBC7),  &CompressBlockBC7,   0, 1, 2, 3>;
+
                 write_func = [](const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
                 {
                     // TODO: Deduplicate this

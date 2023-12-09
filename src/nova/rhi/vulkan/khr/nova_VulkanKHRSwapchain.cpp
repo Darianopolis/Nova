@@ -87,11 +87,11 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    bool Queue::Acquire(Span<HSwapchain> _swapchains, Span<HFence> signals) const
+    bool Queue::Acquire(Span<HSwapchain> swapchains, Span<HFence> signals) const
     {
         bool any_resized = false;
 
-        for (auto swapchain : _swapchains) {
+        for (auto swapchain : swapchains) {
             do {
                 VkSurfaceCapabilitiesKHR caps;
                 vkh::Check(impl->context->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(impl->context->gpu, swapchain->surface, &caps));
@@ -194,9 +194,9 @@ namespace nova
         {
             NOVA_STACK_POINT();
 
-            auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, _swapchains.size());
-            for (u32 i = 0; i < _swapchains.size(); ++i) {
-                auto swapchain = _swapchains[i];
+            auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, swapchains.size());
+            for (u32 i = 0; i < swapchains.size(); ++i) {
+                auto swapchain = swapchains[i];
                 wait_infos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = swapchain->semaphores[swapchain->semaphore_index],
@@ -218,7 +218,7 @@ namespace nova
             auto start = std::chrono::steady_clock::now();
             vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                .waitSemaphoreInfoCount = u32(_swapchains.size()),
+                .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = wait_infos,
                 .signalSemaphoreInfoCount = u32(signals.size()),
                 .pSignalSemaphoreInfos = signal_infos,
@@ -229,7 +229,7 @@ namespace nova
         return any_resized;
     }
 
-    void Queue::Present(Span<HSwapchain> _swapchains, Span<HFence> waits, PresentFlag flags) const
+    void Queue::Present(Span<HSwapchain> swapchains, Span<HFence> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 
@@ -261,9 +261,9 @@ namespace nova
                 };
             }
 
-            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, _swapchains.size());
-            for (u32 i = 0; i < _swapchains.size(); ++i) {
-                auto swapchain = _swapchains[i];
+            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, swapchains.size());
+            for (u32 i = 0; i < swapchains.size(); ++i) {
+                auto swapchain = swapchains[i];
                 signal_infos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = swapchain->semaphores[swapchain->semaphore_index],
@@ -275,46 +275,46 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
                 .pWaitSemaphoreInfos = wait_infos,
-                .signalSemaphoreInfoCount = u32(_swapchains.size()),
+                .signalSemaphoreInfoCount = u32(swapchains.size()),
                 .pSignalSemaphoreInfos = signal_infos,
             }), nullptr));
             rhi::stats::TimeAdaptingToPresent += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
-            binary_waits = NOVA_STACK_ALLOC(VkSemaphore, _swapchains.size());
-            for (u32 i = 0; i < _swapchains.size(); ++i) {
-                auto swapchain = _swapchains[i];
+            binary_waits = NOVA_STACK_ALLOC(VkSemaphore, swapchains.size());
+            for (u32 i = 0; i < swapchains.size(); ++i) {
+                auto swapchain = swapchains[i];
                 binary_waits[i] = swapchain->semaphores[swapchain->semaphore_index];
                 swapchain->semaphore_index = (swapchain->semaphore_index + 1) % swapchain->semaphores.size();
             }
         }
 
-        auto vk_swapchains = NOVA_STACK_ALLOC(VkSwapchainKHR, _swapchains.size());
-        auto indices = NOVA_STACK_ALLOC(u32, _swapchains.size());
-        for (u32 i = 0; i < _swapchains.size(); ++i) {
-            auto swapchain = _swapchains[i];
+        auto vk_swapchains = NOVA_STACK_ALLOC(VkSwapchainKHR, swapchains.size());
+        auto indices = NOVA_STACK_ALLOC(u32, swapchains.size());
+        for (u32 i = 0; i < swapchains.size(); ++i) {
+            auto swapchain = swapchains[i];
             vk_swapchains[i] = swapchain->swapchain;
             indices[i] = swapchain->index;
         }
 
-        auto results = NOVA_STACK_ALLOC(VkResult, _swapchains.size());
+        auto results = NOVA_STACK_ALLOC(VkResult, swapchains.size());
         auto start = std::chrono::steady_clock::now();
         impl->context->vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            .waitSemaphoreCount = binary_waits ? u32(_swapchains.size()) : 0u,
+            .waitSemaphoreCount = binary_waits ? u32(swapchains.size()) : 0u,
             .pWaitSemaphores = binary_waits,
-            .swapchainCount = u32(_swapchains.size()),
+            .swapchainCount = u32(swapchains.size()),
             .pSwapchains = vk_swapchains,
             .pImageIndices = indices,
             .pResults = results,
         }));
         rhi::stats::TimePresenting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
-        for (u32 i = 0; i < _swapchains.size(); ++i) {
+        for (u32 i = 0; i < swapchains.size(); ++i) {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR) {
                 if (impl->context->config.trace) {
-                    NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)_swapchains[i]->swapchain, int(results[i]));
+                    NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i]->swapchain, int(results[i]));
                 }
-                _swapchains[i]->invalid = true;
+                swapchains[i]->invalid = true;
             } else {
                 vkh::Check(results[i]);
             }

@@ -100,7 +100,6 @@ namespace nova
                     output->deleter = [](void* data) { free(data); };
 
                     {
-                        NOVA_STACK_POINT();
                         std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
                         output->size = file.tellg();
                         file.seekg(0);
