@@ -39,6 +39,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    enum class Features
+    {
+        MeshShader,
+        FragmentShaderBarycentrics,
+        RayTracing,
+        RayQuery,
+        RayTracingPositionFetch,
+        RayTracingInvocationReorder,
+    };
+
     enum class BufferFlags : u32
     {
         None,

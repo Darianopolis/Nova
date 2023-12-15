@@ -117,6 +117,14 @@ namespace nova
 
         VmaAllocationInfo info;
 
+        VkMemoryPropertyFlags vk_flags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        auto vk_usage = GetVulkanImageUsage(impl->usage);
+        vk_usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        if (!context->transfer_manager.staged_image_copy) {
+            vk_usage |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT;
+            vk_flags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        }
+
         vkh::Check(vmaCreateImage(context->vma,
             Temp(VkImageCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -127,9 +135,7 @@ namespace nova
                 .arrayLayers = impl->layers,
                 .samples = VK_SAMPLE_COUNT_1_BIT,
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
-                .usage = GetVulkanImageUsage(impl->usage)
-                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
-                    | VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT,
+                .usage = vk_usage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = 3,
                 .pQueueFamilyIndices = std::array {
@@ -139,8 +145,7 @@ namespace nova
             }),
             Temp(VmaAllocationCreateInfo {
                 .usage = VMA_MEMORY_USAGE_AUTO,
-                .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-                    | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                .requiredFlags = vk_flags,
             }),
             &impl->image,
             &impl->allocation,
