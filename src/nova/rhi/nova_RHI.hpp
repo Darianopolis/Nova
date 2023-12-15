@@ -453,6 +453,7 @@ namespace nova
         void Transition(HImage, ImageLayout, PipelineStage) const;
         void ClearColor(HImage, std::variant<Vec4, Vec4U, Vec4I> value) const;
         void CopyToImage(HImage dst, HBuffer src, u64 src_offset = 0) const;
+        void CopyToImage(HImage dst, HImage src) const;
         void CopyFromImage(HBuffer dst, HImage src, Rect2D region) const;
         void GenerateMips(HImage) const;
         void BlitImage(HImage dst, HImage src, Filter) const;

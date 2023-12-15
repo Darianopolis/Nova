@@ -181,8 +181,9 @@ NOVA_EXAMPLE(Compute, "compute")
         Vec2   size;
     };
 
-    auto hlsl_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {R"hlsl(
+    auto hlsl_shader = nova::Shader::Create(context, nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {
+        // language=hlsl
+        R"hlsl(
             [[vk::binding(0, 0)]] Texture2D               Image2D[];
             [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
             [[vk::binding(2, 0)]] SamplerState            Sampler[];
@@ -204,11 +205,13 @@ NOVA_EXAMPLE(Compute, "compute")
                 float3 color = lerp(dest.rgb, source.rgb, source.a);
                 RWImage2DF4[pc.target][id] = float4(color, 1);
             }
-        )hlsl"});
+        )hlsl"
+    });
     NOVA_DEFER(&) { hlsl_shader.Destroy(); };
 
-    auto glsl_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {R"glsl(
+    auto glsl_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
+        // language=glsl
+        R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_nonuniform_qualifier : require
             #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
@@ -234,7 +237,8 @@ NOVA_EXAMPLE(Compute, "compute")
                 vec3 color = mix(dest.rgb, source.rgb, source.a);
                 imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
             }
-        )glsl"});
+        )glsl"
+    });
     NOVA_DEFER(&) { glsl_shader.Destroy(); };
 
     // Alternate shaders each frame

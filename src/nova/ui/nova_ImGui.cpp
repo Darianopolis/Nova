@@ -19,6 +19,7 @@ namespace nova::imgui
         };
 
         static
+        // language=glsl
         constexpr auto Preamble = R"glsl(
             #extension GL_EXT_scalar_block_layout  : require
             #extension GL_EXT_buffer_reference2    : require
@@ -192,6 +193,7 @@ namespace nova::imgui
         vertex_shader = nova::Shader::Create(context,
             nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
                 Preamble,
+                // language=glsl
                 R"glsl(
                     layout(location = 0) out vec2 out_uv;
                     layout(location = 1) out vec4 out_color;
@@ -207,6 +209,7 @@ namespace nova::imgui
         fragment_shader = nova::Shader::Create(context,
             nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
                 Preamble,
+                // language=glsl
                 R"glsl(
                     layout(set = 0, binding = 0) uniform texture2D Image2D[];
                     layout(set = 0, binding = 2) uniform sampler Sampler[];

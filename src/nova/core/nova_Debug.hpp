@@ -66,3 +66,6 @@ namespace nova
 
 template<class ... DurationT>
 struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};
+
+template<>
+struct fmt::formatter<std::stacktrace> : fmt::ostream_formatter {};

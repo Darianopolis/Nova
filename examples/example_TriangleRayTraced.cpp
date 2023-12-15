@@ -56,87 +56,89 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto ray_gen_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
-            R"glsl(
-                #extension GL_EXT_ray_tracing                      : require
-                #extension GL_NV_shader_invocation_reorder         : require
-                #extension GL_EXT_shader_image_load_formatted      : require
-                #extension GL_EXT_scalar_block_layout              : require
-                #extension GL_EXT_shader_explicit_arithmetic_types : require
-                #extension GL_EXT_nonuniform_qualifier             : require
+    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
+        // language=glsl
+        R"glsl(
+            #extension GL_EXT_ray_tracing                      : require
+            #extension GL_NV_shader_invocation_reorder         : require
+            #extension GL_EXT_shader_image_load_formatted      : require
+            #extension GL_EXT_scalar_block_layout              : require
+            #extension GL_EXT_shader_explicit_arithmetic_types : require
+            #extension GL_EXT_nonuniform_qualifier             : require
 
-                layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+            layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 
-                layout(location = 0) rayPayloadEXT uint     payload;
-                layout(location = 0) hitObjectAttributeNV vec3 bary;
+            layout(location = 0) rayPayloadEXT uint     payload;
+            layout(location = 0) hitObjectAttributeNV vec3 bary;
 
-                layout(push_constant, scalar) uniform pc_ {
-                    uint64_t tlas;
-                    uint   target;
-                } pc;
+            layout(push_constant, scalar) uniform pc_ {
+                uint64_t tlas;
+                uint   target;
+            } pc;
 
-                void main() {
-                    vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-                    vec3 dir = vec3(0, 0, -1);
-                    hitObjectNV hit;
-                    hitObjectTraceRayNV(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+            void main() {
+                vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+                vec3 dir = vec3(0, 0, -1);
+                hitObjectNV hit;
+                hitObjectTraceRayNV(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
 
-                    vec3 color = vec3(0.1);
-                    if (hitObjectIsHitNV(hit)) {
+                vec3 color = vec3(0.1);
+                if (hitObjectIsHitNV(hit)) {
 
 
-                        hitObjectGetAttributesNV(hit, 0);
-                        color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
-                    }
-                    imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+                    hitObjectGetAttributesNV(hit, 0);
+                    color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
                 }
-        )glsl"});
+                imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
+            }
+        )glsl"
+    });
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
-    auto ray_query_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
-            R"glsl(
-                #extension GL_EXT_ray_tracing                      : require
-                #extension GL_EXT_shader_image_load_formatted      : require
-                #extension GL_EXT_scalar_block_layout              : require
-                #extension GL_EXT_shader_explicit_arithmetic_types : require
-                #extension GL_EXT_nonuniform_qualifier             : require
-                #extension GL_EXT_ray_query                        : require
+    auto ray_query_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
+        // language=glsl
+        R"glsl(
+            #extension GL_EXT_ray_tracing                      : require
+            #extension GL_EXT_shader_image_load_formatted      : require
+            #extension GL_EXT_scalar_block_layout              : require
+            #extension GL_EXT_shader_explicit_arithmetic_types : require
+            #extension GL_EXT_nonuniform_qualifier             : require
+            #extension GL_EXT_ray_query                        : require
 
-                layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+            layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 
-                layout(push_constant, scalar) uniform pc_ {
-                    uint64_t tlas;
-                    uint   target;
-                    uvec2    size;
-                } pc;
+            layout(push_constant, scalar) uniform pc_ {
+                uint64_t tlas;
+                uint   target;
+                uvec2    size;
+            } pc;
 
-                layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-                void main() {
-                    ivec2 tpos = ivec2(gl_GlobalInvocationID.xy);
-                    if (tpos.x > pc.size.x || tpos.y > pc.size.y) {
-                        return;
-                    }
-                    vec3 pos = vec3(vec2(tpos), 1);
-                    vec3 dir = vec3(0, 0, -1);
-                    vec3 color = vec3(0.1);
-
-                    rayQueryEXT hit;
-                    rayQueryInitializeEXT(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, pos, 0, dir, 2);
-                    while (rayQueryProceedEXT(hit)) {
-                        if (rayQueryGetIntersectionTypeEXT(hit, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
-                            rayQueryConfirmIntersectionEXT(hit);
-                        }
-                    }
-                    if (rayQueryGetIntersectionTypeEXT(hit, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
-                        vec2 bary = rayQueryGetIntersectionBarycentricsEXT(hit, true);
-                        color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
-                    }
-
-                    imageStore(RWImage2D[pc.target], tpos, vec4(color, 1));
+            layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+            void main() {
+                ivec2 tpos = ivec2(gl_GlobalInvocationID.xy);
+                if (tpos.x > pc.size.x || tpos.y > pc.size.y) {
+                    return;
                 }
-        )glsl"});
+                vec3 pos = vec3(vec2(tpos), 1);
+                vec3 dir = vec3(0, 0, -1);
+                vec3 color = vec3(0.1);
+
+                rayQueryEXT hit;
+                rayQueryInitializeEXT(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, pos, 0, dir, 2);
+                while (rayQueryProceedEXT(hit)) {
+                    if (rayQueryGetIntersectionTypeEXT(hit, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+                        rayQueryConfirmIntersectionEXT(hit);
+                    }
+                }
+                if (rayQueryGetIntersectionTypeEXT(hit, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+                    vec2 bary = rayQueryGetIntersectionBarycentricsEXT(hit, true);
+                    color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+                }
+
+                imageStore(RWImage2D[pc.target], tpos, vec4(color, 1));
+            }
+        )glsl"
+    });
     NOVA_DEFER(&) { ray_query_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader

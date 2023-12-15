@@ -391,6 +391,23 @@ namespace nova
         }));
     }
 
+    void CommandList::CopyToImage(HImage dst, HImage src) const
+    {
+        impl->Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_COPY_BIT);
+        impl->Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_COPY_BIT);
+
+        impl->context->vkCmdCopyImage(impl->buffer,
+            src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, Temp(VkImageCopy {
+                .srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .srcOffset = {},
+                .dstSubresource ={ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+                .dstOffset = {},
+                .extent = VkExtent3D(dst->extent.x, dst->extent.y, dst->extent.z),
+            }));
+    }
+
     void CommandList::CopyFromImage(HBuffer dst, HImage src, Rect2D region) const
     {
         impl->Transition(src,
