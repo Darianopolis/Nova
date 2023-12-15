@@ -46,6 +46,7 @@
 #include <bitset>
 #include <cstdlib>
 #include <stacktrace>
+#include <typeindex>
 
 using namespace std::literals;
 

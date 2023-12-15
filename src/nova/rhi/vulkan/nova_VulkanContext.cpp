@@ -1,3 +1,5 @@
+#include <nova/core/nova_Guards.hpp>
+
 #include "nova_VulkanRHI.hpp"
 
 #include <nova/core/nova_Stack.hpp>
@@ -36,7 +38,24 @@ Validation-VUID({}): {}
 
     struct VulkanFeatureChain
     {
-        HashMap<VkStructureType, VkBaseInStructure*> device_features;
+        struct FeatureStructBase
+        {
+            VkStructureType sType;
+            void*           pNext;
+            VkBool32     features[1];
+        };
+
+        struct FeatureStructFactory
+        {
+            VkStructureType     structure_type;
+            usz                           size = 0;
+            const char*                   name = nullptr;
+            HashMap<usz, const char*> features;
+        };
+
+
+        HashMap<std::type_index, FeatureStructFactory> device_feature_factories;
+        HashMap<std::type_index, VkBaseInStructure*> device_features;
         ankerl::unordered_dense::set<std::string>         extensions;
         VkBaseInStructure*                                      next = nullptr;
 
@@ -55,7 +74,7 @@ Validation-VUID({}): {}
         template<typename T>
         T& Feature(VkStructureType type)
         {
-            auto& f = device_features[type];
+            auto& f = device_features[std::type_index(typeid(T))];
             if (!f) {
                 f = static_cast<VkBaseInStructure*>(std::malloc(sizeof(T)));
                 new(f) T{};
@@ -64,7 +83,41 @@ Validation-VUID({}): {}
                 next = f;
             }
 
+            {
+                auto& factory = device_feature_factories[std::type_index(typeid(T))];
+                if (!factory.name) {
+                    factory.structure_type = type;
+                    factory.size = sizeof(T);
+                    factory.name = typeid(T).name();
+                }
+            }
+
             return *(T*)f;
+        }
+
+        void CheckSupport(Context ctx, VkPhysicalDevice gpu)
+        {
+            VkPhysicalDeviceFeatures2 features2 {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            };
+            for (auto[type, factory] : device_feature_factories) {
+                NOVA_STACK_POINT();
+                auto* features = reinterpret_cast<FeatureStructBase*>(NOVA_STACK_ALLOC(std::byte, factory.size));
+                std::memset(features, 0, factory.size);
+                features->sType = factory.structure_type;
+                features->pNext = nullptr;
+                features2.pNext = features;
+                // auto num_bools = (factory.size - offsetof(FeatureStructBase, features)) / sizeof(VkBool32);
+                NOVA_LOG("Checking features for [{}]", factory.name);
+                ctx->vkGetPhysicalDeviceFeatures2(gpu, &features2);
+                // for (usz i = 0; i < num_bools; ++i) {
+                //     NOVA_LOG("  feature[{}] = {}", i, features->features[i]);
+                // }
+                for (auto[offset, field_name] : factory.features) {
+                    auto index = (offset - sizeof(VkBaseInStructure)) / sizeof(VkBool32);
+                    NOVA_LOG("  feature[{:2}:{}] = {}", index, field_name, features->features[index]);
+                }
+            }
         }
 
         const void* Build()
@@ -72,6 +125,12 @@ Validation-VUID({}): {}
             return next;
         }
     };
+
+#define NOVA_VK_FEATURE(chain, feature_struct, feature_field) do {                                                     \
+    auto index = std::type_index(typeid(feature_struct));                                                              \
+    chain.device_feature_factories[index].features[offsetof(feature_struct, feature_field)] = #feature_field;          \
+    ((feature_struct*)chain.device_features[index])->feature_field = VK_TRUE;                                                             \
+} while (0)
 
     Context Context::Create(const ContextConfig& config)
     {
@@ -205,19 +264,18 @@ Validation-VUID({}): {}
             // Core Features
 
             {
-                auto& f = chain.Feature<VkPhysicalDeviceFeatures2>(
-                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
-                f.features.wideLines = VK_TRUE;
-                f.features.shaderInt16 = VK_TRUE;
-                f.features.shaderInt64 = VK_TRUE;
-                f.features.fillModeNonSolid = VK_TRUE;
-                f.features.samplerAnisotropy = VK_TRUE;
-                f.features.multiDrawIndirect = VK_TRUE;
-                f.features.independentBlend = VK_TRUE;
-                f.features.imageCubeArray = VK_TRUE;
-                f.features.drawIndirectFirstInstance = VK_TRUE;
-                f.features.fragmentStoresAndAtomics = VK_TRUE;
-                f.features.multiViewport = VK_TRUE;
+                chain.Feature<VkPhysicalDeviceFeatures2>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.wideLines);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.shaderInt16);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.shaderInt64);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.fillModeNonSolid);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.samplerAnisotropy);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.multiDrawIndirect);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.independentBlend);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.imageCubeArray);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.drawIndirectFirstInstance);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.fragmentStoresAndAtomics);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceFeatures2, features.multiViewport);
             }
 
             {
@@ -228,54 +286,51 @@ Validation-VUID({}): {}
             }
 
             {
-                auto& f = chain.Feature<VkPhysicalDeviceVulkan11Features>(
-                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
-                f.storagePushConstant16 = VK_TRUE;
-                f.storageBuffer16BitAccess = VK_TRUE;
-                f.shaderDrawParameters = VK_TRUE;
-                f.multiview = VK_TRUE;
-                f.multiviewGeometryShader = VK_TRUE;
-                f.multiviewTessellationShader = VK_TRUE;
+                chain.Feature<VkPhysicalDeviceVulkan11Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, storagePushConstant16);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, shaderDrawParameters);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, multiview);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, multiviewGeometryShader);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan11Features, multiviewTessellationShader);
             }
 
             // Vulkan 1.2
 
             {
-                auto& f = chain.Feature<VkPhysicalDeviceVulkan12Features>(
-                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
-                f.drawIndirectCount = VK_TRUE;
-                f.shaderInt8 = VK_TRUE;
-                f.shaderFloat16 = VK_TRUE;
-                f.timelineSemaphore = VK_TRUE;
-                f.scalarBlockLayout = VK_TRUE;
-                f.descriptorIndexing = VK_TRUE;
-                f.samplerFilterMinmax = VK_TRUE;
-                f.bufferDeviceAddress = VK_TRUE;
-                f.imagelessFramebuffer = VK_TRUE;
-                f.storagePushConstant8 = VK_TRUE;
-                f.runtimeDescriptorArray = VK_TRUE;
-                f.storageBuffer8BitAccess = VK_TRUE;
-                f.descriptorBindingPartiallyBound = VK_TRUE;
-                f.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
-                f.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-                f.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-                f.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-                f.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
-                f.shaderInputAttachmentArrayNonUniformIndexing = VK_TRUE;
-                f.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-                f.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
-                f.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
-                f.descriptorBindingVariableDescriptorCount = VK_TRUE;
+                chain.Feature<VkPhysicalDeviceVulkan12Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, drawIndirectCount);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderInt8);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderFloat16);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, timelineSemaphore);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, scalarBlockLayout);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, samplerFilterMinmax);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, bufferDeviceAddress);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, imagelessFramebuffer);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, storagePushConstant8);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, runtimeDescriptorArray);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, storageBuffer8BitAccess);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderUniformBufferArrayNonUniformIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderStorageBufferArrayNonUniformIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderSampledImageArrayNonUniformIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderStorageImageArrayNonUniformIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingUpdateUnusedWhilePending);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, shaderInputAttachmentArrayNonUniformIndexing);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingSampledImageUpdateAfterBind);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingStorageImageUpdateAfterBind);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingUniformBufferUpdateAfterBind);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan12Features, descriptorBindingVariableDescriptorCount);
             }
 
             // Vulkan 1.3
 
             {
-                auto& f = chain.Feature<VkPhysicalDeviceVulkan13Features>(
-                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
-                f.maintenance4 = VK_TRUE;
-                f.dynamicRendering = VK_TRUE;
-                f.synchronization2 = VK_TRUE;
+                chain.Feature<VkPhysicalDeviceVulkan13Features>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan13Features, maintenance4);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan13Features, dynamicRendering);
+                NOVA_VK_FEATURE(chain, VkPhysicalDeviceVulkan13Features, synchronization2);
             }
 
             // Host Image Copy
@@ -313,26 +368,22 @@ Validation-VUID({}): {}
 
             // Graphics Pipeline Libraries + Extended Dynamic State
 
-            chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT)
-                .extendedDynamicState = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT);
+            NOVA_VK_FEATURE(chain, VkPhysicalDeviceExtendedDynamicStateFeaturesEXT, extendedDynamicState);
 
-            chain.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT)
-                .extendedDynamicState2 = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT);
+            NOVA_VK_FEATURE(chain, VkPhysicalDeviceExtendedDynamicState2FeaturesEXT, extendedDynamicState2);
 
             chain.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
             chain.Extension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT)
-                .graphicsPipelineLibrary = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT);
+            NOVA_VK_FEATURE(chain, VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT, graphicsPipelineLibrary);
 
             // Fragment Shader Barycentrics
 
             chain.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR)
-                .fragmentShaderBarycentric = VK_TRUE;
+            chain.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR);
+            NOVA_VK_FEATURE(chain, VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR, fragmentShaderBarycentric);
 
 #if 0
             // Fragment Shader Interlock
@@ -389,6 +440,8 @@ Validation-VUID({}): {}
                 VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR)
                 .rayTracingPositionFetch = VK_TRUE;
         }
+
+        chain.CheckSupport({impl}, impl->gpu);
 
         // TODO: Move this into VulkanFeatureChain
         auto device_extensions = NOVA_STACK_ALLOC(const char*, chain.extensions.size());
