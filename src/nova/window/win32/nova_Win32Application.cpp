@@ -24,8 +24,6 @@ namespace nova
 
         win::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
 
-        ::SetConsoleOutputCP(CP_UTF8);
-
         return { impl };
     }
 

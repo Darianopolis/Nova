@@ -302,7 +302,7 @@ Validation-VUID({}): {}
             impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
             if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                 impl->gpu = gpu;
-
+                NOVA_LOG("Selecting device: {}", properties.properties.deviceName);
                 break;
             }
         }
@@ -501,43 +501,100 @@ Validation-VUID({}): {}
         }
 
         // Configure queues
-        // TODO: This is bad and you should feel bad. Fix it now.
 
-        std::array<VkQueueFamilyProperties, 3> properties;
-        impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, Temp(3u), properties.data());
-        for (u32 i = 0; i < 16; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-            queue->family = 0;
-            queue->flags = properties[0].queueFlags;
-            impl->graphics_queues.emplace_back(queue);
-        }
-        for (u32 i = 0; i < 2; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            queue->family = 1;
-            queue->flags = properties[1].queueFlags;
-            impl->transfer_queues.emplace_back(queue);
-        }
-        for (u32 i = 0; i < 8; ++i) {
-            auto queue = new Queue::Impl;
-            queue->context = { impl };
-            queue->stages = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
-            queue->family = 2;
-            queue->flags = properties[2].queueFlags;
-            impl->compute_queues.emplace_back(queue);
+        struct QueueFamilyInfo
+        {
+            u32   family_index;
+            u32          count;
+            VkQueueFlags flags;
+        };
+
+        std::optional<QueueFamilyInfo> graphics_family;
+        std::optional<QueueFamilyInfo> dedicated_transfer_family;
+        std::optional<QueueFamilyInfo> async_compute_family;
+
+        std::vector<VkQueueFamilyProperties> queue_properties;
+        {
+            u32 count;
+            impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, &count, nullptr);
+            queue_properties.resize(count);
+            impl->vkGetPhysicalDeviceQueueFamilyProperties(impl->gpu, &count, queue_properties.data());
         }
 
-        auto priorities = NOVA_STACK_ALLOC(float, impl->graphics_queues.size());
-        for (u32 i = 0; i < impl->graphics_queues.size(); ++i) {
-            priorities[i] = 1.f;
+        // TODO: Handle other weird queue configs
+
+        for (u32 family = 0; family < queue_properties.size(); ++family) {
+            auto& props = queue_properties[family];
+            if (props.queueFlags & VK_QUEUE_GRAPHICS_BIT
+                    && props.queueFlags & VK_QUEUE_COMPUTE_BIT
+                    && props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                if (!graphics_family) {
+                    graphics_family = QueueFamilyInfo {
+                        .family_index = family,
+                        .count = props.queueCount,
+                        .flags = props.queueFlags,
+                    };
+                }
+            } else if (props.queueFlags & VK_QUEUE_COMPUTE_BIT
+                    && props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                if (!async_compute_family) {
+                    async_compute_family = QueueFamilyInfo {
+                        .family_index = family,
+                        .count = props.queueCount,
+                        .flags = props.queueFlags,
+                    };
+                }
+            } else if (props.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                if (!dedicated_transfer_family) {
+                    dedicated_transfer_family = QueueFamilyInfo {
+                        .family_index = family,
+                        .count = props.queueCount,
+                        .flags = props.queueFlags,
+                    };
+                }
+            }
         }
 
-        auto low_priorities = NOVA_STACK_ALLOC(float, 8);
-        for (u32 i = 0; i < 8; ++i) {
-            low_priorities[i] = 0.1f;
+        std::array queue_priorities { 1.f, 1.f };
+        std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+
+        auto GenerateQueues = [&](QueueFamilyInfo& info, u32 max_count, VkPipelineStageFlags2 stages, std::vector<nova::Queue>& queues) {
+            auto count = std::min(info.count, max_count);
+            for (u32 i = 0; i < count; ++i) {
+                queues.emplace_back(new Queue::Impl {
+                    .context = { impl },
+                    .flags = info.flags,
+                    .family = info.family_index,
+                    .stages = stages,
+                });
+            }
+
+            queue_create_infos.emplace_back(VkDeviceQueueCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = info.family_index,
+                .queueCount = count,
+                .pQueuePriorities = queue_priorities.data(),
+            });
+
+            NOVA_LOG("Creating {} queues with index {}", count, info.family_index);
+        };
+
+        if (graphics_family) {
+            GenerateQueues(graphics_family.value(), 1,
+                VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+                impl->graphics_queues);
+        }
+
+        if (async_compute_family) {
+            GenerateQueues(async_compute_family.value(), 2,
+                VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+                impl->compute_queues);
+        }
+
+        if (dedicated_transfer_family) {
+            GenerateQueues(dedicated_transfer_family.value(), 2,
+                VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+                impl->transfer_queues);
         }
 
         // Create device
@@ -545,27 +602,8 @@ Validation-VUID({}): {}
         vkh::Check(impl->vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
-            .queueCreateInfoCount = 3,
-            .pQueueCreateInfos = std::array {
-                VkDeviceQueueCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->graphics_queues.front()->family,
-                    .queueCount = u32(impl->graphics_queues.size()),
-                    .pQueuePriorities = priorities,
-                },
-                VkDeviceQueueCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->transfer_queues.front()->family,
-                    .queueCount = u32(impl->transfer_queues.size()),
-                    .pQueuePriorities = low_priorities,
-                },
-                VkDeviceQueueCreateInfo {
-                    .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                    .queueFamilyIndex = impl->compute_queues.front()->family,
-                    .queueCount = u32(impl->compute_queues.size()),
-                    .pQueuePriorities = low_priorities,
-                },
-            }.data(),
+            .queueCreateInfoCount = u32(queue_create_infos.size()),
+            .pQueueCreateInfos = queue_create_infos.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
             .ppEnabledExtensionNames = chain.extensions.data(),
         }), impl->alloc, &impl->device));
@@ -587,17 +625,15 @@ Validation-VUID({}): {}
 
         // Get queues
 
-        for (u32 i = 0; i < impl->graphics_queues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->graphics_queues[i]->family, i, &impl->graphics_queues[i]->handle);
-        }
+        auto GetQueues = [&](std::vector<nova::Queue>& queues) {
+            for (u32 i = 0; i < queues.size(); ++i) {
+                impl->vkGetDeviceQueue(impl->device, queues[i]->family, i, &queues[i]->handle);
+            }
+        };
 
-        for (u32 i = 0; i < impl->transfer_queues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->transfer_queues[i]->family, i, &impl->transfer_queues[i]->handle);
-        }
-
-        for (u32 i = 0; i < impl->compute_queues.size(); ++i) {
-            impl->vkGetDeviceQueue(impl->device, impl->compute_queues[i]->family, i, &impl->compute_queues[i]->handle);
-        }
+        GetQueues(impl->graphics_queues);
+        GetQueues(impl->compute_queues);
+        GetQueues(impl->transfer_queues);
 
         // Create VMA allocator
 
