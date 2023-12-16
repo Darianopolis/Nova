@@ -297,23 +297,43 @@ Validation-VUID({}): {}
 
         std::vector<VkPhysicalDevice> gpus;
         vkh::Enumerate(gpus, impl->vkEnumeratePhysicalDevices, impl->instance);
-        for (auto& gpu : gpus) {
-            VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
-            if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                impl->gpu = gpu;
-                NOVA_LOG("Selecting device: {}", properties.properties.deviceName);
-                break;
+
+        if (gpus.empty()) {
+            NOVA_LOG("Critical error: No physical devices found");
+        }
+
+        if (auto gpu_override = std::getenv("NOVA_GPU_SELECT")) {
+            auto index = std::stoi(gpu_override);
+            if (index >= gpus.size()) {
+                NOVA_LOG("Invalid index provided for GPU override: {}", index);
+            } else {
+                VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+                impl->gpu = gpus[index];
+                impl->vkGetPhysicalDeviceProperties2(impl->gpu, &properties);
+                NOVA_LOG("Overriding GPU selection [{}]: {}", index, properties.properties.deviceName);
             }
         }
 
         if (!impl->gpu) {
-            NOVA_THROW("No suitable physical device found");
+            NOVA_LOG("Automatically selecting GPU");
+            for (auto& gpu : gpus) {
+                VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+                impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
+                if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                    impl->gpu = gpu;
+                    NOVA_LOG("  Found discrete GPU: {}", properties.properties.deviceName);
+                    break;
+                }
+            }
+
+            if (!impl->gpu) {
+                NOVA_LOG("  No discrete GPU found, defaulting to first available GPU");
+                impl->gpu = gpus.front();
+            }
         }
 
         // Configure features
 
-        // TODO: Do this per physical device
         VulkanDeviceConfiguration chain;
         chain.ctx = { impl };
         chain.gpu = impl->gpu;
@@ -406,9 +426,13 @@ Validation-VUID({}): {}
 
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicStateFeaturesEXT, extendedDynamicState));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicState2FeaturesEXT, extendedDynamicState2));
-        chain.Require(NOVA_VK_EXTENSION(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME));
-        chain.Require(NOVA_VK_EXTENSION(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME));
-        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT, graphicsPipelineLibrary));
+        if (chain.AddAll({
+            NOVA_VK_EXTENSION(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME),
+            NOVA_VK_EXTENSION(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT, graphicsPipelineLibrary),
+        })) {
+            impl->graphics_pipeline_library = true;
+        }
 
         // Image transfer staging (host image copy + resizable BAR)
 
@@ -662,6 +686,7 @@ Validation-VUID({}): {}
         {
             constexpr u32 MaxNumImageDescriptors   = 1024 * 1024;
             constexpr u32 MaxNumSamplerDescriptors = 4096;
+            constexpr u32 MaxPushConstantSize      = 256;
 
             VkPhysicalDeviceProperties2 props = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             impl->vkGetPhysicalDeviceProperties2(impl->gpu, &props);
@@ -672,10 +697,13 @@ Validation-VUID({}): {}
                 props.properties.limits.maxDescriptorSetStorageImages
             });
 
+            impl->push_constant_size = std::min(MaxPushConstantSize, props.properties.limits.maxPushConstantsSize);
+
             u32 num_sampler_descriptors = std::min(MaxNumSamplerDescriptors, props.properties.limits.maxSamplerAllocationCount);
 
             NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
             NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
+            NOVA_LOG("Push constant size: {}", impl->push_constant_size);
 
             impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
         }
@@ -701,6 +729,7 @@ Validation-VUID({}): {}
 
         // Deleted graphics pipeline library stages
 
+        for (auto pipeline: impl->monolith_pipelines | std::views::values)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->vertex_input_stages | std::views::values)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->preraster_stages | std::views::values)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }

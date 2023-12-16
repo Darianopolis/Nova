@@ -55,44 +55,54 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
-        // language=glsl
-        R"glsl(
-            #extension GL_EXT_ray_tracing                      : require
-            #extension GL_NV_shader_invocation_reorder         : require
-            #extension GL_EXT_shader_image_load_formatted      : require
-            #extension GL_EXT_scalar_block_layout              : require
-            #extension GL_EXT_shader_explicit_arithmetic_types : require
-            #extension GL_EXT_nonuniform_qualifier             : require
+     auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::ClosestHit, "main", "", {
+         // language=glsl
+         R"glsl(
+             #extension GL_EXT_ray_tracing                      : require
+             #extension GL_EXT_scalar_block_layout              : require
+             #extension GL_EXT_shader_explicit_arithmetic_types : require
+             #extension GL_EXT_nonuniform_qualifier             : require
 
-            layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+             layout(location = 0) rayPayloadInEXT vec3 payload;
+             hitAttributeEXT vec3 bary;
 
-            layout(location = 0) rayPayloadEXT uint     payload;
-            layout(location = 0) hitObjectAttributeNV vec3 bary;
+             void main() {
+                 payload = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+             }
+         )glsl"
+     });
+     NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
 
-            layout(push_constant, scalar) uniform pc_ {
-                uint64_t tlas;
-                uint   target;
-            } pc;
+     auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
+         // language=glsl
+         R"glsl(
+             #extension GL_EXT_ray_tracing                      : require
+             #extension GL_EXT_shader_image_load_formatted      : require
+             #extension GL_EXT_scalar_block_layout              : require
+             #extension GL_EXT_shader_explicit_arithmetic_types : require
+             #extension GL_EXT_nonuniform_qualifier             : require
 
-            void main() {
-                vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
-                vec3 dir = vec3(0, 0, -1);
-                hitObjectNV hit;
-                hitObjectTraceRayNV(hit, accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+             layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 
-                vec3 color = vec3(0.1);
-                if (hitObjectIsHitNV(hit)) {
+             layout(location = 0) rayPayloadEXT vec3 payload;
 
+             layout(push_constant, scalar) uniform pc_ {
+                 uint64_t tlas;
+                 uint   target;
+             } pc;
 
-                    hitObjectGetAttributesNV(hit, 0);
-                    color = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
-                }
-                imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(color, 1));
-            }
-        )glsl"
-    });
-    NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
+             void main() {
+                 vec3 pos = vec3(vec2(gl_LaunchIDEXT.xy), 1);
+                 vec3 dir = vec3(0, 0, -1);
+
+                 payload = vec3(0.1);
+                 traceRayEXT(accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0, dir, 2, 0);
+
+                 imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(payload, 1));
+             }
+          )glsl"
+     });
+     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
     auto ray_query_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
         // language=glsl
@@ -144,7 +154,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     auto pipeline = nova::RayTracingPipeline::Create(context);
     NOVA_DEFER(&) { pipeline.Destroy(); };
-    pipeline.Update(ray_gen_shader, {}, {}, {});
+    pipeline.Update(ray_gen_shader, {}, {nova::HitShaderGroup{.closesthit_shader = closest_hit_shader}}, {});
 
 // -----------------------------------------------------------------------------
 //                              Triangle BLAS

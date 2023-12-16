@@ -78,7 +78,7 @@ namespace nova
                 .pushConstantRangeCount = 1,
                 .pPushConstantRanges = Temp(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_ALL,
-                    .size = 256,
+                    .size = context->push_constant_size,
                 }),
             }), context->alloc, &shader->shader));
         }

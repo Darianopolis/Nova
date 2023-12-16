@@ -35,26 +35,201 @@ namespace nova
         VK_DYNAMIC_STATE_DEPTH_BOUNDS,
     };
 
+// -----------------------------------------------------------------------------
+
     static
-    VkPipeline GetGraphicsVertexInputStage(Context context, Topology topology)
+    GraphicsPipelineVertexInputStageKey GetGraphicsPipelineVertexInputStageKey(Topology topology)
     {
         auto key = GraphicsPipelineVertexInputStageKey {};
 
         // Set topology class
         switch (topology) {
-        break;case Topology::Points:
-            key.topology = Topology::Points;
-        break;case Topology::Lines:
-              case Topology::LineStrip:
-            key.topology = Topology::Lines;
-        break;case Topology::Triangles:
-              case Topology::TriangleStrip:
-              case Topology::TriangleFan:
-            key.topology = Topology::Triangles;
-        break;case Topology::Patches:
-            key.topology = Topology::Patches;
+            break;case Topology::Points:
+                key.topology = Topology::Points;
+            break;case Topology::Lines:
+                  case Topology::LineStrip:
+                key.topology = Topology::Lines;
+            break;case Topology::Triangles:
+                  case Topology::TriangleStrip:
+                  case Topology::TriangleFan:
+                key.topology = Topology::Triangles;
+            break;case Topology::Patches:
+                key.topology = Topology::Patches;
         };
 
+        return key;
+    }
+
+    static
+    GraphicsPipelinePreRasterizationStageKey GetGraphicsPreRasterizationStageKey(Span<Shader> shaders, PolygonMode poly_mode)
+    {
+        auto key = GraphicsPipelinePreRasterizationStageKey {};
+
+        // Set required fixed state
+        key.poly_mode = poly_mode;
+
+        // Set shaders and layout
+        for (u32 i = 0; i < shaders.size(); ++i) {
+            key.shaders[i] = shaders[i]->id;
+        }
+
+        return key;
+    }
+
+    static
+    GraphicsPipelineFragmentShaderStageKey GetGraphicsFragmentShaderStageKey(Shader shader)
+    {
+        auto key = GraphicsPipelineFragmentShaderStageKey {};
+        key.shader = shader->id;
+        return key;
+    }
+
+    static
+    GraphicsPipelineFragmentOutputStageKey GetGraphicsPipelineFragmentOutputStageKey(CommandList cmd, const RenderingDescription& rendering_desc)
+    {
+        auto key = GraphicsPipelineFragmentOutputStageKey {};
+
+        // Set rendering info
+        std::memcpy(key.color_attachments.data(),
+            rendering_desc.color_formats.data(),
+            rendering_desc.color_formats.size() * sizeof(VkFormat));
+        key.depth_attachment = rendering_desc.depth_format;
+        key.stencil_attachment = rendering_desc.stencil_format;
+
+        key.blend_states = cmd->blend_states;
+
+        return key;
+    }
+
+// -----------------------------------------------------------------------------
+//                            Monolithic Pipelines
+// -----------------------------------------------------------------------------
+
+    static
+    VkPipeline GetGraphicsMonolithPipeline(nova::CommandList cmd, Context context)
+    {
+        const auto rendering_desc = RenderingDescription {
+            .color_formats = cmd->color_attachments_formats,
+            .depth_format = cmd->depth_attachment_format,
+            .stencil_format = cmd->stencil_attachment_format,
+        };
+        auto key = GraphicsPipelineKey {};
+        key.vertex_input = GetGraphicsPipelineVertexInputStageKey(cmd->topology);
+        key.poly_mode = cmd->polygon_mode;
+        for (u32 i = 0; i < cmd->shaders.size(); ++i) {
+            key.shaders[i] = cmd->shaders[i]->id;
+        }
+        key.output = GetGraphicsPipelineFragmentOutputStageKey(cmd, rendering_desc);
+
+        // TODO: Deduplicate this
+
+        auto stages = NOVA_STACK_ALLOC(VkPipelineShaderStageCreateInfo, cmd->shaders.size());
+        for (u32 i = 0; i < cmd->shaders.size(); ++i) {
+            stages[i] = cmd->shaders[i]->GetStageInfo();
+        }
+
+        // Blend states
+
+        auto attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
+
+        for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
+            auto& attach_state = attach_blend_states[i];
+
+            attach_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            attach_state.blendEnable = cmd->blend_states[i];
+
+            if (cmd->blend_states[i]) {
+                attach_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+                attach_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                attach_state.colorBlendOp = VK_BLEND_OP_ADD;
+                attach_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+                attach_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+                attach_state.alphaBlendOp = VK_BLEND_OP_ADD;
+            }
+        }
+
+        // Rendering info - formats
+
+        auto vk_formats = NOVA_STACK_ALLOC(VkFormat, rendering_desc.color_formats.size());
+        for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
+            vk_formats[i] = GetVulkanFormat(rendering_desc.color_formats[i]).vk_format;
+        }
+
+        // Create
+
+        auto pipeline = context->monolith_pipelines[key];
+        if (!pipeline) {
+            auto start = std::chrono::steady_clock::now();
+            vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
+                1, Temp(VkGraphicsPipelineCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                        .colorAttachmentCount = u32(rendering_desc.color_formats.size()),
+                        .pColorAttachmentFormats = vk_formats,
+                        .depthAttachmentFormat = GetVulkanFormat(rendering_desc.depth_format).vk_format,
+                        .stencilAttachmentFormat = GetVulkanFormat(rendering_desc.stencil_format).vk_format,
+                    }),
+                    .flags = context->descriptor_buffers
+                            ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+                            : VkPipelineCreateFlags(0),
+                    .stageCount = u32(cmd->shaders.size()),
+                    .pStages = stages,
+                    .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                    }),
+                    .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                        .topology = GetVulkanTopology(key.vertex_input.topology),
+                    }),
+                    .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                    }),
+                    .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                        .polygonMode = GetVulkanPolygonMode(cmd->polygon_mode),
+                    }),
+                    .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    }),
+                    .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                        .logicOpEnable = VK_FALSE,
+                        .logicOp = VK_LOGIC_OP_COPY,
+                        .attachmentCount = u32(rendering_desc.color_formats.size()),
+                        .pAttachments = attach_blend_states,
+                    }),
+                    .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = u32(DynamicStates.size()),
+                        .pDynamicStates = DynamicStates.data(),
+                    }),
+                    .layout = context->global_heap.pipeline_layout,
+                    .basePipelineIndex = -1,
+                }), context->alloc, &pipeline));
+
+            auto dur = std::chrono::steady_clock::now() - start;
+            if (context->config.trace) {
+                NOVA_LOG("Compiled new graphics pipeline in {}",
+                    std::chrono::duration_cast<std::chrono::microseconds>(dur));
+            }
+
+            context->monolith_pipelines[key] = pipeline;
+        }
+
+        return pipeline;
+    }
+
+// -----------------------------------------------------------------------------
+//                         Graphics Pipeline Library
+// -----------------------------------------------------------------------------
+
+    static
+    VkPipeline GetGraphicsVertexInputStage(Context context, Topology topology)
+    {
+        auto key = GetGraphicsPipelineVertexInputStageKey(topology);
         auto pipeline = context->vertex_input_stages[key];
 
         if (!pipeline) {
@@ -78,6 +253,13 @@ namespace nova
                     .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
                         .topology = GetVulkanTopology(key.topology),
+                    }),
+                    .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                    }),
+                    .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
                     }),
                     .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -104,16 +286,7 @@ namespace nova
     {
         NOVA_STACK_POINT();
 
-        auto key = GraphicsPipelinePreRasterizationStageKey {};
-
-        // Set required fixed state
-        key.poly_mode = poly_mode;
-
-        // Set shaders and layout
-        for (u32 i = 0; i < shaders.size(); ++i) {
-            key.shaders[i] = shaders[i]->id;
-        }
-
+        auto key = GetGraphicsPreRasterizationStageKey(shaders, poly_mode);
         auto pipeline = context->preraster_stages[key];
 
         if (!pipeline) {
@@ -169,9 +342,7 @@ namespace nova
     static
     VkPipeline GetGraphicsFragmentShaderStage(Context context, Shader shader)
     {
-        auto key = GraphicsPipelineFragmentShaderStageKey {};
-        key.shader = shader->id;
-
+        auto key = GetGraphicsFragmentShaderStageKey(shader);
         auto pipeline = context->fragment_shader_stages[key];
 
         if (!pipeline) {
@@ -224,17 +395,7 @@ namespace nova
     {
         NOVA_STACK_POINT();
 
-        auto key = GraphicsPipelineFragmentOutputStageKey {};
-
-        // Set rendering info
-        std::memcpy(key.color_attachments.data(),
-            rendering_desc.color_formats.data(),
-            rendering_desc.color_formats.size() * sizeof(VkFormat));
-        key.depth_attachment = rendering_desc.depth_format;
-        key.stencil_attachment = rendering_desc.stencil_format;
-
-        key.blend_states = impl->blend_states;
-
+        auto key = GetGraphicsPipelineFragmentOutputStageKey({impl}, rendering_desc);
         auto pipeline = context->fragment_output_stages[key];
 
         if (!pipeline) {
@@ -362,32 +523,40 @@ namespace nova
 
         graphics_state_dirty = false;
 
-        // Separate shaders
-
-        Shader fragment_shader = {};
-        std::array<Shader, 4> preraster_stage_shaders;
-        u32 preraster_stage_shader_index = 0;
-        for (auto& shader : shaders) {
-            if (shader->stage == ShaderStage::Fragment) {
-                fragment_shader = shader;
-            } else {
-                preraster_stage_shaders[preraster_stage_shader_index++] = shader;
-            }
-        }
-
         // Request pipeline
 
-        auto vi = GetGraphicsVertexInputStage(context, topology);
-        auto pr = GetGraphicsPreRasterizationStage(pool->context,
-            { preraster_stage_shaders.data(), preraster_stage_shader_index }, polygon_mode);
-        auto fs = GetGraphicsFragmentShaderStage(context, fragment_shader);
-        auto fo = GetGraphicsFragmentOutputStage(this, context, {
-                .color_formats = color_attachments_formats,
-                .depth_format = depth_attachment_format,
-                .stencil_format = stencil_attachment_format,
-            });
+        VkPipeline pipeline;
 
-        auto pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo });
+        if (context->graphics_pipeline_library) {
+            // TODO: Investigate faster single hash lookup solutions for graphics pipeline libraries
+
+            // Separate shaders
+
+            Shader fragment_shader = {};
+            std::array<Shader, 4> preraster_stage_shaders;
+            u32 preraster_stage_shader_index = 0;
+            for (auto& shader : shaders) {
+                if (shader->stage == ShaderStage::Fragment) {
+                    fragment_shader = shader;
+                } else {
+                    preraster_stage_shaders[preraster_stage_shader_index++] = shader;
+                }
+            }
+
+            auto vi = GetGraphicsVertexInputStage(context, topology);
+            auto pr = GetGraphicsPreRasterizationStage(pool->context,
+                { preraster_stage_shaders.data(), preraster_stage_shader_index }, polygon_mode);
+            auto fs = GetGraphicsFragmentShaderStage(context, fragment_shader);
+            auto fo = GetGraphicsFragmentOutputStage(this, context, {
+                    .color_formats = color_attachments_formats,
+                    .depth_format = depth_attachment_format,
+                    .stencil_format = stencil_attachment_format,
+                });
+
+            pipeline = GetGraphicsPipelineLibrarySet(context, { vi, pr, fs, fo });
+        } else {
+            pipeline = GetGraphicsMonolithPipeline({this}, context);
+        }
 
         context->vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }

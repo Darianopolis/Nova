@@ -111,7 +111,7 @@ namespace nova
                 .pStages = stages.data(),
                 .groupCount = u32(groups.size()),
                 .pGroups = groups.data(),
-                .maxPipelineRayRecursionDepth = 2, // TODO: Parameterize
+                .maxPipelineRayRecursionDepth = 1, // TODO: Parameterize
                 .layout = impl->context->global_heap.pipeline_layout,
             }),
             impl->context->alloc, &impl->pipeline));
