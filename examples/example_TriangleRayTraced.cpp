@@ -27,7 +27,6 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     auto context = nova::Context::Create({
         .debug = true,
         .ray_tracing = true,
-        .compatibility = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 

@@ -15,8 +15,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     });
 
     auto context = nova::Context::Create({
-        .debug = true,
-        .compatibility = true,
+        .debug = false,
     });
     auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::ColorAttach

@@ -150,6 +150,13 @@ namespace nova
         return T(u64(ptr) + offset);
     }
 
+    template<typename FieldT, typename ObjectT>
+    constexpr
+    FieldT& GetFieldAtByteOffset(const ObjectT& object, uintptr_t offset) noexcept
+    {
+        return *reinterpret_cast<FieldT*>(reinterpret_cast<uintptr_t>(&object) + offset);
+    }
+
     template<typename ...T>
     constexpr
     usz SizeOf(usz count = 1) noexcept

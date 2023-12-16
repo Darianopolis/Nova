@@ -601,7 +601,7 @@ namespace nova
             stage_flags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));
             shader_objects[i] = shaders[i]->shader;
 
-            if (impl->context->config.mesh_shading) {
+            if (impl->context->mesh_shading) {
                 if (shaders[i]->stage == nova::ShaderStage::Mesh) {
                     stage_flags[count] = VK_SHADER_STAGE_VERTEX_BIT;
                     shader_objects[count++] = VK_NULL_HANDLE;

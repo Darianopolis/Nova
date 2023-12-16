@@ -19,10 +19,9 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
 
     auto app = nova::Application::Create();
-    auto windows = std::array {
-        nova::Window::Create(app, { .title = "Nova - Multi Present #1", .size = { 1920, 1080 } }),
-        nova::Window::Create(app, { .title = "Nova - Multi Present #2", .size = { 1920, 1080 } }),
-    };
+    std::array<nova::Window, 2> windows;
+    windows[1] = nova::Window::Create(app, { .title = "Nova - Multi Present #2", .size = { 1920, 1080 } });
+    windows[0] = nova::Window::Create(app, { .title = "Nova - Multi Present #1", .size = { 1920, 1080 } });
     auto swapchains = std::array {
         nova::Swapchain::Create(context, windows[0].GetNativeHandle(), swapchain_usage, present_mode),
         nova::Swapchain::Create(context, windows[1].GetNativeHandle(), swapchain_usage, present_mode),

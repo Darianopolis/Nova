@@ -16,7 +16,6 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 
     auto context = nova::Context::Create({
         .debug = true,
-        .mesh_shading = true,
     });
     auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::ColorAttach

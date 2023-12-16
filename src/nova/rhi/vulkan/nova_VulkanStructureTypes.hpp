@@ -29,4 +29,5 @@ namespace nova::vkh
     template<> struct STypeHelper<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>         { constexpr static auto type = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;          };
     template<> struct STypeHelper<VkPhysicalDeviceAccelerationStructureFeaturesKHR>      { constexpr static auto type = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;        };
     template<> struct STypeHelper<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>    { constexpr static auto type = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR;    };
+    template<> struct STypeHelper<VkPhysicalDeviceDescriptorBufferFeaturesEXT>           { constexpr static auto type = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;             };
 }

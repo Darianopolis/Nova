@@ -38,180 +38,154 @@ Validation-VUID({}): {}
         std::terminate();
     }
 
-    struct VulkanFeatureStructBase
+    struct VulkanFeature
     {
         VkStructureType sType;
-        void*           pNext;
-        VkBool32     features[100];
+        const char*      name;
+        usz              size;
+        usz            offset;
     };
 
-    struct VulkanFeatureStructRef
+#define NOVA_VK_EXTENSION(Name) Name
+
+#define NOVA_VK_FEATURE(Struct, Field) \
+    VulkanFeature { vkh::GetStructureType<Struct>(), #Struct "::" #Field, sizeof(Struct), offsetof(Struct, Field) }
+
+    struct VulkanDeviceConfiguration
     {
-        VulkanFeatureStructBase* base;
-        const std::type_info*    type;
-        usz                      size;
-        usz                     count;
-    };
+        using FeatureOrExtension = std::variant<VulkanFeature, const char*>;
 
-    struct VulkanFeatureSet
-    {
-        std::vector<const char*>          extensions;
-        std::vector<VulkanFeatureStructRef> features;
+        std::vector<const char*>                                extensions;
+        HashMap<VkStructureType, VkBaseInStructure*>       device_features;
+        VkBaseInStructure*                                            next = nullptr;
 
-        void Extension(const char* name)
+        Context          ctx;
+        VkPhysicalDevice gpu = nullptr;
+
+        bool trace = true;
+
+        ~VulkanDeviceConfiguration()
         {
-            extensions.push_back(name);
-        }
-
-        template<class T>
-        T& Feature()
-        {
-            auto* mem = std::malloc(sizeof(T));
-            std::memset(mem, 0, sizeof(T));
-            auto* base = static_cast<VulkanFeatureStructBase*>(mem);
-            base->sType = vkh::GetStructureType<T>();
-            features.emplace_back(VulkanFeatureStructRef {
-                .base = base,
-                .type = &typeid(T),
-                .size = sizeof(T),
-                .count = (sizeof(T) - offsetof(VulkanFeatureStructBase, features)) / sizeof(VkBool32),
-            });
-            return *static_cast<T*>(mem);
-        }
-
-        bool IsSupported(Context ctx, VkPhysicalDevice gpu)
-        {
-            // Check extensions
-
-            if (!extensions.empty()) {
-                std::vector<VkExtensionProperties> props;
-                vkh::Enumerate(props, ctx->vkEnumerateDeviceExtensionProperties, gpu, nullptr);
-
-                std::unordered_set<std::string_view> supported;
-                for (auto& prop : props) {
-                    supported.insert(prop.extensionName);
-                }
-
-                for (auto& ext : extensions) {
-                    if (!supported.contains(std::string_view(ext))) {
-                        NOVA_LOG("Extension [{}] not supported", ext);
-                        return false;
-                    }
-                }
-            }
-
-            // Check features
-
-            for (auto[features_requested, id, size, count] : features) {
-                VkPhysicalDeviceFeatures2 features2 {
-                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-                };
-                NOVA_STACK_POINT();
-                auto* features_present = reinterpret_cast<VulkanFeatureStructBase*>(NOVA_STACK_ALLOC(std::byte, size));
-                std::memset(features_present, 0, size);
-                features_present->sType = features_requested->sType;
-                features2.pNext = features_present;
-
-                ctx->vkGetPhysicalDeviceFeatures2(gpu, &features2);
-
-                for (usz i = 0; i < count; ++i) {
-                    if (features_requested->features[i] && !features_present->features[i]) {
-                        NOVA_LOG("Feature[{}][{}] not supported", id->name(), i);
-                        NOVA_LOG("  sType: {}", int(features_present->sType));
-                        NOVA_LOG("  size = {}, count = {}", size, count);
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        ~VulkanFeatureSet()
-        {
-            for (auto& f : features) {
-                std::free(f.base);
-            }
-        }
-    };
-
-    struct VulkanFeatureChain
-    {
-
-        struct FeatureStructFactory
-        {
-            VkStructureType     structure_type;
-            usz                           size = 0;
-            const char*                   name = nullptr;
-            HashMap<usz, const char*> features;
-        };
-
-
-        // HashMap<std::type_index, FeatureStructFactory> device_feature_factories;
-        HashMap<std::type_index, VulkanFeatureStructBase*> device_features;
-        ankerl::unordered_dense::set<std::string>               extensions;
-        VulkanFeatureStructBase*                                      next = nullptr;
-
-        ~VulkanFeatureChain()
-        {
-            for (auto&[type, feature] : device_features) {
+            for (const auto& feature: device_features | std::views::values) {
                 std::free(feature);
             }
         }
 
-        // void Extension(std::string name)
-        // {
-        //     extensions.emplace(std::move(name));
-        // }
-        //
-        // template<typename T>
-        // T& Feature()
-        // {
-        //     auto& f = device_features[std::type_index(typeid(T))];
-        //     if (!f) {
-        //         f = static_cast<VkBaseInStructure*>(std::malloc(sizeof(T)));
-        //         new(f) T{};
-        //         f->sType = vkh::GetStructureType<T>();
-        //         f->pNext = next;
-        //         next = f;
-        //     }
-        //
-        //     {
-        //         auto& factory = device_feature_factories[std::type_index(typeid(T))];
-        //         if (!factory.name) {
-        //             factory.structure_type = vkh::GetStructureType<T>();
-        //             factory.size = sizeof(T);
-        //             factory.name = typeid(T).name();
-        //         }
-        //     }
-        //
-        //     return *(T*)f;
-        // }
-
-        void AddFeatureSet(const VulkanFeatureSet& set)
+        [[nodiscard]] bool IsSupported(const char* extension) const
         {
-            for (auto& ext : set.extensions) {
-                extensions.emplace(ext);
+            NOVA_STACK_POINT();
+
+            u32 count = 0;
+            ctx->vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+
+            auto* props = NOVA_STACK_ALLOC(VkExtensionProperties, count);
+            vkh::Check(ctx->vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, props));
+
+            for (u32 i = 0; i < count; ++i) {
+                if (strcmp(extension, props[i].extensionName) == 0) {
+                    return true;
+                }
             }
 
-            for (const auto& [requested_features, id, size, count] : set.features) {
-                auto*& target_features = device_features[std::type_index(*id)];
-                if (!target_features) {
-                    target_features = static_cast<VulkanFeatureStructBase*>(std::malloc(size));
-                    std::memcpy(target_features, requested_features, size);
-                    target_features->sType = requested_features->sType;
-                    target_features->pNext = next;
-                    next = target_features;
-                }
+            return false;
+        }
 
-                // Add requested features
-                for (usz i = 0; i < count; ++i) {
-                    target_features->features[i] |= requested_features->features[i];
+        bool Add(const char* extension)
+        {
+            if (IsSupported(extension)) {
+                if (!std::ranges::any_of(extensions, [&](auto&& ext) { return strcmp(extension, ext) == 0; })) {
+                    extensions.emplace_back(extension);
                 }
+                if (trace) {
+                    NOVA_LOG("Extension [{}] added", extension);
+                }
+                return true;
+            }
+            if (trace) {
+                NOVA_LOG("Extension [{}] not supported", extension);
+            }
+            return false;
+        }
+
+        void Require(const char* extension)
+        {
+            if (!Add(extension)) {
+                NOVA_THROW("Required extension [{}] not supported", extension);
             }
         }
 
-        const void* Build() const
+        [[nodiscard]] bool IsSupported(const VulkanFeature& feature) const
+        {
+            NOVA_STACK_POINT();
+
+            auto* requested = NOVA_STACK_ALLOC(std::byte, feature.size);
+            std::memset(requested, 0, feature.size);
+            reinterpret_cast<VkBaseInStructure*>(requested)->sType = feature.sType;
+
+            ctx->vkGetPhysicalDeviceFeatures2(gpu, Temp(VkPhysicalDeviceFeatures2 {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                .pNext = requested,
+            }));
+
+            return *reinterpret_cast<VkBool32*>(requested + feature.offset) == VK_TRUE;
+        }
+
+        bool Add(const VulkanFeature& feature)
+        {
+            if (IsSupported(feature)) {
+                auto*& target_features = device_features[feature.sType];
+                if (!target_features) {
+                    target_features = static_cast<VkBaseInStructure*>(std::malloc(feature.size));
+                    std::memset(target_features, 0, feature.size);
+                    target_features->sType = feature.sType;
+                    target_features->pNext = next;
+                    next = target_features;
+                }
+                GetFieldAtByteOffset<VkBool32>(*target_features, feature.offset) = VK_TRUE;
+                if (trace) {
+                    NOVA_LOG("Feature [{}] added", feature.name);
+                }
+                return true;
+            }
+            if (trace) {
+                NOVA_LOG("Feature [{}] not supported", feature.name);
+            }
+            return false;
+        }
+
+        void Require(const VulkanFeature& feature)
+        {
+            if (!Add(feature)) {
+                NOVA_THROW("Required feature [{}] not supported", feature.name);
+            }
+        }
+
+        bool AddAll(Span<FeatureOrExtension> items)
+        {
+            bool all_present = true;
+            for (auto& item : items) {
+                if (!std::visit([this](auto&& item_) {
+                    bool supported = IsSupported(item_);
+                    if (!supported) {
+                        // This will always fail, we're just using it to get the trace logging message
+                        Add(item_);
+                    }
+                    return supported;
+                }, item)) {
+                    all_present = false;
+                }
+            }
+
+            if (all_present) {
+                for (auto& item : items) {
+                    std::visit([this](auto&& item_) { Add(item_); }, item);
+                }
+            }
+
+            return all_present;
+        }
+
+        [[nodiscard]] const void* Build() const
         {
             return next;
         }
@@ -339,86 +313,10 @@ Validation-VUID({}): {}
 
         // Configure features
 
-        VulkanFeatureChain chain;
-
-        {
-            // Swapchains
-
-            VulkanFeatureSet core;
-
-            core.Extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-            // Core Features
-
-            core.Feature<VkPhysicalDeviceFeatures2>().features.imageCubeArray = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.independentBlend = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.multiDrawIndirect = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.drawIndirectFirstInstance = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.fillModeNonSolid = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.wideLines = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.multiViewport = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.samplerAnisotropy = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.fragmentStoresAndAtomics = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.shaderInt64 = true;
-            core.Feature<VkPhysicalDeviceFeatures2>().features.shaderInt16 = true;
-
-            // External memory imports (for DXGI interop)
-
-            core.Extension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
-#ifdef NOVA_PLATFORM_WINDOWS
-            core.Extension("VK_KHR_external_memory_win32");
-#endif
-
-            core.Feature<VkPhysicalDeviceVulkan11Features>().storageBuffer16BitAccess = true;
-            core.Feature<VkPhysicalDeviceVulkan11Features>().storagePushConstant16 = true;
-            core.Feature<VkPhysicalDeviceVulkan11Features>().multiview = true;
-            core.Feature<VkPhysicalDeviceVulkan11Features>().multiviewGeometryShader = true;
-            core.Feature<VkPhysicalDeviceVulkan11Features>().multiviewTessellationShader = true;
-            core.Feature<VkPhysicalDeviceVulkan11Features>().shaderDrawParameters = true;
-
-            // Vulkan 1.2
-
-            core.Feature<VkPhysicalDeviceVulkan12Features>().drawIndirectCount = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().storageBuffer8BitAccess = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().storagePushConstant8 = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().shaderInt8 = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorIndexing = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().shaderSampledImageArrayNonUniformIndexing = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().shaderStorageBufferArrayNonUniformIndexing = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().shaderStorageImageArrayNonUniformIndexing = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().shaderInputAttachmentArrayNonUniformIndexing = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorBindingSampledImageUpdateAfterBind = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorBindingStorageImageUpdateAfterBind = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorBindingUpdateUnusedWhilePending = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorBindingPartiallyBound = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().descriptorBindingVariableDescriptorCount = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().runtimeDescriptorArray = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().samplerFilterMinmax = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().scalarBlockLayout = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().imagelessFramebuffer = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().timelineSemaphore = true;
-            core.Feature<VkPhysicalDeviceVulkan12Features>().bufferDeviceAddress = true;
-
-            // Vulkan 1.3
-
-            core.Feature<VkPhysicalDeviceVulkan13Features>().synchronization2 = true;
-            core.Feature<VkPhysicalDeviceVulkan13Features>().dynamicRendering = true;
-            core.Feature<VkPhysicalDeviceVulkan13Features>().maintenance4 = true;
-
-            // Graphics Pipeline Libraries + Extended Dynamic State
-
-            core.Feature<VkPhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState = true;
-            core.Feature<VkPhysicalDeviceExtendedDynamicState2FeaturesEXT>().extendedDynamicState2 = true;
-            core.Extension(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
-            core.Extension(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
-            core.Feature<VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT>().graphicsPipelineLibrary = true;
-
-            if (!core.IsSupported({impl}, impl->gpu)) {
-                NOVA_THROW("Core functionality not supported on target device");
-            }
-
-            chain.AddFeatureSet(core);
-        }
+        // TODO: Do this per physical device
+        VulkanDeviceConfiguration chain;
+        chain.ctx = { impl };
+        chain.gpu = impl->gpu;
 
         {
             // Check for resizable BAR
@@ -439,7 +337,7 @@ Validation-VUID({}): {}
                 if ((type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
                         && (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
                     max_host_visible_device_memory = std::max(max_host_visible_device_memory, props.memoryHeaps[type.heapIndex].size);
-                }
+                        }
             }
 
             if (max_device_memory == max_host_visible_device_memory) {
@@ -447,17 +345,82 @@ Validation-VUID({}): {}
             }
         }
 
+        // Swapchains
+
+        chain.Require(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+        // Core Features
+
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.imageCubeArray));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.independentBlend));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.multiDrawIndirect));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.drawIndirectFirstInstance));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.fillModeNonSolid));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.wideLines));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.multiViewport));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.samplerAnisotropy));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.fragmentStoresAndAtomics));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt64));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt16));
+
+        // External memory imports (for DXGI interop)
+
+        chain.Add(NOVA_VK_EXTENSION(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME));
+        chain.Add(NOVA_VK_EXTENSION("VK_KHR_external_memory_win32"));
+
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, storagePushConstant16));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, multiview));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, multiviewGeometryShader));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, multiviewTessellationShader));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, shaderDrawParameters));
+
+        // Vulkan 1.2
+
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, drawIndirectCount));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, storageBuffer8BitAccess));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, storagePushConstant8));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderInt8));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderFloat16));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorIndexing));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderSampledImageArrayNonUniformIndexing));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderStorageImageArrayNonUniformIndexing));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderInputAttachmentArrayNonUniformIndexing));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingSampledImageUpdateAfterBind));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingStorageImageUpdateAfterBind));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingUpdateUnusedWhilePending));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, runtimeDescriptorArray));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, samplerFilterMinmax));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, scalarBlockLayout));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, timelineSemaphore));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, bufferDeviceAddress));
+
+        // Vulkan 1.3
+
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, synchronization2));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
+
+        // Graphics Pipeline Libraries + Extended Dynamic State
+
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicStateFeaturesEXT, extendedDynamicState));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicState2FeaturesEXT, extendedDynamicState2));
+        chain.Require(NOVA_VK_EXTENSION(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME));
+        chain.Require(NOVA_VK_EXTENSION(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT, graphicsPipelineLibrary));
+
+        // Image transfer staging (host image copy + resizable BAR)
+
+        impl->transfer_manager.staged_image_copy = true;
         if (impl->resizable_bar) {
-
-            // Host Image Copy
-
-            VulkanFeatureSet image_copy;
-            image_copy.Extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME);
-            image_copy.Feature<VkPhysicalDeviceHostImageCopyFeaturesEXT>().hostImageCopy = true;
-            if (image_copy.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(image_copy);
+            if (chain.AddAll({
+                NOVA_VK_EXTENSION(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME),
+                NOVA_VK_FEATURE(VkPhysicalDeviceHostImageCopyFeaturesEXT, hostImageCopy),
+            })) {
+                impl->transfer_manager.staged_image_copy = false;
             } else {
-                NOVA_LOG("Warn: Resizable BAR enabled, but image host copy not found - falling back to staged image transfers");
+                NOVA_LOG("Resizable BAR enabled, but image host copy not available - falling back to staged image transfers");
             }
         }
 
@@ -471,139 +434,69 @@ Validation-VUID({}): {}
         impl->shaderObjects = true;
 #endif
 
-#if 0
-        // Descriptor Buffers
+        // Descriptor buffers
 
-        {
-            chain.Extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-            auto& f = chain.Feature<VkPhysicalDeviceDescriptorBufferFeaturesEXT>(
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT);
-            f.descriptorBuffer = VK_TRUE;
-            f.descriptorBufferPushDescriptors = VK_TRUE;
-            impl->descriptorBuffers = true;
-        }
-#endif
-
-        {
-            // Fragment Shader Barycentrics
-
-            VulkanFeatureSet fragment_shader_bary;
-            fragment_shader_bary.Extension(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            fragment_shader_bary.Feature<VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR>().fragmentShaderBarycentric = true;
-
-            if (fragment_shader_bary.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(fragment_shader_bary);
-            }
+        if (chain.AddAll({
+            NOVA_VK_EXTENSION(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceDescriptorBufferFeaturesEXT, descriptorBuffer),
+            NOVA_VK_FEATURE(VkPhysicalDeviceDescriptorBufferFeaturesEXT, descriptorBufferPushDescriptors),
+        })) {
+            impl->descriptor_buffers = true;
         }
 
-        {
-            // Fragment Shader Interlock
+        // Fragment Shader barycentrics
 
-            VulkanFeatureSet fragment_shader_interlock;
-            fragment_shader_interlock.Extension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
-            fragment_shader_interlock.Feature<VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT>().fragmentShaderSampleInterlock = true;
-            fragment_shader_interlock.Feature<VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT>().fragmentShaderPixelInterlock = true;
-            fragment_shader_interlock.Feature<VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT>().fragmentShaderShadingRateInterlock = true;
+        chain.AddAll({
+            NOVA_VK_EXTENSION(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR, fragmentShaderBarycentric)
+        });
 
-            if (fragment_shader_interlock.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(fragment_shader_interlock);
-            }
+        // Fragment Shader Interlock
+
+        if (chain.Add(NOVA_VK_EXTENSION(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))) {
+            chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT, fragmentShaderSampleInterlock));
+            chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT, fragmentShaderPixelInterlock));
+            chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT, fragmentShaderShadingRateInterlock));
         }
 
-        if (config.mesh_shading) {
-            // Mesh Shading extensions
+        // Mesh shading
 
-            VulkanFeatureSet set;
-            set.Extension(VK_EXT_MESH_SHADER_EXTENSION_NAME);
-            set.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>().taskShader = true;
-            set.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>().meshShader = true;
-            set.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>().multiviewMeshShader = true;
-            set.Feature<VkPhysicalDeviceMeshShaderFeaturesEXT>().meshShaderQueries = true;
-
-            if (set.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(set);
-            } else {
-                NOVA_THROW("Mesh shading requested, but is not supported on target device");
-            }
+        if (chain.AddAll({
+            NOVA_VK_EXTENSION(VK_EXT_MESH_SHADER_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceMeshShaderFeaturesEXT, taskShader),
+            NOVA_VK_FEATURE(VkPhysicalDeviceMeshShaderFeaturesEXT, meshShader),
+        })) {
+            chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceMeshShaderFeaturesEXT, multiviewMeshShader));
+            chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceMeshShaderFeaturesEXT, meshShaderQueries));
+            impl->mesh_shading = true;
         }
+
+        // Ray Tracing
 
         if (config.ray_tracing) {
+            if (chain.AddAll({
+                NOVA_VK_EXTENSION(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME),
+                NOVA_VK_EXTENSION(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME),
+                NOVA_VK_EXTENSION(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME),
+                NOVA_VK_FEATURE(VkPhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline),
+                NOVA_VK_FEATURE(VkPhysicalDeviceAccelerationStructureFeaturesKHR, accelerationStructure),
+            })) {
+                chain.AddAll({
+                    NOVA_VK_EXTENSION(VK_KHR_RAY_QUERY_EXTENSION_NAME),
+                    NOVA_VK_FEATURE(VkPhysicalDeviceRayQueryFeaturesKHR, rayQuery),
+                });
 
-            // Ray Tracing extensions
+                chain.AddAll({
+                    NOVA_VK_EXTENSION(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME),
+                    NOVA_VK_FEATURE(VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV, rayTracingInvocationReorder),
+                });
 
-            VulkanFeatureSet rt_core;
-
-            rt_core.Extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-            rt_core.Extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-            rt_core.Extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-            rt_core.Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR>().rayTracingPipeline = true;
-            rt_core.Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR>().accelerationStructure = true;
-            if (rt_core.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(rt_core);
+                chain.AddAll({
+                    NOVA_VK_EXTENSION(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME),
+                    NOVA_VK_FEATURE(VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR, rayTracingPositionFetch),
+                });
             } else {
-                NOVA_THROW("Ray tracing requested, but core RT extensions/features not supported on device");
-            }
-
-            VulkanFeatureSet rt_query;
-            rt_query.Extension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-            rt_query.Feature<VkPhysicalDeviceRayQueryFeaturesKHR>().rayQuery = true;
-            if (rt_query.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(rt_query);
-            } else {
-                NOVA_LOG("Warn: RT Query not supported");
-            }
-
-            VulkanFeatureSet rt_reorder;
-            rt_reorder.Extension(VK_NV_RAY_TRACING_INVOCATION_REORDER_EXTENSION_NAME);
-            rt_reorder.Feature<VkPhysicalDeviceRayTracingInvocationReorderFeaturesNV>().rayTracingInvocationReorder = true;
-            if (rt_reorder.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(rt_reorder);
-            } else {
-                NOVA_LOG("Warn: RT Invocation Reorder not supported");
-            }
-
-            VulkanFeatureSet rt_posfetch;
-            rt_posfetch.Extension(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
-            rt_posfetch.Feature<VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR>().rayTracingPositionFetch = true;
-            if (rt_posfetch.IsSupported({impl}, impl->gpu)) {
-                chain.AddFeatureSet(rt_posfetch);
-            } else {
-                NOVA_LOG("Warn: RT Position Fetch not supported");
-            }
-        }
-
-        // TODO: Move this into VulkanFeatureChain
-        auto device_extensions = NOVA_STACK_ALLOC(const char*, chain.extensions.size());
-        {
-            u32 i = 0;
-            for (const auto& ext : chain.extensions) {
-                device_extensions[i++] = ext.c_str();
-            }
-        }
-
-        {
-            std::vector<VkExtensionProperties> props;
-            vkh::Enumerate(props, impl->vkEnumerateDeviceExtensionProperties, impl->gpu, nullptr);
-
-            std::unordered_set<std::string_view> supported;
-            for (auto& prop : props) {
-                supported.insert(prop.extensionName);
-            }
-
-            u32 missing_count = 0;
-            for (auto& ext : chain.extensions) {
-                if (!supported.contains(ext)) {
-                    missing_count++;
-                    NOVA_LOG("Missing extension: {}", ext);
-                }
-            }
-
-            if (missing_count) {
-                NOVA_LOG("Missing {} extension{}.\nPress Enter to close...",
-                    missing_count, missing_count > 1 ? "s" : "");
-                // Log to file to avoid needing this?
-                std::getline(std::cin, *Temp(std::string{}));
-                NOVA_THROW("Missing {} extensions.", missing_count);
+                NOVA_THROW("Ray tracing requested, but core ray tracing functionality not available");
             }
         }
 
@@ -674,7 +567,7 @@ Validation-VUID({}): {}
                 },
             }.data(),
             .enabledExtensionCount = u32(chain.extensions.size()),
-            .ppEnabledExtensionNames = device_extensions,
+            .ppEnabledExtensionNames = chain.extensions.data(),
         }), impl->alloc, &impl->device));
 
         // Load device functions
@@ -731,9 +624,24 @@ Validation-VUID({}): {}
         // Create descriptor heap
 
         {
-            constexpr u32 NumImageDescriptors = 1024 * 1024;
-            constexpr u32 NumSamplerDescriptors = 4096;
-            impl->global_heap.Init(impl, NumImageDescriptors, NumSamplerDescriptors);
+            constexpr u32 MaxNumImageDescriptors   = 1024 * 1024;
+            constexpr u32 MaxNumSamplerDescriptors = 4096;
+
+            VkPhysicalDeviceProperties2 props = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+            impl->vkGetPhysicalDeviceProperties2(impl->gpu, &props);
+
+            u32 num_image_descriptors = std::min({
+                MaxNumImageDescriptors,
+                props.properties.limits.maxDescriptorSetSampledImages,
+                props.properties.limits.maxDescriptorSetStorageImages
+            });
+
+            u32 num_sampler_descriptors = std::min(MaxNumSamplerDescriptors, props.properties.limits.maxSamplerAllocationCount);
+
+            NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
+            NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
+
+            impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
         }
 
         // Create transfer manager
@@ -751,22 +659,24 @@ Validation-VUID({}): {}
 
         WaitIdle();
 
-        for (auto& queue : impl->graphics_queues)  { delete queue.impl; }
+        for (auto& queue : impl->graphics_queues) { delete queue.impl; }
         for (auto& queue : impl->compute_queues)  { delete queue.impl; }
         for (auto& queue : impl->transfer_queues) { delete queue.impl; }
 
         // Deleted graphics pipeline library stages
-        for (auto&[key, pipeline] : impl->vertex_input_stages)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto&[key, pipeline] : impl->preraster_stages)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto&[key, pipeline] : impl->fragment_shader_stages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto&[key, pipeline] : impl->fragment_output_stages) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto&[key, pipeline] : impl->graphics_pipeline_sets) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto&[key, pipeline] : impl->compute_pipelines)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+
+        for (auto pipeline: impl->vertex_input_stages | std::views::values)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->preraster_stages | std::views::values)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->fragment_output_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->graphics_pipeline_sets | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->compute_pipelines | std::views::values)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
 
         impl->global_heap.Destroy();
         impl->transfer_manager.Destroy();
 
         // Destroy context vk objects
+
         impl->vkDestroyPipelineCache(impl->device, impl->pipeline_cache, impl->alloc);
         vmaDestroyAllocator(impl->vma);
         impl->vkDestroyDevice(impl->device, impl->alloc);
@@ -804,8 +714,8 @@ Validation-VUID({}): {}
             static_cast<usz*>(ptr)[0] = size;
 
             rhi::stats::MemoryAllocated += size;
-            rhi::stats::AllocationCount++;
-            rhi::stats::NewAllocationCount++;
+            ++rhi::stats::AllocationCount;
+            ++rhi::stats::NewAllocationCount;
 
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             NOVA_LOG("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
@@ -827,7 +737,7 @@ Validation-VUID({}): {}
 #endif
 
             rhi::stats::MemoryAllocated -= old_size;
-            rhi::stats::AllocationCount--;
+            --rhi::stats::AllocationCount;
         }
 
         void* ptr = _aligned_offset_realloc(ByteOffsetPointer(orig, -8), size + 8, align, 8);
@@ -835,9 +745,9 @@ Validation-VUID({}): {}
 
         if (ptr) {
             rhi::stats::MemoryAllocated += size;
-            rhi::stats::AllocationCount++;
+            ++rhi::stats::AllocationCount;
             if (ptr != orig) {
-                rhi::stats::NewAllocationCount++;
+                ++rhi::stats::NewAllocationCount;
             }
         }
 
@@ -854,7 +764,7 @@ Validation-VUID({}): {}
 #endif
 
             rhi::stats::MemoryAllocated -= size;
-            rhi::stats::AllocationCount--;
+            --rhi::stats::AllocationCount;
 
             ptr = ByteOffsetPointer(ptr, -8);
         }
@@ -868,8 +778,8 @@ Validation-VUID({}): {}
         NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
 #endif
         rhi::stats::MemoryAllocated += size;
-        rhi::stats::AllocationCount++;
-        rhi::stats::NewAllocationCount++;
+        ++rhi::stats::AllocationCount;
+        ++rhi::stats::NewAllocationCount;
 
     }
 
@@ -879,6 +789,6 @@ Validation-VUID({}): {}
         NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
 #endif
         rhi::stats::MemoryAllocated -= size;
-        rhi::stats::AllocationCount--;
+        --rhi::stats::AllocationCount;
     }
 }

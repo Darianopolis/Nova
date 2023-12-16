@@ -6,6 +6,12 @@ namespace nova
     {
         context = _context;
 
+        // TODO: Also handle transfers for buffers
+        // TODO: Configure transfer size, lazily create?
+        if (!staged_image_copy) {
+            return;
+        }
+
         queue = context.GetQueue(nova::QueueFlags::Transfer, 0);
         fence = nova::Fence::Create(context);
         cmd_pool = nova::CommandPool::Create(context, queue);

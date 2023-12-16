@@ -364,8 +364,6 @@ namespace nova
         bool            trace = false;
         bool         api_dump = false;
         bool      ray_tracing = false;
-        bool     mesh_shading = false;
-        bool    compatibility = false;
     };
 
     struct Context : Handle<Context>

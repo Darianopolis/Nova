@@ -405,6 +405,7 @@ namespace nova
         bool        shader_objects = false;
         bool    descriptor_buffers = false;
         bool         resizable_bar = false;
+        bool          mesh_shading = false;
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,

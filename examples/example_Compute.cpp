@@ -55,7 +55,6 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto context = nova::Context::Create({
         .debug = true,
-        .compatibility = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
