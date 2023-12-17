@@ -130,10 +130,11 @@ namespace nova
 
         // Blend states
 
-        auto attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
+        auto* attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
 
         for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
             auto& attach_state = attach_blend_states[i];
+            attach_state = {};
 
             attach_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                 | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -401,10 +402,11 @@ namespace nova
         if (!pipeline) {
 
             // Blend states
-            auto attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
+            auto* attach_blend_states = NOVA_STACK_ALLOC(VkPipelineColorBlendAttachmentState, rendering_desc.color_formats.size());
 
             for (u32 i = 0; i < rendering_desc.color_formats.size(); ++i) {
                 auto& attach_state = attach_blend_states[i];
+                attach_state = {};
 
                 attach_state.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                     | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;

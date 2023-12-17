@@ -47,11 +47,10 @@ namespace nova
 #define NOVA_FORMAT(fmt_str, ...) \
     fmt::format(fmt_str __VA_OPT__(,) __VA_ARGS__)
 
-#define NOVA_THROW(fmt_str, ...) do {                          \
-    auto msg = NOVA_FORMAT(fmt_str __VA_OPT__(,) __VA_ARGS__); \
-    std::cout << std::stacktrace::current();                   \
-    NOVA_LOG("\nERROR: {}", msg);                              \
-    throw ::nova::Exception(std::move(msg));                   \
+#define NOVA_THROW(fmt_str, ...) do {                                           \
+    auto e = ::nova::Exception(NOVA_FORMAT(fmt_str __VA_OPT__(,) __VA_ARGS__)); \
+    NOVA_LOG("{}\nERROR: {}", e.stack(), e.what());                             \
+    throw std::move(e);                                                         \
 } while (0)
 
 #define NOVA_ASSERT(condition, fmt_str, ...) do { \

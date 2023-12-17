@@ -59,7 +59,8 @@ namespace nova
             auto& stack = detail::GetThreadStack();
             char* begin = reinterpret_cast<char*>(stack.ptr);
             char* end = fmt::vformat_to(begin, fmt.get(), fmt::make_format_args(args...));
-            stack.ptr = nova::AlignUpPower2(reinterpret_cast<std::byte*>(end), 16);
+            *end = '\0';
+            stack.ptr = nova::AlignUpPower2(reinterpret_cast<std::byte*>(end + 1), 16);
             return std::string_view { begin, end };
         }
 

@@ -97,12 +97,12 @@ Validation-VUID({}): {}
                     extensions.emplace_back(extension);
                 }
                 if (trace) {
-                    NOVA_LOG("Extension [{}] added", extension);
+                    NOVA_LOG("Extension added         [{}]", extension);
                 }
                 return true;
             }
             if (trace) {
-                NOVA_LOG("Extension [{}] not supported", extension);
+                NOVA_LOG("Extension not supported [{}]", extension);
             }
             return false;
         }
@@ -143,12 +143,12 @@ Validation-VUID({}): {}
                 }
                 GetFieldAtByteOffset<VkBool32>(*target_features, feature.offset) = VK_TRUE;
                 if (trace) {
-                    NOVA_LOG("Feature [{}] added", feature.name);
+                    NOVA_LOG("Feature   added         [{}] ", feature.name);
                 }
                 return true;
             }
             if (trace) {
-                NOVA_LOG("Feature [{}] not supported", feature.name);
+                NOVA_LOG("Feature   not supported [{}] ", feature.name);
             }
             return false;
         }
@@ -422,10 +422,13 @@ Validation-VUID({}): {}
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
 
-        // Graphics Pipeline Libraries + Extended Dynamic State
+        // Extended Dynamic State
 
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicStateFeaturesEXT, extendedDynamicState));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceExtendedDynamicState2FeaturesEXT, extendedDynamicState2));
+
+        // Graphics Pipeline Libraries
+
         if (chain.AddAll({
             NOVA_VK_EXTENSION(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME),
             NOVA_VK_EXTENSION(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME),
@@ -437,15 +440,11 @@ Validation-VUID({}): {}
         // Image transfer staging (host image copy + resizable BAR)
 
         impl->transfer_manager.staged_image_copy = true;
-        if (impl->resizable_bar) {
-            if (chain.AddAll({
-                NOVA_VK_EXTENSION(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME),
-                NOVA_VK_FEATURE(VkPhysicalDeviceHostImageCopyFeaturesEXT, hostImageCopy),
-            })) {
-                impl->transfer_manager.staged_image_copy = false;
-            } else {
-                NOVA_LOG("Resizable BAR enabled, but image host copy not available - falling back to staged image transfers");
-            }
+        if (impl->resizable_bar && chain.AddAll({
+            NOVA_VK_EXTENSION(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceHostImageCopyFeaturesEXT, hostImageCopy),
+        })) {
+            impl->transfer_manager.staged_image_copy = false;
         }
 
 #if 0
@@ -616,7 +615,7 @@ Validation-VUID({}): {}
         }
 
         if (dedicated_transfer_family) {
-            GenerateQueues(dedicated_transfer_family.value(), 2,
+            GenerateQueues(dedicated_transfer_family.value(), 1,
                 VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
                 impl->transfer_queues);
         }
