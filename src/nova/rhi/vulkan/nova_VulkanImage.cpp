@@ -254,6 +254,9 @@ namespace nova
 
     void Image::Set(Vec3I offset, Vec3U extent, const void* data) const
     {
+        // TODO: Layers
+        // TODO: Mips
+
         if (impl->context->transfer_manager.staged_image_copy) {
             auto& manager = impl->context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };

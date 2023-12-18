@@ -338,12 +338,10 @@ namespace nova
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-    struct RenderingDescription
+    struct ContextProperties
     {
-        Span<Format> color_formats;
-        Format        depth_format = {};
-        Format      stencil_format = {};
-        u32                subpass = 0;
+        u32 max_push_constant_size;
+        u32 max_multiview_count;
     };
 
 // -----------------------------------------------------------------------------
@@ -373,6 +371,7 @@ namespace nova
 
         void WaitIdle() const;
         const ContextConfig& GetConfig() const;
+        const ContextProperties& GetProperties() const;
         Queue GetQueue(QueueFlags, u32 index) const;
     };
 
@@ -413,6 +412,16 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct RenderingInfo
+    {
+        Rect2D region;
+        Span<HImage> color_attachments;
+        HImage depth_attachment = {};
+        HImage stencil_attachment = {};
+        u32 layers = 1;
+        u32 view_mask = 0;
+    };
+
     struct CommandList : Handle<CommandList>
     {
         friend CommandPool;
@@ -425,14 +434,14 @@ namespace nova
         void SetPolygonState(Topology, PolygonMode, f32 line_width) const;
         void SetCullState(CullMode cull_mode, FrontFace front_face) const;
         void SetDepthState(bool test_enable, bool write_enable, CompareOp) const;
-        void SetBlendState(Span<bool> blends) const;
+        void SetBlendState(Span<bool> blends) const; // TODO: Actually customizable blend options!
         void BindShaders(Span<HShader>) const;
 
         void PushConstants(RawByteView data, u64 offset = 0) const;
 
         void Barrier(PipelineStage src, PipelineStage dst) const;
 
-        void BeginRendering(Rect2D region, Span<HImage> color_attachments, HImage depth_attachment = {}, HImage stencil_attachment = {}) const;
+        void BeginRendering(const RenderingInfo& info) const;
         void EndRendering() const;
         void BindIndexBuffer(HBuffer, IndexType, u64 offset = {}) const;
         void ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset = {}) const;

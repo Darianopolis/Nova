@@ -4,17 +4,17 @@
 
 namespace nova
 {
-    void CommandList::BeginRendering(Rect2D region, Span<HImage> color_attachments, HImage depth_attachment, HImage stencil_attachment) const
+    void CommandList::BeginRendering(const RenderingInfo& info) const
     {
         NOVA_STACK_POINT();
 
-        impl->color_attachments_formats.resize(color_attachments.size());
+        impl->color_attachments_formats.resize(info.color_attachments.size());
 
-        auto color_attachment_infos = NOVA_STACK_ALLOC(VkRenderingAttachmentInfo, color_attachments.size());
-        for (u32 i = 0; i < color_attachments.size(); ++i) {
-            auto image = color_attachments[i];
+        auto color_attachment_infos = NOVA_STACK_ALLOC(VkRenderingAttachmentInfo, info.color_attachments.size());
+        for (u32 i = 0; i < info.color_attachments.size(); ++i) {
+            auto image = info.color_attachments[i];
 
-            impl->Transition(color_attachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            impl->Transition(info.color_attachments[i], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
             color_attachment_infos[i] = VkRenderingAttachmentInfo {
@@ -23,67 +23,71 @@ namespace nova
                 .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             };
 
-            impl->color_attachments_formats[i] = color_attachments[i]->format;
+            impl->color_attachments_formats[i] = info.color_attachments[i]->format;
         }
 
-        VkRenderingInfo info {
+        VkRenderingInfo vk_info {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea = { { region.offset.x, region.offset.y }, { region.extent.x, region.extent.y } },
-            .layerCount = 1,
-            .colorAttachmentCount = u32(color_attachments.size()),
+            .renderArea = { { info.region.offset.x, info.region.offset.y }, { info.region.extent.x, info.region.extent.y } },
+            .layerCount = info.layers,
+            .viewMask = info.view_mask,
+            .colorAttachmentCount = u32(info.color_attachments.size()),
             .pColorAttachments = color_attachment_infos,
         };
+
+        impl->layers = info.layers;
+        impl->view_mask = info.view_mask;
 
         VkRenderingAttachmentInfo depth_info = {};
         VkRenderingAttachmentInfo stencil_info = {};
 
-        if (depth_attachment == stencil_attachment) {
-            if (depth_attachment) {
-                impl->Transition(depth_attachment,
+        if (info.depth_attachment == info.stencil_attachment) {
+            if (info.depth_attachment) {
+                impl->Transition(info.depth_attachment,
                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
                 depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                depth_info.imageView = depth_attachment->view;
+                depth_info.imageView = info.depth_attachment->view;
                 depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-                info.pDepthAttachment = &depth_info;
-                info.pStencilAttachment = &depth_info;
+                vk_info.pDepthAttachment = &depth_info;
+                vk_info.pStencilAttachment = &depth_info;
 
-                impl->depth_attachment_format = depth_attachment->format;
-                impl->stencil_attachment_format = stencil_attachment->format;
+                impl->depth_attachment_format = info.depth_attachment->format;
+                impl->stencil_attachment_format = info.stencil_attachment->format;
             }
         } else {
-            if (depth_attachment) {
-                impl->Transition(depth_attachment,
+            if (info.depth_attachment) {
+                impl->Transition(info.depth_attachment,
                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
                 depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                depth_info.imageView = depth_attachment->view;
+                depth_info.imageView = info.depth_attachment->view;
                 depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
-                info.pDepthAttachment = &depth_info;
+                vk_info.pDepthAttachment = &depth_info;
 
-                impl->depth_attachment_format = depth_attachment->format;
+                impl->depth_attachment_format = info.depth_attachment->format;
             }
 
-            if (stencil_attachment) {
-                impl->Transition(stencil_attachment,
+            if (info.stencil_attachment) {
+                impl->Transition(info.stencil_attachment,
                     VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
                 stencil_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                stencil_info.imageView = stencil_attachment->view;
+                stencil_info.imageView = info.stencil_attachment->view;
                 stencil_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
-                info.pStencilAttachment = &stencil_info;
+                vk_info.pStencilAttachment = &stencil_info;
 
-                impl->stencil_attachment_format = stencil_attachment->format;
+                impl->stencil_attachment_format = info.stencil_attachment->format;
             }
         }
 
-        impl->context->vkCmdBeginRendering(impl->buffer, &info);
+        impl->context->vkCmdBeginRendering(impl->buffer, &vk_info);
     }
 
     void CommandList::EndRendering() const
@@ -110,8 +114,8 @@ namespace nova
             }),
             1, nova::Temp(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
-                .baseArrayLayer = 0,
-                .layerCount = 1,
+                .baseArrayLayer = 0, // TODO: Layers
+                .layerCount = 1, // TODO: Layers
             }));
     }
 
@@ -124,8 +128,8 @@ namespace nova
             }),
             1, nova::Temp(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
-                .baseArrayLayer = 0,
-                .layerCount = 1,
+                .baseArrayLayer = 0, // TODO: Layers
+                .layerCount = 1, // TODO: Layers
             }));
     }
 
@@ -138,8 +142,8 @@ namespace nova
             }),
             1, nova::Temp(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
-                .baseArrayLayer = 0,
-                .layerCount = 1,
+                .baseArrayLayer = 0, // TODO: Layers
+                .layerCount = 1, // TODO: Layers
             }));
     }
 

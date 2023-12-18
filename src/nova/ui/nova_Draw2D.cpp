@@ -281,7 +281,10 @@ namespace nova::draw
     void Draw2D::Record(CommandList cmd, Image target)
     {
         cmd.ResetGraphicsState();
-        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
+        cmd.BeginRendering({
+            .region = {{}, Vec2U(target.GetExtent())},
+            .color_attachments = {target}
+        });
         cmd.SetViewports({{{}, Vec2I(target.GetExtent())}}, true);
         cmd.SetBlendState({true});
 

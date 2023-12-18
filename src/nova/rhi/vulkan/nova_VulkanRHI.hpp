@@ -96,6 +96,9 @@ namespace nova
         Format                depth_attachment_format = nova::Format::Undefined;
         Format              stencil_attachment_format = nova::Format::Undefined;
 
+        u32 layers;
+        u32 view_mask;
+
         PolygonMode polygon_mode;
         Topology        topology;
 
@@ -276,7 +279,21 @@ namespace nova
         VkStridedDeviceAddressRegionKHR raycall_region = {};
     };
 
-// -----------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------
+
+    struct GraphicsPipelineKey
+    {
+        std::array<UID, 5>              shaders;
+        Topology                       topology;
+        PolygonMode                   poly_mode;
+        std::array<Format, 8> color_attachments;
+        Format                 depth_attachment;
+        Format               stencil_attachment;
+        u32                           view_mask;
+        std::bitset<8>             blend_states;
+
+        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineKey)
+    };
 
     struct GraphicsPipelineVertexInputStageKey
     {
@@ -289,13 +306,15 @@ namespace nova
     {
         std::array<UID, 4> shaders;
         PolygonMode      poly_mode;
+        u32              view_mask;
 
         NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelinePreRasterizationStageKey)
     };
 
     struct GraphicsPipelineFragmentShaderStageKey
     {
-        UID shader;
+        UID    shader;
+        u32 view_mask;
 
         NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineFragmentShaderStageKey)
     };
@@ -305,27 +324,10 @@ namespace nova
         std::array<Format, 8> color_attachments;
         Format                 depth_attachment;
         Format               stencil_attachment;
-
-        std::bitset<8> blend_states;
+        u32                           view_mask;
+        std::bitset<8>             blend_states;
 
         NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineFragmentOutputStageKey)
-    };
-
-    struct GraphicsPipelineLibrarySetKey
-    {
-        std::array<VkPipeline, 4> stages;
-
-        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineLibrarySetKey)
-    };
-
-    struct GraphicsPipelineKey
-    {
-        GraphicsPipelineVertexInputStageKey vertex_input;
-        std::array<UID, 5>                       shaders;
-        PolygonMode                            poly_mode;
-        GraphicsPipelineFragmentOutputStageKey    output;
-
-        NOVA_MEMORY_EQUALITY_MEMBER(GraphicsPipelineKey)
     };
 
     struct ComputePipelineKey
@@ -336,13 +338,12 @@ namespace nova
     };
 }
 
+NOVA_MEMORY_HASH(nova::GraphicsPipelineKey);
 NOVA_MEMORY_HASH(nova::GraphicsPipelineVertexInputStageKey);
 NOVA_MEMORY_HASH(nova::GraphicsPipelinePreRasterizationStageKey);
 NOVA_MEMORY_HASH(nova::GraphicsPipelineFragmentShaderStageKey);
 NOVA_MEMORY_HASH(nova::GraphicsPipelineFragmentOutputStageKey);
-NOVA_MEMORY_HASH(nova::GraphicsPipelineLibrarySetKey);
 NOVA_MEMORY_HASH(nova::ComputePipelineKey);
-NOVA_MEMORY_HASH(nova::GraphicsPipelineKey);
 
 namespace nova
 {
@@ -411,7 +412,10 @@ namespace nova
         std::vector<Queue> transfer_queues = {};
         std::vector<Queue>  compute_queues = {};
 
-        u32 push_constant_size = 128;
+        ContextProperties properties = {
+            .max_push_constant_size = 128,
+            .max_multiview_count = 6,
+        };
 
 // -----------------------------------------------------------------------------
 //                              Device Properties
@@ -423,8 +427,13 @@ namespace nova
         bool             resizable_bar = false;
         bool              mesh_shading = false;
 
+        VkPhysicalDeviceVulkan11Properties vulkan11_properties  = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES,
+        };
+
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_pipeline_properties = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR,
+            .pNext = &vulkan11_properties,
         };
 
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accel_structure_properties = {
@@ -444,12 +453,11 @@ namespace nova
         std::atomic_uint64_t next_uid = 1;
         UID GetUID() noexcept { return UID(next_uid++); };
 
-        HashMap<GraphicsPipelineKey, VkPipeline>                        monolith_pipelines;
         HashMap<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertex_input_stages;
         HashMap<GraphicsPipelinePreRasterizationStageKey, VkPipeline>     preraster_stages;
         HashMap<GraphicsPipelineFragmentShaderStageKey, VkPipeline> fragment_shader_stages;
         HashMap<GraphicsPipelineFragmentOutputStageKey, VkPipeline> fragment_output_stages;
-        HashMap<GraphicsPipelineLibrarySetKey, VkPipeline>          graphics_pipeline_sets;
+        HashMap<GraphicsPipelineKey, VkPipeline>                    graphics_pipeline_sets;
         HashMap<ComputePipelineKey, VkPipeline>                          compute_pipelines;
         VkPipelineCache pipeline_cache = {};
 

@@ -387,7 +387,10 @@ namespace nova::imgui
 
         // Draw vertices
 
-        cmd.BeginRendering({{}, Vec2U(target.GetExtent())}, {target});
+        cmd.BeginRendering({
+            .region = {{}, Vec2U(target.GetExtent())},
+            .color_attachments = {target}
+        });
 
         Vec2 clip_offset{ data->DisplayPos.x, data->DisplayPos.y };
         Vec2 clip_scale{ data->FramebufferScale.x, data->FramebufferScale.y };

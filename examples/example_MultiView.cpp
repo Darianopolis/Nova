@@ -5,17 +5,17 @@
 
 #include <nova/window/nova_Window.hpp>
 
-NOVA_EXAMPLE(TriangleMinimal, "tri-min")
+NOVA_EXAMPLE(Multiview, "multiview")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app, {
-        .title = "Nova - Triangle Minimal",
+        .title = "Nova - Multiview",
         .size = { 1920, 1080 },
     });
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
         nova::ImageUsage::ColorAttach
@@ -24,6 +24,12 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
     auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
+
+    auto image = nova::Image::Create(context,
+        { 256, 256, 32 },
+        nova::ImageUsage::ColorAttach,
+        nova::Format::RGBA8_UNorm,
+        nova::ImageFlags::Array);
 
     auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         // language=glsl
@@ -49,6 +55,8 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         )glsl"
     });
 
+    NOVA_LOGEXPR(context.GetProperties().max_multiview_count);
+
     while (app.IsRunning()) {
 
         fence.Wait();
@@ -56,17 +64,21 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         cmd_pool.Reset();
         auto cmd = cmd_pool.Begin();
 
+        // cmd.BeginRendering({{}, Vec2U(image.GetExtent())}, {image});
         cmd.BeginRendering({
-            .region = {{}, swapchain.GetExtent()},
-            .color_attachments = {swapchain.GetCurrent()}
+            .region = {{}, Vec2U(image.GetExtent())},
+            .color_attachments = {image},
+            .view_mask = (1u << context.GetProperties().max_multiview_count) - 1u,
         });
-        cmd.ClearColor(0, Vec4(0.3f, 0.2f, 0.1f, 1.f), swapchain.GetExtent());
+        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), Vec2U(image.GetExtent()));
         cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
-        cmd.SetBlendState({true});
+        cmd.SetViewports({{{}, Vec2I(image.GetExtent())}}, true);
+        cmd.SetBlendState({false});
         cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
+
+        cmd.BlitImage(swapchain.GetCurrent(), image, nova::Filter::Nearest);
 
         cmd.Present(swapchain);
         queue.Submit({cmd}, {fence}, {fence});

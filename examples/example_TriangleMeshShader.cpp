@@ -78,7 +78,10 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         cmd_pool.Reset();
         auto cmd = cmd_pool.Begin();
 
-        cmd.BeginRendering({{}, swapchain.GetExtent()}, {swapchain.GetCurrent()});
+        cmd.BeginRendering({
+            .region = {{}, swapchain.GetExtent()},
+            .color_attachments = {swapchain.GetCurrent()}
+        });
         cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);

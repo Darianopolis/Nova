@@ -195,6 +195,14 @@ Validation-VUID({}): {}
     {
         NOVA_STACK_POINT();
 
+        auto context_create_start = std::chrono::steady_clock::now();
+        NOVA_DEFER(&) {
+            if (!exceptions) {
+                auto end = std::chrono::steady_clock::now();
+                NOVA_LOG("Vulkan context created in {}", DurationToString(end - context_create_start));
+            }
+        };
+
         auto impl = new Impl;
         impl->config = config;
 
@@ -646,6 +654,8 @@ Validation-VUID({}): {}
             .pNext = &impl->descriptor_sizes,
         }));
 
+        impl->properties.max_multiview_count = impl->vulkan11_properties.maxMultiviewViewCount;
+
         // Get queues
 
         auto GetQueues = [&](std::vector<nova::Queue>& queues) {
@@ -696,13 +706,13 @@ Validation-VUID({}): {}
                 props.properties.limits.maxDescriptorSetStorageImages
             });
 
-            impl->push_constant_size = std::min(MaxPushConstantSize, props.properties.limits.maxPushConstantsSize);
+            impl->properties.max_push_constant_size = std::min(MaxPushConstantSize, props.properties.limits.maxPushConstantsSize);
 
             u32 num_sampler_descriptors = std::min(MaxNumSamplerDescriptors, props.properties.limits.maxSamplerAllocationCount);
 
             NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
             NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
-            NOVA_LOG("Push constant size: {}", impl->push_constant_size);
+            NOVA_LOG("Push constant size: {}", impl->properties.max_push_constant_size);
 
             impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
         }
@@ -728,7 +738,6 @@ Validation-VUID({}): {}
 
         // Deleted graphics pipeline library stages
 
-        for (auto pipeline: impl->monolith_pipelines | std::views::values)     { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->vertex_input_stages | std::views::values)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->preraster_stages | std::views::values)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
@@ -767,6 +776,12 @@ Validation-VUID({}): {}
     {
         return impl->config;
     }
+
+    const ContextProperties& Context::GetProperties() const
+    {
+        return impl->properties;
+    }
+
 
     void* Vulkan_TrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
     {

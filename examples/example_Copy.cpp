@@ -43,17 +43,6 @@ NOVA_EXAMPLE(Copy, "copy")
         for (u32 j = 0; j < 100; ++j) {
             for (u32 k = 0; k < 4; ++k) {
                 cmd.CopyToBuffer(buffers[k], buffers[(k + 1) % 4], buffers[0].GetSize());
-
-                // vkCmdCopyBufferToImage(cmd->buffer, buffers[k]->buffer, images[k]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkBufferImageCopy {
-                //     .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                //     .imageExtent = {8192u, 8192u, 1u},
-                // }));
-
-                // vkCmdCopyImage(cmd->buffer, images[k]->image, VK_IMAGE_LAYOUT_GENERAL, images[(k + 1) % 4]->image, VK_IMAGE_LAYOUT_GENERAL, 1, nova::Temp(VkImageCopy {
-                //     .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                //     .dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
-                //     .extent = {8192u, 8192u, 1u},
-                // }));
             }
         }
 
