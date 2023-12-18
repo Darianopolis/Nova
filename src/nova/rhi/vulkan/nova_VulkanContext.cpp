@@ -455,15 +455,17 @@ Validation-VUID({}): {}
             impl->transfer_manager.staged_image_copy = false;
         }
 
-#if 0
-        // Shader Objects
+        // Shader objects
 
-        chain.Extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
-        chain.Feature<VkPhysicalDeviceShaderObjectFeaturesEXT>(
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT)
-            .shaderObject = VK_TRUE;
-        impl->shaderObjects = true;
-#endif
+        if (auto allow_shader_objects = std::getenv("NOVA_SHADER_OBJECTS");
+                allow_shader_objects && allow_shader_objects[0] == '1') {
+            if (chain.AddAll({
+                NOVA_VK_EXTENSION(VK_EXT_SHADER_OBJECT_EXTENSION_NAME),
+                NOVA_VK_FEATURE(VkPhysicalDeviceShaderObjectFeaturesEXT, shaderObject),
+            })) {
+                impl->shader_objects = true;
+            }
+        }
 
         // Descriptor buffers
 

@@ -4,8 +4,6 @@
 
 #include <imgui.h>
 
-#include <ImGuizmo.h>
-
 namespace nova::imgui
 {
     namespace
@@ -287,8 +285,6 @@ namespace nova::imgui
         // ImGui_ImplGlfw_NewFrame();
         ImGui_ImplNova_NewFrame(*this);
         ImGui::NewFrame();
-
-        ImGuizmo::BeginFrame();
 
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) {
             ImGuiDockNodeFlags dockspace_flags = 0;

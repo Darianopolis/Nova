@@ -19,7 +19,8 @@ namespace nova
 
         std::vector<Callback> callbacks;
 
-        bool running = true;
+        bool      running = true;
+        bool trace_events = false;
 
         char16_t high_surrogate;
 

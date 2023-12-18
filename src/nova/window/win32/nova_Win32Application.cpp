@@ -47,57 +47,58 @@ namespace nova
     {
         event.app = Application(this);
 
-        switch (event.type)
-        {
-            break;case EventType::Text:
-                {
-                    NOVA_LOG("Application :: Text({})", event.text.text);
-                }
+        if (trace_events) {
+            switch (event.type)
+            {
+                break;case EventType::Text:
+                    {
+                        NOVA_LOG("Application :: Text({})", event.text.text);
+                    }
 
-            break;case EventType::Input:
-                {
-                    auto app = Application(this);
+                break;case EventType::Input:
+                    {
+                        auto app = Application(this);
 
-                    NOVA_LOG("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
-                        event.input.channel.code, event.input.pressed,
-                        app.VirtualKeyToString(app.ToVirtualKey(event.input.channel)));
-                }
+                        NOVA_LOG("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
+                            event.input.channel.code, event.input.pressed,
+                            app.VirtualKeyToString(app.ToVirtualKey(event.input.channel)));
+                    }
 
-            // break;case EventType::MouseMove:
-            //     {
-            //         NOVA_LOG("Application :: MouseMove({}, {})", event.mouse_move.position.x, event.mouse_move.position.y);
-            //     }
+                // break;case EventType::MouseMove:
+                //     {
+                //         NOVA_LOG("Application :: MouseMove({}, {})", event.mouse_move.position.x, event.mouse_move.position.y);
+                //     }
 
-            break;case EventType::MouseScroll:
-                {
-                    NOVA_LOG("Application :: MouseScroll({}, {})", event.scroll.scrolled.x, event.scroll.scrolled.y);
-                }
+                break;case EventType::MouseScroll:
+                    {
+                        NOVA_LOG("Application :: MouseScroll({}, {})", event.scroll.scrolled.x, event.scroll.scrolled.y);
+                    }
 
-            break;case EventType::WindowFocus:
-                {
-                    NOVA_LOG("Application :: WindowFocus(gained = {})", bool(event.focus.gaining));
-                }
+                break;case EventType::WindowFocus:
+                    {
+                        NOVA_LOG("Application :: WindowFocus(gained = {})", bool(event.focus.gaining));
+                    }
 
-            break;case EventType::WindowResized:
-                {
-                    NOVA_LOG("Application :: WindowResized(...)");
-                }
+                break;case EventType::WindowResized:
+                    {
+                        NOVA_LOG("Application :: WindowResized(...)");
+                    }
 
-            break;case EventType::WindowState:
-                {
-                    NOVA_LOG("Application :: WindowState(...)");
-                }
+                break;case EventType::WindowState:
+                    {
+                        NOVA_LOG("Application :: WindowState(...)");
+                    }
 
-            break;case EventType::WindowCloseRequested:
-                {
-                    NOVA_LOG("Application :: WindowCloseRequested(...)");
-                }
+                break;case EventType::WindowCloseRequested:
+                    {
+                        NOVA_LOG("Application :: WindowCloseRequested(...)");
+                    }
 
-            break;case EventType::Shutdown:
-                {
-                    NOVA_LOG("Application :: Shutdown");
-                }
-
+                break;case EventType::Shutdown:
+                    {
+                        NOVA_LOG("Application :: Shutdown");
+                    }
+            }
         }
 
         for (auto& callback : callbacks) {

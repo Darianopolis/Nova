@@ -22,7 +22,6 @@ if Project "nova" then
         "harfbuzz",
 
         "imgui",
-        "imguizmo",
 
         "assimp",
         "fastgltf",
