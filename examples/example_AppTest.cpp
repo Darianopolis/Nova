@@ -8,13 +8,12 @@ NOVA_EXAMPLE(AppTest, "app")
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
 
-    auto window = nova::Window::Create(app, {
+     auto window = nova::Window::Create(app, {
         .title = "Application Test",
         .size = { 1920, 1080 },
     });
 
-    while (app.IsRunning()) {
-        app.WaitEvents();
-        app.PollEvents();
+    while (app.ProcessEvents()) {
+        app.WaitForEvents();
     }
 }

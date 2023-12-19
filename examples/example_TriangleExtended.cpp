@@ -111,7 +111,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     // Draw
 
     NOVA_DEFER(&) { fence.Wait(); };
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
 
@@ -141,7 +141,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 
-        app.WaitEvents();
-        app.PollEvents();
+        app.WaitForEvents();
     }
 }

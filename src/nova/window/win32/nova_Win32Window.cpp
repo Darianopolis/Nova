@@ -34,8 +34,18 @@ namespace nova
         // }
 
         switch (msg) {
+            break;case WM_CLOSE:
+                NOVA_LOG("Window close requested");
+                window->app->Send({
+                    .window = window,
+                    .type = EventType::WindowCloseRequested,
+                });
             break;case WM_DESTROY:
                 NOVA_LOG("Destroying window...");
+                window->app->Send({
+                    .window = window,
+                    .type = EventType::WindowClosing,
+                });
                 return 0;
             break;case WM_NCDESTROY:
                 NOVA_LOG("Window destroyed, freeing handle");
@@ -172,6 +182,7 @@ namespace nova
         NOVA_DEFER(&) { if (exceptions) delete impl; };
 
         impl->app = app;
+        impl->title = info.title;
 
         app->windows.push_back({ impl });
 
@@ -324,8 +335,15 @@ namespace nova
 
     void Window::SetTitle(std::string_view title) const
     {
+        impl->title = title;
+
         NOVA_STACK_POINT();
         ::SetWindowTextW(impl->handle, NOVA_STACK_TO_UTF16(title).data());
+    }
+
+    std::string_view Window::GetTitle() const
+    {
+        return impl->title;
     }
 
     void Win32_UpdateStyles(HWND hwnd, u32 add, u32 remove, u32 add_ext, u32 remove_ext)

@@ -118,8 +118,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
 
     NOVA_DEFER(&) { fence.Wait(); };
 
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
         update();
-        app.PollEvents();
     }
 }

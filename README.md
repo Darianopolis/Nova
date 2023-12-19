@@ -24,7 +24,7 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 
 #### Dynamic drawing API
 - No pipeline management
-- Native pipeline-less support with VK_EXT_shader_object
+- Hash'n'cache supporting any mix of pipelines, pipeline libraries, and shader objects 
 - Sensible comprehensive default state
 - Convenient grouped pipeline state updates
 
@@ -36,17 +36,18 @@ Nova's RHI is a highly experimental take on a Vulkan GPGPU framework, intended a
 
 #### Minimum requirements
 - Vulkan 1.3
-- VK_EXT_graphics_pipeline_library
 
 #### Recommended extensions
 - Full coherent host access to device heap (Resizable BAR or similar)
+- VK_EXT_graphics_pipeline_library
+- VK_EXT_descriptor_buffer
 - VK_EXT_host_image_copy
+- VK_EXT_shader_object
 
 #### Additional supported extensions
-- VK_EXT_descriptor_buffer
-- VK_EXT_shader_object
 - VK_EXT_mesh_shader
 - VK_KHR_fragment_shader_barycentric
+- VK_EXT_fragment_shader_interlock
 - VK_KHR_ray_tracing_pipeline
 - VK_KHR_acceleration_structure
 - VK_KHR_ray_query

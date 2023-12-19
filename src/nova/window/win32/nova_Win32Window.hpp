@@ -48,6 +48,8 @@ namespace nova
 
         HWND handle;
 
+        std::string title;
+
         struct Restore {
             Rect2I rect;
         } restore;

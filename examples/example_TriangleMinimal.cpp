@@ -49,7 +49,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         )glsl"
     });
 
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
 
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
@@ -72,7 +72,6 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 
-        app.WaitEvents();
-        app.PollEvents();
+        app.WaitForEvents();
     }
 }

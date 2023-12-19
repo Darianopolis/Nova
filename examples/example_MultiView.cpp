@@ -57,7 +57,7 @@ NOVA_EXAMPLE(Multiview, "multiview")
 
     NOVA_LOGEXPR(context.GetProperties().max_multiview_count);
 
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
 
         fence.Wait();
         queue.Acquire({swapchain}, {fence});
@@ -84,7 +84,6 @@ NOVA_EXAMPLE(Multiview, "multiview")
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 
-        app.WaitEvents();
-        app.PollEvents();
+        app.WaitForEvents();
     }
 }

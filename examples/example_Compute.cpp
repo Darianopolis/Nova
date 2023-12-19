@@ -252,7 +252,7 @@ NOVA_EXAMPLE(Compute, "compute")
     u64 frame_index = 0;
     u64 frames = 0;
     NOVA_DEFER(&) { fence.Wait(); };
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
 
         // Debug output statistics
         frames++;
@@ -298,10 +298,6 @@ NOVA_EXAMPLE(Compute, "compute")
         cmd.Present(swapchain);
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
-
-        // Wait for window events
-
-        app.PollEvents();
 
         wait_values[fif] = fence.GetPendingValue();
     }

@@ -187,6 +187,7 @@ namespace nova
         WindowState,
 
         WindowCloseRequested,
+        WindowClosing,
 
         Shutdown,
     };
@@ -253,10 +254,8 @@ namespace nova
         // TODO: Consuming events
         void AddCallback(Callback callback) const;
 
-        void WaitEvents() const;
-        void PollEvents() const;
-
-        bool IsRunning() const;
+        void WaitForEvents() const;
+        bool ProcessEvents() const;
 
         VirtualKey ToVirtualKey(InputChannel channel) const;
         std::string_view VirtualKeyToString(VirtualKey key) const;
@@ -290,8 +289,10 @@ namespace nova
         Vec2I GetPosition(WindowPart) const;
         void SetPosition(Vec2I pos, WindowPart) const;
 
-        void SetCursor(Cursor cursor) const;
+        std::string_view GetTitle() const;
         void SetTitle(std::string_view title) const;
+
+        void SetCursor(Cursor cursor) const;
         void SetDecorated(bool state) const;
         // TODO: Chroma key is bad and you should feel bad
         void SetTransparent(bool state, Vec3U chroma_key) const;

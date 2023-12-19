@@ -6,6 +6,9 @@
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
 
+#include <nova/core/win32/nova_Win32Include.hpp>
+#include "dcomp.h"
+
 #include <stb_image.h>
 
 NOVA_EXAMPLE(Draw, "draw")
@@ -117,11 +120,7 @@ NOVA_EXAMPLE(Draw, "draw")
     auto last_frame = std::chrono::steady_clock::now();
 
     NOVA_DEFER(&) { fence.Wait(); };
-    while (app.IsRunning()) {
-        app.PollEvents();
-        if (!app.IsRunning()) {
-            break;
-        }
+    while (app.ProcessEvents()) {
 
 // -----------------------------------------------------------------------------
 
@@ -145,7 +144,7 @@ NOVA_EXAMPLE(Draw, "draw")
         skip_update = false;
 
         if (!redraw) {
-            app.WaitEvents();
+            app.WaitForEvents();
             skip_update = true;
         }
         redraw = false;
@@ -173,6 +172,9 @@ NOVA_EXAMPLE(Draw, "draw")
         auto cmd = command_pool.Begin();
 
         // Update window size, record primary buffer and present
+
+        // TODO: Investigate integratino of this and/or a manual swapchain implementation?
+        // DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
 
         window.SetSize({ im_draw.GetBounds().Width(), im_draw.GetBounds().Height() }, nova::WindowPart::Client);
 

@@ -33,9 +33,11 @@ namespace nova
         delete impl;
     }
 
-    void Application::WaitEvents() const
+    void Application::WaitForEvents() const
     {
-        ::WaitMessage();
+        if (impl->running) {
+            ::WaitMessage();
+        }
     }
 
     void Application::AddCallback(Callback callback) const
@@ -106,28 +108,27 @@ namespace nova
         }
     }
 
-    void Application::PollEvents() const
+    bool Application::ProcessEvents() const
     {
-        MSG msg = {};
-        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            switch (msg.message) {
-                break;case WM_HOTKEY:
-                    NOVA_LOG("hotkey");
-                break;case WM_TIMER:
-                    // NOVA_LOG("timer");
-                break;case WM_QUIT:
-                    NOVA_LOG("quitting");
-                    impl->running = false;
-                    impl->Send({ .type = EventType::Shutdown });
-                break;default:
-                    ::TranslateMessage(&msg);
-                    ::DispatchMessageW(&msg);
+        if (impl->running) {
+            MSG msg = {};
+            while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                switch (msg.message) {
+                    break;case WM_HOTKEY:
+                        NOVA_LOG("hotkey");
+                    break;case WM_TIMER:
+                        // NOVA_LOG("timer");
+                    break;case WM_QUIT:
+                        NOVA_LOG("quitting");
+                        impl->running = false;
+                        impl->Send({ .type = EventType::Shutdown });
+                    break;default:
+                        ::TranslateMessage(&msg);
+                        ::DispatchMessageW(&msg);
+                }
             }
         }
-    }
 
-    bool Application::IsRunning() const
-    {
         return impl->running;
     }
 }

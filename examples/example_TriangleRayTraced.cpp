@@ -250,7 +250,7 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     bool use_ray_query = false;
 
     NOVA_DEFER(&) { fence.Wait(); };
-    while (app.IsRunning()) {
+    while (app.ProcessEvents()) {
 
         // Wait for previous frame and acquire new swapchain image
 
@@ -309,7 +309,6 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
         // Wait for window events
 
-        app.WaitEvents();
-        app.PollEvents();
+        app.WaitForEvents();
     }
 }
