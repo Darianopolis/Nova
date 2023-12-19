@@ -610,6 +610,8 @@ Validation-VUID({}): {}
             });
 
             NOVA_LOG("Creating {} queues with index {}", count, info.family_index);
+
+            impl->queue_families[impl->queue_family_count++] = info.family_index;
         };
 
         if (graphics_family) {

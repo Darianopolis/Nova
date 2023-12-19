@@ -72,10 +72,8 @@ namespace nova
                 .size = impl->size,
                 .usage = vk_usage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
-                .queueFamilyIndexCount = 3,
-                .pQueueFamilyIndices = std::array {
-                    0u, 1u, 2u, // TODO
-                }.data(),
+                .queueFamilyIndexCount = impl->context->queue_family_count,
+                .pQueueFamilyIndices = impl->context->queue_families.data(),
             }),
             Temp(VmaAllocationCreateInfo {
                 .flags = vmaFlags,

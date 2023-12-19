@@ -408,9 +408,11 @@ namespace nova
         DescriptorHeap       global_heap;
         TransferManager transfer_manager;
 
-        std::vector<Queue>  graphics_queues = {};
+        std::vector<Queue> graphics_queues = {};
         std::vector<Queue> transfer_queues = {};
         std::vector<Queue>  compute_queues = {};
+        u32             queue_family_count = 0;
+        std::array<u32, 3>  queue_families;
 
         ContextProperties properties = {
             .max_push_constant_size = 128,

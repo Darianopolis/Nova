@@ -137,10 +137,8 @@ namespace nova
                 .tiling = VK_IMAGE_TILING_OPTIMAL,
                 .usage = vk_usage,
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
-                .queueFamilyIndexCount = 3,
-                .pQueueFamilyIndices = std::array {
-                    0u, 1u, 2u, // TODO
-                }.data(),
+                .queueFamilyIndexCount = context->queue_family_count,
+                .pQueueFamilyIndices = context->queue_families.data(),
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             }),
             Temp(VmaAllocationCreateInfo {
