@@ -105,6 +105,8 @@ namespace nova
         std::bitset<8>  blend_states;
         std::vector<HShader> shaders;
 
+        VkPipeline bound_graphics_pipeline = nullptr;
+
         bool using_shader_objects = false;
         bool graphics_state_dirty = false;
 
@@ -454,6 +456,8 @@ namespace nova
 
         std::atomic_uint64_t next_uid = 1;
         UID GetUID() noexcept { return UID(next_uid++); };
+
+        std::shared_mutex pipeline_cache_mutex;
 
         HashMap<GraphicsPipelineVertexInputStageKey, VkPipeline>       vertex_input_stages;
         HashMap<GraphicsPipelinePreRasterizationStageKey, VkPipeline>     preraster_stages;

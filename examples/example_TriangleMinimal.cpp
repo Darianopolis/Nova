@@ -1,7 +1,9 @@
 #include "main/example_Main.hpp"
 
 #include <nova/core/nova_Guards.hpp>
+#include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <nova/window/nova_Window.hpp>
 
@@ -60,7 +62,7 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
             .region = {{}, swapchain.GetExtent()},
             .color_attachments = {swapchain.GetCurrent()}
         });
-        cmd.ClearColor(0, Vec4(0.3f, 0.2f, 0.1f, 1.f), swapchain.GetExtent());
+        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), swapchain.GetExtent());
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
         cmd.SetBlendState({true});

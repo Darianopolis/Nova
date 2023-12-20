@@ -2,6 +2,7 @@
 
 #include <nova/core/nova_Stack.hpp>
 #include <nova/core/nova_Debug.hpp>
+#include <nova/core/nova_Guards.hpp>
 
 namespace nova
 {
@@ -558,12 +559,17 @@ namespace nova
 
         graphics_state_dirty = false;
 
+        std::scoped_lock lock{ context->pipeline_cache_mutex };
+
         auto key = GetGraphicsPipelineKey({this});
         auto pipeline = context->graphics_pipeline_library
             ? GetGraphicsPipelineLibrarySet({this}, key)
             : GetGraphicsMonolithPipeline({this}, key);
 
-        context->vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        if (pipeline != bound_graphics_pipeline) {
+            context->vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            bound_graphics_pipeline = pipeline;
+        }
     }
 
 // -----------------------------------------------------------------------------
@@ -686,13 +692,10 @@ namespace nova
         queue.push(0);
 
         auto count = u32(blends.size());
-        bool any_blend = std::ranges::any_of(blends, [](auto v) { return v; });
 
         auto components = NOVA_STACK_ALLOC(VkColorComponentFlags, count);
         auto blend_enable_bools = NOVA_STACK_ALLOC(VkBool32, count);
-        auto blend_equations = any_blend
-            ? NOVA_STACK_ALLOC(VkColorBlendEquationEXT, count)
-            : nullptr;
+        auto blend_equations = NOVA_STACK_ALLOC(VkColorBlendEquationEXT, count);
 
         for (u32 i = 0; i < count; ++i) {
             components[i] = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
@@ -708,7 +711,7 @@ namespace nova
                     .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
                     .alphaBlendOp = VK_BLEND_OP_ADD,
                 };
-            } else if (any_blend) {
+            } else {
                 blend_equations[i] = {
                     .srcColorBlendFactor = VK_BLEND_FACTOR_ZERO,
                     .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
@@ -722,9 +725,7 @@ namespace nova
 
         impl->context->vkCmdSetColorBlendEnableEXT(impl->buffer, 0, count, blend_enable_bools);
         impl->context->vkCmdSetColorWriteMaskEXT(impl->buffer, 0, count, components);
-        if (any_blend) {
-            impl->context->vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blend_equations);
-        }
+        impl->context->vkCmdSetColorBlendEquationEXT(impl->buffer, 0, count, blend_equations);
     }
 
     void CommandList::BindShaders(Span<HShader> shaders) const
@@ -768,22 +769,44 @@ namespace nova
             return;
         }
 
+        // Check for any shader changes
+
+        bool any_changed = false;
+
+        if (impl->shaders.size() != shaders.size()) {
+            any_changed = true;
+            impl->shaders.assign(shaders.begin(), shaders.end());
+        } else {
+            for (u32 i = 0; i < shaders.size(); ++i) {
+                if (impl->shaders[i] != shaders[i]) {
+                    any_changed = true;
+                    impl->shaders[i] = shaders[i];
+                }
+            }
+        }
+
+        if (!any_changed) {
+            return;
+        }
+
+        // Shaders changed, bind new shaders
+
         u32 count = u32(shaders.size());
         constexpr u32 MaxExtraSlots = 2;
 
-        auto stage_flags = NOVA_STACK_ALLOC(VkShaderStageFlagBits, count + MaxExtraSlots);
-        auto shader_objects = NOVA_STACK_ALLOC(VkShaderEXT, count + MaxExtraSlots);
+        auto* stage_flags = NOVA_STACK_ALLOC(VkShaderStageFlagBits, count + MaxExtraSlots);
+        auto* shader_objects = NOVA_STACK_ALLOC(VkShaderEXT, count + MaxExtraSlots);
 
         for (u32 i = 0; i < shaders.size(); ++i) {
             stage_flags[i] = VkShaderStageFlagBits(GetVulkanShaderStage(shaders[i]->stage));
             shader_objects[i] = shaders[i]->shader;
 
             if (impl->context->mesh_shading) {
-                if (shaders[i]->stage == nova::ShaderStage::Mesh) {
+                if (shaders[i]->stage == ShaderStage::Mesh) {
                     stage_flags[count] = VK_SHADER_STAGE_VERTEX_BIT;
                     shader_objects[count++] = VK_NULL_HANDLE;
 
-                } else if (shaders[i]->stage == nova::ShaderStage::Vertex) {
+                } else if (shaders[i]->stage == ShaderStage::Vertex) {
                     stage_flags[count] = VK_SHADER_STAGE_MESH_BIT_EXT;
                     shader_objects[count++] = VK_NULL_HANDLE;
 

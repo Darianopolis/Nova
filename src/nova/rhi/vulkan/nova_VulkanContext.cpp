@@ -457,18 +457,16 @@ Validation-VUID({}): {}
 
         // Shader objects
 
-        if (auto allow_shader_objects = std::getenv("NOVA_SHADER_OBJECTS");
-                allow_shader_objects && allow_shader_objects[0] == '1') {
-            if (chain.AddAll({
-                NOVA_VK_EXTENSION(VK_EXT_SHADER_OBJECT_EXTENSION_NAME),
-                NOVA_VK_FEATURE(VkPhysicalDeviceShaderObjectFeaturesEXT, shaderObject),
-            })) {
-                impl->shader_objects = true;
-            }
+        if (chain.AddAll({
+            NOVA_VK_EXTENSION(VK_EXT_SHADER_OBJECT_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceShaderObjectFeaturesEXT, shaderObject),
+        })) {
+            impl->shader_objects = true;
         }
 
         // Descriptor buffers
 
+        // TODO: Fix Validation Layer bug with shader objects + descriptor buffers
         if (chain.AddAll({
             NOVA_VK_EXTENSION(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME),
             NOVA_VK_FEATURE(VkPhysicalDeviceDescriptorBufferFeaturesEXT, descriptorBuffer),

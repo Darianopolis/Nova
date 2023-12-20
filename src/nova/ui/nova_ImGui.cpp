@@ -379,7 +379,7 @@ namespace nova::imgui
         cmd.SetViewports({{{}, Vec2I(target.GetExtent())}});
         cmd.SetBlendState({true});
         cmd.BindShaders({vertex_shader, fragment_shader});
-        cmd.BindIndexBuffer(index_buffer, sizeof(ImDrawIdx) == 2 ? nova::IndexType::U16 : nova::IndexType::U32);
+        cmd.BindIndexBuffer(index_buffer, sizeof(ImDrawIdx) == sizeof(u16) ? nova::IndexType::U16 : nova::IndexType::U32);
 
         // Draw vertices
 

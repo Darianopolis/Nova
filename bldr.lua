@@ -3,7 +3,7 @@ if Project "nova" then
     local win32 = true
 
     local vulkan = true
-    local vkdxgi = true
+    local vkdxgi = false
 
 --------------------------------------------------------------------------------
 

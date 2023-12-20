@@ -51,17 +51,13 @@ namespace nova
         if (!shader->context->shader_objects)
             generate_shader_object = false;
 
-        if (intptr_t(spirv.data()) % 4 != 0) {
-            NOVA_THROW("SPIR-V must be 4 byte aligned!");
-        }
-
         // TODO: remove shader module creation,
         //   store spirv and simply pass to pipelines
 
         vkh::Check(impl->context->vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = spirv.size() * 4,
-            .pCode = reinterpret_cast<const u32*>(spirv.data()),
+            .codeSize = spirv.size() * sizeof(u32),
+            .pCode = spirv.data(),
         }), context->alloc, &shader->handle));
 
         if (generate_shader_object) {
@@ -70,7 +66,7 @@ namespace nova
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
                 .nextStage = next_stages,
                 .codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT,
-                .codeSize = spirv.size() * 4,
+                .codeSize = spirv.size() * sizeof(u32),
                 .pCode = spirv.data(),
                 .pName = shader->entry.c_str(),
                 .setLayoutCount = 1,

@@ -601,10 +601,10 @@ namespace nova
         void Destroy();
 
         void Update(
-            HShader                            raygen_shader,
-            Span<HShader>                    raymiss_shaders,
-            Span<struct HitShaderGroup> rayhit_shader_groups,
-            Span<HShader>                   callable_shaders) const;
+            HShader                     raygen_shader,
+            Span<HShader>             raymiss_shaders,
+            Span<HitShaderGroup> rayhit_shader_groups,
+            Span<HShader>            callable_shaders) const;
 
         u64 GetTableSize(u32 handles) const;
         u64 GetHandleSize() const;

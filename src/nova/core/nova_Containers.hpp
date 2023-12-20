@@ -13,7 +13,8 @@ namespace nova
     template<class T>
     concept IsContiguousContainer = requires(T t)
     {
-        { t.begin() } -> std::random_access_iterator;
+        { t.begin() } -> std::contiguous_iterator;
+        { t.end() }   -> std::contiguous_iterator;
     };
 
     template<typename T>
