@@ -53,6 +53,7 @@ namespace nova
 
         cmd->using_shader_objects = impl->context->shader_objects;
         cmd->bound_graphics_pipeline = nullptr;
+        cmd->shaders.clear();
 
         vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
