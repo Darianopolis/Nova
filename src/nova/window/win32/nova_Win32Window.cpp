@@ -292,7 +292,7 @@ namespace nova
             RECT window_rect;
             ::GetWindowRect(impl->handle, &window_rect);
 
-            POINT client_point;
+            POINT client_point = {};
             ::ClientToScreen(impl->handle, &client_point);
 
             pos.x += window_rect.left - client_point.x;
