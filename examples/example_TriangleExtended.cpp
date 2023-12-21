@@ -70,27 +70,27 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     auto vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         // language=glsl
         R"glsl(
-            #extension GL_EXT_scalar_block_layout  : require
-            #extension GL_EXT_buffer_reference2    : require
-            #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout  : require
+#extension GL_EXT_buffer_reference2    : require
+#extension GL_EXT_nonuniform_qualifier : require
 
-            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex {
-                vec3 position;
-                vec3 color;
-            };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex {
+    vec3 position;
+    vec3 color;
+};
 
-            layout(push_constant, scalar) uniform pc_ {
-                Vertex vertices;
-                vec3     offset;
-            } pc;
+layout(push_constant, scalar) uniform pc_ {
+    Vertex vertices;
+    vec3     offset;
+} pc;
 
-            layout(location = 0) out vec3 color;
+layout(location = 0) out vec3 color;
 
-            void main() {
-                Vertex v = pc.vertices[gl_VertexIndex];
-                color = v.color;
-                gl_Position = vec4(v.position + pc.offset, 1);
-            }
+void main() {
+    Vertex v = pc.vertices[gl_VertexIndex];
+    color = v.color;
+    gl_Position = vec4(v.position + pc.offset, 1);
+}
         )glsl"
     });
     NOVA_DEFER(&) { vertex_shader.Destroy(); };
@@ -98,12 +98,12 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
         // language=glsl
         R"glsl(
-            layout(location = 0) in vec3 in_color;
-            layout(location = 0) out vec4 frag_color;
+layout(location = 0) in vec3 in_color;
+layout(location = 0) out vec4 frag_color;
 
-            void main() {
-                frag_color = vec4(in_color, 1);
-            }
+void main() {
+    frag_color = vec4(in_color, 1);
+}
         )glsl"
     });
     NOVA_DEFER(&) { fragment_shader.Destroy(); };

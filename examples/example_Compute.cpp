@@ -183,27 +183,27 @@ NOVA_EXAMPLE(Compute, "compute")
     auto hlsl_shader = nova::Shader::Create(context, nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {
         // language=hlsl
         R"hlsl(
-            [[vk::binding(0, 0)]] Texture2D               Image2D[];
-            [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
-            [[vk::binding(2, 0)]] SamplerState            Sampler[];
+[[vk::binding(0, 0)]] Texture2D               Image2D[];
+[[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
+[[vk::binding(2, 0)]] SamplerState            Sampler[];
 
-            struct PushConstants {
-                uint          image;
-                uint linear_sampler;
-                uint         target;
-                float2         size;
-            };
+struct PushConstants {
+    uint          image;
+    uint linear_sampler;
+    uint         target;
+    float2         size;
+};
 
-            [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
 
-            [numthreads(16, 16, 1)]
-            void main(uint2 id: SV_DispatchThreadID) {
-                float2 uv = float2(id) / pc.size;
-                float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
-                float4 dest = float4(1, 0, 1, 1);
-                float3 color = lerp(dest.rgb, source.rgb, source.a);
-                RWImage2DF4[pc.target][id] = float4(color, 1);
-            }
+[numthreads(16, 16, 1)]
+void main(uint2 id: SV_DispatchThreadID) {
+    float2 uv = float2(id) / pc.size;
+    float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+    float4 dest = float4(1, 0, 1, 1);
+    float3 color = lerp(dest.rgb, source.rgb, source.a);
+    RWImage2DF4[pc.target][id] = float4(color, 1);
+}
         )hlsl"
     });
     NOVA_DEFER(&) { hlsl_shader.Destroy(); };
@@ -211,31 +211,31 @@ NOVA_EXAMPLE(Compute, "compute")
     auto glsl_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
         // language=glsl
         R"glsl(
-            #extension GL_EXT_scalar_block_layout  : require
-            #extension GL_EXT_nonuniform_qualifier : require
-            #extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
-            #extension GL_EXT_shader_image_load_formatted  : require
+#extension GL_EXT_scalar_block_layout  : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+#extension GL_EXT_shader_image_load_formatted  : require
 
-            layout(set = 0, binding = 0) uniform texture2D Image2D[];
-            layout(set = 0, binding = 1) uniform image2D RWImage2D[];
-            layout(set = 0, binding = 2) uniform sampler   Sampler[];
+layout(set = 0, binding = 0) uniform texture2D Image2D[];
+layout(set = 0, binding = 1) uniform image2D RWImage2D[];
+layout(set = 0, binding = 2) uniform sampler   Sampler[];
 
-            layout(push_constant, scalar) uniform PushConstants {
-                uint          image;
-                uint linear_sampler;
-                uint         target;
-                vec2           size;
-            } pc;
+layout(push_constant, scalar) uniform PushConstants {
+    uint          image;
+    uint linear_sampler;
+    uint         target;
+    vec2           size;
+} pc;
 
-            layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-            void main() {
-                ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-                vec2 uv = vec2(pos) / pc.size;
-                vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
-                vec4 dest = vec4(1, 0, 1, 1);
-                vec3 color = mix(dest.rgb, source.rgb, source.a);
-                imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
-            }
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = vec2(pos) / pc.size;
+    vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
+    vec4 dest = vec4(1, 0, 1, 1);
+    vec3 color = mix(dest.rgb, source.rgb, source.a);
+    imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
+}
         )glsl"
     });
     NOVA_DEFER(&) { glsl_shader.Destroy(); };

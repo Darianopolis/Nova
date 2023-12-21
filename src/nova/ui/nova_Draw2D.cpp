@@ -20,32 +20,32 @@ namespace nova::draw
         static
         // language=glsl
         constexpr auto Preamble = R"glsl(
-            #extension GL_EXT_scalar_block_layout  : require
-            #extension GL_EXT_buffer_reference2    : require
-            #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout  : require
+#extension GL_EXT_buffer_reference2    : require
+#extension GL_EXT_nonuniform_qualifier : require
 
-            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImRoundRect {
-                vec4 center_color;
-                vec4 border_color;
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImRoundRect {
+    vec4 center_color;
+    vec4 border_color;
 
-                vec2  center_pos;
-                vec2 half_extent;
+    vec2  center_pos;
+    vec2 half_extent;
 
-                float corner_radius;
-                float  border_width;
+    float corner_radius;
+    float  border_width;
 
-                vec4        tex_tint;
-                uint       tex_index;
-                vec2  tex_center_pos;
-                vec2 tex_half_extent;
-            };
+    vec4        tex_tint;
+    uint       tex_index;
+    vec2  tex_center_pos;
+    vec2 tex_half_extent;
+};
 
-            layout(push_constant, scalar) readonly uniform pc_ {
-                vec2 inv_half_extent;
-                vec2      center_pos;
-                ImRoundRect    rects;
-                uint   sampler_index;
-            } pc;
+layout(push_constant, scalar) readonly uniform pc_ {
+    vec2 inv_half_extent;
+    vec2      center_pos;
+    ImRoundRect    rects;
+    uint   sampler_index;
+} pc;
         )glsl"sv;
     }
 
@@ -62,23 +62,23 @@ namespace nova::draw
                 Preamble,
                 // language=glsl
                 R"glsl(
-                    const vec2[6] deltas = vec2[] (
-                        vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
-                        vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
+const vec2[6] deltas = vec2[] (
+    vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
+    vec2(-1,  1), vec2( 1,  1), vec2( 1, -1));
 
-                    layout(location = 0) out vec2 out_tex;
-                    layout(location = 1) out uint out_instance_id;
+layout(location = 0) out vec2 out_tex;
+layout(location = 1) out uint out_instance_id;
 
-                    void main() {
-                        uint instance_id = gl_VertexIndex / 6;
-                        uint vertex_id = gl_VertexIndex % 6;
+void main() {
+    uint instance_id = gl_VertexIndex / 6;
+    uint vertex_id = gl_VertexIndex % 6;
 
-                        ImRoundRect box = pc.rects[instance_id];
-                        vec2 delta = deltas[vertex_id];
-                        out_tex = delta * box.half_extent;
-                        out_instance_id = instance_id;
-                        gl_Position = vec4(((delta * box.half_extent) + box.center_pos - pc.center_pos) * pc.inv_half_extent, 0, 1);
-                    }
+    ImRoundRect box = pc.rects[instance_id];
+    vec2 delta = deltas[vertex_id];
+    out_tex = delta * box.half_extent;
+    out_instance_id = instance_id;
+    gl_Position = vec4(((delta * box.half_extent) + box.center_pos - pc.center_pos) * pc.inv_half_extent, 0, 1);
+}
                 )glsl"
             });
 
@@ -87,42 +87,42 @@ namespace nova::draw
                 Preamble,
                 // language=glsl
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D Image2D[];
-                    layout(set = 0, binding = 2) uniform sampler Sampler[];
+layout(set = 0, binding = 0) uniform texture2D Image2D[];
+layout(set = 0, binding = 2) uniform sampler Sampler[];
 
-                    layout(location = 0) in vec2 in_tex;
-                    layout(location = 1) in flat uint in_instance_id;
-                    layout(location = 0) out vec4 out_color;
+layout(location = 0) in vec2 in_tex;
+layout(location = 1) in flat uint in_instance_id;
+layout(location = 0) out vec4 out_color;
 
-                    void main() {
-                        ImRoundRect box = pc.rects[in_instance_id];
+void main() {
+    ImRoundRect box = pc.rects[in_instance_id];
 
-                        vec2 abs_pos = abs(in_tex);
-                        vec2 corner_focus = box.half_extent - vec2(box.corner_radius);
+    vec2 abs_pos = abs(in_tex);
+    vec2 corner_focus = box.half_extent - vec2(box.corner_radius);
 
-                        vec4 sampled = box.tex_tint.a > 0
-                            ? box.tex_tint * texture(sampler2D(Image2D[nonuniformEXT(box.tex_index)], Sampler[0]),
-                                (in_tex / box.half_extent) * box.tex_half_extent + box.tex_center_pos)
-                            : vec4(0);
-                        vec4 center_color = vec4(
-                            sampled.rgb * sampled.a + box.center_color.rgb * (1 - sampled.a),
-                            sampled.a + box.center_color.a * (1 - sampled.a));
+    vec4 sampled = box.tex_tint.a > 0
+        ? box.tex_tint * texture(sampler2D(Image2D[nonuniformEXT(box.tex_index)], Sampler[0]),
+            (in_tex / box.half_extent) * box.tex_half_extent + box.tex_center_pos)
+        : vec4(0);
+    vec4 center_color = vec4(
+        sampled.rgb * sampled.a + box.center_color.rgb * (1 - sampled.a),
+        sampled.a + box.center_color.a * (1 - sampled.a));
 
-                        if (abs_pos.x > corner_focus.x && abs_pos.y > corner_focus.y) {
-                            float dist = length(abs_pos - corner_focus);
-                            if (dist > box.corner_radius + 0.5) {
-                                discard;
-                            }
+    if (abs_pos.x > corner_focus.x && abs_pos.y > corner_focus.y) {
+        float dist = length(abs_pos - corner_focus);
+        if (dist > box.corner_radius + 0.5) {
+            discard;
+        }
 
-                            out_color = (dist > box.corner_radius - box.border_width + 0.5)
-                                ? vec4(box.border_color.rgb, box.border_color.a * (1 - max(0, dist - (box.corner_radius - 0.5))))
-                                : mix(center_color, box.border_color, max(0, dist - (box.corner_radius - box.border_width - 0.5)));
-                        } else {
-                            out_color = (abs_pos.x > box.half_extent.x - box.border_width || abs_pos.y > box.half_extent.y - box.border_width)
-                                ? box.border_color
-                                : center_color;
-                        }
-                    }
+        out_color = (dist > box.corner_radius - box.border_width + 0.5)
+            ? vec4(box.border_color.rgb, box.border_color.a * (1 - max(0, dist - (box.corner_radius - 0.5))))
+            : mix(center_color, box.border_color, max(0, dist - (box.corner_radius - box.border_width - 0.5)));
+    } else {
+        out_color = (abs_pos.x > box.half_extent.x - box.border_width || abs_pos.y > box.half_extent.y - box.border_width)
+            ? box.border_color
+            : center_color;
+    }
+}
                 )glsl"
             });
 

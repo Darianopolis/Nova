@@ -34,24 +34,24 @@ NOVA_EXAMPLE(Multiview, "multiview")
     auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         // language=glsl
         R"glsl(
-            layout(location = 0) out vec3 color;
-            const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
-            const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-            void main() {
-                color = colors[gl_VertexIndex];
-                gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-            }
+layout(location = 0) out vec3 color;
+const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
+const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
+void main() {
+    color = colors[gl_VertexIndex];
+    gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
+}
         )glsl"
     });
 
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
         // language=glsl
         R"glsl(
-            layout(location = 0) in vec3 in_color;
-            layout(location = 0) out vec4 frag_color;
-            void main() {
-                frag_color = vec4(in_color, 0.1);
-            }
+layout(location = 0) in vec3 in_color;
+layout(location = 0) out vec4 frag_color;
+void main() {
+    frag_color = vec4(in_color, 0.1);
+}
         )glsl"
     });
 

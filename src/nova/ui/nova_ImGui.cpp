@@ -19,22 +19,22 @@ namespace nova::imgui
         static
         // language=glsl
         constexpr auto Preamble = R"glsl(
-            #extension GL_EXT_scalar_block_layout  : require
-            #extension GL_EXT_buffer_reference2    : require
-            #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout  : require
+#extension GL_EXT_buffer_reference2    : require
+#extension GL_EXT_nonuniform_qualifier : require
 
-            layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImDrawVert {
-                vec2 pos;
-                vec2  uv;
-                uint col;
-            };
+layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImDrawVert {
+    vec2 pos;
+    vec2  uv;
+    uint col;
+};
 
-            layout(push_constant, scalar) readonly uniform pc_ {
-                ImDrawVert vertices;
-                vec2          scale;
-                vec2         offset;
-                uvec2       texture;
-            } pc;
+layout(push_constant, scalar) readonly uniform pc_ {
+    ImDrawVert vertices;
+    vec2          scale;
+    vec2         offset;
+    uvec2       texture;
+} pc;
         )glsl"sv;
     }
 
@@ -193,14 +193,14 @@ namespace nova::imgui
                 Preamble,
                 // language=glsl
                 R"glsl(
-                    layout(location = 0) out vec2 out_uv;
-                    layout(location = 1) out vec4 out_color;
-                    void main() {
-                        ImDrawVert v = pc.vertices[gl_VertexIndex];
-                        out_uv = v.uv;
-                        out_color = unpackUnorm4x8(v.col);
-                        gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
-                    }
+layout(location = 0) out vec2 out_uv;
+layout(location = 1) out vec4 out_color;
+void main() {
+    ImDrawVert v = pc.vertices[gl_VertexIndex];
+    out_uv = v.uv;
+    out_color = unpackUnorm4x8(v.col);
+    gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
+}
                 )glsl"
             });
 
@@ -209,15 +209,15 @@ namespace nova::imgui
                 Preamble,
                 // language=glsl
                 R"glsl(
-                    layout(set = 0, binding = 0) uniform texture2D Image2D[];
-                    layout(set = 0, binding = 2) uniform sampler Sampler[];
-                    layout(location = 0) in vec2 in_uv;
-                    layout(location = 1) in vec4 in_color;
-                    layout(location = 0) out vec4 out_color;
-                    void main() {
-                        out_color = texture(sampler2D(Image2D[pc.texture.x], Sampler[pc.texture.y]), in_uv)
-                            * in_color;
-                    }
+layout(set = 0, binding = 0) uniform texture2D Image2D[];
+layout(set = 0, binding = 2) uniform sampler Sampler[];
+layout(location = 0) in vec2 in_uv;
+layout(location = 1) in vec4 in_color;
+layout(location = 0) out vec4 out_color;
+void main() {
+    out_color = texture(sampler2D(Image2D[pc.texture.x], Sampler[pc.texture.y]), in_uv)
+        * in_color;
+}
                 )glsl"
             });
 
