@@ -9,19 +9,19 @@ NOVA_EXAMPLE(Multiview, "multiview")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Multiview",
-        .size = { 1920, 1080 },
-    });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Multiview")
+        .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
+        .Show(true);
 
     auto context = nova::Context::Create({
         .debug = true,
     });
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
@@ -55,7 +55,7 @@ void main() {
         )glsl"
     });
 
-    NOVA_LOGEXPR(context.GetProperties().max_multiview_count);
+    NOVA_LOGEXPR(context.Properties().max_multiview_count);
 
     while (app.ProcessEvents()) {
 
@@ -66,19 +66,19 @@ void main() {
 
         // cmd.BeginRendering({{}, Vec2U(image.GetExtent())}, {image});
         cmd.BeginRendering({
-            .region = {{}, Vec2U(image.GetExtent())},
+            .region = {{}, Vec2U(image.Extent())},
             .color_attachments = {image},
-            .view_mask = (1u << context.GetProperties().max_multiview_count) - 1u,
+            .view_mask = (1u << context.Properties().max_multiview_count) - 1u,
         });
-        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), Vec2U(image.GetExtent()));
+        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), Vec2U(image.Extent()));
         cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(image.GetExtent())}}, true);
+        cmd.SetViewports({{{}, Vec2I(image.Extent())}}, true);
         cmd.SetBlendState({false});
         cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 
-        cmd.BlitImage(swapchain.GetCurrent(), image, nova::Filter::Nearest);
+        cmd.BlitImage(swapchain.Target(), image, nova::Filter::Nearest);
 
         cmd.Present(swapchain);
         queue.Submit({cmd}, {fence}, {fence});

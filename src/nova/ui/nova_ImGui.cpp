@@ -45,7 +45,7 @@ layout(push_constant, scalar) readonly uniform pc_ {
         {
             // Update Display Size
 
-            auto size = layer.window.GetSize(WindowPart::Client);
+            auto size = layer.window.Size(WindowPart::Client);
             io.DisplaySize.x = f32(size.x);
             io.DisplaySize.y = f32(size.y);
         }
@@ -86,7 +86,7 @@ layout(push_constant, scalar) readonly uniform pc_ {
 
     void ImGui_ImplNova_Init(ImGuiLayer& layer)
     {
-        auto app = layer.window.GetApplication();
+        auto app = layer.window.Application();
 
         app.AddCallback([&layer, app](const AppEvent& event) {
 
@@ -96,14 +96,12 @@ layout(push_constant, scalar) readonly uniform pc_ {
 
             auto& io = ImGui::GetIO();
 
-            switch (event.type)
-            {
+            switch (event.type) {
                 break;case EventType::Input:
                     {
                         auto vk = app.ToVirtualKey(event.input.channel);
 
-                        switch (vk)
-                        {
+                        switch (vk) {
                             break;case VirtualKey::Shift:
                                   case VirtualKey::LeftShift:
                                   case VirtualKey::RightShift:
@@ -126,7 +124,6 @@ layout(push_constant, scalar) readonly uniform pc_ {
                         }
 
                         switch (vk) {
-
                             break;case VirtualKey::MousePrimary:   io.AddMouseButtonEvent(ImGuiMouseButton_Left, event.input.pressed);
                             break;case VirtualKey::MouseSecondary: io.AddMouseButtonEvent(ImGuiMouseButton_Right, event.input.pressed);
                             break;case VirtualKey::MouseMiddle:    io.AddMouseButtonEvent(ImGuiMouseButton_Middle, event.input.pressed);
@@ -180,16 +177,16 @@ layout(push_constant, scalar) readonly uniform pc_ {
         : context(config.context)
         , default_sampler(config.sampler)
     {
-        vertex_buffer = nova::Buffer::Create(context, 0,
-            nova::BufferUsage::Storage,
-            nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+        vertex_buffer = Buffer::Create(context, 0,
+            BufferUsage::Storage,
+            BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
-        index_buffer = nova::Buffer::Create(context, 0,
-            nova::BufferUsage::Index,
-            nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+        index_buffer = Buffer::Create(context, 0,
+            BufferUsage::Index,
+            BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
-        vertex_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
+        vertex_shader = Shader::Create(context,
+            ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
                 Preamble,
                 // language=glsl
                 R"glsl(
@@ -204,8 +201,8 @@ void main() {
                 )glsl"
             });
 
-        fragment_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
+        fragment_shader = Shader::Create(context,
+            ShaderLang::Glsl, ShaderStage::Fragment, "main", "", {
                 Preamble,
                 // language=glsl
                 R"glsl(
@@ -249,14 +246,14 @@ void main() {
             int width, height;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-            font_image = nova::Image::Create(context,
+            font_image = Image::Create(context,
                 { u32(width), u32(height), 0u },
-                nova::ImageUsage::Sampled,
-                nova::Format::RGBA8_UNorm, {});
-            io.Fonts->SetTexID(GetTextureID(font_image));
+                ImageUsage::Sampled,
+                Format::RGBA8_UNorm, {});
+            io.Fonts->SetTexID(TextureID(font_image));
 
-            font_image.Set({}, font_image.GetExtent(), pixels);
-            font_image.Transition(nova::ImageLayout::Sampled);
+            font_image.Set({}, font_image.Extent(), pixels);
+            font_image.Transition(ImageLayout::Sampled);
         }
 
         ImGui::SetCurrentContext(last_imgui_ctx);
@@ -363,8 +360,8 @@ void main() {
 
         // Ensure buffer sizes
 
-        if (vertex_buffer.GetSize() < data->TotalVtxCount * sizeof(ImDrawVert)
-                || index_buffer.GetSize() < data->TotalIdxCount * sizeof(ImDrawIdx)) {
+        if (vertex_buffer.Size() < data->TotalVtxCount * sizeof(ImDrawVert)
+                || index_buffer.Size() < data->TotalIdxCount * sizeof(ImDrawIdx)) {
 
             // Flush frames to resize safely (this should only happen a few times in total)
             fence.Wait();
@@ -376,15 +373,15 @@ void main() {
         // Set pipeline state
 
         cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(target.GetExtent())}});
+        cmd.SetViewports({{{}, Vec2I(target.Extent())}});
         cmd.SetBlendState({true});
         cmd.BindShaders({vertex_shader, fragment_shader});
-        cmd.BindIndexBuffer(index_buffer, sizeof(ImDrawIdx) == sizeof(u16) ? nova::IndexType::U16 : nova::IndexType::U32);
+        cmd.BindIndexBuffer(index_buffer, sizeof(ImDrawIdx) == sizeof(u16) ? IndexType::U16 : IndexType::U32);
 
         // Draw vertices
 
         cmd.BeginRendering({
-            .region = {{}, Vec2U(target.GetExtent())},
+            .region = {{}, Vec2U(target.Extent())},
             .color_attachments = {target}
         });
 
@@ -402,15 +399,15 @@ void main() {
                 const auto& im_cmd = list->CmdBuffer[j];
 
                 auto clip_min = glm::max((Vec2(im_cmd.ClipRect.x, im_cmd.ClipRect.y) - clip_offset) * clip_scale, {});
-                auto clip_max = glm::min((Vec2(im_cmd.ClipRect.z, im_cmd.ClipRect.w) - clip_scale), Vec2(target.GetExtent()));
+                auto clip_max = glm::min((Vec2(im_cmd.ClipRect.z, im_cmd.ClipRect.w) - clip_scale), Vec2(target.Extent()));
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
                     continue;
                 }
 
                 cmd.SetScissors({{Vec2I(clip_min), Vec2I(clip_max - clip_min)}});
                 cmd.PushConstants(ImGuiPushConstants {
-                    .vertices = vertex_buffer.GetAddress(),
-                    .scale = 2.f / Vec2(target.GetExtent()),
+                    .vertices = vertex_buffer.DeviceAddress(),
+                    .scale = 2.f / Vec2(target.Extent()),
                     .offset = Vec2(-1.f),
                     .texture = std::bit_cast<Vec2U>(im_cmd.TextureId),
                 });

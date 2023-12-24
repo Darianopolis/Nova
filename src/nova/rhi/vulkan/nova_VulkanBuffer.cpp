@@ -94,19 +94,19 @@ namespace nova
         }
     }
 
-    u64 Buffer::GetSize() const
+    u64 Buffer::Size() const
     {
         return impl->size;
     }
 
-    b8* Buffer::GetMapped() const
+    b8* Buffer::HostAddress() const
     {
         VmaAllocationInfo info;
         vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
         return reinterpret_cast<b8*>(info.pMappedData);
     }
 
-    u64 Buffer::GetAddress() const
+    u64 Buffer::DeviceAddress() const
     {
         return impl->address;
     }

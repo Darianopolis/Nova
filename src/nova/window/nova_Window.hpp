@@ -20,10 +20,10 @@ namespace nova
         Fullscreen,
     };
 
-    struct WindowInfo
+    enum class WindowPart
     {
-        std::string_view title;
-        Vec2U             size = {};
+        Window,
+        Client,
     };
 
 // -----------------------------------------------------------------------------
@@ -167,14 +167,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    enum class WindowPart
-    {
-        Window,
-        Client,
-    };
-
-// -----------------------------------------------------------------------------
-
     enum class EventType
     {
         Text,
@@ -242,7 +234,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    using Callback = std::function<void(const AppEvent&)>;
+    using AppCallback = std::function<void(const AppEvent&)>;
 
     struct Application : Handle<Application>
     {
@@ -252,7 +244,7 @@ namespace nova
         // TODO: Unregister callback
         // TODO: Sort
         // TODO: Consuming events
-        void AddCallback(Callback callback) const;
+        void AddCallback(AppCallback callback) const;
 
         void WaitForEvents() const;
         bool ProcessEvents() const;
@@ -261,41 +253,45 @@ namespace nova
         std::string_view VirtualKeyToString(VirtualKey key) const;
         bool IsVirtualKeyDown(VirtualKey button) const;
 
-        InputChannelState GetInputState(InputChannel) const;
+        InputChannelState InputState(InputChannel) const;
 
         // TODO: Provide enumeration of displays; Get display for point/rect/window
-        Display GetPrimaryDisplay() const;
+        Display PrimaryDisplay() const;
     };
 
     struct Display : Handle<Display>
     {
-        Vec2I GetSize() const;
-        Vec2I GetPosition() const;
+        Vec2I Size() const;
+        Vec2I Position() const;
 
         // TODO: Additional display info
     };
 
     struct Window : Handle<Window>
     {
-        static Window Create(Application, const WindowInfo&);
+        static Window Create(Application);
         void Destroy();
 
-        Application GetApplication() const;
-        void* GetNativeHandle() const;
+        Application Application() const;
+        void* NativeHandle() const;
 
-        Vec2U GetSize(WindowPart) const;
-        void SetSize(Vec2U size, WindowPart) const;
+        Window Show(bool state) const;
 
-        Vec2I GetPosition(WindowPart) const;
-        void SetPosition(Vec2I pos, WindowPart) const;
+        Vec2U Size(WindowPart) const;
+        Window SetSize(Vec2U size, WindowPart) const;
 
-        std::string_view GetTitle() const;
-        void SetTitle(std::string_view title) const;
+        Vec2I Position(WindowPart) const;
+        Window SetPosition(Vec2I pos, WindowPart) const;
 
-        void SetCursor(Cursor cursor) const;
-        void SetDecorated(bool state) const;
+        std::string_view Title() const;
+        Window SetTitle(std::string_view title) const;
+
+        Window SetDarkMode(bool state) const;
+
+        Window SetCursor(Cursor cursor) const;
+        Window SetDecorate(bool state) const;
         // TODO: Chroma key is bad and you should feel bad
-        void SetTransparent(bool state, Vec3U chroma_key) const;
-        void SetFullscreen(bool enabled) const;
+        Window SetTransparent(bool state, Vec3U chroma_key) const;
+        Window SetFullscreen(bool enabled) const;
     };
 }

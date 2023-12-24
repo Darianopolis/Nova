@@ -370,9 +370,9 @@ namespace nova
         void Destroy();
 
         void WaitIdle() const;
-        const ContextConfig& GetConfig() const;
-        const ContextProperties& GetProperties() const;
-        Queue GetQueue(QueueFlags, u32 index) const;
+        const ContextConfig& Config() const;
+        const ContextProperties& Properties() const;
+        Queue Queue(QueueFlags, u32 index) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -396,7 +396,7 @@ namespace nova
         void Wait(u64 wait_value = ~0ull) const;
         u64  Advance() const;
         void Signal(u64 signal_value = ~0ull) const;
-        u64  GetPendingValue() const;
+        u64  PendingValue() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -436,7 +436,6 @@ namespace nova
         void SetDepthState(bool test_enable, bool write_enable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const; // TODO: Actually customizable blend options!
         void BindShaders(Span<HShader>) const;
-
         void PushConstants(RawByteView data, u64 offset = 0) const;
 
         void Barrier(PipelineStage src, PipelineStage dst) const;
@@ -488,9 +487,9 @@ namespace nova
         static Swapchain Create(HContext, void* window, ImageUsage, PresentMode);
         void Destroy();
 
-        Image GetCurrent() const;
-        Vec2U GetExtent() const;
-        Format GetFormat() const;
+        Image Target() const;
+        Vec2U Extent() const;
+        Format Format() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -510,7 +509,7 @@ namespace nova
         static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
 
-        u32 GetDescriptor() const;
+        u32 Descriptor() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -520,14 +519,14 @@ namespace nova
         static Image Create(HContext, Vec3U size, ImageUsage, Format, ImageFlags = {});
         void Destroy();
 
-        Vec3U GetExtent() const;
-        Format GetFormat() const;
+        Vec3U Extent() const;
+        Format Format() const;
 
         // TODO: Handle row pitch, etc..
         void Set(Vec3I offset, Vec3U extent, const void* data) const;
         void Transition(ImageLayout layout) const;
 
-        u32 GetDescriptor() const;
+        u32 Descriptor() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -538,20 +537,20 @@ namespace nova
         void Destroy();
 
         void Resize(u64 size) const;
-        u64 GetSize() const;
-        b8* GetMapped() const;
-        u64 GetAddress() const;
+        u64 Size() const;
+        b8* HostAddress() const;
+        u64 DeviceAddress() const;
 
         template<typename T>
         T& Get(u64 index, u64 offset = 0)
         {
-            return reinterpret_cast<T*>(GetMapped() + offset)[index];
+            return reinterpret_cast<T*>(HostAddress() + offset)[index];
         }
 
         template<typename T>
         void Set(Span<T> elements, u64 index = 0, u64 offset = 0)
         {
-            T* dst = reinterpret_cast<T*>(GetMapped() + offset) + index;
+            T* dst = reinterpret_cast<T*>(HostAddress() + offset) + index;
             std::memcpy(dst, elements.data(), elements.size() * sizeof(T));
         }
     };
@@ -563,24 +562,24 @@ namespace nova
         static AccelerationStructureBuilder Create(HContext);
         void Destroy();
 
-        void SetInstances(u32 geometry_index, u64 device_address, u32 count) const;
-        void SetTriangles(u32 geometry_index,
+        void AddInstances(u32 geometry_index, u64 device_address, u32 count) const;
+        void AddTriangles(u32 geometry_index,
             u64 vertex_address, Format vertex_format, u32 vertex_stride, u32 max_vertex,
             u64 index_address, IndexType index_format, u32 triangle_count) const;
 
         void Prepare(AccelerationStructureType, AccelerationStructureFlags, u32 geometry_count, u32 first_geometry = 0) const;
 
-        u32 GetInstanceSize() const;
-        void WriteInstance(void* buffer_address, u32 index,
+        u32 InstanceSize() const;
+        void WriteInstance(void* buffer_host_address, u32 index,
             HAccelerationStructure,
             const Mat4& transform,
             u32 custom_index, u8 mask,
             u32 sbt_offset, GeometryInstanceFlags flags) const;
 
-        u64 GetBuildSize() const;
-        u64 GetBuildScratchSize() const;
-        u64 GetUpdateScratchSize() const;
-        u64 GetCompactSize() const;
+        u64 BuildSize() const;
+        u64 BuildScratchSize() const;
+        u64 UpdateScratchSize() const;
+        u64 CompactSize() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -590,7 +589,7 @@ namespace nova
         static AccelerationStructure Create(HContext, u64 size, AccelerationStructureType, HBuffer = {}, u64 offset = 0);
         void Destroy();
 
-        u64 GetAddress() const;
+        u64 DeviceAddress() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -606,11 +605,11 @@ namespace nova
             Span<HitShaderGroup> rayhit_shader_groups,
             Span<HShader>            callable_shaders) const;
 
-        u64 GetTableSize(u32 handles) const;
-        u64 GetHandleSize() const;
-        u64 GetHandleStride() const;
-        u64 GetHandleGroupAlign() const;
-        HBuffer GetHandles() const;
-        void WriteHandle(void* buffer_address, u32 index, u32 group_index);
+        u64 TableSize(u32 handles) const;
+        u64 HandleSize() const;
+        u64 HandleStride() const;
+        u64 HandleGroupAlign() const;
+        HBuffer Handles() const;
+        void WriteHandle(void* buffer_host_address, u32 index, u32 group_index);
     };
 }

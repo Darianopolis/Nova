@@ -44,10 +44,10 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Compute",
-        .size = { 800, 800 },
-    });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Compute")
+        .SetSize({ 800, 800 }, nova::WindowPart::Client)
+        .Show(true);
 
 // -----------------------------------------------------------------------------
 //                             Nova Initialization
@@ -60,7 +60,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::Storage
         | nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
@@ -69,7 +69,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     // Create required Nova objects
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto fence = nova::Fence::Create(context);
     auto wait_values = std::array { 0ull, 0ull };
     auto command_pools = std::array {
@@ -165,7 +165,7 @@ NOVA_EXAMPLE(Compute, "compute")
             extent,
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
             format);
-        image.Set({}, image.GetExtent(), data.data());
+        image.Set({}, image.Extent(), data.data());
         image.Transition(nova::ImageLayout::Sampled);
         NOVA_TIMEIT("image-upload");
     }
@@ -269,7 +269,7 @@ void main() {
 
         fence.Wait(wait_values[fif]);
         queue.Acquire({swapchain}, {fence});
-        auto target = swapchain.GetCurrent();
+        auto target = swapchain.Target();
 
         // Start new command buffer
 
@@ -285,13 +285,13 @@ void main() {
         // Dispatch
 
         cmd.PushConstants(PushConstants {
-            .image = image.GetDescriptor(),
-            .sampler = sampler.GetDescriptor(),
-            .target = swapchain.GetCurrent().GetDescriptor(),
-            .size = Vec2(swapchain.GetExtent()),
+            .image = image.Descriptor(),
+            .sampler = sampler.Descriptor(),
+            .target = swapchain.Target().Descriptor(),
+            .size = Vec2(swapchain.Extent()),
         });
         cmd.BindShaders({shaders[frame_index % 2]});
-        cmd.Dispatch(Vec3U((Vec2U(target.GetExtent()) + 15u) / 16u, 1));
+        cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
 
         // Submit and present work
 
@@ -299,6 +299,6 @@ void main() {
         queue.Submit({cmd}, {fence}, {fence});
         queue.Present({swapchain}, {fence});
 
-        wait_values[fif] = fence.GetPendingValue();
+        wait_values[fif] = fence.PendingValue();
     }
 }

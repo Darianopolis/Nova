@@ -199,7 +199,7 @@ namespace nova
         return GetKeyState(code) & 0x8000;
     }
 
-    InputChannelState Application::GetInputState(InputChannel channel) const
+    InputChannelState Application::InputState(InputChannel channel) const
     {
         // TODO: Handle non virtual key categories
 

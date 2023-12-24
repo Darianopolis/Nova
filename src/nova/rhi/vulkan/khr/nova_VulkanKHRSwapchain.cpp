@@ -70,17 +70,17 @@ namespace nova
         impl = nullptr;
     }
 
-    Image Swapchain::GetCurrent() const
+    Image Swapchain::Target() const
     {
         return impl->images[impl->index];
     }
 
-    Vec2U Swapchain::GetExtent() const
+    Vec2U Swapchain::Extent() const
     {
         return { impl->extent.width, impl->extent.height };
     }
 
-    Format Swapchain::GetFormat() const
+    Format Swapchain::Format() const
     {
         return FromVulkanFormat(impl->format.format);
     }
@@ -154,7 +154,7 @@ namespace nova
                         image->context = impl->context;
 
                         image->usage = swapchain->usage;
-                        image->format = swapchain.Unwrap().GetFormat();
+                        image->format = swapchain.Unwrap().Format();
                         image->aspect = VK_IMAGE_ASPECT_COLOR_BIT;
                         image->extent = Vec3(swapchain->extent.width, swapchain->extent.height, 1);
                         image->mips = 1;
@@ -323,7 +323,7 @@ namespace nova
 
     void CommandList::Present(HSwapchain swapchain) const
     {
-        impl->Transition(swapchain.Unwrap().GetCurrent(),
+        impl->Transition(swapchain.Unwrap().Target(),
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
             VK_PIPELINE_STAGE_2_NONE);
     }

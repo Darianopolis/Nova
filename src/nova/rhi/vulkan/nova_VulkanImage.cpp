@@ -56,14 +56,14 @@ namespace nova
         impl = nullptr;
     }
 
-    u32 Sampler::GetDescriptor() const
+    u32 Sampler::Descriptor() const
     {
         return impl->descriptor_index;
     }
 
 // -----------------------------------------------------------------------------
 
-    Image Image::Create(HContext context, Vec3U size, ImageUsage usage, Format format, ImageFlags flags)
+    Image Image::Create(HContext context, Vec3U size, ImageUsage usage, nova::Format format, ImageFlags flags)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -217,7 +217,7 @@ namespace nova
         impl = nullptr;
     }
 
-    u32 Image::GetDescriptor() const
+    u32 Image::Descriptor() const
     {
         if (impl->descriptor_index == UINT_MAX) {
             auto& heap = impl->context->global_heap;
@@ -240,12 +240,12 @@ namespace nova
         return impl->descriptor_index;
     }
 
-    Vec3U Image::GetExtent() const
+    Vec3U Image::Extent() const
     {
         return impl->extent;
     }
 
-    Format Image::GetFormat() const
+    Format Image::Format() const
     {
         return impl->format;
     }
@@ -279,8 +279,6 @@ namespace nova
                 .newLayout = VK_IMAGE_LAYOUT_GENERAL,
                 .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
             }));
-
-            NOVA_LOG("Copying, offset = {}, extent = {}", glm::to_string(offset), glm::to_string(extent));
 
             impl->context->vkCopyMemoryToImageEXT(impl->context->device, Temp(VkCopyMemoryToImageInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,

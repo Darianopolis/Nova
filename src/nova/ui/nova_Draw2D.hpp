@@ -82,8 +82,8 @@ namespace nova::draw
         Draw2D(HContext);
         ~Draw2D();
 
-        Sampler GetDefaultSampler() noexcept;
-        const Bounds2& GetBounds() const noexcept;
+        Sampler DefaultSampler() noexcept;
+        const Bounds2& Bounds() const noexcept;
 
         std::unique_ptr<Font> LoadFont(const char* file, f32 size);
 

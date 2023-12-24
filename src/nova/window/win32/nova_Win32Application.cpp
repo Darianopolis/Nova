@@ -40,7 +40,7 @@ namespace nova
         }
     }
 
-    void Application::AddCallback(Callback callback) const
+    void Application::AddCallback(AppCallback callback) const
     {
         impl->callbacks.emplace_back(std::move(callback));
     }

@@ -7,6 +7,8 @@
 #include <nova/core/win32/nova_Win32Utility.hpp>
 
 #include <windowsx.h>
+#include <dwmapi.h>
+#pragma comment(lib, "Dwmapi.lib")
 
 namespace nova
 {
@@ -176,13 +178,12 @@ namespace nova
         return ::DefWindowProcW(hwnd, msg, wparam, lparam);
     }
 
-    Window Window::Create(Application app, const WindowInfo& info)
+    Window Window::Create(nova::Application app)
     {
         auto impl = new Impl;
         NOVA_DEFER(&) { if (exceptions) delete impl; };
 
         impl->app = app;
-        impl->title = info.title;
 
         app->windows.push_back({ impl });
 
@@ -192,19 +193,13 @@ namespace nova
             DWORD ex_style = WS_EX_APPWINDOW;
             DWORD style = WS_OVERLAPPEDWINDOW;
 
-            int cx = CW_USEDEFAULT, cy = CW_USEDEFAULT;
-            if (info.size.x && info.size.y) {
-                cx = int(info.size.x);
-                cy = int(info.size.y);
-            }
-
             impl->handle = ::CreateWindowExW(
                 ex_style,
                 Win32WndClassName,
-                NOVA_STACK_TO_UTF16(info.title).data(),
+                NOVA_STACK_TO_UTF16(impl->title).data(),
                 style,
                 CW_USEDEFAULT, CW_USEDEFAULT,
-                cx, cy,
+                CW_USEDEFAULT, CW_USEDEFAULT,
                 nullptr, nullptr,
                 app->module,
                 impl);
@@ -215,7 +210,6 @@ namespace nova
                 NOVA_THROW("Error creating window: {:#x}", u32(HRESULT_FROM_WIN32(res)));
             }
 
-            ::ShowWindow(impl->handle, SW_SHOW);
         }
 
         return { impl };
@@ -232,17 +226,24 @@ namespace nova
         impl = nullptr;
     }
 
-    Application Window::GetApplication() const
+    Application Window::Application() const
     {
         return impl->app;
     }
 
-    void* Window::GetNativeHandle() const
+    void* Window::NativeHandle() const
     {
         return impl->handle;
     }
 
-    Vec2U Window::GetSize(WindowPart part) const
+    Window Window::Show(bool state) const
+    {
+        ::ShowWindow(impl->handle, state ? SW_SHOW : SW_HIDE);
+
+        return *this;
+    }
+
+    Vec2U Window::Size(WindowPart part) const
     {
         if (part == WindowPart::Window) {
             RECT rect;
@@ -255,7 +256,7 @@ namespace nova
         }
     }
 
-    void Window::SetSize(Vec2U new_size, WindowPart part) const
+    Window Window::SetSize(Vec2U new_size, WindowPart part) const
     {
         if (part == WindowPart::Client) {
             RECT client;
@@ -271,9 +272,11 @@ namespace nova
         ::SetWindowPos(impl->handle, HWND_NOTOPMOST, 0, 0,
             i32(new_size.x), i32(new_size.y),
             SWP_NOMOVE | SWP_NOOWNERZORDER);
+
+        return *this;
     }
 
-    Vec2I Window::GetPosition(WindowPart part) const
+    Vec2I Window::Position(WindowPart part) const
     {
         if (part == WindowPart::Window) {
             RECT rect;
@@ -286,7 +289,7 @@ namespace nova
         }
     }
 
-    void Window::SetPosition(Vec2I pos, WindowPart part) const
+    Window Window::SetPosition(Vec2I pos, WindowPart part) const
     {
         if (part == WindowPart::Client) {
             RECT window_rect;
@@ -301,9 +304,11 @@ namespace nova
 
         ::SetWindowPos(impl->handle, HWND_NOTOPMOST, pos.x, pos.y, 0, 0,
             SWP_NOSIZE | SWP_NOOWNERZORDER);
+
+        return *this;
     }
 
-    void Window::SetCursor(Cursor cursor) const
+    Window Window::SetCursor(nova::Cursor cursor) const
     {
         // TODO: Track previous cursor, and update when entering/exiting windows
         // TODO: Handle transparency?
@@ -331,20 +336,33 @@ namespace nova
         auto handle = ::LoadCursorW(nullptr, resource);
 
         ::SetCursor(handle);
+
+        return *this;
     }
 
-    void Window::SetTitle(std::string_view title) const
+    Window Window::SetTitle(std::string_view title) const
     {
         impl->title = title;
 
         NOVA_STACK_POINT();
         ::SetWindowTextW(impl->handle, NOVA_STACK_TO_UTF16(title).data());
+
+        return *this;
     }
 
-    std::string_view Window::GetTitle() const
+    std::string_view Window::Title() const
     {
         return impl->title;
     }
+
+    Window Window::SetDarkMode(bool state) const
+    {
+        BOOL use_dark_mode = state;
+        ::DwmSetWindowAttribute(impl->handle, DWMWA_USE_IMMERSIVE_DARK_MODE, &use_dark_mode, sizeof(use_dark_mode));
+
+        return *this;
+    }
+
 
     void Win32_UpdateStyles(HWND hwnd, u32 add, u32 remove, u32 add_ext, u32 remove_ext)
     {
@@ -355,16 +373,18 @@ namespace nova
         ::SetWindowLongPtrW(hwnd, GWL_EXSTYLE, LONG_PTR((old_ext & ~remove_ext) | add_ext));
     }
 
-    void Window::SetDecorated(bool state) const
+    Window Window::SetDecorate(bool state) const
     {
         if (state) {
             Win32_UpdateStyles(impl->handle, WS_OVERLAPPEDWINDOW, 0, 0, 0);
         } else {
             Win32_UpdateStyles(impl->handle, 0, WS_OVERLAPPEDWINDOW, 0, 0);
         }
+
+        return *this;
     }
 
-    void Window::SetTransparent(bool state, Vec3U chroma_key) const
+    Window Window::SetTransparent(bool state, Vec3U chroma_key) const
     {
         if (state) {
             Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT, 0);
@@ -372,9 +392,11 @@ namespace nova
         } else {
             Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
         }
+
+        return *this;
     }
 
-    void Window::SetFullscreen(bool enabled) const
+    Window Window::SetFullscreen(bool enabled) const
     {
         if (enabled) {
             {
@@ -387,18 +409,20 @@ namespace nova
             }
 
             // Pick monitor based on window location
-            auto monitor = impl->app.GetPrimaryDisplay();
+            auto monitor = impl->app.PrimaryDisplay();
 
-            SetDecorated(false);
-            SetPosition(monitor.GetPosition(), WindowPart::Window);
-            SetSize(monitor.GetSize(), WindowPart::Client);
+            SetDecorate(false);
+            SetPosition(monitor.Position(), WindowPart::Window);
+            SetSize(monitor.Size(), WindowPart::Client);
             ::ShowWindow(impl->handle, SW_MAXIMIZE);
 
         } else {
-            SetDecorated(true);
+            SetDecorate(true);
             ::ShowWindow(impl->handle, SW_NORMAL);
             SetPosition(impl->restore.rect.offset, WindowPart::Window);
             SetSize(impl->restore.rect.extent, WindowPart::Window);
         }
+
+        return *this;
     }
 }

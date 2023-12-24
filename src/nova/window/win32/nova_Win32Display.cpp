@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Display Application::GetPrimaryDisplay() const
+    Display Application::PrimaryDisplay() const
     {
         auto display = new Display::Impl;
         display->app = *this;
@@ -12,7 +12,7 @@ namespace nova
         return{ display };
     }
 
-    Vec2I Display::GetSize() const
+    Vec2I Display::Size() const
     {
         MONITORINFO info{};
         info.cbSize = sizeof(info);
@@ -25,7 +25,7 @@ namespace nova
         };
     }
 
-    Vec2I Display::GetPosition() const
+    Vec2I Display::Position() const
     {
         MONITORINFO info{};
         info.cbSize = sizeof(info);

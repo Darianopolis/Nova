@@ -13,10 +13,10 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Triangle Ray Traced",
-        .size = { 1920, 1080 },
-    });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Triangle Ray Traced")
+        .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
+        .Show(true);
 
 // -----------------------------------------------------------------------------
 //                             Nova Initialization
@@ -32,14 +32,14 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::Storage | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
@@ -182,19 +182,19 @@ void main() {
 
         // Configure BLAS build
 
-        builder.SetTriangles(0,
-            vertices.GetAddress(), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
-            indices.GetAddress(), nova::IndexType::U32, 1);
+        builder.AddTriangles(0,
+            vertices.DeviceAddress(), nova::Format::RGB32_SFloat, u32(sizeof(Vec3)), 2,
+            indices.DeviceAddress(), nova::IndexType::U32, 1);
         builder.Prepare(nova::AccelerationStructureType::BottomLevel,
             nova::AccelerationStructureFlags::PreferFastTrace
             | nova::AccelerationStructureFlags::AllowCompaction, 1);
 
         // Create BLAS and scratch buffer
 
-        auto uncompacted_blas = nova::AccelerationStructure::Create(context, builder.GetBuildSize(),
+        auto uncompacted_blas = nova::AccelerationStructure::Create(context, builder.BuildSize(),
             nova::AccelerationStructureType::BottomLevel);
         NOVA_DEFER(&) { uncompacted_blas.Destroy(); };
-        scratch.Resize(builder.GetBuildScratchSize());
+        scratch.Resize(builder.BuildScratchSize());
 
         // Build BLAS
 
@@ -206,7 +206,7 @@ void main() {
         // Compact BLAS
 
         auto blas = nova::AccelerationStructure::Create(context,
-            builder.GetCompactSize(),
+            builder.CompactSize(),
             nova::AccelerationStructureType::BottomLevel);
 
         cmd = cmd_pool.Begin();
@@ -224,24 +224,24 @@ void main() {
 
     // Instance data
 
-    auto instances = nova::Buffer::Create(context, builder.GetInstanceSize(),
+    auto instances = nova::Buffer::Create(context, builder.InstanceSize(),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { instances.Destroy(); };
 
     // Configure TLAS build
 
-    builder.SetInstances(0, instances.GetAddress(), 1);
+    builder.AddInstances(0, instances.DeviceAddress(), 1);
     builder.Prepare(nova::AccelerationStructureType::TopLevel,
         nova::AccelerationStructureFlags::PreferFastTrace, 1);
 
     // Create TLAS and resize scratch buffer
 
     auto tlas = nova::AccelerationStructure::Create(context,
-        builder.GetBuildSize(),
+        builder.BuildSize(),
         nova::AccelerationStructureType::TopLevel);
     NOVA_DEFER(&) { tlas.Destroy(); };
-    scratch.Resize(builder.GetBuildScratchSize());
+    scratch.Resize(builder.BuildScratchSize());
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -264,15 +264,15 @@ void main() {
 
         // Build scene TLAS
 
-        builder.WriteInstance(instances.GetMapped(), 0, blas,
-            glm::scale(Mat4(1), Vec3(swapchain.GetExtent(), 1.f)),
+        builder.WriteInstance(instances.HostAddress(), 0, blas,
+            glm::scale(Mat4(1), Vec3(swapchain.Extent(), 1.f)),
             0, 0xFF, 0, {});
         cmd.BuildAccelerationStructure(builder, tlas, scratch);
 
         // Transition ready for writing ray trace output
 
         cmd.Barrier(nova::PipelineStage::AccelBuild, nova::PipelineStage::RayTracing | nova::PipelineStage::Compute);
-        cmd.Transition(swapchain.GetCurrent(),
+        cmd.Transition(swapchain.Target(),
             nova::ImageLayout::GeneralImage,
             nova::PipelineStage::RayTracing | nova::PipelineStage::Compute);
 
@@ -286,18 +286,18 @@ void main() {
         };
 
         cmd.PushConstants(PushConstants {
-            .tlas = tlas.GetAddress(),
-            .target = swapchain.GetCurrent().GetDescriptor(),
-            .size = swapchain.GetExtent(),
+            .tlas = tlas.DeviceAddress(),
+            .target = swapchain.Target().Descriptor(),
+            .size = swapchain.Extent(),
         });
 
         // Use rt pipeline of ray query from compute
 
         if (use_ray_query) {
             cmd.BindShaders({ ray_query_shader });
-            cmd.Dispatch(Vec3U((swapchain.GetExtent() + Vec2U(15)) / Vec2U(16), 1));
+            cmd.Dispatch(Vec3U((swapchain.Extent() + Vec2U(15)) / Vec2U(16), 1));
         } else {
-            cmd.TraceRays(pipeline, Vec3U(swapchain.GetExtent(), 1));
+            cmd.TraceRays(pipeline, Vec3U(swapchain.Extent(), 1));
         }
         use_ray_query = !use_ray_query;
 

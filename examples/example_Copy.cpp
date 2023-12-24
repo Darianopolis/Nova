@@ -11,7 +11,7 @@ NOVA_EXAMPLE(Copy, "copy")
     auto context = nova::Context::Create({
         .debug = false,
     });
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
@@ -42,7 +42,7 @@ NOVA_EXAMPLE(Copy, "copy")
 
         for (u32 j = 0; j < 100; ++j) {
             for (u32 k = 0; k < 4; ++k) {
-                cmd.CopyToBuffer(buffers[k], buffers[(k + 1) % 4], buffers[0].GetSize());
+                cmd.CopyToBuffer(buffers[k], buffers[(k + 1) % 4], buffers[0].Size());
             }
         }
 
@@ -71,7 +71,7 @@ NOVA_EXAMPLE(Copy, "copy")
         using namespace std::chrono;
         auto start = steady_clock::now();
         for (int i = 0; i < count; ++i) {
-            auto dst = targets[i].GetMapped();
+            auto dst = targets[i].HostAddress();
             auto src = sources[i].data();
             std::memcpy(dst, src, size);
         }

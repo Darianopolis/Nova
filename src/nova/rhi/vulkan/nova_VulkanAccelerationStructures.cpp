@@ -38,7 +38,7 @@ namespace nova
         impl = nullptr;
     }
 
-    void AccelerationStructureBuilder::SetInstances(u32 geometry_index, u64 device_address, u32 count) const
+    void AccelerationStructureBuilder::AddInstances(u32 geometry_index, u64 device_address, u32 count) const
     {
         EnsureGeometries(*this, geometry_index);
 
@@ -57,7 +57,7 @@ namespace nova
         impl->size_dirty = true;
     }
 
-    void AccelerationStructureBuilder::SetTriangles(u32 geometry_index,
+    void AccelerationStructureBuilder::AddTriangles(u32 geometry_index,
         u64 vertex_address, Format vertex_format, u32 vertex_stride, u32 max_vertex,
         u64 index_address, IndexType index_type, u32 triangle_count) const
     {
@@ -93,7 +93,7 @@ namespace nova
         impl->size_dirty = true;
     }
 
-    u32 AccelerationStructureBuilder::GetInstanceSize() const
+    u32 AccelerationStructureBuilder::InstanceSize() const
     {
         return u32(sizeof(VkAccelerationStructureInstanceKHR));
     }
@@ -128,7 +128,7 @@ namespace nova
             .mask = mask,
             .instanceShaderBindingTableRecordOffset = sbt_offset,
             .flags = vk_flags,
-            .accelerationStructureReference = structure.Unwrap().GetAddress(),
+            .accelerationStructureReference = structure.Unwrap().DeviceAddress(),
         };
     }
 
@@ -161,25 +161,25 @@ namespace nova
         builder->size_dirty = false;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildSize() const
+    u64 AccelerationStructureBuilder::BuildSize() const
     {
         EnsureSizes(impl->context, *this);
         return impl->build_size;
     }
 
-    u64 AccelerationStructureBuilder::GetBuildScratchSize() const
+    u64 AccelerationStructureBuilder::BuildScratchSize() const
     {
         EnsureSizes(impl->context, *this);
         return impl->build_scratch_size;
     }
 
-    u64 AccelerationStructureBuilder::GetUpdateScratchSize() const
+    u64 AccelerationStructureBuilder::UpdateScratchSize() const
     {
         EnsureSizes(impl->context, *this);
         return impl->update_scratch_size;
     }
 
-    u64 AccelerationStructureBuilder::GetCompactSize() const
+    u64 AccelerationStructureBuilder::CompactSize() const
     {
         VkDeviceSize size;
         vkh::Check(impl->context->vkGetQueryPoolResults(impl->context->device, impl->query_pool, 0, 1, sizeof(size), &size, sizeof(size), VK_QUERY_RESULT_64_BIT));
@@ -232,7 +232,7 @@ namespace nova
         impl = nullptr;
     }
 
-    u64 AccelerationStructure::GetAddress() const
+    u64 AccelerationStructure::DeviceAddress() const
     {
         return impl->address;
     }

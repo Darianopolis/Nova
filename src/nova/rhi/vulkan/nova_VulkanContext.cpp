@@ -62,13 +62,26 @@ Validation-VUID({}): {}
         Context          ctx;
         VkPhysicalDevice gpu = nullptr;
 
-        bool trace = true;
-
         ~VulkanDeviceConfiguration()
+        {
+            Clear();
+        }
+
+        void Clear()
         {
             for (const auto& feature: device_features | std::views::values) {
                 std::free(feature);
             }
+        }
+
+        void Init(Context _ctx, VkPhysicalDevice _gpu)
+        {
+            Clear();
+            ctx = _ctx;
+            gpu = _gpu;
+            extensions.clear();
+            device_features.clear();
+            next = nullptr;
         }
 
         [[nodiscard]] bool IsSupported(const char* extension) const
@@ -96,12 +109,12 @@ Validation-VUID({}): {}
                 if (!std::ranges::any_of(extensions, [&](auto&& ext) { return strcmp(extension, ext) == 0; })) {
                     extensions.emplace_back(extension);
                 }
-                if (trace) {
+                if (ctx->config.trace) {
                     NOVA_LOG("Extension added         [{}]", extension);
                 }
                 return true;
             }
-            if (trace) {
+            if (ctx->config.trace) {
                 NOVA_LOG("Extension not supported [{}]", extension);
             }
             return false;
@@ -142,12 +155,12 @@ Validation-VUID({}): {}
                     next = target_features;
                 }
                 GetFieldAtByteOffset<VkBool32>(*target_features, feature.offset) = VK_TRUE;
-                if (trace) {
+                if (ctx->config.trace) {
                     NOVA_LOG("Feature   added         [{}] ", feature.name);
                 }
                 return true;
             }
-            if (trace) {
+            if (ctx->config.trace) {
                 NOVA_LOG("Feature   not supported [{}] ", feature.name);
             }
             return false;
@@ -197,7 +210,7 @@ Validation-VUID({}): {}
 
         auto context_create_start = std::chrono::steady_clock::now();
         NOVA_DEFER(&) {
-            if (!exceptions) {
+            if (!exceptions && config.trace) {
                 auto end = std::chrono::steady_clock::now();
                 NOVA_LOG("Vulkan context created in {}", DurationToString(end - context_create_start));
             }
@@ -318,24 +331,32 @@ Validation-VUID({}): {}
                 VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
                 impl->gpu = gpus[index];
                 impl->vkGetPhysicalDeviceProperties2(impl->gpu, &properties);
-                NOVA_LOG("Overriding GPU selection [{}]: {}", index, properties.properties.deviceName);
+                if (config.trace) {
+                    NOVA_LOG("Overriding GPU selection [{}]: {}", index, properties.properties.deviceName);
+                }
             }
         }
 
         if (!impl->gpu) {
-            NOVA_LOG("Automatically selecting GPU");
+            if (config.trace) {
+                NOVA_LOG("Automatically selecting GPU");
+            }
             for (auto& gpu : gpus) {
                 VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
                 impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
                 if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
                     impl->gpu = gpu;
-                    NOVA_LOG("  Found discrete GPU: {}", properties.properties.deviceName);
+                    if (config.trace) {
+                        NOVA_LOG("  Found discrete GPU: {}", properties.properties.deviceName);
+                    }
                     break;
                 }
             }
 
             if (!impl->gpu) {
-                NOVA_LOG("  No discrete GPU found, defaulting to first available GPU");
+                if (config.trace) {
+                    NOVA_LOG("  No discrete GPU found, defaulting to first available GPU");
+                }
                 impl->gpu = gpus.front();
             }
         }
@@ -343,8 +364,7 @@ Validation-VUID({}): {}
         // Configure features
 
         VulkanDeviceConfiguration chain;
-        chain.ctx = { impl };
-        chain.gpu = impl->gpu;
+        chain.Init({impl}, impl->gpu);
 
         {
             // Check for resizable BAR
@@ -607,7 +627,9 @@ Validation-VUID({}): {}
                 .pQueuePriorities = queue_priorities.data(),
             });
 
-            NOVA_LOG("Creating {} queues with index {}", count, info.family_index);
+            if (config.trace) {
+                NOVA_LOG("Creating {} queues with index {}", count, info.family_index);
+            }
 
             impl->queue_families[impl->queue_family_count++] = info.family_index;
         };
@@ -712,9 +734,11 @@ Validation-VUID({}): {}
 
             u32 num_sampler_descriptors = std::min(MaxNumSamplerDescriptors, props.properties.limits.maxSamplerAllocationCount);
 
-            NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
-            NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
-            NOVA_LOG("Push constant size: {}", impl->properties.max_push_constant_size);
+            if (config.trace) {
+                NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
+                NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
+                NOVA_LOG("Push constant size: {}", impl->properties.max_push_constant_size);
+            }
 
             impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
         }
@@ -774,12 +798,12 @@ Validation-VUID({}): {}
         impl->vkDeviceWaitIdle(impl->device);
     }
 
-    const ContextConfig& Context::GetConfig() const
+    const ContextConfig& Context::Config() const
     {
         return impl->config;
     }
 
-    const ContextProperties& Context::GetProperties() const
+    const ContextProperties& Context::Properties() const
     {
         return impl->properties;
     }

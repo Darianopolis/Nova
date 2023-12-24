@@ -110,7 +110,7 @@ namespace nova
         if (context->descriptor_buffers) {
             context->vkCmdBindDescriptorBuffersEXT(cmd->buffer, 1, Temp(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
-                .address = descriptor_buffer.GetAddress(),
+                .address = descriptor_buffer.DeviceAddress(),
                 .usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
                     | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
@@ -141,7 +141,7 @@ namespace nova
                         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     }),
                 }
-            }), sampled_stride, descriptor_buffer.GetMapped() + sampled_offset + sampled_stride * index);
+            }), sampled_stride, descriptor_buffer.HostAddress() + sampled_offset + sampled_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, std::array {
                 VkWriteDescriptorSet {
@@ -172,7 +172,7 @@ namespace nova
                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                     }),
                 }
-            }), storage_stride, descriptor_buffer.GetMapped() + storage_offset + storage_stride * index);
+            }), storage_stride, descriptor_buffer.HostAddress() + storage_offset + storage_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -202,7 +202,7 @@ namespace nova
                 .data{
                     .pSampler = &sampler->sampler,
                 }
-            }), sampler_stride, descriptor_buffer.GetMapped() + sampler_offset + sampler_stride * index);
+            }), sampler_stride, descriptor_buffer.HostAddress() + sampler_offset + sampler_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,

@@ -128,13 +128,15 @@ namespace nova
 
         // Allocate table and get groups from pipeline
 
-        if (table_size > impl->sbt_buffer.GetSize()) {
-            NOVA_LOG("Resizing existing buffer");
+        if (table_size > impl->sbt_buffer.Size()) {
+            if (impl->context->config.trace) {
+                NOVA_LOG("Resizing existing buffer");
+            }
             impl->sbt_buffer.Resize(std::max(256ull, table_size));
         }
 
         auto GetMapped = [&](u64 offset, u32 i) {
-            return impl->sbt_buffer.GetMapped() + offset + (i * handle_stride);
+            return impl->sbt_buffer.HostAddress() + offset + (i * handle_stride);
         };
 
         impl->handles.resize(groups.size() * handle_size);
@@ -148,7 +150,7 @@ namespace nova
 
         // Hit
 
-        impl->rayhit_region.deviceAddress = impl->sbt_buffer.GetAddress();
+        impl->rayhit_region.deviceAddress = impl->sbt_buffer.DeviceAddress();
         impl->rayhit_region.size = raygen_offset;
         impl->rayhit_region.stride = handle_stride;
         for (u32 i = 0; i < ray_hit_shader_group.size(); ++i) {
@@ -157,14 +159,14 @@ namespace nova
 
         // Gen
 
-        impl->raygen_region.deviceAddress = impl->sbt_buffer.GetAddress() + raygen_offset;
+        impl->raygen_region.deviceAddress = impl->sbt_buffer.DeviceAddress() + raygen_offset;
         impl->raygen_region.size = handle_stride;
         impl->raygen_region.stride = handle_stride; // raygen size === stride
         std::memcpy(GetMapped(raygen_offset, 0), GetHandle(raygen_index), handle_size);
 
         // Miss
 
-        impl->raymiss_region.deviceAddress = impl->sbt_buffer.GetAddress() + raymiss_offset;
+        impl->raymiss_region.deviceAddress = impl->sbt_buffer.DeviceAddress() + raymiss_offset;
         impl->raymiss_region.size = raycall_offset - raymiss_offset;
         impl->raymiss_region.stride = handle_stride;
         for (u32 i = 0; i < ray_miss_shaders.size(); ++i) {
@@ -173,7 +175,7 @@ namespace nova
 
         // Call
 
-        impl->raycall_region.deviceAddress = impl->sbt_buffer.GetAddress() + raycall_offset;
+        impl->raycall_region.deviceAddress = impl->sbt_buffer.DeviceAddress() + raycall_offset;
         impl->raycall_region.size = table_size - raycall_offset;
         impl->raycall_region.stride = handle_stride;
         for (u32 i = 0; i < callable_shaders.size(); ++i) {
@@ -181,27 +183,27 @@ namespace nova
         }
     }
 
-    u64 RayTracingPipeline::GetTableSize(u32 handles) const
+    u64 RayTracingPipeline::TableSize(u32 handles) const
     {
         return std::max(256ull, u64(handles) * impl->handle_stride);
     }
 
-    u64 RayTracingPipeline::GetHandleSize() const
+    u64 RayTracingPipeline::HandleSize() const
     {
         return impl->handle_size;
     }
 
-    u64 RayTracingPipeline::GetHandleGroupAlign() const
+    u64 RayTracingPipeline::HandleGroupAlign() const
     {
         return impl->context->ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
     }
 
-    u64 RayTracingPipeline::GetHandleStride() const
+    u64 RayTracingPipeline::HandleStride() const
     {
         return impl->handle_stride;
     }
 
-    HBuffer RayTracingPipeline::GetHandles() const
+    HBuffer RayTracingPipeline::Handles() const
     {
         return impl->sbt_buffer;
     }

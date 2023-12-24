@@ -20,18 +20,18 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
 
     auto app = nova::Application::Create();
     std::array<nova::Window, 2> windows;
-    windows[1] = nova::Window::Create(app, { .title = "Nova - Multi Present #2", .size = { 1920, 1080 } });
-    windows[0] = nova::Window::Create(app, { .title = "Nova - Multi Present #1", .size = { 1920, 1080 } });
+    windows[1] = nova::Window::Create(app).SetTitle("Nova - Multi Present #2").SetSize({ 1920, 1080 }, nova::WindowPart::Client).Show(true);
+    windows[0] = nova::Window::Create(app).SetTitle("Nova - Multi Present #1").SetSize({ 1920, 1080 }, nova::WindowPart::Client).Show(true);
     auto swapchains = std::array {
-        nova::Swapchain::Create(context, windows[0].GetNativeHandle(), swapchain_usage, present_mode),
-        nova::Swapchain::Create(context, windows[1].GetNativeHandle(), swapchain_usage, present_mode),
+        nova::Swapchain::Create(context, windows[0].NativeHandle(), swapchain_usage, present_mode),
+        nova::Swapchain::Create(context, windows[1].NativeHandle(), swapchain_usage, present_mode),
     };
     NOVA_DEFER(&) {
         swapchains[0].Destroy();
         swapchains[1].Destroy();
     };
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto wait_values = std::array { 0ull, 0ull };
     auto fence = nova::Fence::Create(context);
     auto command_pools = std::array {
@@ -93,18 +93,18 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         auto cmd = command_pools[fif].Begin();
 
         // Clear screen
-        cmd.ClearColor(swapchains[0].GetCurrent(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
+        cmd.ClearColor(swapchains[0].Target(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
 
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0].GetCurrent(), fence);
+        imgui.DrawFrame(cmd, swapchains[0].Target(), fence);
 
         // Present #1
         cmd.Present(swapchains[0]);
 
         // Clear and present #2
-        cmd.ClearColor(swapchains[1].GetCurrent(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
+        cmd.ClearColor(swapchains[1].Target(), Vec4(112 / 255.f, 53 / 255.f, 132 / 255.f, 1.f));
         cmd.Present(swapchains[1]);
 
         // Submit work
@@ -113,7 +113,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Present both swapchains
         queue.Present({swapchains[0], swapchains[1]}, {fence});
 
-        wait_values[fif] = fence.GetPendingValue();
+        wait_values[fif] = fence.PendingValue();
     };
 
     NOVA_DEFER(&) { fence.Wait(); };

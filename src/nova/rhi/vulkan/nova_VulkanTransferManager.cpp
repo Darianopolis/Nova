@@ -12,7 +12,7 @@ namespace nova
             return;
         }
 
-        queue = context.GetQueue(nova::QueueFlags::Transfer, 0);
+        queue = context.Queue(nova::QueueFlags::Transfer, 0);
         fence = nova::Fence::Create(context);
         cmd_pool = nova::CommandPool::Create(context, queue);
         staging = nova::Buffer::Create(context, 64ull * 1024 * 1024,

@@ -51,9 +51,9 @@ namespace nova::imgui
         ImGuiLayer(const ImGuiConfig& config);
         ~ImGuiLayer();
 
-        ImTextureID GetTextureID(Image image, Sampler sampler = {})
+        ImTextureID TextureID(Image image, Sampler sampler = {}) const
         {
-            return std::bit_cast<ImTextureID>(Vec2U(image.GetDescriptor(), (sampler ? sampler : default_sampler).GetDescriptor()));
+            return std::bit_cast<ImTextureID>(Vec2U(image.Descriptor(), (sampler ? sampler : default_sampler).Descriptor()));
         }
 
         void BeginFrame(LambdaRef<void()> fn = []{});

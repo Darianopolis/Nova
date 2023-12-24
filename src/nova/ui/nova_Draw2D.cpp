@@ -52,13 +52,13 @@ layout(push_constant, scalar) readonly uniform pc_ {
     Draw2D::Draw2D(HContext _context)
         : context(_context)
     {
-        default_sampler = nova::Sampler::Create(context, Filter::Linear,
+        default_sampler = Sampler::Create(context, Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
 
-        rect_vert_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
+        rect_vert_shader = Shader::Create(context,
+            ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
                 Preamble,
                 // language=glsl
                 R"glsl(
@@ -82,8 +82,8 @@ void main() {
                 )glsl"
             });
 
-        rect_frag_shader = nova::Shader::Create(context,
-            nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
+        rect_frag_shader = Shader::Create(context,
+            ShaderLang::Glsl, ShaderStage::Fragment, "main", "", {
                 Preamble,
                 // language=glsl
                 R"glsl(
@@ -126,7 +126,7 @@ void main() {
                 )glsl"
             });
 
-        rect_buffer = nova::Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
+        rect_buffer = Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
     }
@@ -136,12 +136,12 @@ void main() {
 
 // -----------------------------------------------------------------------------
 
-    Sampler Draw2D::GetDefaultSampler() noexcept
+    Sampler Draw2D::DefaultSampler() noexcept
     {
         return default_sampler;
     }
 
-    const Bounds2& Draw2D::GetBounds() const noexcept
+    const Bounds2& Draw2D::Bounds() const noexcept
     {
         return bounds;
     }
@@ -194,13 +194,13 @@ void main() {
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
             }
 
-            glyph.image = nova::Image::Create(context,
+            glyph.image = Image::Create(context,
                 Vec3(f32(w), f32(h), 0.f),
                 ImageUsage::Sampled,
                 Format::RGBA8_UNorm);
 
-            glyph.image.Set({}, glyph.image.GetExtent(), pixels.data());
-            glyph.image.Transition(nova::ImageLayout::Sampled);
+            glyph.image.Set({}, glyph.image.Extent(), pixels.data());
+            glyph.image.Transition(ImageLayout::Sampled);
         }
 
         FT_Done_Face(face);
@@ -249,7 +249,7 @@ void main() {
                     .center_pos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                     .half_extent = { g.width / 2.f, g.height / 2.f },
                     .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
-                    .tex_idx = g.image.GetDescriptor(),
+                    .tex_idx = g.image.Descriptor(),
                     .tex_center_pos = { 0.5f, 0.5f },
                     .tex_half_extent = { 0.5f, 0.5f },
                 });
@@ -282,16 +282,16 @@ void main() {
     {
         cmd.ResetGraphicsState();
         cmd.BeginRendering({
-            .region = {{}, Vec2U(target.GetExtent())},
+            .region = {{}, Vec2U(target.Extent())},
             .color_attachments = {target}
         });
-        cmd.SetViewports({{{}, Vec2I(target.GetExtent())}}, true);
+        cmd.SetViewports({{{}, Vec2I(target.Extent())}}, true);
         cmd.SetBlendState({true});
 
         cmd.PushConstants(PushConstants {
             .inv_half_extent = 2.f / bounds.Size(),
             .center_pos = bounds.Center(),
-            .rects = rect_buffer.GetAddress(),
+            .rects = rect_buffer.DeviceAddress(),
         });
 
         for (auto& command : draw_commands) {

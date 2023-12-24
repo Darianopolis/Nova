@@ -64,7 +64,7 @@ namespace nova
         }
         if (impl->queue->flags & VK_QUEUE_COMPUTE_BIT) {
             cmd->context->global_heap.Bind(cmd, nova::BindPoint::Compute);
-            if (cmd->context.GetConfig().ray_tracing) {
+            if (cmd->context.Config().ray_tracing) {
                 cmd->context->global_heap.Bind(cmd, nova::BindPoint::RayTracing);
             }
         }

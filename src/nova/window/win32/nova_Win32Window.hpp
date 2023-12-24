@@ -17,7 +17,7 @@ namespace nova
 
         std::vector<Window> windows;
 
-        std::vector<Callback> callbacks;
+        std::vector<AppCallback> callbacks;
 
         bool      running = true;
         bool trace_events = false;

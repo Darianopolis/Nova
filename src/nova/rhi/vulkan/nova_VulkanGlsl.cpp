@@ -38,7 +38,6 @@ namespace nova
                 for (auto& dir : include_dirs) {
                     target = dir / requested;
                     if (std::filesystem::exists(target)) {
-                        NOVA_LOG("  Found!");
                         exists = true;
                         break;
                     }

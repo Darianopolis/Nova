@@ -55,7 +55,7 @@ namespace nova
         })));
     }
 
-    u64 Fence::GetPendingValue() const
+    u64 Fence::PendingValue() const
     {
         return impl->value;
     }

@@ -11,19 +11,19 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Triangle Minimal",
-        .size = { 1920, 1080 },
-    });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Triangle Minimal")
+        .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
+        .Show(true);
 
     auto context = nova::Context::Create({
         .debug = true,
     });
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
 
@@ -59,12 +59,12 @@ void main() {
         auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({
-            .region = {{}, swapchain.GetExtent()},
-            .color_attachments = {swapchain.GetCurrent()}
+            .region = {{}, swapchain.Extent()},
+            .color_attachments = {swapchain.Target()}
         });
-        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), swapchain.GetExtent());
+        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), swapchain.Extent());
         cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
+        cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
         cmd.SetBlendState({true});
         cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);

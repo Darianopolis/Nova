@@ -15,26 +15,25 @@ NOVA_EXAMPLE(Draw, "draw")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Draw",
-        .size = { 1920, 1080 },
-    });
 
-    window.SetDecorated(false);
-    window.SetTransparent(true, { 0, 0, 0 });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Draw")
+        .SetDecorate(false)
+        .SetTransparent(true, { 0, 0, 0 })
+        .Show(true);
 
     auto context = nova::Context::Create({
         .debug = false,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto command_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
@@ -66,7 +65,7 @@ NOVA_EXAMPLE(Draw, "draw")
 // -----------------------------------------------------------------------------
 
     int count;
-    auto size = app.GetPrimaryDisplay().GetSize();
+    auto size = app.PrimaryDisplay().Size();
 
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
@@ -81,7 +80,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 5.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.GetDescriptor(),
+        .tex_idx = image.Descriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 1.f },
     };
@@ -95,7 +94,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.GetDescriptor(),
+        .tex_idx = image.Descriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 0.5f },
     };
@@ -109,7 +108,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.GetDescriptor(),
+        .tex_idx = image.Descriptor(),
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 1.f, 0.5f },
     };
@@ -176,22 +175,21 @@ NOVA_EXAMPLE(Draw, "draw")
         // TODO: Investigate integratino of this and/or a manual swapchain implementation?
         // DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
 
-        window.SetSize({ im_draw.GetBounds().Width(), im_draw.GetBounds().Height() }, nova::WindowPart::Client);
+        window.SetSize({ im_draw.Bounds().Width(), im_draw.Bounds().Height() }, nova::WindowPart::Client);
 
         queue.Acquire({swapchain}, {fence});
 
         Vec3 color = { 0.3f, 0.2f, 0.5f };
         f32 alpha = 0.4f;
-        cmd.ClearColor(swapchain.GetCurrent(), Vec4(color * alpha, alpha));
+        cmd.ClearColor(swapchain.Target(), Vec4(color * alpha, alpha));
 
-        // cmd.ClearColor(swapchain.GetCurrent(), Vec4(0.f));
-        im_draw.Record(cmd, swapchain.GetCurrent());
+        im_draw.Record(cmd, swapchain.Target());
 
         cmd.Present(swapchain);
 
         queue.Submit({cmd}, {fence}, {fence});
         fence.Wait();
-        window.SetPosition({ im_draw.GetBounds().min.x, im_draw.GetBounds().min.y }, nova::WindowPart::Client);
+        window.SetPosition({ im_draw.Bounds().min.x, im_draw.Bounds().min.y }, nova::WindowPart::Client);
         queue.Present({swapchain}, {fence});
     }
 }

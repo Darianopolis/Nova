@@ -4,7 +4,7 @@
 
 namespace nova
 {
-    Queue Context::GetQueue(QueueFlags flags, u32 index) const
+    Queue Context::Queue(QueueFlags flags, u32 index) const
     {
         if (flags >= QueueFlags::Graphics) {
             if (index >= impl->graphics_queues.size()) {

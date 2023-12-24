@@ -21,23 +21,23 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-    auto window = nova::Window::Create(app, {
-        .title = "Nova - Triangle Extended",
-        .size = { 1920, 1080 },
-    });
+    auto window = nova::Window::Create(app)
+        .SetTitle("Nova - Triangle Extended")
+        .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
+        .Show(true);
 
     auto context = nova::Context::Create({
         .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
-    auto swapchain = nova::Swapchain::Create(context, window.GetNativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.GetQueue(nova::QueueFlags::Graphics, 0);
+    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
@@ -119,18 +119,18 @@ void main() {
         auto cmd = cmd_pool.Begin();
 
         cmd.BeginRendering({
-            .region = {{}, swapchain.GetExtent()},
-            .color_attachments = {swapchain.GetCurrent()}
+            .region = {{}, swapchain.Extent()},
+            .color_attachments = {swapchain.Target()}
         });
-        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.GetExtent());
+        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.Extent());
 
         cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(swapchain.GetExtent())}}, true);
+        cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
         cmd.SetBlendState({false});
         cmd.BindShaders({vertex_shader, fragment_shader});
 
         cmd.PushConstants(PushConstants {
-            .vertices = vertices.GetAddress(),
+            .vertices = vertices.DeviceAddress(),
             .offset = {0.f, 0.25f, 0.f},
         });
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);
