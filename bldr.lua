@@ -34,6 +34,8 @@ if Project "nova" then
         "bc7enc",
         "Compressonator",
         "meshoptimizer",
+
+        "ms-gdk",
     }
 
     Compile {

@@ -7,7 +7,6 @@
 
 #include <imgui.h>
 
-
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
     auto context = nova::Context::Create({

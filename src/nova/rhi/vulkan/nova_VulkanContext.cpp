@@ -49,7 +49,7 @@ Validation-VUID({}): {}
 #define NOVA_VK_EXTENSION(Name) Name
 
 #define NOVA_VK_FEATURE(Struct, Field) \
-    VulkanFeature { vkh::GetStructureType<Struct>(), #Struct "::" #Field, sizeof(Struct), offsetof(Struct, Field) }
+    VulkanFeature { vkh::GetStructureType<Struct>(), #Struct "." #Field, sizeof(Struct), offsetof(Struct, Field) }
 
     struct VulkanDeviceConfiguration
     {
@@ -433,7 +433,7 @@ Validation-VUID({}): {}
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorIndexing));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderSampledImageArrayNonUniformIndexing));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderStorageImageArrayNonUniformIndexing));
-        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderInputAttachmentArrayNonUniformIndexing));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, shaderInputAttachmentArrayNonUniformIndexing));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingSampledImageUpdateAfterBind));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingStorageImageUpdateAfterBind));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, descriptorBindingUpdateUnusedWhilePending));

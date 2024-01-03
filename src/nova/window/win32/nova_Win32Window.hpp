@@ -1,5 +1,6 @@
 #pragma once
 
+#include <GameInput.h>
 #include <nova/window/nova_Window.hpp>
 
 #include <nova/core/nova_Debug.hpp>
@@ -22,13 +23,54 @@ namespace nova
         bool      running = true;
         bool trace_events = false;
 
-        char16_t high_surrogate;
+        struct Win32InputState
+        {
+            char16_t high_surrogate;
 
-        std::vector<u32>              key_win_to_nova;
-        std::vector<u32>              key_nova_to_win;
-        std::vector<std::string_view> key_nova_to_str;
+            std::vector<u32>              from_win32_virtual_key;
+            std::vector<u32>              to_win32_virtual_key;
+            std::vector<std::string_view> key_names;
+        } win32_input;
 
         void InitMappings();
+
+        struct GameInputState
+        {
+            struct GameInputDevice
+            {
+                struct GI_MouseButton
+                {
+                    u32       id;
+                    bool pressed;
+                };
+
+                IGameInputDevice*         handle;
+                GameInputKind              kinds;
+
+                std::string name;
+                std::string manufacturer;
+
+                std::array<bool, 7> mouse_buttons;
+                Vec2                  mouse_wheel;
+                Vec2                    mouse_pos;
+
+                std::vector<u8> key_states;
+
+                std::vector<f32> axis_states;
+
+                std::vector<u8> button_states;
+
+                std::vector<GameInputSwitchPosition> switch_states;
+            };
+
+            IGameInput*                           handle;
+            GameInputCallbackToken device_callback_token;
+
+            std::vector<GameInputDevice> devices;
+        } game_input;
+
+        void InitGameInput();
+        void DestroyGameInput();
 
         void Send(AppEvent event);
     };

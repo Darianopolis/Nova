@@ -137,10 +137,10 @@ namespace nova
                     TextEvent event;
 
                     if (IS_HIGH_SURROGATE(codeunit)) {
-                        window->app->high_surrogate = codeunit;
+                        window->app->win32_input.high_surrogate = codeunit;
                         return 0;
                     } else if (IS_LOW_SURROGATE(codeunit)) {
-                        auto len = simdutf::convert_utf16_to_utf8(std::array{ window->app->high_surrogate, codeunit }.data(), 2, event.text);
+                        auto len = simdutf::convert_utf16_to_utf8(std::array{ window->app->win32_input.high_surrogate, codeunit }.data(), 2, event.text);
                         event.text[len] = '\0';
                     } else {
                         auto len = simdutf::convert_utf16_to_utf8(&codeunit, 1, event.text);
@@ -338,6 +338,11 @@ namespace nova
         ::SetCursor(handle);
 
         return *this;
+    }
+
+    bool Window::Minimized() const
+    {
+        return IsIconic(impl->handle);
     }
 
     Window Window::SetTitle(std::string_view title) const

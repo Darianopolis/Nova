@@ -255,6 +255,8 @@ namespace nova
 
         InputChannelState InputState(InputChannel) const;
 
+        void DebugInputState() const;
+
         // TODO: Provide enumeration of displays; Get display for point/rect/window
         Display PrimaryDisplay() const;
     };
@@ -275,6 +277,7 @@ namespace nova
         Application Application() const;
         void* NativeHandle() const;
 
+        bool Minimized() const;
         Window Show(bool state) const;
 
         Vec2U Size(WindowPart) const;

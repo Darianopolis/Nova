@@ -24,12 +24,17 @@ namespace nova
 
         win::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
 
+        impl->InitGameInput();
+
         return { impl };
     }
 
     void Application::Destroy()
     {
         if (!impl) return;
+
+        impl->DestroyGameInput();
+
         delete impl;
     }
 
