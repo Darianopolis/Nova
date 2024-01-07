@@ -319,7 +319,7 @@ namespace nova
             break;case Cursor::Reset:      resource = IDC_ARROW;
 
             // TODO: Temporary, handle hiding/restoring cursor
-            break;case Cursor::None: resource = IDC_APPSTARTING;
+            break;case Cursor::None:       resource = IDC_APPSTARTING;
 
             break;case Cursor::Arrow:      resource = IDC_ARROW;
             break;case Cursor::IBeam:      resource = IDC_IBEAM;
