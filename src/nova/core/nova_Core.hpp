@@ -99,6 +99,18 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    template<typename Container>
+    concept IsResizableContainer = requires(Container& c) { { c.resize(1ull) }; }
+                                || requires(Container& c) { { c.Resize(1ull) }; };
+
+    template<typename Func, typename Return, typename... Args>
+    concept IsSameReturn = requires(Func func, Args&&... args)
+    {
+        { func(std::forward<Args>(args)...) } -> std::same_as<Return>;
+    };
+
+// -----------------------------------------------------------------------------
+
 #define NOVA_CONCAT_INTERNAL(a, b) a##b
 #define NOVA_CONCAT(a, b) NOVA_CONCAT_INTERNAL(a, b)
 #define NOVA_UNIQUE_VAR() NOVA_CONCAT(nova_var, __COUNTER__)

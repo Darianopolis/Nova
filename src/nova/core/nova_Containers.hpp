@@ -50,6 +50,7 @@ namespace nova
 
         const T* data() const noexcept { return span.data(); }
         usz size() const noexcept { return span.size(); }
+        bool empty() const noexcept { return span.empty(); }
     };
 
 // -----------------------------------------------------------------------------

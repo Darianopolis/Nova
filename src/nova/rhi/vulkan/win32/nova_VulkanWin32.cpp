@@ -24,6 +24,24 @@ namespace nova
         extensions.push_back("VK_KHR_win32_surface");
     }
 
+    bool Platform_GpuSupportsPresent(Context context, VkPhysicalDevice gpu)
+    {
+        // auto vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)
+        //     context->vkGetInstanceProcAddr(context->instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
+        //
+        // auto queue_families = NOVA_STACK_VKH_ENUMERATE(VkQueueFamilyProperties, context->vkGetPhysicalDeviceQueueFamilyProperties, gpu);
+        //
+        // for (u32 i = 0; i < queue_families.size(); ++i) {
+        //     if (vkGetPhysicalDeviceWin32PresentationSupportKHR(gpu, i)) {
+        //         return true;
+        //     }
+        // }
+        //
+        // return false;
+
+        return true;
+    }
+
     VkSurfaceKHR Platform_CreateVulkanSurface(Context context, void* handle)
     {
         VkSurfaceKHR surface;

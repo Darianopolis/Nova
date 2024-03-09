@@ -22,17 +22,18 @@ namespace nova
             }
         }
 
-        template<typename Container, typename Fn, typename ... Args>
-        void Enumerate(Container&& container, Fn&& fn, Args&& ... args)
+        template<class VulkanType, class Fn, class ...Args>
+        Span<VulkanType> StackEnumerate(Fn&& fn, Args&&... args)
         {
-            u32 count;
-            VkResult res;
-            do {
-                vkh::Check(fn(args..., &count, nullptr));
-                container.resize(count);
-            } while ((res = fn(args..., &count, container.data())) == VK_INCOMPLETE);
-            vkh::Check(res);
+            auto& stack = detail::GetThreadStack();
+            VulkanType* begin = reinterpret_cast<VulkanType*>(stack.ptr);
+            u32 count = UINT_MAX;
+            fn(args..., &count, begin);
+            stack.ptr = AlignUpPower2(reinterpret_cast<std::byte*>(begin + count), 16);
+            return { begin, count };
         }
+
+#define NOVA_STACK_VKH_ENUMERATE(vk_type, fn, ...) nova::vkh::StackEnumerate<vk_type>(fn __VA_OPT__(,) __VA_ARGS__)
     }
 
 // -----------------------------------------------------------------------------
@@ -377,6 +378,7 @@ namespace nova
 
     PFN_vkGetInstanceProcAddr Platform_LoadGetInstanceProcAddr();
     VkSurfaceKHR Platform_CreateVulkanSurface(Context, void* handle);
+    bool Platform_GpuSupportsPresent(Context, VkPhysicalDevice handle);
     void Platform_AddPlatformExtensions(std::vector<const char*>& extensions);
 
     std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);

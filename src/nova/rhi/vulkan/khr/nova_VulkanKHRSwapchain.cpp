@@ -32,8 +32,17 @@ namespace nova
 
         impl->surface = Platform_CreateVulkanSurface(context, window);
 
-        std::vector<VkSurfaceFormatKHR> surface_formats;
-        vkh::Enumerate(surface_formats, impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
+        NOVA_STACK_POINT();
+
+        auto surface_formats = NOVA_STACK_VKH_ENUMERATE(VkSurfaceFormatKHR,
+            impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
+
+        for (auto& surface_format : surface_formats) {
+            switch (surface_format.format) {
+                break;case VK_FORMAT_B8G8R8A8_SRGB: NOVA_LOG("Supports VK_FORMAT_B8G8R8A8_SRGB");
+                break;case VK_FORMAT_R8G8B8A8_SRGB: NOVA_LOG("Supports VK_FORMAT_R8G8B8A8_SRGB");
+            }
+        }
 
         for (auto& surface_format : surface_formats) {
             if ((surface_format.format == VK_FORMAT_B8G8R8A8_UNORM
@@ -135,8 +144,10 @@ namespace nova
 
                     impl->context->vkDestroySwapchainKHR(impl->context->device, old_swapchain, impl->context->alloc);
 
-                    std::vector<VkImage> vk_images;
-                    vkh::Enumerate(vk_images, impl->context->vkGetSwapchainImagesKHR, impl->context->device, swapchain->swapchain);
+                    NOVA_STACK_POINT();
+
+                    auto vk_images = NOVA_STACK_VKH_ENUMERATE(VkImage,
+                        impl->context->vkGetSwapchainImagesKHR, impl->context->device, swapchain->swapchain);
 
                     while (swapchain->semaphores.size() < vk_images.size() * 2) {
                         auto& semaphore = swapchain->semaphores.emplace_back();

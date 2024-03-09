@@ -67,9 +67,9 @@ namespace nova
             storage_stride = context->descriptor_sizes.storageImageDescriptorSize;
             sampler_stride = context->descriptor_sizes.samplerDescriptorSize;
 
-            descriptor_buffer = nova::Buffer::Create(context, size,
-                nova::BufferUsage::DescriptorResources | nova::BufferUsage::DescriptorSamplers,
-                nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+            descriptor_buffer = Buffer::Create(context, size,
+                BufferUsage::DescriptorResources | BufferUsage::DescriptorSamplers,
+                BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
         } else {
             vkh::Check(context->vkCreateDescriptorPool(context->device, Temp(VkDescriptorPoolCreateInfo {
@@ -112,7 +112,7 @@ namespace nova
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
                 .address = descriptor_buffer.DeviceAddress(),
                 .usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-                    | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
+                       | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT,
             }));
             context->vkCmdSetDescriptorBufferOffsetsEXT(cmd->buffer, GetVulkanPipelineBindPoint(bind_point),
                 pipeline_layout,

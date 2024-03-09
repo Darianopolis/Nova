@@ -9,7 +9,7 @@ namespace nova
         // TODO: Create allocation platform layer
 
         ThreadStack::ThreadStack()
-            : ptr((std::byte*)AllocVirtual(AllocationType::Commit | AllocationType::Reserve, NOVA_STACK_SIZE))
+            : ptr(static_cast<std::byte *>(AllocVirtual(AllocationType::Commit | AllocationType::Reserve, NOVA_STACK_SIZE)))
         {}
 
         ThreadStack::~ThreadStack()

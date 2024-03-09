@@ -88,14 +88,10 @@ Validation-VUID({}): {}
         {
             NOVA_STACK_POINT();
 
-            u32 count = 0;
-            ctx->vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, nullptr);
+            auto props = NOVA_STACK_VKH_ENUMERATE(VkExtensionProperties, ctx->vkEnumerateDeviceExtensionProperties, gpu, nullptr);
 
-            auto* props = NOVA_STACK_ALLOC(VkExtensionProperties, count);
-            vkh::Check(ctx->vkEnumerateDeviceExtensionProperties(gpu, nullptr, &count, props));
-
-            for (u32 i = 0; i < count; ++i) {
-                if (strcmp(extension, props[i].extensionName) == 0) {
+            for (auto& check_extension : props) {
+                if (strcmp(extension, check_extension.extensionName) == 0) {
                     return true;
                 }
             }
@@ -219,6 +215,16 @@ Validation-VUID({}): {}
         auto impl = new Impl;
         impl->config = config;
 
+        // Load pre-instance functions
+
+        impl->vkGetInstanceProcAddr = Platform_LoadGetInstanceProcAddr();
+
+#define NOVA_VULKAN_FUNCTION(name) {                                \
+auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name); \
+if (pfn) impl->name = pfn;                                          \
+}
+#include "nova_VulkanFunctions.inl"
+
         // Configure instance layers and validation features
 
         std::vector<const char*> instance_layers;
@@ -240,33 +246,31 @@ Validation-VUID({}): {}
             instance_extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
 
+        {
+            // TODO: DELETEME
+            // Iterate instance extensions
+
+            auto available_instance_extensions = NOVA_STACK_VKH_ENUMERATE(VkExtensionProperties, impl->vkEnumerateInstanceExtensionProperties, nullptr);
+
+            NOVA_LOG("Instance extensions({}):", available_instance_extensions.size());
+            for (auto& extension : available_instance_extensions) {
+                NOVA_LOG(" - {}", extension.extensionName);
+            }
+
+            auto available_instance_layers = NOVA_STACK_VKH_ENUMERATE(VkLayerProperties, impl->vkEnumerateInstanceLayerProperties);
+
+            NOVA_LOG("Instance layers({}):", available_instance_layers.size());
+            for (auto& layer : available_instance_layers) {
+                NOVA_LOG(" - {}", layer.layerName);
+            }
+        }
+
         if (config.extra_validation) {
             validation_features_enabled.push_back(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
             validation_features_enabled.push_back(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
         }
 
-        // Load pre-instance functions
-
-        impl->vkGetInstanceProcAddr = Platform_LoadGetInstanceProcAddr();
-
-#define NOVA_VULKAN_FUNCTION(name) {                                           \
-    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name);        \
-    if (pfn) impl->name = pfn;                                                 \
-}
-#include "nova_VulkanFunctions.inl"
-
         // Create instance
-
-        if (config.trace) {
-            uint32_t instance_layer_count = NULL;
-            auto result = impl->vkEnumerateInstanceLayerProperties(&instance_layer_count,nullptr);
-            std::vector<VkLayerProperties> instance_layers(instance_layer_count);
-            result = impl->vkEnumerateInstanceLayerProperties(&instance_layer_count,&instance_layers[0]);
-
-            for (u32 i = 0; i < instance_layer_count; ++i) {
-                NOVA_LOG("Instance layer[{}] = {}", i, instance_layers[i].layerName);
-            }
-        }
 
         VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info {
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
@@ -316,8 +320,7 @@ Validation-VUID({}): {}
 
         // Select physical device
 
-        std::vector<VkPhysicalDevice> gpus;
-        vkh::Enumerate(gpus, impl->vkEnumeratePhysicalDevices, impl->instance);
+        auto gpus = NOVA_STACK_VKH_ENUMERATE(VkPhysicalDevice, impl->vkEnumeratePhysicalDevices, impl->instance);
 
         if (gpus.empty()) {
             NOVA_LOG("Critical error: No physical devices found");
@@ -337,6 +340,8 @@ Validation-VUID({}): {}
             }
         }
 
+        // TODO: Present support should be optional?
+
         if (!impl->gpu) {
             if (config.trace) {
                 NOVA_LOG("Automatically selecting GPU");
@@ -344,7 +349,8 @@ Validation-VUID({}): {}
             for (auto& gpu : gpus) {
                 VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
                 impl->vkGetPhysicalDeviceProperties2(gpu, &properties);
-                if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                if (properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+                        && Platform_GpuSupportsPresent({impl}, gpu)) {
                     impl->gpu = gpu;
                     if (config.trace) {
                         NOVA_LOG("  Found discrete GPU: {}", properties.properties.deviceName);
@@ -357,8 +363,17 @@ Validation-VUID({}): {}
                 if (config.trace) {
                     NOVA_LOG("  No discrete GPU found, defaulting to first available GPU");
                 }
-                impl->gpu = gpus.front();
+                for (auto& gpu : gpus) {
+                    if (Platform_GpuSupportsPresent({impl}, gpu)) {
+                        impl->gpu = gpus[0];
+                        break;
+                    }
+                }
             }
+        }
+
+        if (!impl->gpu) {
+            NOVA_THROW("No GPUs capable of present found in system");
         }
 
         // Configure features
@@ -391,6 +406,8 @@ Validation-VUID({}): {}
             if (max_device_memory == max_host_visible_device_memory) {
                 impl->resizable_bar = true;
             }
+
+            NOVA_LOG("Max device memory: {} ({} bytes)", ByteSizeToString(max_device_memory), max_device_memory);
         }
 
         // Swapchains
@@ -410,6 +427,8 @@ Validation-VUID({}): {}
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.fragmentStoresAndAtomics));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt64));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt16));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat));
 
         // External memory imports (for DXGI interop)
 
@@ -443,6 +462,8 @@ Validation-VUID({}): {}
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, scalarBlockLayout));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, timelineSemaphore));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, bufferDeviceAddress));
+
+        chain.Require(NOVA_VK_EXTENSION("VK_KHR_shader_non_semantic_info"));
 
         // Vulkan 1.3
 
@@ -717,9 +738,9 @@ Validation-VUID({}): {}
         // Create descriptor heap
 
         {
-            constexpr u32 MaxNumImageDescriptors   = 1024 * 1024;
-            constexpr u32 MaxNumSamplerDescriptors = 4096;
-            constexpr u32 MaxPushConstantSize      = 256;
+            constexpr u32 MaxNumImageDescriptors   = 1'000'000;
+            constexpr u32 MaxNumSamplerDescriptors =     4'000;
+            constexpr u32 MaxPushConstantSize      =       128;
 
             VkPhysicalDeviceProperties2 props = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             impl->vkGetPhysicalDeviceProperties2(impl->gpu, &props);
@@ -764,12 +785,12 @@ Validation-VUID({}): {}
 
         // Deleted graphics pipeline library stages
 
-        for (auto pipeline: impl->vertex_input_stages | std::views::values)    { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->preraster_stages | std::views::values)       { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->vertex_input_stages    | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->preraster_stages       | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->fragment_output_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
         for (auto pipeline: impl->graphics_pipeline_sets | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->compute_pipelines | std::views::values)      { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline: impl->compute_pipelines      | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
 
         impl->global_heap.Destroy();
         impl->transfer_manager.Destroy();

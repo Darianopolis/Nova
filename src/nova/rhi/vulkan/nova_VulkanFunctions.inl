@@ -141,5 +141,6 @@ NOVA_VULKAN_FUNCTION(vkTransitionImageLayoutEXT)
 NOVA_VULKAN_FUNCTION(vkUpdateDescriptorSets)
 NOVA_VULKAN_FUNCTION(vkWaitSemaphores)
 NOVA_VULKAN_FUNCTION(vkGetPhysicalDeviceFeatures2)
+NOVA_VULKAN_FUNCTION(vkEnumerateInstanceExtensionProperties)
 
 #undef NOVA_VULKAN_FUNCTION
