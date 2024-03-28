@@ -50,8 +50,8 @@ namespace nova
 
         return {
             (1.f - 2.f * (qyy + qzz)) * scale.x,        2.f * (qxy + qwz)  * scale.x,        2.f * (qxz - qwy)  * scale.x, 0.f,
-                    2.f * (qxy - qwz)  * scale.y, (1.f - 2.f * (qxx + qzz)) * scale.y,        2.f * (qyz + qwx)  * scale.y, 0.f,
-                    2.f * (qxz + qwy)  * scale.z,        2.f * (qyz - qwx)  * scale.z, (1.f - 2.f * (qxx + qyy)) * scale.z, 0.f,
+                   2.f * (qxy - qwz)  * scale.y, (1.f - 2.f * (qxx + qzz)) * scale.y,        2.f * (qyz + qwx)  * scale.y, 0.f,
+                   2.f * (qxz + qwy)  * scale.z,        2.f * (qyz - qwx)  * scale.z, (1.f - 2.f * (qxx + qyy)) * scale.z, 0.f,
             translation.x, translation.y, translation.z, 1.f
         };
     }

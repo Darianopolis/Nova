@@ -24,7 +24,7 @@ namespace nova
 
         win::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
 
-        impl->InitGameInput();
+        // impl->InitGameInput();
 
         return { impl };
     }

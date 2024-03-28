@@ -147,7 +147,7 @@ namespace nova
     constexpr
     T ByteOffsetPointer(T ptr, intptr_t offset) noexcept
     {
-        return T(u64(ptr) + offset);
+        return T(uintptr_t(ptr) + offset);
     }
 
     template<typename FieldT, typename ObjectT>

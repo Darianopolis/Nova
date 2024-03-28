@@ -38,15 +38,10 @@ namespace nova
             impl->context->vkGetPhysicalDeviceSurfaceFormatsKHR, context->gpu, impl->surface);
 
         for (auto& surface_format : surface_formats) {
-            switch (surface_format.format) {
-                break;case VK_FORMAT_B8G8R8A8_SRGB: NOVA_LOG("Supports VK_FORMAT_B8G8R8A8_SRGB");
-                break;case VK_FORMAT_R8G8B8A8_SRGB: NOVA_LOG("Supports VK_FORMAT_R8G8B8A8_SRGB");
-            }
-        }
-
-        for (auto& surface_format : surface_formats) {
             if ((surface_format.format == VK_FORMAT_B8G8R8A8_UNORM
                     || surface_format.format == VK_FORMAT_R8G8B8A8_UNORM)) {
+            // if ((surface_format.format == VK_FORMAT_B8G8R8A8_SRGB
+            //     || surface_format.format == VK_FORMAT_R8G8B8A8_SRGB)) {
                 impl->format = surface_format;
                 break;
             }

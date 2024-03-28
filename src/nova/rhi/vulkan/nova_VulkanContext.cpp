@@ -246,24 +246,24 @@ if (pfn) impl->name = pfn;                                          \
             instance_extensions.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
         }
 
-        {
-            // TODO: DELETEME
-            // Iterate instance extensions
+        // {
+        //     // TODO: DELETEME
+        //     // Iterate instance extensions
 
-            auto available_instance_extensions = NOVA_STACK_VKH_ENUMERATE(VkExtensionProperties, impl->vkEnumerateInstanceExtensionProperties, nullptr);
+        //     auto available_instance_extensions = NOVA_STACK_VKH_ENUMERATE(VkExtensionProperties, impl->vkEnumerateInstanceExtensionProperties, nullptr);
 
-            NOVA_LOG("Instance extensions({}):", available_instance_extensions.size());
-            for (auto& extension : available_instance_extensions) {
-                NOVA_LOG(" - {}", extension.extensionName);
-            }
+        //     NOVA_LOG("Instance extensions({}):", available_instance_extensions.size());
+        //     for (auto& extension : available_instance_extensions) {
+        //         NOVA_LOG(" - {}", extension.extensionName);
+        //     }
 
-            auto available_instance_layers = NOVA_STACK_VKH_ENUMERATE(VkLayerProperties, impl->vkEnumerateInstanceLayerProperties);
+        //     auto available_instance_layers = NOVA_STACK_VKH_ENUMERATE(VkLayerProperties, impl->vkEnumerateInstanceLayerProperties);
 
-            NOVA_LOG("Instance layers({}):", available_instance_layers.size());
-            for (auto& layer : available_instance_layers) {
-                NOVA_LOG(" - {}", layer.layerName);
-            }
-        }
+        //     NOVA_LOG("Instance layers({}):", available_instance_layers.size());
+        //     for (auto& layer : available_instance_layers) {
+        //         NOVA_LOG(" - {}", layer.layerName);
+        //     }
+        // }
 
         if (config.extra_validation) {
             validation_features_enabled.push_back(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
@@ -785,12 +785,12 @@ if (pfn) impl->name = pfn;                                          \
 
         // Deleted graphics pipeline library stages
 
-        for (auto pipeline: impl->vertex_input_stages    | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->preraster_stages       | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->fragment_output_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->graphics_pipeline_sets | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline: impl->compute_pipelines      | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->vertex_input_stages    | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->preraster_stages       | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->fragment_output_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->graphics_pipeline_sets | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : impl->compute_pipelines      | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
 
         impl->global_heap.Destroy();
         impl->transfer_manager.Destroy();
