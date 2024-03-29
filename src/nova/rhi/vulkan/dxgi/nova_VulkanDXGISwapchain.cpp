@@ -390,7 +390,7 @@ namespace nova
         }
     }
 
-    bool Queue::Acquire(Span<HSwapchain> swapchains, Span<HFence> signals) const
+    FenceValue Queue::Acquire(Span<HSwapchain> swapchains, bool* out_any_resized) const
     {
         bool any_resized = false;
 
@@ -402,34 +402,15 @@ namespace nova
             swapchain->index = swapchain->dxswapchain->GetCurrentBackBufferIndex();
         }
 
-        if (signals.size())
-        {
-            NOVA_STACK_POINT();
-
-            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, signals.size());
-            for (u32 i = 0; i < signals.size(); ++i) {
-                auto signal = signals[i];
-                signal_infos[i] = {
-                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = signal->semaphore,
-                    .value = signals[i].Unwrap().Advance(),
-                    .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                };
-            }
-
-            auto start = std::chrono::steady_clock::now();
-            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
-                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-                .signalSemaphoreInfoCount = u32(signals.size()),
-                .pSignalSemaphoreInfos = signal_infos,
-            }), nullptr));
-            rhi::stats::TimeAdaptingFromAcquire += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
+        if (out_any_resized) {
+            *out_any_resized = any_resized;
         }
 
-        return any_resized;
+        // TODO: Should handle empty fences being passed in?
+        return impl->fence;
     }
 
-    void Queue::Present(Span<HSwapchain> swapchains, Span<HFence> waits, PresentFlag flags) const
+    void Queue::Present(Span<HSwapchain> swapchains, Span<FenceValue> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 
@@ -437,8 +418,8 @@ namespace nova
             auto semaphores = NOVA_STACK_ALLOC(VkSemaphore, waits.size());
             auto values = NOVA_STACK_ALLOC(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i) {
-                semaphores[i] = waits[i]->semaphore;
-                values[i] = waits[i]->value;
+                semaphores[i] = waits[i].fence->semaphore;
+                values[i] = waits[i].Value();
             }
 
             vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {

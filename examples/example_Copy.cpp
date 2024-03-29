@@ -13,10 +13,8 @@ NOVA_EXAMPLE(Copy, "copy")
     });
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
         cmd_pool.Destroy();
-        fence.Destroy();
         context.Destroy();
     };
 
@@ -47,8 +45,7 @@ NOVA_EXAMPLE(Copy, "copy")
         }
 
         NOVA_TIMEIT_RESET();
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+        queue.Submit({cmd}, {}).Wait();
         NOVA_TIMEIT("transfer");
     }
 

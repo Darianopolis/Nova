@@ -25,14 +25,12 @@ NOVA_EXAMPLE(InputTest, "input-test")
         nova::PresentMode::Fifo);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
 
     NOVA_DEFER(&)
     {
         sampler.Destroy();
-        fence.Destroy();
         cmd_pool.Destroy();
         swapchain.Destroy();
         context.Destroy();
@@ -46,13 +44,13 @@ NOVA_EXAMPLE(InputTest, "input-test")
 
     NOVA_DEFER(&)
     {
-        fence.Wait();
+        queue.WaitIdle();
     };
 
     while (app.ProcessEvents()) {
 
-        fence.Wait();
-        queue.Acquire(swapchain, {fence});
+        queue.WaitIdle();
+        queue.Acquire(swapchain);
         cmd_pool.Reset();
         auto cmd = cmd_pool.Begin();
 
@@ -60,11 +58,11 @@ NOVA_EXAMPLE(InputTest, "input-test")
 
         imgui.BeginFrame();
         app.DebugInputState();
-        imgui.DrawFrame(cmd, swapchain.Target(), fence);
+        imgui.DrawFrame(cmd, swapchain.Target(), queue.Internal_Fence());
 
         cmd.Present(swapchain);
-        queue.Submit(cmd, fence, fence);
-        queue.Present(swapchain, fence);
+        queue.Submit(cmd, {});
+        queue.Present(swapchain, {});
 
         app.WaitForEvents();
     }

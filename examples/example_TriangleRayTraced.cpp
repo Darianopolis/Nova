@@ -41,11 +41,9 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
     NOVA_DEFER(&) {
         cmd_pool.Destroy();
-        fence.Destroy();
         builder.Destroy();
     };
 
@@ -200,8 +198,8 @@ void main() {
 
         auto cmd = cmd_pool.Begin();
         cmd.BuildAccelerationStructure(builder, uncompacted_blas, scratch);
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+        queue.Submit({cmd}, {});
+        queue.WaitIdle();
 
         // Compact BLAS
 
@@ -211,8 +209,8 @@ void main() {
 
         cmd = cmd_pool.Begin();
         cmd.CompactAccelerationStructure(blas, uncompacted_blas);
-        queue.Submit({cmd}, {}, {fence});
-        fence.Wait();
+        queue.Submit({cmd}, {});
+        queue.WaitIdle();
 
         return blas;
     }();
@@ -249,13 +247,13 @@ void main() {
 
     bool use_ray_query = false;
 
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+        queue.WaitIdle();
+        queue.Acquire({swapchain});
 
         // Start new command buffer
 
@@ -304,8 +302,8 @@ void main() {
         // Submit and present work
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+        queue.Submit({cmd}, {});
+        queue.Present({swapchain}, {});
 
         // Wait for window events
 

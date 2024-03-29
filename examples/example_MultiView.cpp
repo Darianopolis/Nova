@@ -23,7 +23,6 @@ NOVA_EXAMPLE(Multiview, "multiview")
         nova::PresentMode::Fifo);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
 
     auto image = nova::Image::Create(context,
         { 256, 256, 32 },
@@ -59,12 +58,11 @@ void main() {
 
     while (app.ProcessEvents()) {
 
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+        queue.WaitIdle();
+        queue.Acquire({swapchain}, {});
         cmd_pool.Reset();
         auto cmd = cmd_pool.Begin();
 
-        // cmd.BeginRendering({{}, Vec2U(image.GetExtent())}, {image});
         cmd.BeginRendering({
             .region = {{}, Vec2U(image.Extent())},
             .color_attachments = {image},
@@ -81,8 +79,8 @@ void main() {
         cmd.BlitImage(swapchain.Target(), image, nova::Filter::Nearest);
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+        queue.Submit({cmd}, {});
+        queue.Present({swapchain}, {});
 
         app.WaitForEvents();
     }

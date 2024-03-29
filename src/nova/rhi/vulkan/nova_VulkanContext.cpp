@@ -633,7 +633,7 @@ if (pfn) impl->name = pfn;                                          \
         auto GenerateQueues = [&](QueueFamilyInfo& info, u32 max_count, VkPipelineStageFlags2 stages, std::vector<nova::Queue>& queues) {
             auto count = std::min(info.count, max_count);
             for (u32 i = 0; i < count; ++i) {
-                queues.emplace_back(new Queue::Impl {
+                auto queue = queues.emplace_back(new Queue::Impl {
                     .context = { impl },
                     .flags = info.flags,
                     .family = info.family_index,
@@ -706,6 +706,8 @@ if (pfn) impl->name = pfn;                                          \
         auto GetQueues = [&](std::vector<nova::Queue>& queues) {
             for (u32 i = 0; i < queues.size(); ++i) {
                 impl->vkGetDeviceQueue(impl->device, queues[i]->family, i, &queues[i]->handle);
+
+                queues[i]->fence = Fence::Create(impl);
             }
         };
 
@@ -779,9 +781,21 @@ if (pfn) impl->name = pfn;                                          \
 
         WaitIdle();
 
-        for (auto& queue : impl->graphics_queues) { delete queue.impl; }
-        for (auto& queue : impl->compute_queues)  { delete queue.impl; }
-        for (auto& queue : impl->transfer_queues) { delete queue.impl; }
+        for (auto& queue : impl->graphics_queues) {
+            queue->fence.Destroy();
+            delete queue.impl;
+        }
+
+        for (auto& queue : impl->compute_queues)  {
+            queue->fence.Destroy();
+            delete queue.impl;
+        }
+
+        for (auto& queue : impl->transfer_queues) {
+            queue->fence.Destroy();
+            delete queue.impl;
+        }
+
 
         // Deleted graphics pipeline library stages
 

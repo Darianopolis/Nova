@@ -44,10 +44,8 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
         cmd_pool.Destroy();
-        fence.Destroy();
     };
 
     // Quad data
@@ -160,10 +158,10 @@ void main() {
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
 
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+        queue.WaitIdle();
+        queue.Acquire({swapchain});
 
         // Debug output statistics
         frames++;
@@ -212,7 +210,7 @@ void main() {
         cmd.EndRendering();
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+        queue.Submit({cmd}, {});
+        queue.Present({swapchain}, {});
     }
 }

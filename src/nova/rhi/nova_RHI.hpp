@@ -377,13 +377,19 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct FenceValue;
+
     struct Queue : Handle<Queue>
     {
         friend Context;
 
-        void Submit(Span<HCommandList>, Span<HFence> waits, Span<HFence> signals) const;
-        bool Acquire(Span<HSwapchain>, Span<HFence> signals) const;
-        void Present(Span<HSwapchain>, Span<HFence> waits, PresentFlag flags = {}) const;
+        FenceValue Submit(Span<HCommandList>, Span<FenceValue> waits) const;
+        FenceValue Acquire(Span<HSwapchain>, bool* any_resized = nullptr) const;
+        void Present(Span<HSwapchain>, Span<FenceValue> waits, PresentFlag flags = {}) const;
+
+        Fence Internal_Fence() const;
+
+        void WaitIdle() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -397,7 +403,24 @@ namespace nova
         u64  Advance() const;
         void Signal(u64 signal_value = ~0ull) const;
         u64  PendingValue() const;
+
+        operator FenceValue() const;
     };
+
+    struct FenceValue
+    {
+        Fence fence = {};
+        u64 value = ~0ull;
+
+        void Wait() const { if (fence) { fence.Wait(value); } }
+        u64 Value() const { return value == ~0ull ? fence.PendingValue() : value; }
+    };
+
+    inline
+    Fence::operator FenceValue() const
+    {
+        return { *this, PendingValue() };
+    }
 
 // -----------------------------------------------------------------------------
 

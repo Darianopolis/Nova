@@ -70,8 +70,7 @@ NOVA_EXAMPLE(Compute, "compute")
     // Create required Nova objects
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto fence = nova::Fence::Create(context);
-    auto wait_values = std::array { 0ull, 0ull };
+    std::array<nova::FenceValue, 2> wait_values;
     auto command_pools = std::array {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
@@ -79,7 +78,6 @@ NOVA_EXAMPLE(Compute, "compute")
     NOVA_DEFER(&) {
         command_pools[0].Destroy();
         command_pools[1].Destroy();
-        fence.Destroy();
     };
 
     // Image
@@ -251,7 +249,7 @@ void main() {
     auto last_time = std::chrono::steady_clock::now();
     u64 frame_index = 0;
     u64 frames = 0;
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
         // Debug output statistics
@@ -267,8 +265,8 @@ void main() {
 
         // Wait for previous frame and acquire new swapchain image
 
-        fence.Wait(wait_values[fif]);
-        queue.Acquire({swapchain}, {fence});
+        wait_values[fif].Wait();
+        queue.Acquire({swapchain}, {});
         auto target = swapchain.Target();
 
         // Start new command buffer
@@ -296,9 +294,7 @@ void main() {
         // Submit and present work
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
-
-        wait_values[fif] = fence.PendingValue();
+        wait_values[fif] = queue.Submit({cmd}, {});
+        queue.Present({swapchain}, {});
     }
 }

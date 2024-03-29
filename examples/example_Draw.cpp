@@ -35,10 +35,8 @@ NOVA_EXAMPLE(Draw, "draw")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto command_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
         command_pool.Destroy();
-        fence.Destroy();
     };
 
 // -----------------------------------------------------------------------------
@@ -118,7 +116,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
     auto last_frame = std::chrono::steady_clock::now();
 
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
 // -----------------------------------------------------------------------------
@@ -165,7 +163,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
         // Record frame
 
-        fence.Wait();
+        queue.WaitIdle();
         command_pool.Reset();
 
         auto cmd = command_pool.Begin();
@@ -177,7 +175,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
         window.SetSize({ im_draw.Bounds().Width(), im_draw.Bounds().Height() }, nova::WindowPart::Client);
 
-        queue.Acquire({swapchain}, {fence});
+        queue.Acquire({swapchain});
 
         Vec3 color = { 0.3f, 0.2f, 0.5f };
         f32 alpha = 0.4f;
@@ -187,9 +185,8 @@ NOVA_EXAMPLE(Draw, "draw")
 
         cmd.Present(swapchain);
 
-        queue.Submit({cmd}, {fence}, {fence});
-        fence.Wait();
+        queue.Submit({cmd}, {}).Wait();
         window.SetPosition({ im_draw.Bounds().min.x, im_draw.Bounds().min.y }, nova::WindowPart::Client);
-        queue.Present({swapchain}, {fence});
+        queue.Present({swapchain}, {});
     }
 }

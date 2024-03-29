@@ -61,6 +61,8 @@ namespace nova
         VkQueue               handle = {};
         u32                   family = UINT32_MAX;
         VkPipelineStageFlags2 stages = {};
+
+        Fence fence;
     };
 
     template<>
@@ -154,7 +156,6 @@ namespace nova
         Context context = {};
 
         Queue          queue = {};
-        Fence          fence = {};
         CommandPool cmd_pool = {};
         Buffer       staging = {};
 

@@ -91,7 +91,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    bool Queue::Acquire(Span<HSwapchain> swapchains, Span<HFence> signals) const
+    FenceValue Queue::Acquire(Span<HSwapchain> swapchains, bool* out_any_resized) const
     {
         bool any_resized = false;
 
@@ -181,7 +181,7 @@ namespace nova
                     .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
                     .swapchain = swapchain->swapchain,
                     .timeout = UINT64_MAX,
-                    .semaphore = signals.size() ? swapchain->semaphores[swapchain->semaphore_index] : nullptr,
+                    .semaphore = swapchain->semaphores[swapchain->semaphore_index],
                     .deviceMask = 1,
                 }), &swapchain->index);
 
@@ -196,7 +196,6 @@ namespace nova
             } while (swapchain->invalid);
         }
 
-        if (signals.size())
         {
             NOVA_STACK_POINT();
 
@@ -210,32 +209,33 @@ namespace nova
                 swapchain->semaphore_index = (swapchain->semaphore_index + 1) % swapchain->semaphores.size();
             }
 
-            auto signal_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, signals.size());
-            for (u32 i = 0; i < signals.size(); ++i) {
-                auto signal = signals[i];
-                signal_infos[i] = {
-                    .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = signal->semaphore,
-                    .value = signals[i].Unwrap().Advance(),
-                    .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
-                };
-            }
+            VkSemaphoreSubmitInfo signal_info {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+                .semaphore = impl->fence->semaphore,
+                .value = impl->fence.Advance(),
+                // TODO: Additional granularity?
+                .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            };
 
             auto start = std::chrono::steady_clock::now();
             vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = wait_infos,
-                .signalSemaphoreInfoCount = u32(signals.size()),
-                .pSignalSemaphoreInfos = signal_infos,
+                .signalSemaphoreInfoCount = 1,
+                .pSignalSemaphoreInfos = &signal_info,
             }), nullptr));
             rhi::stats::TimeAdaptingFromAcquire += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
         }
 
-        return any_resized;
+        if (out_any_resized) {
+            *out_any_resized = any_resized;
+        }
+
+        return impl->fence;
     }
 
-    void Queue::Present(Span<HSwapchain> swapchains, Span<HFence> waits, PresentFlag flags) const
+    void Queue::Present(Span<HSwapchain> swapchains, Span<FenceValue> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 
@@ -245,8 +245,8 @@ namespace nova
             auto semaphores = NOVA_STACK_ALLOC(VkSemaphore, waits.size());
             auto values = NOVA_STACK_ALLOC(u64, waits.size());
             for (u32 i = 0; i < waits.size(); ++i) {
-                semaphores[i] = waits[i]->semaphore;
-                values[i] = waits[i]->value;
+                semaphores[i] = waits[i].fence->semaphore;
+                values[i] = waits[i].value;
             }
 
             vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
@@ -261,8 +261,8 @@ namespace nova
             for (u32 i = 0; i < waits.size(); ++i) {
                 wait_infos[i] = {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-                    .semaphore = waits[i]->semaphore,
-                    .value = waits[i]->value,
+                    .semaphore = waits[i].fence->semaphore,
+                    .value = waits[i].Value(),
                     .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }

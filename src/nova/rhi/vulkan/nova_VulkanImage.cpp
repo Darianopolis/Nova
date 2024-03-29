@@ -268,8 +268,7 @@ namespace nova
             manager.staging.Set(Span<char>((char*)data, size));
             auto cmd = manager.cmd_pool.Begin();
             cmd.CopyToImage(*this, manager.staging);
-            manager.queue.Submit({cmd}, {}, {manager.fence});
-            manager.fence.Wait();
+            manager.queue.Submit({cmd}, {}).Wait();
             manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
@@ -306,8 +305,7 @@ namespace nova
             std::scoped_lock lock{ manager.mutex };
             auto cmd = manager.cmd_pool.Begin();
             cmd.Transition(*this, layout, nova::PipelineStage::All);
-            manager.queue.Submit({cmd}, {}, {manager.fence});
-            manager.fence.Wait();
+            manager.queue.Submit({cmd}, {}).Wait();
             manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {

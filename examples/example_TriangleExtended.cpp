@@ -39,10 +39,8 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     auto cmd_pool = nova::CommandPool::Create(context, queue);
-    auto fence = nova::Fence::Create(context);
     NOVA_DEFER(&) {
         cmd_pool.Destroy();
-        fence.Destroy();
     };
 
     // Vertex data
@@ -110,10 +108,10 @@ void main() {
 
     // Draw
 
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
-        fence.Wait();
-        queue.Acquire({swapchain}, {fence});
+        queue.WaitIdle();
+        queue.Acquire({swapchain});
 
         cmd_pool.Reset();
         auto cmd = cmd_pool.Begin();
@@ -138,8 +136,8 @@ void main() {
         cmd.EndRendering();
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {fence}, {fence});
-        queue.Present({swapchain}, {fence});
+        queue.Submit({cmd}, {});
+        queue.Present({swapchain}, {});
 
         app.WaitForEvents();
     }

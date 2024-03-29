@@ -31,8 +31,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto wait_values = std::array { 0ull, 0ull };
-    auto fence = nova::Fence::Create(context);
+    std::array<nova::FenceValue, 2> wait_values;
     auto command_pools = std::array {
         nova::CommandPool::Create(context, queue),
         nova::CommandPool::Create(context, queue)
@@ -40,7 +39,6 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) {
-        fence.Destroy();
         command_pools[0].Destroy();
         command_pools[1].Destroy();
         sampler.Destroy();
@@ -82,10 +80,10 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         auto fif = frame++ % 2;
 
         // Wait for previous commands in frame to complete
-        fence.Wait(wait_values[fif]);
+        wait_values[fif].Wait();
 
         // Acquire new images from swapchains
-        queue.Acquire({swapchains[0], swapchains[1]}, {fence});
+        queue.Acquire({swapchains[0], swapchains[1]});
 
         // Reset command pool and begin new command list
         command_pools[fif].Reset();
@@ -97,7 +95,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0].Target(), fence);
+        imgui.DrawFrame(cmd, swapchains[0].Target(), queue.Internal_Fence());
 
         // Present #1
         cmd.Present(swapchains[0]);
@@ -107,15 +105,13 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         cmd.Present(swapchains[1]);
 
         // Submit work
-        queue.Submit({cmd}, {fence}, {fence});
+        wait_values[fif] = queue.Submit({cmd}, {});
 
         // Present both swapchains
-        queue.Present({swapchains[0], swapchains[1]}, {fence});
-
-        wait_values[fif] = fence.PendingValue();
+        queue.Present({swapchains[0], swapchains[1]}, {});
     };
 
-    NOVA_DEFER(&) { fence.Wait(); };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
 
     while (app.ProcessEvents()) {
         update();
