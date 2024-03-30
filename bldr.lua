@@ -36,7 +36,9 @@ if Project "nova" then
         "meshoptimizer",
 
         "ms-gdk",
-        "wooting-sdk"
+        "wooting-sdk",
+
+        "slang",
     }
 
     Compile {

@@ -428,7 +428,7 @@ if (pfn) impl->name = pfn;                                          \
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt64));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderInt16));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat));
-        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceFeatures2, features.shaderStorageImageMultisample));
 
         // External memory imports (for DXGI interop)
 

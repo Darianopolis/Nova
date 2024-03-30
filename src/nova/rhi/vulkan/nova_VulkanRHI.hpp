@@ -392,6 +392,7 @@ namespace nova
 
     std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
     std::vector<u32> Vulkan_CompileHlslToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
+    std::vector<u32> Vulkan_CompileSlangToSpirv(ShaderStage stage, std::string_view entry, std::string_view filename, Span<std::string_view> fragments);
 
     void* Vulkan_TrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
     void* Vulkan_TrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);

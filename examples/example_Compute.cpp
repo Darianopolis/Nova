@@ -171,7 +171,6 @@ NOVA_EXAMPLE(Compute, "compute")
     };
 
     auto hlsl_shader = nova::Shader::Create(context, nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {
-        // language=hlsl
         R"hlsl(
 [[vk::binding(0, 0)]] Texture2D               Image2D[];
 [[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
@@ -198,8 +197,35 @@ void main(uint2 id: SV_DispatchThreadID) {
     });
     NOVA_DEFER(&) { hlsl_shader.Destroy(); };
 
+    auto slang_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "main", "", {
+        R"slang(
+[[vk::binding(0, 0)]] Texture2D               Image2D[];
+[[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
+[[vk::binding(2, 0)]] SamplerState            Sampler[];
+
+struct PushConstants {
+    uint          image;
+    uint linear_sampler;
+    uint         target;
+    float2         size;
+};
+
+[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+
+[shader("compute")]
+[numthreads(16, 16, 1)]
+void main(uint2 id: SV_DispatchThreadID) {
+    float2 uv = float2(id) / pc.size;
+    float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+    float4 dest = float4(1, 0, 1, 1);
+    float3 color = lerp(dest.rgb, source.rgb, source.a);
+    RWImage2DF4[pc.target][id] = float4(color, 1);
+}
+        )slang"
+    });
+    NOVA_DEFER(&) { slang_shader.Destroy(); };
+
     auto glsl_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
-        // language=glsl
         R"glsl(
 #extension GL_EXT_scalar_block_layout  : require
 #extension GL_EXT_nonuniform_qualifier : require
@@ -232,7 +258,7 @@ void main() {
 
     // Alternate shaders each frame
 
-    nova::Shader shaders[] = { glsl_shader, hlsl_shader };
+    std::array<nova::Shader, 3> shaders = { hlsl_shader, slang_shader, glsl_shader  };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -279,7 +305,7 @@ void main() {
             .target = swapchain.Target().Descriptor(),
             .size = Vec2(swapchain.Extent()),
         });
-        cmd.BindShaders({shaders[frame_index % 2]});
+        cmd.BindShaders({shaders[frame_index % shaders.size()]});
         cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
 
         // Submit and present work

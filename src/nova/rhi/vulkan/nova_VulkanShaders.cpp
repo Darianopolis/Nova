@@ -14,6 +14,8 @@ namespace nova
                 spirv = Vulkan_CompileGlslToSpirv(stage, entry, filename, fragments);
             break;case ShaderLang::Hlsl:
                 spirv = Vulkan_CompileHlslToSpirv(stage, entry, filename, fragments);
+            break;case ShaderLang::Slang:
+                spirv = Vulkan_CompileSlangToSpirv(stage, entry, filename, fragments);
             break;default:
                 NOVA_THROW("Unknown shader language");
         }
