@@ -72,9 +72,8 @@ namespace nova
 
         rhi::stats::TimeSubmitting += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
 
-        impl->ClearPendingCommands();
         for (auto& list : command_lists) {
-            impl->FreeCommandList(list);
+            impl->MoveCommandListToPending(list);
         }
 
         return impl->fence;

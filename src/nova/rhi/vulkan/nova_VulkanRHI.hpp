@@ -64,6 +64,8 @@ namespace nova
 
         Fence fence;
 
+        struct CommandPool;
+
         struct SubmittedCommandList
         {
             CommandList command_list;
@@ -72,25 +74,24 @@ namespace nova
 
         struct CommandPool
         {
-            VkCommandPool                             command_pool;
-            std::deque<SubmittedCommandList> pending_command_lists;
-            std::vector<CommandList>       available_command_lists;
+            VkCommandPool                       command_pool;
+            std::vector<CommandList> available_command_lists;
         };
 
-        // TODO: Handle multiple threads, pool of pools
-        CommandPool pool;
+        std::vector<CommandPool*>                        pools;
+        std::deque<SubmittedCommandList> pending_command_lists;
 
-        void InitCommands();
-        void DestroyCommands();
-        void ClearPendingCommands();
-        void FreeCommandList(CommandList);
+        CommandPool* AcquireCommandPool();
+        void DestroyCommandPools();
+        void ClearPendingCommandLists();
+        void ReleaseCommandPoolForList(CommandList);
+        void MoveCommandListToPending(CommandList);
     };
 
     template<>
     struct Handle<Fence>::Impl
     {
-        Context context = {};
-
+        Context       context = {};
         VkSemaphore semaphore = {};
         u64             value = 0;
     };
@@ -98,9 +99,11 @@ namespace nova
     template<>
     struct Handle<CommandList>::Impl
     {
-        Context        context = {};
-        Queue            queue = {};
-        VkCommandBuffer buffer = {};
+        Context                        context = {};
+        Queue                            queue = {};
+        Queue::Impl::CommandPool* command_pool = {};
+        bool                         recording = false;
+        VkCommandBuffer                 buffer = {};
 
         // Graphics Pipeline Library fallback
 

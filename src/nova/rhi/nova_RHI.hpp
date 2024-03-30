@@ -392,6 +392,7 @@ namespace nova
         FenceValue Pending() const;
         void WaitIdle() const;
 
+        // TODO: Make these threadsafe? (Queue redesign)
         CommandList Begin() const;
         void End(CommandList cmd) const;
         void Release(CommandList cmd) const;

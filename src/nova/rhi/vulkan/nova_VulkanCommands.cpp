@@ -2,42 +2,65 @@
 
 namespace nova
 {
-    void Handle<Queue>::Impl::InitCommands()
+    Handle<Queue>::Impl::CommandPool* Handle<Queue>::Impl::AcquireCommandPool()
     {
-        vkh::Check(context->vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = family,
-        }), context->alloc, &pool.command_pool));
+        if (pools.empty()) {
+            CommandPool* pool = new CommandPool{};
+            vkh::Check(context->vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                .queueFamilyIndex = family,
+            }), context->alloc, &pool->command_pool));
+
+            return pool;
+        } else {
+            auto pool = pools.back();
+            pools.pop_back();
+
+            return pool;
+        }
     }
 
-    void Handle<Queue>::Impl::DestroyCommands()
+    void Handle<Queue>::Impl::DestroyCommandPools()
     {
-        for (auto& pending : pool.pending_command_lists) {
+        for (auto& pending : pending_command_lists) {
             delete pending.command_list.impl;
         }
 
-        for (auto list : pool.available_command_lists) {
-            delete list.impl;
+        for (auto& pool : pools) {
+            for (auto list : pool->available_command_lists) {
+                delete list.impl;
+            }
+
+            context->vkDestroyCommandPool(context->device, pool->command_pool, context->alloc);
+            delete pool;
         }
-
-        context->vkDestroyCommandPool(context->device, pool.command_pool, context->alloc);
     }
 
-    void Handle<Queue>::Impl::FreeCommandList(CommandList list)
+    void Handle<Queue>::Impl::ReleaseCommandPoolForList(CommandList cmd)
     {
-        pool.pending_command_lists.emplace_back(list, fence.PendingValue());
+        if (cmd->recording) {
+            pools.push_back(cmd->command_pool);
+        }
+        cmd->recording = false;
     }
 
-    void Handle<Queue>::Impl::ClearPendingCommands()
+    void Handle<Queue>::Impl::MoveCommandListToPending(CommandList cmd)
+    {
+        ReleaseCommandPoolForList(cmd);
+        pending_command_lists.emplace_back(cmd, fence.PendingValue());
+    }
+
+    void Handle<Queue>::Impl::ClearPendingCommandLists()
     {
         auto current_value = fence.CurrentValue();
-        while (!pool.pending_command_lists.empty()) {
-            auto& pending = pool.pending_command_lists.front();
+        while (!pending_command_lists.empty()) {
+            auto& pending = pending_command_lists.front();
             if (current_value >= pending.fence_value) {
+                auto* pool = pending.command_list->command_pool;
                 vkh::Check(context->vkResetCommandBuffer(pending.command_list->buffer, 0));
-                pool.available_command_lists.emplace_back(pending.command_list);
-                pool.pending_command_lists.pop_front();
+                pool->available_command_lists.emplace_back(pending.command_list);
+                pending_command_lists.pop_front();
             } else {
                 break;
             }
@@ -46,23 +69,30 @@ namespace nova
 
     CommandList Queue::Begin() const
     {
+        impl->ClearPendingCommandLists();
+
         CommandList cmd;
 
-        if (impl->pool.available_command_lists.empty()) {
+        auto* pool = impl->AcquireCommandPool();
+
+        if (pool->available_command_lists.empty()) {
             cmd = { new CommandList::Impl };
+            cmd->command_pool = pool;
             cmd->queue = *this;
             cmd->context = impl->context;
 
             vkh::Check(impl->context->vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = impl->pool.command_pool,
+                .commandPool = pool->command_pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 .commandBufferCount = 1,
             }), &cmd->buffer));
         } else {
-            cmd = impl->pool.available_command_lists.back();
-            impl->pool.available_command_lists.pop_back();
+            cmd = pool->available_command_lists.back();
+            pool->available_command_lists.pop_back();
         }
+
+        cmd->recording = true;
 
         cmd->using_shader_objects = impl->context->shader_objects;
         cmd->bound_graphics_pipeline = nullptr;
@@ -87,13 +117,14 @@ namespace nova
 
     void Queue::End(CommandList cmd) const
     {
-        // TODO: With multiple pools, return pool held by list for reuse
+        impl->ReleaseCommandPoolForList(cmd);
     }
 
     void Queue::Release(CommandList cmd) const
     {
+        impl->ReleaseCommandPoolForList(cmd);
         vkh::Check(impl->context->vkResetCommandBuffer(cmd->buffer, 0));
-        impl->pool.available_command_lists.emplace_back(cmd);
+        cmd->command_pool->available_command_lists.emplace_back(cmd);
     }
 
 // -----------------------------------------------------------------------------

@@ -708,7 +708,6 @@ if (pfn) impl->name = pfn;                                          \
                 impl->vkGetDeviceQueue(impl->device, queues[i]->family, i, &queues[i]->handle);
 
                 queues[i]->fence = Fence::Create(impl);
-                queues[i]->InitCommands();
             }
         };
 
@@ -783,19 +782,19 @@ if (pfn) impl->name = pfn;                                          \
         WaitIdle();
 
         for (auto& queue : impl->graphics_queues) {
-            queue->DestroyCommands();
+            queue->DestroyCommandPools();
             queue->fence.Destroy();
             delete queue.impl;
         }
 
         for (auto& queue : impl->compute_queues)  {
-            queue->DestroyCommands();
+            queue->DestroyCommandPools();
             queue->fence.Destroy();
             delete queue.impl;
         }
 
         for (auto& queue : impl->transfer_queues) {
-            queue->DestroyCommands();
+            queue->DestroyCommandPools();
             queue->fence.Destroy();
             delete queue.impl;
         }
