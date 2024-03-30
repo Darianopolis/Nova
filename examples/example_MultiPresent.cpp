@@ -40,6 +40,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         .window = windows[0],
         .context = context,
         .sampler = sampler,
+        .frames_in_flight = 2,
     });
 
     u64 frame = 0;
@@ -86,7 +87,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Draw ImGui demo window
         imgui.BeginFrame();
         ImGui::ShowDemoWindow();
-        imgui.DrawFrame(cmd, swapchains[0].Target(), queue.Internal_Fence());
+        imgui.DrawFrame(cmd, swapchains[0].Target());
 
         // Present #1
         cmd.Present(swapchains[0]);

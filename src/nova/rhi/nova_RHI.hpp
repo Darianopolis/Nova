@@ -388,7 +388,7 @@ namespace nova
         FenceValue Acquire(Span<HSwapchain>, bool* any_resized = nullptr) const;
         void Present(Span<HSwapchain>, Span<FenceValue> waits, PresentFlag flags = {}) const;
 
-        Fence Internal_Fence() const;
+        FenceValue Pending() const;
         void WaitIdle() const;
 
         CommandList Begin() const;

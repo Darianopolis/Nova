@@ -176,14 +176,23 @@ layout(push_constant, scalar) readonly uniform pc_ {
     ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
         : context(config.context)
         , default_sampler(config.sampler)
+        , frames_in_flight(config.frames_in_flight)
     {
-        vertex_buffer = Buffer::Create(context, 0,
-            BufferUsage::Storage,
-            BufferFlags::DeviceLocal | BufferFlags::Mapped);
+        if (frames_in_flight == 0) {
+            NOVA_THROW("frames_in_flight must be greater than 0!");
+        }
 
-        index_buffer = Buffer::Create(context, 0,
-            BufferUsage::Index,
-            BufferFlags::DeviceLocal | BufferFlags::Mapped);
+        for (u32 i = 0; i < frames_in_flight; ++i) {
+            frame_data.push_back(FrameData {
+                .vertex_buffer = Buffer::Create(context, 0,
+                    BufferUsage::Storage,
+                    BufferFlags::DeviceLocal | BufferFlags::Mapped),
+
+                .index_buffer = Buffer::Create(context, 0,
+                    BufferUsage::Index,
+                    BufferFlags::DeviceLocal | BufferFlags::Mapped),
+            });
+        }
 
         vertex_shader = Shader::Create(context,
             ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
@@ -267,8 +276,10 @@ void main() {
         ImGui::SetCurrentContext(last_imgui_ctx);
         ImGui::DestroyContext(imgui_ctx);
 
-        vertex_buffer.Destroy();
-        index_buffer.Destroy();
+        for (auto[vertex_buffer, index_buffer] : frame_data) {
+            vertex_buffer.Destroy();
+            index_buffer.Destroy();
+        }
         vertex_shader.Destroy();
         fragment_shader.Destroy();
         font_image.Destroy();
@@ -345,7 +356,7 @@ void main() {
         return ended;
     }
 
-    void ImGuiLayer::DrawFrame(CommandList cmd, Image target, Fence fence)
+    void ImGuiLayer::DrawFrame(CommandList cmd, Image target)
     {
         EndFrame();
 
@@ -358,17 +369,15 @@ void main() {
             return;
         }
 
+        // Fetch frame data
+
+        auto&[vertex_buffer, index_buffer] = frame_data[frame_index];
+        frame_index = (frame_index + 1) % frames_in_flight;
+
         // Ensure buffer sizes
 
-        if (vertex_buffer.Size() < data->TotalVtxCount * sizeof(ImDrawVert)
-                || index_buffer.Size() < data->TotalIdxCount * sizeof(ImDrawIdx)) {
-
-            // Flush frames to resize safely (this should only happen a few times in total)
-            fence.Wait();
-
-            vertex_buffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
-            index_buffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
-        }
+        vertex_buffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
+        index_buffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
 
         // Set pipeline state
 

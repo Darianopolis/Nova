@@ -850,8 +850,6 @@ if (pfn) impl->name = pfn;                                          \
 
     void* Vulkan_TrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
     {
-        // TODO: Use nova stack if VK_SYSTEM_ALLOCATION_SCOPE_COMMAND
-
         align = std::max(8ull, align);
 
         void* ptr = _aligned_offset_malloc(size + 8, align, 8);

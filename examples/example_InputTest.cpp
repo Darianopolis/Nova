@@ -27,8 +27,7 @@ NOVA_EXAMPLE(InputTest, "input-test")
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
 
-    NOVA_DEFER(&)
-    {
+    NOVA_DEFER(&) {
         sampler.Destroy();
         swapchain.Destroy();
         context.Destroy();
@@ -38,12 +37,10 @@ NOVA_EXAMPLE(InputTest, "input-test")
         .window = window,
         .context = context,
         .sampler = sampler,
+        .frames_in_flight = 1,
     });
 
-    NOVA_DEFER(&)
-    {
-        queue.WaitIdle();
-    };
+    NOVA_DEFER(&) { queue.WaitIdle(); };
 
     while (app.ProcessEvents()) {
 
@@ -55,7 +52,7 @@ NOVA_EXAMPLE(InputTest, "input-test")
 
         imgui.BeginFrame();
         app.DebugInputState();
-        imgui.DrawFrame(cmd, swapchain.Target(), queue.Internal_Fence());
+        imgui.DrawFrame(cmd, swapchain.Target());
 
         cmd.Present(swapchain);
         queue.Submit(cmd, {});

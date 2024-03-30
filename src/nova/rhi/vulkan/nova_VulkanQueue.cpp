@@ -80,9 +80,9 @@ namespace nova
         return impl->fence;
     }
 
-    Fence Queue::Internal_Fence() const
+    FenceValue Queue::Pending() const
     {
-        return impl->fence;
+        return { impl->fence, impl->fence.PendingValue() };
     }
 
     void Queue::WaitIdle() const

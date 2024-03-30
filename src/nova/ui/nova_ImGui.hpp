@@ -19,6 +19,8 @@ namespace nova::imgui
 
         Context context;
         Sampler sampler;
+
+        u32 frames_in_flight = 0;
     };
 
     struct ImGuiLayer
@@ -37,10 +39,18 @@ namespace nova::imgui
         Shader   vertex_shader;
         Shader fragment_shader;
 
-        Buffer vertex_buffer;
-        Buffer  index_buffer;
+        struct FrameData
+        {
+            Buffer vertex_buffer;
+            Buffer  index_buffer;
+        };
+
+        std::vector<FrameData> frame_data;
+        u32 frames_in_flight;
+        u32 frame_index = 0;
 
         std::chrono::steady_clock::time_point last_time = {};
+
 
         bool ended = false;
 
@@ -60,6 +70,6 @@ namespace nova::imgui
         void EndFrame();
 
         bool HasDrawData();
-        void DrawFrame(CommandList cmd, Image target, Fence fence);
+        void DrawFrame(CommandList cmd, Image target);
     };
 }
