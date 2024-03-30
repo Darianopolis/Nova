@@ -19,6 +19,8 @@ namespace nova
         inline std::atomic<i64> AllocationCount = 0;
         inline std::atomic<i64> NewAllocationCount = 0;
         inline std::atomic<u64> MemoryAllocated = 0;
+
+        inline bool ThrowOnAllocation = false;
     }
 
 // -----------------------------------------------------------------------------
@@ -26,7 +28,6 @@ namespace nova
     using HContext = Handle<struct Context>;
     using HBuffer = Handle<struct Buffer>;
     using HCommandList = Handle<struct CommandList>;
-    using HCommandPool = Handle<struct CommandPool>;
     using HFence = Handle<struct Fence>;
     using HQueue = Handle<struct Queue>;
     using HSampler = Handle<struct Sampler>;
@@ -388,8 +389,11 @@ namespace nova
         void Present(Span<HSwapchain>, Span<FenceValue> waits, PresentFlag flags = {}) const;
 
         Fence Internal_Fence() const;
-
         void WaitIdle() const;
+
+        CommandList Begin() const;
+        void End(CommandList cmd) const;
+        void Release(CommandList cmd) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -403,6 +407,8 @@ namespace nova
         u64  Advance() const;
         void Signal(u64 signal_value = ~0ull) const;
         u64  PendingValue() const;
+        u64  CurrentValue() const;
+        bool Check(u64 check_value = ~0ull) const;
 
         operator FenceValue() const;
     };
@@ -424,17 +430,6 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct CommandPool : Handle<CommandPool>
-    {
-        static CommandPool Create(HContext, HQueue);
-        void Destroy();
-
-        CommandList Begin() const;
-        void Reset() const;
-    };
-
-// -----------------------------------------------------------------------------
-
     struct RenderingInfo
     {
         Rect2D region;
@@ -447,7 +442,8 @@ namespace nova
 
     struct CommandList : Handle<CommandList>
     {
-        friend CommandPool;
+        friend Queue;
+        friend Handle<Queue>::Impl;
 
         void Present(HSwapchain) const;
 

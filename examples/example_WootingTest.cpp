@@ -49,14 +49,12 @@ NOVA_EXAMPLE(WootingTest, "wooting")
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
 
     NOVA_DEFER(&)
     {
         sampler.Destroy();
-        cmd_pool.Destroy();
         swapchain.Destroy();
         context.Destroy();
     };
@@ -81,8 +79,7 @@ NOVA_EXAMPLE(WootingTest, "wooting")
 
         queue.WaitIdle();
         queue.Acquire(swapchain);
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         cmd.ClearColor(swapchain.Target(), Vec4(0.f));
 

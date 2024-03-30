@@ -38,10 +38,6 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
-    NOVA_DEFER(&) {
-        cmd_pool.Destroy();
-    };
 
     // Vertex data
 
@@ -113,8 +109,7 @@ void main() {
         queue.WaitIdle();
         queue.Acquire({swapchain});
 
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         cmd.BeginRendering({
             .region = {{}, swapchain.Extent()},

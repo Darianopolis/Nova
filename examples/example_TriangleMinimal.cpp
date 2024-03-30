@@ -1,5 +1,6 @@
 #include "main/example_Main.hpp"
 
+#include <nova/core/nova_ToString.hpp>
 #include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
@@ -17,14 +18,13 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
-        nova::PresentMode::Fifo);
+        nova::PresentMode::Immediate);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
 
     auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         // language=glsl
@@ -45,17 +45,43 @@ void main() {
 layout(location = 0) in vec3 in_color;
 layout(location = 0) out vec4 frag_color;
 void main() {
-    frag_color = vec4(in_color, 0.1);
+    frag_color = vec4(in_color, 1.0);
 }
         )glsl"
     });
 
+    std::array<nova::FenceValue, 2> wait_values;
+    u32 fif = 0;
+    auto last_time = std::chrono::steady_clock::now();
+    auto frames = 0;
+
     while (app.ProcessEvents()) {
 
-        queue.WaitIdle();
+        // Debug output statistics
+        frames++;
+        auto new_time = std::chrono::steady_clock::now();
+        if (new_time - last_time > 1s) {
+            NOVA_LOG("\nFrame time = {} ({} fps)\nAllocations = {:3} (+ {} /s)",
+                nova::DurationToString((new_time - last_time) / frames), frames, nova::rhi::stats::AllocationCount.load(),
+                nova::rhi::stats::NewAllocationCount.exchange(0));
+            f64 divisor = 1000.0 * frames;
+            NOVA_LOG("submit :: clear     = {:.2f}\n"
+                     "submit :: adapting1 = {:.2f}\n"
+                     "submit :: adapting2 = {:.2f}\n"
+                     "present             = {:.2f}",
+                nova::rhi::stats::TimeSubmitting.exchange(0) / divisor,
+                nova::rhi::stats::TimeAdaptingFromAcquire.exchange(0)  / divisor,
+                nova::rhi::stats::TimeAdaptingToPresent.exchange(0)  / divisor,
+                nova::rhi::stats::TimePresenting.exchange(0) / divisor);
+
+            last_time = std::chrono::steady_clock::now();
+            frames = 0;
+        }
+
+        fif = 1 - fif;
+        wait_values[fif].Wait();
         queue.Acquire({swapchain});
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         cmd.BeginRendering({
             .region = {{}, swapchain.Extent()},
@@ -70,9 +96,7 @@ void main() {
         cmd.EndRendering();
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {});
+        wait_values[fif] = queue.Submit({cmd}, {});
         queue.Present({swapchain}, {});
-
-        app.WaitForEvents();
     }
 }

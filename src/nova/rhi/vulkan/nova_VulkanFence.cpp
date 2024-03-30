@@ -60,4 +60,15 @@ namespace nova
         return impl->value;
     }
 
+    u64 Fence::CurrentValue() const
+    {
+        u64 actual_value = 0;
+        vkh::Check(impl->context->vkGetSemaphoreCounterValue(impl->context->device, impl->semaphore, &actual_value));
+        return actual_value;
+    }
+
+    bool Fence::Check(u64 check_value) const
+    {
+        return CurrentValue() >= ((check_value != ~0ull) ? check_value : impl->value);
+    }
 }

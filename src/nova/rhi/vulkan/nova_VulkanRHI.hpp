@@ -63,6 +63,27 @@ namespace nova
         VkPipelineStageFlags2 stages = {};
 
         Fence fence;
+
+        struct SubmittedCommandList
+        {
+            CommandList command_list;
+            u64          fence_value;
+        };
+
+        struct CommandPool
+        {
+            VkCommandPool                             command_pool;
+            std::deque<SubmittedCommandList> pending_command_lists;
+            std::vector<CommandList>       available_command_lists;
+        };
+
+        // TODO: Handle multiple threads, pool of pools
+        CommandPool pool;
+
+        void InitCommands();
+        void DestroyCommands();
+        void ClearPendingCommands();
+        void FreeCommandList(CommandList);
     };
 
     template<>
@@ -75,22 +96,10 @@ namespace nova
     };
 
     template<>
-    struct Handle<CommandPool>::Impl
-    {
-        Context context = {};
-
-        Queue queue = {};
-
-        VkCommandPool             pool = {};
-        std::vector<CommandList> lists = {};
-        u32                      index = 0;
-    };
-
-    template<>
     struct Handle<CommandList>::Impl
     {
         Context        context = {};
-        CommandPool       pool = {};
+        Queue            queue = {};
         VkCommandBuffer buffer = {};
 
         // Graphics Pipeline Library fallback
@@ -156,7 +165,6 @@ namespace nova
         Context context = {};
 
         Queue          queue = {};
-        CommandPool cmd_pool = {};
         Buffer       staging = {};
 
         std::shared_mutex mutex;

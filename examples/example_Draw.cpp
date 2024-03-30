@@ -34,10 +34,6 @@ NOVA_EXAMPLE(Draw, "draw")
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto command_pool = nova::CommandPool::Create(context, queue);
-    NOVA_DEFER(&) {
-        command_pool.Destroy();
-    };
 
 // -----------------------------------------------------------------------------
 
@@ -164,9 +160,8 @@ NOVA_EXAMPLE(Draw, "draw")
         // Record frame
 
         queue.WaitIdle();
-        command_pool.Reset();
 
-        auto cmd = command_pool.Begin();
+        auto cmd = queue.Begin();
 
         // Update window size, record primary buffer and present
 

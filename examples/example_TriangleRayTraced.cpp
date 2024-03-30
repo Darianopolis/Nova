@@ -40,12 +40,8 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Create required Nova objects
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
     auto builder = nova::AccelerationStructureBuilder::Create(context);
-    NOVA_DEFER(&) {
-        cmd_pool.Destroy();
-        builder.Destroy();
-    };
+    NOVA_DEFER(&) { builder.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                        Descriptors & Pipeline
@@ -196,10 +192,9 @@ void main() {
 
         // Build BLAS
 
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
         cmd.BuildAccelerationStructure(builder, uncompacted_blas, scratch);
-        queue.Submit({cmd}, {});
-        queue.WaitIdle();
+        queue.Submit({cmd}, {}).Wait();
 
         // Compact BLAS
 
@@ -207,10 +202,9 @@ void main() {
             builder.CompactSize(),
             nova::AccelerationStructureType::BottomLevel);
 
-        cmd = cmd_pool.Begin();
+        cmd = queue.Begin();
         cmd.CompactAccelerationStructure(blas, uncompacted_blas);
-        queue.Submit({cmd}, {});
-        queue.WaitIdle();
+        queue.Submit({cmd}, {}).Wait();
 
         return blas;
     }();
@@ -257,8 +251,7 @@ void main() {
 
         // Start new command buffer
 
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         // Build scene TLAS
 

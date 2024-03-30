@@ -708,6 +708,7 @@ if (pfn) impl->name = pfn;                                          \
                 impl->vkGetDeviceQueue(impl->device, queues[i]->family, i, &queues[i]->handle);
 
                 queues[i]->fence = Fence::Create(impl);
+                queues[i]->InitCommands();
             }
         };
 
@@ -782,16 +783,19 @@ if (pfn) impl->name = pfn;                                          \
         WaitIdle();
 
         for (auto& queue : impl->graphics_queues) {
+            queue->DestroyCommands();
             queue->fence.Destroy();
             delete queue.impl;
         }
 
         for (auto& queue : impl->compute_queues)  {
+            queue->DestroyCommands();
             queue->fence.Destroy();
             delete queue.impl;
         }
 
         for (auto& queue : impl->transfer_queues) {
+            queue->DestroyCommands();
             queue->fence.Destroy();
             delete queue.impl;
         }
@@ -846,6 +850,8 @@ if (pfn) impl->name = pfn;                                          \
 
     void* Vulkan_TrackedAllocate(void*, size_t size, size_t align, VkSystemAllocationScope)
     {
+        // TODO: Use nova stack if VK_SYSTEM_ALLOCATION_SCOPE_COMMAND
+
         align = std::max(8ull, align);
 
         void* ptr = _aligned_offset_malloc(size + 8, align, 8);

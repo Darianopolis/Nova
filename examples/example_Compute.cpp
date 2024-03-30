@@ -71,14 +71,6 @@ NOVA_EXAMPLE(Compute, "compute")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     std::array<nova::FenceValue, 2> wait_values;
-    auto command_pools = std::array {
-        nova::CommandPool::Create(context, queue),
-        nova::CommandPool::Create(context, queue)
-    };
-    NOVA_DEFER(&) {
-        command_pools[0].Destroy();
-        command_pools[1].Destroy();
-    };
 
     // Image
 
@@ -271,8 +263,7 @@ void main() {
 
         // Start new command buffer
 
-        command_pools[fif].Reset();
-        auto cmd = command_pools[fif].Begin();
+        auto cmd = queue.Begin();
 
         // Transition ready for writing compute output
 

@@ -22,7 +22,6 @@ NOVA_EXAMPLE(Multiview, "multiview")
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
 
     auto image = nova::Image::Create(context,
         { 256, 256, 32 },
@@ -60,8 +59,7 @@ void main() {
 
         queue.WaitIdle();
         queue.Acquire({swapchain}, {});
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         cmd.BeginRendering({
             .region = {{}, Vec2U(image.Extent())},

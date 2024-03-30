@@ -22,7 +22,6 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
 
     auto task_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Task, "main", "", {
         // language=glsl
@@ -74,8 +73,7 @@ void main() {
 
         queue.WaitIdle();
         queue.Acquire({swapchain}, {});
-        cmd_pool.Reset();
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         cmd.BeginRendering({
             .region = {{}, swapchain.Extent()},

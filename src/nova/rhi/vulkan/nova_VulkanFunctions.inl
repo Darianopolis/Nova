@@ -142,5 +142,8 @@ NOVA_VULKAN_FUNCTION(vkUpdateDescriptorSets)
 NOVA_VULKAN_FUNCTION(vkWaitSemaphores)
 NOVA_VULKAN_FUNCTION(vkGetPhysicalDeviceFeatures2)
 NOVA_VULKAN_FUNCTION(vkEnumerateInstanceExtensionProperties)
+NOVA_VULKAN_FUNCTION(vkGetSemaphoreCounterValue)
+NOVA_VULKAN_FUNCTION(vkFreeCommandBuffers)
+NOVA_VULKAN_FUNCTION(vkResetCommandBuffer)
 
 #undef NOVA_VULKAN_FUNCTION

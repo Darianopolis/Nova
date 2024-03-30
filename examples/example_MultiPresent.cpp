@@ -10,7 +10,7 @@
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -32,17 +32,9 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     std::array<nova::FenceValue, 2> wait_values;
-    auto command_pools = std::array {
-        nova::CommandPool::Create(context, queue),
-        nova::CommandPool::Create(context, queue)
-    };
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
-    NOVA_DEFER(&) {
-        command_pools[0].Destroy();
-        command_pools[1].Destroy();
-        sampler.Destroy();
-    };
+    NOVA_DEFER(&) { sampler.Destroy(); };
 
     auto imgui = nova::imgui::ImGuiLayer({
         .window = windows[0],
@@ -86,8 +78,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         queue.Acquire({swapchains[0], swapchains[1]});
 
         // Reset command pool and begin new command list
-        command_pools[fif].Reset();
-        auto cmd = command_pools[fif].Begin();
+        auto cmd = queue.Begin();
 
         // Clear screen
         cmd.ClearColor(swapchains[0].Target(), Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));
@@ -109,6 +100,10 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
 
         // Present both swapchains
         queue.Present({swapchains[0], swapchains[1]}, {});
+
+        if (frames > 100) {
+            nova::rhi::stats::ThrowOnAllocation = true;
+        }
     };
 
     NOVA_DEFER(&) { queue.WaitIdle(); };

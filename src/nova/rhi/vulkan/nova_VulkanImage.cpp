@@ -266,10 +266,9 @@ namespace nova
             usz size = rows * cols * format.atom_size;
 
             manager.staging.Set(Span<char>((char*)data, size));
-            auto cmd = manager.cmd_pool.Begin();
+            auto cmd = manager.queue.Begin();
             cmd.CopyToImage(*this, manager.staging);
             manager.queue.Submit({cmd}, {}).Wait();
-            manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
@@ -303,10 +302,9 @@ namespace nova
         if (impl->context->transfer_manager.staged_image_copy) {
             auto& manager = impl->context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };
-            auto cmd = manager.cmd_pool.Begin();
+            auto cmd = manager.queue.Begin();
             cmd.Transition(*this, layout, nova::PipelineStage::All);
             manager.queue.Submit({cmd}, {}).Wait();
-            manager.cmd_pool.Reset();
         } else {
             impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, Temp(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
@@ -351,7 +349,7 @@ namespace nova
 
     void CommandList::Transition(HImage image, ImageLayout layout, PipelineStage stage) const
     {
-        auto queue = impl->pool->queue;
+        auto queue = impl->queue;
         auto vk_layout = GetVulkanImageLayout(layout);
         auto vk_stage = GetVulkanPipelineStage(stage) & queue->stages;
 

@@ -11,12 +11,9 @@ NOVA_EXAMPLE(Copy, "copy")
     auto context = nova::Context::Create({
         .debug = false,
     });
+    NOVA_DEFER(&) { context.Destroy(); };
+
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto cmd_pool = nova::CommandPool::Create(context, queue);
-    NOVA_DEFER(&) {
-        cmd_pool.Destroy();
-        context.Destroy();
-    };
 
     std::array<nova::Buffer, 4> buffers;
     std::array<nova::Image, 4> images;
@@ -32,7 +29,7 @@ NOVA_EXAMPLE(Copy, "copy")
     };
 
     for (u32 i = 0; i < 10; ++i) {
-        auto cmd = cmd_pool.Begin();
+        auto cmd = queue.Begin();
 
         for (auto& image : images) {
             cmd.Transition(image, nova::ImageLayout::GeneralImage, nova::PipelineStage::All);

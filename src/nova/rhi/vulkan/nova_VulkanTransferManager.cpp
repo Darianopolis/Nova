@@ -13,7 +13,6 @@ namespace nova
         }
 
         queue = context.Queue(nova::QueueFlags::Transfer, 0);
-        cmd_pool = nova::CommandPool::Create(context, queue);
         staging = nova::Buffer::Create(context, 64ull * 1024 * 1024,
             nova::BufferUsage::TransferSrc,
             nova::BufferFlags::Mapped);
@@ -22,6 +21,5 @@ namespace nova
     void TransferManager::Destroy()
     {
         staging.Destroy();
-        cmd_pool.Destroy();
     }
 }
