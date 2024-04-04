@@ -19,11 +19,13 @@ struct Quad
 
 NOVA_EXAMPLE(QuadTest, "quad-test")
 {
-    constexpr u32 size = 2048;
-    constexpr u32 num_quads = size * size;
-    constexpr f32 inv_half_size = 2.f / size;
+    constexpr u32 size = 2048   ;
+    constexpr u32 quad_side_count = size / 2;
+    constexpr u32 num_quads = quad_side_count * quad_side_count;
+    constexpr f32 inv_half_size = 2.f / quad_side_count;
     constexpr u32 num_indices = num_quads * 6;
 
+NOVA_DEBUG();
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)
@@ -50,9 +52,9 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { quads.Destroy(); };
-    for (u32 y = 0; y < size; ++y) {
-        for (u32 x = 0; x < size; ++x) {
-            quads.Set<Quad>(Quad({x * inv_half_size - 1, y * inv_half_size - 1}), x * size + y);
+    for (u32 y = 0; y < quad_side_count; ++y) {
+        for (u32 x = 0; x < quad_side_count; ++x) {
+            quads.Set<Quad>(Quad({x * inv_half_size - 1, y * inv_half_size - 1}), x * quad_side_count + y);
         }
     }
 
@@ -69,10 +71,11 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         }, i);
     }
 
+    std::array<nova::FenceValue, 2> wait_values;
+
     // Shaders
 
     auto vertex_preamble =
-        // language=glsl
         R"glsl(
 #extension GL_EXT_scalar_block_layout  : require
 #extension GL_EXT_buffer_reference2    : require
@@ -97,7 +100,6 @@ layout(location = 0) out vec2 uv;
 
     auto batch_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         vertex_preamble,
-        // language=glsl
         R"glsl(
 void main() {
     Quad q = pc.quads[gl_VertexIndex / 6];
@@ -111,7 +113,6 @@ void main() {
 
     auto instance_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
         vertex_preamble,
-        // language=glsl
         R"glsl(
 void main() {
     Quad q = pc.quads[gl_InstanceIndex];
@@ -124,7 +125,6 @@ void main() {
     NOVA_DEFER(&) { instance_vertex_shader.Destroy(); };
 
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        // language=glsl
         R"glsl(
 layout(location = 0) in vec2 in_uv;
 layout(location = 0) out vec4 frag_color;
@@ -136,7 +136,7 @@ void main() {
     });
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
-    bool indexed = false;
+    bool indexed = true;
     bool instanced = false;
 
     app.AddCallback([&](const nova::AppEvent& e) {
@@ -152,11 +152,15 @@ void main() {
     // Draw
 
     auto last_time = std::chrono::steady_clock::now();
-    auto frames = 0;
+    u32 frames = 0;
+    u32 fif = 1;
 
     NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
-        queue.WaitIdle();
+
+        fif = 1 - fif;
+        wait_values[fif].Wait();
+
         queue.Acquire({swapchain});
 
         // Debug output statistics
@@ -175,7 +179,6 @@ void main() {
             .region = {{}, swapchain.Extent()},
             .color_attachments = {swapchain.Target()}
         });
-        cmd.ClearColor(0, Vec4(Vec3(0.1f), 1.f), swapchain.Extent());
 
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
@@ -205,7 +208,7 @@ void main() {
         cmd.EndRendering();
 
         cmd.Present(swapchain);
-        queue.Submit({cmd}, {});
+        wait_values[fif] = queue.Submit({cmd}, {});
         queue.Present({swapchain}, {});
     }
 }

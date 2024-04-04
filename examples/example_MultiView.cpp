@@ -30,7 +30,6 @@ NOVA_EXAMPLE(Multiview, "multiview")
         nova::ImageFlags::Array);
 
     auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        // language=glsl
         R"glsl(
 layout(location = 0) out vec3 color;
 const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
@@ -43,7 +42,6 @@ void main() {
     });
 
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        // language=glsl
         R"glsl(
 layout(location = 0) in vec3 in_color;
 layout(location = 0) out vec4 frag_color;

@@ -66,7 +66,7 @@ namespace nova::imgui
             return std::bit_cast<ImTextureID>(Vec2U(image.Descriptor(), (sampler ? sampler : default_sampler).Descriptor()));
         }
 
-        void BeginFrame(LambdaRef<void()> fn = []{});
+        void BeginFrame(FunctionRef<void()> fn = []{});
         void EndFrame();
 
         bool HasDrawData();

@@ -50,7 +50,6 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
      auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::ClosestHit, "main", "", {
-         // language=glsl
          R"glsl(
  #extension GL_EXT_ray_tracing                      : require
  #extension GL_EXT_scalar_block_layout              : require
@@ -68,7 +67,6 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
      NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
 
      auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
-         // language=glsl
          R"glsl(
 #extension GL_EXT_ray_tracing                      : require
 #extension GL_EXT_shader_image_load_formatted      : require
@@ -99,7 +97,6 @@ void main() {
      NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
     auto ray_query_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
-        // language=glsl
         R"glsl(
 #extension GL_EXT_ray_tracing                      : require
 #extension GL_EXT_shader_image_load_formatted      : require

@@ -1,0 +1,156 @@
+- Cross-cutting
+    - Profiling (Tracy/Optick)
+
+- Core
+    - Base64 encoder/decoder
+    - Printing & Formatting
+        - Added formatter overloads for all basic mathematical types
+        - Add formatter for Handle<T> to debug print address!
+    - Job System
+        - Improved job queueing - concurrent_queue
+        - Job iteration counts
+        - Custom allocation
+    - Logger
+        - logging levels
+        - color formatting
+    - Filesystem API
+
+- Image
+    - Resizing & Filtering
+    - Load BasisU?
+    - Supercompression
+
+- RHI
+    - Add debug names
+    - Integrate GPU images with image library (share same format definitions)
+        - Move format transfer details to non API specific FormatInfo enum
+    - Images
+        - Handle host image copy on a per-image basis
+        - Multiple views per image (and descriptors are now per-view instead of per-image)
+        - Mutable image formats
+        - Complete set of per layer/mip image transitions and transfers
+        - Queue Family Ownership Transfers
+        - Multi-threaded / Out-of-order friendly state tracking?
+    - Swapchains
+        - Handle sRGB and HDR formats
+        - Fix Vulkan swapchain transparency issues
+    - Transfers
+        - Add non-ReBAR staging fallback (also for buffer sizes above ReBAR allocation limit)
+    - Benchmark command buffer allocation
+    - Create Queue proxies
+        - fix queue interface and make Begin/End threadsafe (also Release/Submit?)
+        - Store command pools/command buffers per queue FAMILY
+    - Generally improve threadsafety
+        - Command buffer allocation
+        - Pipeline caches
+    - Improved statistics collection
+        - Statistics aggregator views
+    - Add completion tracker to command buffer for automatic resource tracking?
+
+- Mesh
+    - Processing
+        - Generate normals + tangents
+        - Meshletization
+        - Quantization
+            - Position
+            - Tex coords
+            - tangent space
+        - LOD Simplification
+- Model
+    - Frontend
+        - gltf (fastgltf)
+        - obj (fastobj)
+        - fbx (ufbx / FBX SDK)
+        - assimp fallback
+
+- Windowing
+    - Add TRACKMOUSEEVENT when mouse leaves while pressed
+    - Events
+        - Handle Event consumption when propogating
+        - Handling event handler sorting/unregistering
+    - Mouse events/control
+        - Cursor hiding
+        - Cursor delta
+        - Cursor dragging (option to auto-unhide on drag finish)
+    - Fix application crashing on exit
+    - Window state serialization
+
+--------------------------------------------------------------------------------
+
+mesh optimizations
+
+	vertex cache optimization
+	meshletize
+	position quantization (meshlet bounding boxes)
+	tangent space quantization
+		octahedronal normals
+		canonical tangent angle
+	lods
+	meshlet level lods?
+	mesh streaming
+		mesh lod streaming
+
+texture encodings
+
+	color    -> BC7
+	normals  -> BC5 (reconstruct Z)
+	emission -> BC6h
+	uncorrelated channels -> BC4/BC5
+
+	fallback to source encoding if preencoded (E.g. BC1)
+
+	texture streaming
+		texture mip streaming
+
+all assets
+
+	GDeflate compression and GPU decompression
+
+transform stack
+
+	double float emulation
+	transform stack evaluated on GPU
+	center to camera then convert back to float
+
+rendering modes
+
+	mesh shading
+	ray tracing
+
+post processing
+
+	exposure mapping
+		automatic exposure
+	tonemapping
+		AgX
+		ACES
+	bloom
+	depth of field
+	chromatic abberations
+	vignette
+	screen shake
+	CRT effect
+
+--------------------------------------------------------------------------------
+
+image issues
+    handle host image copy on a per-image basis
+    depth/stencil images must use correct layouts
+    test layered/mipped images properly
+add queue proxies
+directly expose vulkan and drop multi-backend plans?
+add debug names
+
+logging
+    add logging levels and colored formatting
+    add staging fallback for buffers without resizable bar
+window
+    add set/get window title
+    add callback for close requested and window destroy
+    fix application termination condition
+    window state serialization
+
+--------------------------------------------------------------------------------
+
+- Handle SRGB swapchain formats
+- Fix Vulkan KHR Swapchain transparency

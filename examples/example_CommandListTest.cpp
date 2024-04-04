@@ -8,7 +8,7 @@
 
 #include <nova/window/nova_Window.hpp>
 
-NOVA_EXAMPLE(TriangleMinimal, "tri-min")
+NOVA_EXAMPLE(CommandTest, "cmd-test")
 {
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
@@ -26,32 +26,19 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         nova::PresentMode::Immediate);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
-    auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        R"glsl(
-layout(location = 0) out vec3 color;
-const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
-const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-void main() {
-    color = colors[gl_VertexIndex];
-    gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-}
-        )glsl"
-    });
-
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        R"glsl(
-layout(location = 0) in vec3 in_color;
-layout(location = 0) out vec4 frag_color;
-void main() {
-    frag_color = vec4(in_color, 1.0);
-}
-        )glsl"
-    });
-
     std::array<nova::FenceValue, 2> wait_values;
+    // std::array<nova::CommandPool, 2> pools { nova::CommandPool::Create(context, queue), nova::CommandPool::Create(context, queue) };
     u32 fif = 0;
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
+
+    std::array<std::vector<nova::CommandList>, 2> lists;
+    lists[0].resize(1'000);
+    lists[1].resize(1'000);
+
+    int buffer_count = 100, command_count = 1000;
+    // int buffer_count = 10, command_count = 10'000;
+    // int buffer_count = 1, command_count = 100'000;
 
     while (app.ProcessEvents()) {
 
@@ -79,19 +66,29 @@ void main() {
         fif = 1 - fif;
         wait_values[fif].Wait();
         queue.Acquire({swapchain});
-        auto cmd = queue.Begin();
 
-        cmd.BeginRendering({
-            .region = {{}, swapchain.Extent()},
-            .color_attachments = {swapchain.Target()}
-        });
-        cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), swapchain.Extent());
-        cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
-        cmd.SetBlendState({true});
-        cmd.BindShaders({vertex_shader, fragment_shader});
-        cmd.Draw(3, 1, 0, 0);
-        cmd.EndRendering();
+        // auto& pool = pools[fif];
+        // pool.Reset();
+        auto& pool = queue;
+
+        auto& list = lists[fif];
+        auto& last_list = lists[1 - fif];
+
+        if (last_list[0]) {
+            for (int i = 0; i < buffer_count; i++) {
+                last_list[i].Discard();
+            }
+        }
+
+        for (int i = 0; i < buffer_count; i++) {
+            list[i] = pool.Begin();
+            for (int j = 0; j < command_count; ++j) {
+                list[i].SetCullState(nova::CullMode::Back, nova::FrontFace::CounterClockwise);
+            }
+            list[i].End();
+        }
+
+        auto cmd = pool.Begin();
 
         cmd.Present(swapchain);
         wait_values[fif] = queue.Submit({cmd}, {});

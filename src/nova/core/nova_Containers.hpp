@@ -74,12 +74,12 @@ namespace nova
     struct GetFunctionImpl<Ret(Types...)> { using type = FuncBase<Ret, Types...>; };
 
     template<class Sig>
-    struct LambdaRef : GetFunctionImpl<Sig>::type {
+    struct FunctionRef : GetFunctionImpl<Sig>::type {
         template<class Fn>
-        LambdaRef(Fn&& fn)
+        FunctionRef(Fn&& fn)
             : GetFunctionImpl<Sig>::type(&fn,
-                [](void*b, auto... args) -> auto {
-                    return (*(Fn*)b)(args...);
+                [](void*b, auto&&... args) -> auto {
+                    return (*(Fn*)b)(std::forward<decltype(args)>(args)...);
                 })
         {};
     };

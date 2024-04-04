@@ -17,7 +17,6 @@ namespace nova::imgui
         };
 
         static
-        // language=glsl
         constexpr auto Preamble = R"glsl(
 #extension GL_EXT_scalar_block_layout  : require
 #extension GL_EXT_buffer_reference2    : require
@@ -197,7 +196,6 @@ layout(push_constant, scalar) readonly uniform pc_ {
         vertex_shader = Shader::Create(context,
             ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
                 Preamble,
-                // language=glsl
                 R"glsl(
 layout(location = 0) out vec2 out_uv;
 layout(location = 1) out vec4 out_color;
@@ -213,7 +211,6 @@ void main() {
         fragment_shader = Shader::Create(context,
             ShaderLang::Glsl, ShaderStage::Fragment, "main", "", {
                 Preamble,
-                // language=glsl
                 R"glsl(
 layout(set = 0, binding = 0) uniform texture2D Image2D[];
 layout(set = 0, binding = 2) uniform sampler Sampler[];
@@ -272,7 +269,6 @@ void main() {
     {
         last_imgui_ctx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imgui_ctx);
-        // ImGui_ImplGlfw_Shutdown();
         ImGui::SetCurrentContext(last_imgui_ctx);
         ImGui::DestroyContext(imgui_ctx);
 
@@ -285,12 +281,11 @@ void main() {
         font_image.Destroy();
     }
 
-    void ImGuiLayer::BeginFrame(LambdaRef<void()> fn)
+    void ImGuiLayer::BeginFrame(FunctionRef<void()> fn)
     {
         last_imgui_ctx = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imgui_ctx);
 
-        // ImGui_ImplGlfw_NewFrame();
         ImGui_ImplNova_NewFrame(*this);
         ImGui::NewFrame();
 
@@ -369,23 +364,26 @@ void main() {
             return;
         }
 
-        // Fetch frame data
+        // Fetch frame buffers and ensure sizes
 
         auto&[vertex_buffer, index_buffer] = frame_data[frame_index];
         frame_index = (frame_index + 1) % frames_in_flight;
-
-        // Ensure buffer sizes
 
         vertex_buffer.Resize(data->TotalVtxCount * sizeof(ImDrawVert));
         index_buffer.Resize(data->TotalIdxCount * sizeof(ImDrawIdx));
 
         // Set pipeline state
 
-        cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(target.Extent())}});
-        cmd.SetBlendState({true});
+        cmd.SetViewports({{{}, Vec2I(target.Extent())}}, true);
         cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.BindIndexBuffer(index_buffer, sizeof(ImDrawIdx) == sizeof(u16) ? IndexType::U16 : IndexType::U32);
+
+        auto ResetRenderState = [&] {
+            cmd.ResetGraphicsState();
+            cmd.SetBlendState({true});
+        };
+
+        ResetRenderState();
 
         // Draw vertices
 
@@ -407,24 +405,32 @@ void main() {
             for (i32 j = 0; j < list->CmdBuffer.size(); ++j) {
                 const auto& im_cmd = list->CmdBuffer[j];
 
-                auto clip_min = glm::max((Vec2(im_cmd.ClipRect.x, im_cmd.ClipRect.y) - clip_offset) * clip_scale, {});
-                auto clip_max = glm::min((Vec2(im_cmd.ClipRect.z, im_cmd.ClipRect.w) - clip_scale), Vec2(target.Extent()));
-                if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
-                    continue;
+                if (im_cmd.UserCallback == ImDrawCallback_ResetRenderState) {
+                    ResetRenderState();
+
+                } else if (im_cmd.UserCallback) {
+                    im_cmd.UserCallback(list, &im_cmd);
+
+                } else {
+                    auto clip_min = glm::max((Vec2(im_cmd.ClipRect.x, im_cmd.ClipRect.y) - clip_offset) * clip_scale, {});
+                    auto clip_max = glm::min((Vec2(im_cmd.ClipRect.z, im_cmd.ClipRect.w) - clip_scale), Vec2(target.Extent()));
+                    if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y) {
+                        continue;
+                    }
+
+                    cmd.SetScissors({{Vec2I(clip_min), Vec2I(clip_max - clip_min)}});
+                    cmd.PushConstants(ImGuiPushConstants {
+                        .vertices = vertex_buffer.DeviceAddress(),
+                        .scale = 2.f / Vec2(target.Extent()),
+                        .offset = Vec2(-1.f),
+                        .texture = std::bit_cast<Vec2U>(im_cmd.TextureId),
+                    });
+
+                    cmd.DrawIndexed(im_cmd.ElemCount, 1,
+                        u32(index_offset) + im_cmd.IdxOffset,
+                        u32(vertex_offset) + im_cmd.VtxOffset,
+                        0);
                 }
-
-                cmd.SetScissors({{Vec2I(clip_min), Vec2I(clip_max - clip_min)}});
-                cmd.PushConstants(ImGuiPushConstants {
-                    .vertices = vertex_buffer.DeviceAddress(),
-                    .scale = 2.f / Vec2(target.Extent()),
-                    .offset = Vec2(-1.f),
-                    .texture = std::bit_cast<Vec2U>(im_cmd.TextureId),
-                });
-
-                cmd.DrawIndexed(im_cmd.ElemCount, 1,
-                    u32(index_offset) + im_cmd.IdxOffset,
-                    u32(vertex_offset) + im_cmd.VtxOffset,
-                    0);
             }
 
             vertex_offset += list->VtxBuffer.size();

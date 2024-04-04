@@ -18,12 +18,11 @@ namespace nova::draw
         };
 
         static
-        // language=glsl
         constexpr auto Preamble = R"glsl(
 #extension GL_EXT_scalar_block_layout  : require
 #extension GL_EXT_buffer_reference2    : require
 #extension GL_EXT_nonuniform_qualifier : require
-
+expl
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImRoundRect {
     vec4 center_color;
     vec4 border_color;
@@ -60,7 +59,6 @@ layout(push_constant, scalar) readonly uniform pc_ {
         rect_vert_shader = Shader::Create(context,
             ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
                 Preamble,
-                // language=glsl
                 R"glsl(
 const vec2[6] deltas = vec2[] (
     vec2(-1, -1), vec2(-1,  1), vec2( 1, -1),
@@ -85,7 +83,6 @@ void main() {
         rect_frag_shader = Shader::Create(context,
             ShaderLang::Glsl, ShaderStage::Fragment, "main", "", {
                 Preamble,
-                // language=glsl
                 R"glsl(
 layout(set = 0, binding = 0) uniform texture2D Image2D[];
 layout(set = 0, binding = 2) uniform sampler Sampler[];

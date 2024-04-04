@@ -24,7 +24,6 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
     auto task_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Task, "main", "", {
-        // language=glsl
         R"glsl(
 #extension GL_EXT_mesh_shader : require
 
@@ -36,7 +35,6 @@ void main()
     });
 
     auto mesh_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Mesh, "main", "", {
-        // language=glsl
         R"glsl(
 #extension GL_EXT_mesh_shader : require
 
@@ -59,7 +57,6 @@ void main() {
     });
 
     auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        // language=glsl
         R"glsl(
 layout(location = 0) in vec3 in_color;
 layout(location = 0) out vec4 frag_color;

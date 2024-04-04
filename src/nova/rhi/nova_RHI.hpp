@@ -394,8 +394,6 @@ namespace nova
 
         // TODO: Make these threadsafe? (Queue redesign)
         CommandList Begin() const;
-        void End(CommandList cmd) const;
-        void Release(CommandList cmd) const;
     };
 
 // -----------------------------------------------------------------------------
@@ -446,6 +444,9 @@ namespace nova
     {
         friend Queue;
         friend Handle<Queue>::Impl;
+
+        void End() const;
+        void Discard() const;
 
         void Present(HSwapchain) const;
 

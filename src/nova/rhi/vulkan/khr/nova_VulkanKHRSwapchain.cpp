@@ -125,7 +125,7 @@ namespace nova
                         .imageExtent = swapchain->extent,
                         .imageArrayLayers = 1,
                         .imageUsage = vk_usage,
-                        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE, // TODO: concurrent for async present
+                        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
                         .queueFamilyIndexCount = 1,
                         .pQueueFamilyIndices = &impl->family,
                         .preTransform = caps.currentTransform,

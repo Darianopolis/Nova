@@ -115,16 +115,16 @@ namespace nova
         return cmd;
     }
 
-    void Queue::End(CommandList cmd) const
+    void CommandList::End() const
     {
-        impl->ReleaseCommandPoolForList(cmd);
+        impl->queue->ReleaseCommandPoolForList(*this);
     }
 
-    void Queue::Release(CommandList cmd) const
+    void CommandList::Discard() const
     {
-        impl->ReleaseCommandPoolForList(cmd);
-        vkh::Check(impl->context->vkResetCommandBuffer(cmd->buffer, 0));
-        cmd->command_pool->available_command_lists.emplace_back(cmd);
+        impl->queue->ReleaseCommandPoolForList(*this);
+        vkh::Check(impl->context->vkResetCommandBuffer(impl->buffer, 0));
+        impl->command_pool->available_command_lists.emplace_back(*this);
     }
 
 // -----------------------------------------------------------------------------
