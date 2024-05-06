@@ -17,4 +17,4 @@ std::monostate RegisterExample(const char* name, ExampleEntryFnPtr fn);
 #define NOVA_EXAMPLE(name, strName) \
     void example_##name(nova::Span<std::string_view> args); \
     static auto example_##name##_state = RegisterExample(strName, example_##name); \
-    void example_##name(nova::Span<std::string_view> args)
+    void example_##name([[maybe_unused]] nova::Span<std::string_view> args)

@@ -11,9 +11,9 @@ namespace nova
     // TODO: Todo Includes
 
     std::vector<uint32_t> Vulkan_CompileSlangToSpirv(
-            ShaderStage stage,
-            std::string_view entry,
-            std::string_view filename,
+            ShaderStage             /* stage */,
+            std::string_view           entry,
+            std::string_view     /* filename */,
             Span<std::string_view> fragments)
     {
         NOVA_STACK_POINT();

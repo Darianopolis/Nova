@@ -26,6 +26,9 @@ namespace nova
 
     bool Platform_GpuSupportsPresent(Context context, VkPhysicalDevice gpu)
     {
+        NOVA_IGNORE(context);
+        NOVA_IGNORE(gpu);
+
         // auto vkGetPhysicalDeviceWin32PresentationSupportKHR = (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)
         //     context->vkGetInstanceProcAddr(context->instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
         //

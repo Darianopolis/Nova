@@ -88,7 +88,7 @@ NOVA_EXAMPLE(WootingTest, "wooting")
 
         ImGui::Begin("Wooting");
         {
-            for (i32 code = 0; code < 200; ++code) {
+            for (u16 code = 0; code < 200; ++code) {
                 float value = wooting_analog_read_analog(code);
                 if (value > 0.f) {
                     ImGui::Text("Key[%i]: %.4f", code,  value);

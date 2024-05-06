@@ -7,7 +7,10 @@
 #include <nova/window/nova_Window.hpp>
 
 #include <nova/core/win32/nova_Win32Include.hpp>
+#pragma warning(push)
+#pragma warning(disable: 4263)
 #include "dcomp.h"
+#pragma warning(pop)
 
 #include <stb_image.h>
 
@@ -58,9 +61,7 @@ NOVA_EXAMPLE(Draw, "draw")
 
 // -----------------------------------------------------------------------------
 
-    int count;
     auto size = app.PrimaryDisplay().Size();
-
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
     auto font = im_draw.LoadFont("assets/fonts/arial.ttf", 20.f);

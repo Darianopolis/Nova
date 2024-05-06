@@ -29,7 +29,7 @@ namespace nova
             // Try and use the data in RID_DEVICE_INFO to associate `device` with a device from devices
             u32 rid_device_info_size = sizeof(RID_DEVICE_INFO);
             RID_DEVICE_INFO rid_device_info;
-            if (auto res = GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICEINFO, &rid_device_info, &rid_device_info_size); res == -1u || res == 0) {
+            if (auto res = GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICEINFO, &rid_device_info, &rid_device_info_size); res == ~0u || res == 0) {
                 // NOVA_LOG("Skipping device because we failed to get the necessary info to associate it");
                 continue;
             }
@@ -118,7 +118,7 @@ namespace nova
                 // Try and use the data in RID_DEVICE_INFO to associate `device` with a device from devices
                 u32 rid_device_info_size = sizeof(RID_DEVICE_INFO);
                 RID_DEVICE_INFO rid_device_info;
-                if (auto res = GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICEINFO, &rid_device_info, &rid_device_info_size); res == -1u || res == 0) {
+                if (auto res = GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICEINFO, &rid_device_info, &rid_device_info_size); res == ~0u || res == 0) {
                     continue;
                 }
 
@@ -164,12 +164,12 @@ namespace nova
 
     static
     void CALLBACK DeviceCallback(
-            _In_ GameInputCallbackToken callback_token,
-            _In_ void*                         context,
-            _In_ IGameInputDevice*              device,
-            _In_ uint64_t                    timestamp,
-            _In_ GameInputDeviceStatus  current_status,
-            _In_ GameInputDeviceStatus previous_status)
+            _In_ GameInputCallbackToken /* callback_token */,
+            _In_ void*                            context,
+            _In_ IGameInputDevice*                 device,
+            _In_ uint64_t                    /* timestamp */,
+            _In_ GameInputDeviceStatus     current_status,
+            _In_ GameInputDeviceStatus    previous_status)
     {
 
         auto app = Application(static_cast<Application::Impl*>(context));
@@ -317,11 +317,11 @@ namespace nova
             }
         }
 
-        u32 id = 0;
+        u32 device_index = 0;
         for (auto& device : gi.devices) {
             IGameInputReading* reading;
 
-            bool showing = ImGui::CollapsingHeader(NOVA_STACK_FORMAT("[{}]: {}", ++id, device.name).data());
+            bool showing = ImGui::CollapsingHeader(NOVA_STACK_FORMAT("[{}]: {}", ++device_index, device.name).data());
 
             gi.handle->GetCurrentReading(device.kinds, device.handle, &reading);
             NOVA_DEFER(&) { reading->Release(); };
@@ -342,11 +342,13 @@ namespace nova
                 device.mouse_buttons[5] = state.buttons & info->supportedButtons & GameInputMouseWheelTiltLeft;
                 device.mouse_buttons[6] = state.buttons & info->supportedButtons & GameInputMouseWheelTiltRight;
 
-                device.mouse_pos.x = state.positionX;
-                device.mouse_pos.y = state.positionY;
+                // Store fixed point?
 
-                if (info->hasWheelX) device.mouse_wheel.x = state.wheelX;
-                if (info->hasWheelY) device.mouse_wheel.y = state.wheelY;
+                device.mouse_pos.x = f32(state.positionX);
+                device.mouse_pos.y = f32(state.positionY);
+
+                if (info->hasWheelX) device.mouse_wheel.x = f32(state.wheelX);
+                if (info->hasWheelY) device.mouse_wheel.y = f32(state.wheelY);
 
                 if (showing) {
                     ImGui::Checkbox("Mouse Left##", &device.mouse_buttons[0]);

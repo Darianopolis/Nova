@@ -324,7 +324,6 @@ namespace nova
     void CommandList::Impl::Transition(HImage image,
         VkImageLayout new_layout, VkPipelineStageFlags2 new_stages)
     {
-        constexpr u32 val = VK_QUEUE_FAMILY_EXTERNAL;
         context->vkCmdPipelineBarrier2(buffer, Temp(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,

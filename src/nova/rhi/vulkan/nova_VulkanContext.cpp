@@ -219,9 +219,9 @@ Validation-VUID({}): {}
 
         impl->vkGetInstanceProcAddr = Platform_LoadGetInstanceProcAddr();
 
-#define NOVA_VULKAN_FUNCTION(name) {                                \
-auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name); \
-if (pfn) impl->name = pfn;                                          \
+#define NOVA_VULKAN_FUNCTION(name) {                                    \
+    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name); \
+    if (pfn) impl->name = pfn;                                          \
 }
 #include "nova_VulkanFunctions.inl"
 
@@ -304,6 +304,8 @@ if (pfn) impl->name = pfn;                                          \
             .ppEnabledExtensionNames = instance_extensions.data(),
         }), impl->alloc, &impl->instance));
 
+        NOVA_LOG("Instance: {}", (void*)impl->instance);
+
         // Load instance functions
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
@@ -326,7 +328,7 @@ if (pfn) impl->name = pfn;                                          \
             NOVA_LOG("Critical error: No physical devices found");
         }
 
-        if (auto gpu_override = std::getenv("NOVA_GPU_SELECT")) {
+        if (auto gpu_override = GetEnv("NOVA_GPU_SELECT"); !gpu_override.empty()) {
             auto index = std::stoi(gpu_override);
             if (index >= gpus.size()) {
                 NOVA_LOG("Invalid index provided for GPU override: {}", index);
@@ -432,7 +434,6 @@ if (pfn) impl->name = pfn;                                          \
 
         // External memory imports (for DXGI interop)
 
-        chain.Add(NOVA_VK_EXTENSION(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME));
         chain.Add(NOVA_VK_EXTENSION("VK_KHR_external_memory_win32"));
 
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess));
@@ -463,13 +464,18 @@ if (pfn) impl->name = pfn;                                          \
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, timelineSemaphore));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan12Features, bufferDeviceAddress));
 
-        chain.Require(NOVA_VK_EXTENSION("VK_KHR_shader_non_semantic_info"));
-
         // Vulkan 1.3
 
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, synchronization2));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
+
+        // Pageable device local memory
+
+        chain.Require(NOVA_VK_EXTENSION(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceMemoryPriorityFeaturesEXT, memoryPriority));
+        chain.Require(NOVA_VK_EXTENSION(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, pageableDeviceLocalMemory));
 
         // Extended Dynamic State
 

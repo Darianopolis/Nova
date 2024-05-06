@@ -138,6 +138,9 @@ NOVA_EXAMPLE(Compute, "compute")
         } else if (encoding == "bc7") {
             target_desc.format = nova::ImageFormat::BC7;
             format = nova::Format::BC7_Unorm;
+        } else {
+            NOVA_LOG("Invalid encoding must be one of: rgba, bc[1-7]");
+            return;
         }
 
         // Encode

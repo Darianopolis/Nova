@@ -95,6 +95,10 @@ namespace nova
     {
         return &v;
     }
+
+// -----------------------------------------------------------------------------
+
+    std::string GetEnv(std::string_view name);
 }
 
 // -----------------------------------------------------------------------------
@@ -117,6 +121,10 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+#define NOVA_IGNORE(var) (void)var
+
+// -----------------------------------------------------------------------------
+
 inline
 void* __cdecl operator new[](size_t size, const char* /* name */, int /* flags */, unsigned /* debug_flags */, const char* /* file */, int /* line */)
 {
@@ -130,6 +138,7 @@ void* __cdecl operator new[](size_t size, size_t align, size_t /* ??? */, const 
 }
 
 // -----------------------------------------------------------------------------
+
 
 #ifdef NOVA_PLATFORM_WINDOWS
 #include "win32/nova_Win32Core.hpp"

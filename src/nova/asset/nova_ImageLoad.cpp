@@ -107,9 +107,13 @@ namespace nova
                         file.read((char*)output->data, output->size);
                     }
 
+                    if (output->size > INT_MAX) {
+                        NOVA_THROW("File to large for ddsktx to parse (size > INT_MAX)");
+                    }
+
                     ddsktx_texture_info info = {};
                     ddsktx_error error = {};
-                    if (!ddsktx_parse(&info, output->data, output->size, &error)) {
+                    if (!ddsktx_parse(&info, output->data, int(output->size), &error)) {
                         NOVA_THROW("Error parsing DDS/KTX file: {:256s}", error.msg);
                     }
 

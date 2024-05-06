@@ -171,7 +171,7 @@ namespace nova
                         .imageView = image->view,
                         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                     }),
-                }
+                },
             }), storage_stride, descriptor_buffer.HostAddress() + storage_offset + storage_stride * index);
         } else {
             context->vkUpdateDescriptorSets(context->device, 1, Temp(VkWriteDescriptorSet {

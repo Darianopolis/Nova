@@ -3,8 +3,12 @@
 #include <nova/core/nova_Debug.hpp>
 
 #include <rdo_bc_encoder.h>
+
+#pragma warning(push)
+#pragma warning(disable : 4242)
 #include <cmp_core.h>
 #include <encoders/bcn_common_kernel.h>
+#pragma warning(pop)
 
 namespace nova
 {
@@ -72,7 +76,6 @@ namespace nova
         template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
         void ImageBlockReadBC12367(const ImageAccessor& accessor, const void* data, ImagePos pos, Block& output)
         {
-            const auto& mip_accessor = accessor.accessors[pos.mip];
             const uc8* block_ptr = static_cast<const uc8*>(data) + ComputeBlockOffset(accessor, pos);
             ChannelT decoded[4][4][sizeof...(Channels)];
             DecompressFn(block_ptr, (FnChannelT*)&decoded[0][0][0], accessor.read_payload);
@@ -92,7 +95,6 @@ namespace nova
         template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class CompressFnT, CompressFnT CompressFn, u32 ... Channels>
         void ImageBlockWriteBC12367(const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
         {
-            const auto& mip_accessor = accessor.accessors[pos.mip];
             uc8* block_ptr = static_cast<uc8*>(data) + ComputeBlockOffset(accessor, pos);
             ChannelT decoded[4][4][sizeof...(Channels)];
             for (u32 y = 0; y < 4; ++y) {
@@ -111,7 +113,6 @@ namespace nova
         template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
         void ImageBlockReadBC45(const ImageAccessor& accessor, const void* data, ImagePos pos, Block& output)
         {
-            const auto& mip_accessor = accessor.accessors[pos.mip];
             const uc8* block_ptr = static_cast<const uc8*>(data) + ComputeBlockOffset(accessor, pos);
             ChannelT decoded[sizeof...(Channels)][4][4];
             if constexpr (sizeof...(Channels) == 2) {
@@ -136,7 +137,6 @@ namespace nova
         template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class CompressFnT, CompressFnT CompressFn, u32 ... Channels>
         void ImageBlockWriteBC45(const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
         {
-            const auto& mip_accessor = accessor.accessors[pos.mip];
             uc8* block_ptr = static_cast<uc8*>(data) + ComputeBlockOffset(accessor, pos);
             ChannelT decoded[sizeof...(Channels)][4][4];
             for (u32 y = 0; y < 4; ++y) {
@@ -252,7 +252,6 @@ namespace nova
                 {
                     // TODO: Deduplicate this
 
-                    const auto& mip_accessor = accessor.accessors[pos.mip];
                     uc8* block_ptr = static_cast<uc8*>(data) + ComputeBlockOffset(accessor, pos);
                     u8 decoded[4][4][4];
                     for (u32 y = 0; y < 4; ++y) {
@@ -294,7 +293,7 @@ namespace nova
 
         u32 width = desc.width;
         u32 height = desc.height;
-        usz offset = 0;
+        u32 offset = 0;
 
         for (u32 i = 0; i < desc.mips; ++i) {
             auto& accessor = accessors[i];

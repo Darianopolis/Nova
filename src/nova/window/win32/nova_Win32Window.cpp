@@ -82,6 +82,7 @@ namespace nova
                         break;case WM_KEYUP:       code = u32(wparam); pressed = false; repeat = lparam & 0xFFFF;
                         break;case WM_SYSKEYDOWN:  code = u32(wparam); pressed = true;  repeat = lparam & 0xFFFF;
                         break;case WM_SYSKEYUP:    code = u32(wparam); pressed = false; repeat = lparam & 0xFFFF;
+                        break;default: std::unreachable();
                     }
 
                     for (u32 i = 0; i < repeat; ++i) {
@@ -330,6 +331,8 @@ namespace nova
             break;case Cursor::ResizeNESW: resource = IDC_SIZENESW;
             break;case Cursor::ResizeAll:  resource = IDC_SIZEALL;
             break;case Cursor::NotAllowed: resource = IDC_NO;
+
+            break;default: std::unreachable();
         }
 
         // TODO: Preload cursors and keep handles around

@@ -37,7 +37,7 @@ namespace nova
     }
 
     static
-    auto VulkanFormats = [] {
+    constexpr auto VulkanFormats = [] {
         std::array<VulkanFormat, usz(Format::_count)> formats;
 
         formats[std::to_underlying(Format::Undefined)]     = { Format::Undefined,     VK_FORMAT_UNDEFINED,            0        };
