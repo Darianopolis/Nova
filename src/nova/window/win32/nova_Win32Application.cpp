@@ -33,7 +33,7 @@ namespace nova
     {
         if (!impl) return;
 
-        impl->DestroyGameInput();
+        // impl->DestroyGameInput();
 
         delete impl;
     }

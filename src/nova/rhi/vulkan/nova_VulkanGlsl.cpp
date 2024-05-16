@@ -53,7 +53,7 @@ namespace nova
                     userdata->content = nova::files::ReadTextFile(userdata->name);
                 }
             } else {
-                userdata->content = NOVA_FORMAT("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
+                userdata->content = FormatStr("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
                 NOVA_LOG("{}", userdata->content);
             }
 
@@ -88,12 +88,11 @@ namespace nova
     };
 
     std::vector<uint32_t> Vulkan_CompileGlslToSpirv(
-            ShaderStage stage,
-            std::string_view entry,
-            std::string_view filename,
-            Span<std::string_view> fragments)
+            ShaderStage          stage,
+            StringView          entry,
+            StringView       filename,
+            Span<StringView> fragments)
     {
-        NOVA_STACK_POINT();
 
         NOVA_DO_ONCE() { glslang::InitializeProcess(); };
         NOVA_ON_EXIT() { glslang::FinalizeProcess(); };
@@ -130,7 +129,7 @@ namespace nova
         std::string glsl;
         if (fragments.size()) {
             for (auto& f : fragments) {
-                glsl.append(f);
+                glsl.append_range(f);
             }
         } else {
             glsl = files::ReadTextFile(filename);
@@ -138,11 +137,13 @@ namespace nova
 
         const char* source = glsl.data();
         i32 source_length = i32(glsl.size());
-        const char* source_name = NOVA_STACK_TO_CSTR(filename);
+        auto source_name = filename.CStr();
+        glslang_shader.setStringsWithLengthsAndNames(&source, &source_length, &source_name.Get(), 1);
 
-        glslang_shader.setStringsWithLengthsAndNames(&source, &source_length, &source_name, 1);
         glslang_shader.setPreamble("#extension GL_GOOGLE_include_directive : require\n");
-        glslang_shader.setSourceEntryPoint(entry.data());
+
+        auto entry_cstr = entry.CStr();
+        glslang_shader.setSourceEntryPoint(entry_cstr);
 
         // ---- Defines ----
 

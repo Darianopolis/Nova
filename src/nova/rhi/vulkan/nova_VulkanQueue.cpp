@@ -24,7 +24,7 @@ namespace nova
         NOVA_THROW("Illegal queue flags: {}", u32(flags));
     }
 
-    FenceValue Queue::Submit(Span<HCommandList> command_lists, Span<FenceValue> waits) const
+    SyncPoint Queue::Submit(Span<HCommandList> command_lists, Span<SyncPoint> waits) const
     {
         NOVA_STACK_POINT();
 
@@ -79,7 +79,7 @@ namespace nova
         return impl->fence;
     }
 
-    FenceValue Queue::Pending() const
+    SyncPoint Queue::Pending() const
     {
         return { impl->fence, impl->fence.PendingValue() };
     }

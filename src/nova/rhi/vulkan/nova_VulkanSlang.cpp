@@ -11,16 +11,14 @@ namespace nova
     // TODO: Todo Includes
 
     std::vector<uint32_t> Vulkan_CompileSlangToSpirv(
-            ShaderStage             /* stage */,
-            std::string_view           entry,
-            std::string_view     /* filename */,
-            Span<std::string_view> fragments)
+            ShaderStage       /* stage */,
+            StringView           entry,
+            StringView     /* filename */,
+            Span<StringView> fragments)
     {
-        NOVA_STACK_POINT();
-
         std::string str;
         for (auto fragment : fragments) {
-            str.append(fragment);
+            str.append_range(fragment);
         }
 
         Slang::ComPtr<slang::IGlobalSession> slang_global_session;
@@ -71,7 +69,7 @@ namespace nova
         }
 
         Slang::ComPtr<slang::IEntryPoint> entry_point;
-        if (SLANG_FAILED(slang_module->findEntryPointByName(NOVA_STACK_TO_CSTR(entry), entry_point.writeRef()))) {
+        if (SLANG_FAILED(slang_module->findEntryPointByName(entry.CStr(), entry_point.writeRef()))) {
             NOVA_THROW("slang failed to find entry point: {}", entry);
         }
 

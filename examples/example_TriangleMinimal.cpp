@@ -18,12 +18,12 @@ NOVA_EXAMPLE(TriangleMinimal, "tri-min")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
-        nova::PresentMode::Immediate);
+        nova::PresentMode::Mailbox);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
     auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
@@ -48,7 +48,9 @@ void main() {
         )glsl"
     });
 
-    std::array<nova::FenceValue, 2> wait_values;
+    constexpr u32 FifCount = 2;
+
+    std::array<nova::SyncPoint, FifCount> wait_values;
     u32 fif = 0;
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
@@ -76,20 +78,21 @@ void main() {
             frames = 0;
         }
 
-        fif = 1 - fif;
+        fif = (fif + 1) % FifCount;
         wait_values[fif].Wait();
         queue.Acquire({swapchain});
         auto cmd = queue.Begin();
+
+        cmd.ResetGraphicsState();
+        cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
+        cmd.SetBlendState({true});
+        cmd.BindShaders({vertex_shader, fragment_shader});
 
         cmd.BeginRendering({
             .region = {{}, swapchain.Extent()},
             .color_attachments = {swapchain.Target()}
         });
         cmd.ClearColor(0, Vec4(0.1f, 0.29f, 0.32f, 1.f), swapchain.Extent());
-        cmd.ResetGraphicsState();
-        cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
-        cmd.SetBlendState({true});
-        cmd.BindShaders({vertex_shader, fragment_shader});
         cmd.Draw(3, 1, 0, 0);
         cmd.EndRendering();
 

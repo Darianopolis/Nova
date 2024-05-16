@@ -10,6 +10,8 @@ namespace nova
 
         ThreadStack::ThreadStack()
             : ptr(static_cast<std::byte *>(AllocVirtual(AllocationType::Commit | AllocationType::Reserve, NOVA_STACK_SIZE)))
+            , beg(ptr)
+            , end(ptr + NOVA_STACK_SIZE)
         {}
 
         ThreadStack::~ThreadStack()

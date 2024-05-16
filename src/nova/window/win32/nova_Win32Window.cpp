@@ -189,15 +189,13 @@ namespace nova
         app->windows.push_back({ impl });
 
         {
-            NOVA_STACK_POINT();
-
             DWORD ex_style = WS_EX_APPWINDOW;
             DWORD style = WS_OVERLAPPEDWINDOW;
 
             impl->handle = ::CreateWindowExW(
                 ex_style,
                 Win32WndClassName,
-                NOVA_STACK_TO_UTF16(impl->title).data(),
+                ToUtf16(impl->title).c_str(),
                 style,
                 CW_USEDEFAULT, CW_USEDEFAULT,
                 CW_USEDEFAULT, CW_USEDEFAULT,
@@ -348,17 +346,16 @@ namespace nova
         return IsIconic(impl->handle);
     }
 
-    Window Window::SetTitle(std::string_view title) const
+    Window Window::SetTitle(std::string _title) const
     {
-        impl->title = title;
+        impl->title = std::move(_title);
 
-        NOVA_STACK_POINT();
-        ::SetWindowTextW(impl->handle, NOVA_STACK_TO_UTF16(title).data());
+        ::SetWindowTextW(impl->handle, ToUtf16(impl->title).c_str());
 
         return *this;
     }
 
-    std::string_view Window::Title() const
+    StringView Window::Title() const
     {
         return impl->title;
     }

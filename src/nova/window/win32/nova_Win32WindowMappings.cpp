@@ -5,10 +5,10 @@ namespace nova
     struct Win32VirtualKeyMapping {
         VirtualKey nova_mapping;
         u32       win32_mapping;
-        std::string_view   name;
+        StringView         name;
     };
 
-    constexpr auto Win32VirtualKeyMappings = std::to_array<Win32VirtualKeyMapping>({
+    static constexpr auto Win32VirtualKeyMappings = std::to_array<Win32VirtualKeyMapping>({
         { VirtualKey::MousePrimary,   VK_LBUTTON,  "MousePrimary"   },
         { VirtualKey::MouseMiddle,    VK_MBUTTON,  "MouseMiddle"    },
         { VirtualKey::MouseSecondary, VK_RBUTTON,  "MouseSecondary" },
@@ -186,7 +186,7 @@ namespace nova
         return app->win32_input.to_win32_virtual_key[u32(key)];
     }
 
-    std::string_view Application::VirtualKeyToString(VirtualKey key) const
+    StringView Application::VirtualKeyToString(VirtualKey key) const
     {
         return impl->win32_input.key_names[u32(key)];
     }

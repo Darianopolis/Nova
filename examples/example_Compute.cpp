@@ -70,7 +70,7 @@ NOVA_EXAMPLE(Compute, "compute")
     // Create required Nova objects
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    std::array<nova::FenceValue, 2> wait_values;
+    std::array<nova::SyncPoint, 2> wait_values;
 
     // Image
 

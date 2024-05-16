@@ -88,11 +88,11 @@ namespace nova
         return *this;
     }
 
-    Statement& Statement::SetString(u32 index, std::string_view str)
+    Statement& Statement::SetString(u32 index, StringView str)
     {
         ResetIfComplete();
 
-        if (auto err = sqlite3_bind_text(stmt, index, &str[0], i32(str.cend() - str.cbegin()), SQLITE_STATIC)) {
+        if (auto err = sqlite3_bind_text(stmt, index, str.Data(), i32(str.Size()), SQLITE_STATIC)) {
             NOVA_THROW("Error[{}] during set: {}", err, sqlite3_errmsg(db));
         }
 
@@ -121,7 +121,7 @@ namespace nova
         return *this;
     }
 
-    std::string_view Statement::GetString(u32 index)
+    StringView Statement::GetString(u32 index)
     {
         return reinterpret_cast<const c8*>(sqlite3_column_text(stmt, index - 1));
     }

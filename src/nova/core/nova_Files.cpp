@@ -40,11 +40,9 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    std::vector<char> files::ReadBinaryFile(std::string_view filename)
+    std::vector<char> files::ReadBinaryFile(StringView filename)
     {
-        NOVA_STACK_POINT();
-
-        std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
+        std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             NOVA_THROW("Failed to open file: [{}]", filename);
         }
@@ -59,11 +57,9 @@ namespace nova
         return buffer;
     }
 
-    std::string files::ReadTextFile(std::string_view filename)
+    std::string files::ReadTextFile(StringView filename)
     {
-        NOVA_STACK_POINT();
-
-        std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
+        std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             NOVA_THROW("Failed to open file: [{}]", filename);
         }

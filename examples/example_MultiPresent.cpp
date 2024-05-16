@@ -36,7 +36,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    std::array<nova::FenceValue, 2> wait_values;
+    std::array<nova::SyncPoint, 2> wait_values;
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
@@ -45,8 +45,6 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
     auto update = [&] {
-        NOVA_STACK_POINT();
-
         // Debug output statistics
         frames++;
         auto new_time = std::chrono::steady_clock::now();
@@ -74,6 +72,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Wait for previous commands in frame to complete
         wait_values[fif].Wait();
 
+        NOVA_STACK_POINT();
         auto hswapchains = NOVA_STACK_ALLOC(nova::HSwapchain, swapchains.size());
         for (u32 i = 0; i < swapchains.size(); ++i) {
             hswapchains[i] = swapchains[i];

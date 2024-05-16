@@ -3,6 +3,7 @@
 #include "nova_Win32Include.hpp"
 
 #include <nova/core/nova_Debug.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 namespace nova::win
 {
@@ -38,9 +39,7 @@ namespace nova::win
             reinterpret_cast<wchar_t *>(&lp_msg_buf), // Really MS?
             0, nullptr);
 
-        NOVA_STACK_POINT();
-
-        NOVA_LOG("Message: {}", NOVA_STACK_FROM_UTF16(lp_msg_buf));
+        NOVA_LOG("Message: {}", FromUtf16(lp_msg_buf));
 
         LocalFree(lp_msg_buf);
     }

@@ -5,6 +5,7 @@
 #include <nova/core/nova_Math.hpp>
 #include <nova/core/nova_Containers.hpp>
 #include <nova/core/nova_Flags.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 namespace nova
 {
@@ -379,17 +380,17 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    struct FenceValue;
+    struct SyncPoint;
 
     struct Queue : Handle<Queue>
     {
         friend Context;
 
-        FenceValue Submit(Span<HCommandList>, Span<FenceValue> waits) const;
-        FenceValue Acquire(Span<HSwapchain>, bool* any_resized = nullptr) const;
-        void Present(Span<HSwapchain>, Span<FenceValue> waits, PresentFlag flags = {}) const;
+        SyncPoint Submit(Span<HCommandList>, Span<SyncPoint> waits) const;
+        SyncPoint Acquire(Span<HSwapchain>, bool* any_resized = nullptr) const;
+        void Present(Span<HSwapchain>, Span<SyncPoint> waits, PresentFlag flags = {}) const;
 
-        FenceValue Pending() const;
+        SyncPoint Pending() const;
         void WaitIdle() const;
 
         // TODO: Make these threadsafe? (Queue redesign)
@@ -410,20 +411,20 @@ namespace nova
         u64  CurrentValue() const;
         bool Check(u64 check_value = ~0ull) const;
 
-        operator FenceValue() const;
+        operator SyncPoint() const;
     };
 
-    struct FenceValue
+    struct SyncPoint
     {
         Fence fence = {};
-        u64 value = ~0ull;
+        u64   value = ~0ull;
 
         void Wait() const { if (fence) { fence.Wait(value); } }
         u64 Value() const { return value == ~0ull ? fence.PendingValue() : value; }
     };
 
     inline
-    Fence::operator FenceValue() const
+    Fence::operator SyncPoint() const
     {
         return { *this, PendingValue() };
     }
@@ -519,7 +520,7 @@ namespace nova
     struct Shader : Handle<Shader>
     {
         static Shader Create(HContext, ShaderLang, ShaderStage, std::string entry,
-            std::string_view filename, Span<std::string_view> fragments = {});
+            StringView filename, Span<StringView> fragments = {});
 
         void Destroy();
     };

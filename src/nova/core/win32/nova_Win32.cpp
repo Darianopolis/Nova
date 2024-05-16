@@ -2,6 +2,8 @@
 
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Debug.hpp>
+#include <nova/core/nova_Strings.hpp>
+#include <nova/core/nova_Env.hpp>
 
 namespace {
     std::monostate Win32_EnableUTF8 = []() -> std::monostate {
@@ -12,20 +14,23 @@ namespace {
 
 namespace nova
 {
-    std::string GetEnv(std::string_view name)
+    std::string GetEnv(StringView name)
     {
-        NOVA_STACK_POINT();
+        std::wstring wname = ToUtf16(name);
+        std::wstring value;
 
-        auto name_cstr = NOVA_STACK_TO_CSTR(name);
+        // Attempt to query environment variable.
+        // Success when `res == value.size()` (NOT INCLUDING null terminator character)
+        DWORD res;
+        while ((res = GetEnvironmentVariableW(wname.c_str(), value.data(), DWORD(value.size()))) != value.size()) {
 
-        auto& stack = nova::detail::GetThreadStack();
-        char* begin = reinterpret_cast<char*>(stack.ptr);
+            // No environment variable
+            if (res == 0) return {};
 
-        size_t len;
-        if (::getenv_s(&len, begin, UINT_MAX, name_cstr)) {
-            return std::string();
-        } else {
-            return std::string(begin, len);
+            // res is required lpBuffer size INCLUDING null terminator character
+            value.resize(res - 1);
         }
+
+        return FromUtf16(value);
     }
 }

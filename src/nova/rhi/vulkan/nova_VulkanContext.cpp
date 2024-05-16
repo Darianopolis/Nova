@@ -6,6 +6,7 @@
 
 #include <nova/core/nova_Stack.hpp>
 #include <nova/core/nova_ToString.hpp>
+#include <nova/core/nova_Env.hpp>
 
 namespace nova
 {

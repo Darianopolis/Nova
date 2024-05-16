@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    static std::string_view Win32MessageToString(UINT msg)
+    static StringView Win32MessageToString(UINT msg)
     {
         switch (msg)
         {

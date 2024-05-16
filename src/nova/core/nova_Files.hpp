@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nova_Core.hpp"
+#include "nova_Strings.hpp"
 
 namespace nova
 {
@@ -52,7 +53,7 @@ namespace nova
     };
 
     namespace files {
-        std::vector<char> ReadBinaryFile(std::string_view filename);
-        std::string ReadTextFile(std::string_view filename);
+        std::vector<char> ReadBinaryFile(StringView filename);
+        std::string ReadTextFile(StringView filename);
     }
 }

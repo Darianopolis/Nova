@@ -26,7 +26,7 @@ NOVA_EXAMPLE(CommandTest, "cmd-test")
         nova::PresentMode::Immediate);
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
-    std::array<nova::FenceValue, 2> wait_values;
+    std::array<nova::SyncPoint, 2> wait_values;
     // std::array<nova::CommandPool, 2> pools { nova::CommandPool::Create(context, queue), nova::CommandPool::Create(context, queue) };
     u32 fif = 0;
     auto last_time = std::chrono::steady_clock::now();

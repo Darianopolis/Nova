@@ -87,6 +87,8 @@ namespace nova
     static
     VkPipeline GetGraphicsMonolithPipeline(nova::CommandList cmd, const GraphicsPipelineKey& key)
     {
+        NOVA_STACK_POINT();
+
         auto context = cmd->context;
         auto pipeline = context->graphics_pipeline_sets[key];
         if (pipeline) {

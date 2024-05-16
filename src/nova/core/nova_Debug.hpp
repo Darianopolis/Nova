@@ -6,8 +6,28 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
+template<class ... DurationT>
+struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};
+
+template<>
+struct fmt::formatter<std::stacktrace> : fmt::ostream_formatter {};
+
+// -----------------------------------------------------------------------------
+
 namespace nova
 {
+    inline
+    void Log(std::string_view str)
+    {
+        fmt::println("{}", str);
+    }
+
+    template<class ...Args>
+    void Log(const fmt::format_string<Args...> fmt, Args&&... args)
+    {
+        fmt::println(fmt, std::forward<Args>(args)...);
+    }
+
     struct Exception : std::exception
     {
         Exception(std::string msg,
@@ -16,7 +36,9 @@ namespace nova
             : message(std::move(msg))
             , source_location(std::move(loc))
             , back_trace(std::move(trace))
-        {}
+        {
+            Log("{}\nError: {}", stack(), what());
+        }
 
         const char*                     what() const { return message.c_str(); }
         const std::source_location& location() const { return source_location; }
@@ -29,29 +51,17 @@ namespace nova
     };
 }
 
-#define NOVA_DEBUG() do {                                                         \
-    NOVA_STACK_POINT();                                                           \
-    std::cout << NOVA_STACK_FORMAT("    Debug :: {} - {}\n", __LINE__, __FILE__); \
-} while (0)
+#define NOVA_DEBUG() \
+    ::nova::Log("    Debug :: {} - {}", __LINE__, __FILE__)
 
-#define NOVA_LOG(fmt, ...) do {                                        \
-    NOVA_STACK_POINT();                                                \
-    std::cout << NOVA_STACK_FORMAT(fmt"\n" __VA_OPT__(,) __VA_ARGS__); \
-} while(0)
+#define NOVA_LOG(fmt_str, ...) \
+    ::nova::Log(fmt_str __VA_OPT__(,) __VA_ARGS__)
 
-#define NOVA_LOGEXPR(expr) do {           \
-    std::osyncstream sso(std::cout);      \
-    sso << #expr " = " << (expr) << '\n'; \
-} while (0)
+#define NOVA_FMTEXPR(expr) \
+    ::nova::FormatStr(#expr " = {}", (expr))
 
-#define NOVA_FORMAT(fmt_str, ...) \
-    fmt::format(fmt_str __VA_OPT__(,) __VA_ARGS__)
-
-#define NOVA_THROW(fmt_str, ...) do {                                           \
-    auto e = ::nova::Exception(NOVA_FORMAT(fmt_str __VA_OPT__(,) __VA_ARGS__)); \
-    NOVA_LOG("{}\nERROR: {}", e.stack(), e.what());                             \
-    throw std::move(e);                                                         \
-} while (0)
+#define NOVA_THROW(fmt_str, ...) \
+    throw ::nova::Exception(::nova::FormatStr(fmt_str __VA_OPT__(,) __VA_ARGS__))
 
 #define NOVA_ASSERT(condition, fmt_str, ...) do { \
     if (!(condition)) [[unlikely]]                \
@@ -60,11 +70,3 @@ namespace nova
 
 #define NOVA_ASSERT_NONULL(condition) \
     NOVA_ASSERT(condition, "Expected non-null: " #condition)
-
-// -----------------------------------------------------------------------------
-
-template<class ... DurationT>
-struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};
-
-template<>
-struct fmt::formatter<std::stacktrace> : fmt::ostream_formatter {};

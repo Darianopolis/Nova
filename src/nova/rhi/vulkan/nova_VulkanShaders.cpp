@@ -2,7 +2,7 @@
 
 namespace nova
 {
-    Shader Shader::Create(HContext context, ShaderLang lang, ShaderStage stage, std::string entry, std::string_view filename, Span<std::string_view> fragments)
+    Shader Shader::Create(HContext context, ShaderLang lang, ShaderStage stage, std::string entry, StringView filename, Span<StringView> fragments)
     {
         auto impl = new Impl;
         impl->context = context;

@@ -71,7 +71,7 @@ NOVA_DEBUG();
         }, i);
     }
 
-    std::array<nova::FenceValue, 2> wait_values;
+    std::array<nova::SyncPoint, 2> wait_values;
 
     // Shaders
 

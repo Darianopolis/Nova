@@ -236,7 +236,7 @@ void main() {
         cmd.count++;
     }
 
-    void Draw2D::DrawString(std::string_view str, Vec2 pos, Font& font)
+    void Draw2D::DrawString(StringView str, Vec2 pos, Font& font)
     {
         for (auto c : str) {
             auto& g = font.glyphs[c];
@@ -256,7 +256,7 @@ void main() {
         }
     }
 
-    Bounds2 Draw2D::MeasureString(std::string_view str, Font& font)
+    Bounds2 Draw2D::MeasureString(StringView str, Font& font)
     {
         Bounds2 str_bounds = {};
 

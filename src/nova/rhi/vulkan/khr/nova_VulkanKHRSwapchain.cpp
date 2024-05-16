@@ -91,7 +91,7 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    FenceValue Queue::Acquire(Span<HSwapchain> swapchains, bool* out_any_resized) const
+    SyncPoint Queue::Acquire(Span<HSwapchain> swapchains, bool* out_any_resized) const
     {
         bool any_resized = false;
 
@@ -235,7 +235,7 @@ namespace nova
         return impl->fence;
     }
 
-    void Queue::Present(Span<HSwapchain> swapchains, Span<FenceValue> waits, PresentFlag flags) const
+    void Queue::Present(Span<HSwapchain> swapchains, Span<SyncPoint> waits, PresentFlag flags) const
     {
         NOVA_STACK_POINT();
 

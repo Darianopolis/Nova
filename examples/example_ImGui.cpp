@@ -23,7 +23,7 @@ NOVA_EXAMPLE(ImGuiTest, "imgui")
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    std::array<nova::FenceValue, 2> wait_values;
+    std::array<nova::SyncPoint, 2> wait_values;
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };

@@ -3,6 +3,7 @@
 #include <GameInput.h>
 #include <imgui.h>
 #include <nova/core/nova_Guards.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 #include <initguid.h>
 #include <cfgmgr32.h>
@@ -23,7 +24,6 @@ namespace nova
         GetRawInputDeviceList(raw_devices.data(), &raw_device_count, sizeof(RAWINPUTDEVICELIST));
 
         for (auto[id, raw_device] : raw_devices | Enumerate) {
-            NOVA_STACK_POINT();
             NOVA_LOG("Raw device: {}", id);
 
             // Try and use the data in RID_DEVICE_INFO to associate `device` with a device from devices
@@ -41,7 +41,7 @@ namespace nova
             std::wstring device_path(device_path_size, 0);
             GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICENAME, device_path.data(), &device_path_size);
 
-            NOVA_LOG("  device path: {}", NOVA_STACK_FROM_UTF16(device_path));
+            NOVA_LOG("  device path: {}", FromUtf16(device_path));
 
             {
                 wchar_t product_str[1024] = {};
@@ -51,9 +51,9 @@ namespace nova
                 HidD_GetProductString(h, product_str, 1024);
                 HidD_GetManufacturerString(h, manufacturer_str, 1024);
                 HidD_GetSerialNumberString(h, serial_number, 4093);
-                NOVA_LOG("  product: {}", NOVA_STACK_FROM_UTF16(product_str).data());
-                NOVA_LOG("  manufacturer: {}", NOVA_STACK_FROM_UTF16(manufacturer_str).data());
-                NOVA_LOG("  serial number: {}", NOVA_STACK_FROM_UTF16(serial_number).data());
+                NOVA_LOG("  product: {}", FromUtf16(product_str).data());
+                NOVA_LOG("  manufacturer: {}", FromUtf16(manufacturer_str).data());
+                NOVA_LOG("  serial number: {}", FromUtf16(serial_number).data());
                 CloseHandle(h);
             }
 
@@ -67,7 +67,7 @@ namespace nova
             std::wstring instance_id;
             instance_id.resize(property_size);
             cr = CM_Get_Device_Interface_PropertyW(device_path.c_str(), &DEVPKEY_Device_InstanceId, &property_type, reinterpret_cast<PBYTE>(instance_id.data()), &property_size, 0);
-            NOVA_LOG("  instance id: {}", NOVA_STACK_FROM_UTF16(instance_id));
+            NOVA_LOG("  instance id: {}", FromUtf16(instance_id));
 
             DEVINST dev_inst;
             cr = CM_Locate_DevNodeW(&dev_inst, reinterpret_cast<DEVINSTID>(instance_id.data()), CM_LOCATE_DEVNODE_NORMAL);
@@ -80,13 +80,14 @@ namespace nova
 
             property_size = 0;
 
+            NOVA_STACK_POINT();
             cr = ::CM_Get_DevNode_PropertyW(dev_inst, &DEVPKEY_Device_ClassGuid, &property_type, nullptr, &property_size, 0);
             GUID* guid = (GUID*)NOVA_STACK_ALLOC(std::byte, property_size);
             cr = ::CM_Get_DevNode_PropertyW(dev_inst, &DEVPKEY_Device_ClassGuid, &property_type, (PBYTE)guid, &property_size, 0);
 
             OLECHAR* guid_str;
             StringFromCLSID(*guid, &guid_str);
-            NOVA_LOG("  guid: {}", NOVA_STACK_FROM_UTF16(guid_str));
+            NOVA_LOG("  guid: {}", FromUtf16(guid_str));
             ::CoTaskMemFree(guid_str);
 
             property_size = 0;
@@ -95,8 +96,8 @@ namespace nova
             manufacturer_name.resize(property_size);
             cr = ::CM_Get_DevNode_PropertyW(dev_inst, &DEVPKEY_Device_Manufacturer, &property_type, reinterpret_cast<PBYTE>(manufacturer_name.data()), &property_size, 0);
 
-            NOVA_LOG("  device name: {}", NOVA_STACK_FROM_UTF16(friendly_name));
-            NOVA_LOG("  manufacturer name: {}", NOVA_STACK_FROM_UTF16(manufacturer_name));
+            NOVA_LOG("  device name: {}", FromUtf16(friendly_name));
+            NOVA_LOG("  manufacturer name: {}", FromUtf16(manufacturer_name));
         }
     }
 
@@ -137,8 +138,8 @@ namespace nova
                 HANDLE h = CreateFile(device_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 HidD_GetProductString(h, product_string, 1024);
                 HidD_GetManufacturerString(h, manufacturer_string, 1024);
-                device.name = NOVA_STACK_FROM_UTF16(product_string);
-                device.manufacturer = NOVA_STACK_FROM_UTF16(manufacturer_string);
+                device.name = FromUtf16(product_string);
+                device.manufacturer = FromUtf16(manufacturer_string);
                 CloseHandle(h);
 
                 break;
@@ -274,8 +275,6 @@ namespace nova
 
     void Application::DebugInputState() const
     {
-        NOVA_STACK_POINT();
-
         auto& gi = impl->game_input;
 
         ImGui::Begin("Input Debug");
@@ -321,7 +320,7 @@ namespace nova
         for (auto& device : gi.devices) {
             IGameInputReading* reading;
 
-            bool showing = ImGui::CollapsingHeader(NOVA_STACK_FORMAT("[{}]: {}", ++device_index, device.name).data());
+            bool showing = ImGui::CollapsingHeader(FormatStr("[{}]: {}", ++device_index, device.name).c_str());
 
             gi.handle->GetCurrentReading(device.kinds, device.handle, &reading);
             NOVA_DEFER(&) { reading->Release(); };
@@ -384,7 +383,7 @@ namespace nova
                 if (showing) {
                     for (auto key = 0; key < device.key_states.size(); ++key) {
                         if (device.key_states[key]) {
-                            ImGui::Text("Key: %s", impl->win32_input.key_names[key].data());
+                            ImGui::Text("Key: %s", impl->win32_input.key_names[key].CStr().Get());
                         }
                     }
                 }

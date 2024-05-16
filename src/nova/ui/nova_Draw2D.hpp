@@ -89,9 +89,9 @@ namespace nova::draw
 
         void Reset();
         void DrawRect(const Rectangle& rect);
-        void DrawString(std::string_view str, Vec2 pos, Font& font);
+        void DrawString(StringView str, Vec2 pos, Font& font);
 
-        Bounds2 MeasureString(std::string_view str, Font& font);
+        Bounds2 MeasureString(StringView str, Font& font);
 
         void Record(CommandList, Image target);
     };

@@ -3,6 +3,7 @@
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Containers.hpp>
 #include <nova/core/nova_Math.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 namespace nova
 {
@@ -250,7 +251,7 @@ namespace nova
         bool ProcessEvents() const;
 
         VirtualKey ToVirtualKey(InputChannel channel) const;
-        std::string_view VirtualKeyToString(VirtualKey key) const;
+        StringView VirtualKeyToString(VirtualKey key) const;
         bool IsVirtualKeyDown(VirtualKey button) const;
 
         InputChannelState InputState(InputChannel) const;
@@ -286,8 +287,8 @@ namespace nova
         Vec2I Position(WindowPart) const;
         Window SetPosition(Vec2I pos, WindowPart) const;
 
-        std::string_view Title() const;
-        Window SetTitle(std::string_view title) const;
+        StringView Title() const;
+        Window SetTitle(std::string title) const;
 
         Window SetDarkMode(bool state) const;
 

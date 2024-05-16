@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nova_Core.hpp"
+#include "nova_Strings.hpp"
 
 namespace nova
 {
@@ -39,7 +40,7 @@ namespace nova
             first_element = false;
         }
 
-        JsonWriter& Key(std::string_view key)
+        JsonWriter& Key(StringView key)
         {
             NewElement();
             out << '"' << key << "\": ";
@@ -47,7 +48,7 @@ namespace nova
             return *this;
         }
 
-        JsonWriter& operator[](std::string_view key_)
+        JsonWriter& operator[](StringView key_)
         {
             return Key(key_);
         }
@@ -91,14 +92,14 @@ namespace nova
             first_element = false;
         }
 
-        void String(std::string_view str)
+        void String(StringView str)
         {
             NewElement();
             out << '"' << str << '"';
         }
 
-        void operator=(std::string_view str) { String(str); }
-        void operator=(char str)             { String({ &str, 1ull }); }
+        void operator=(StringView str) { String(str); }
+        void operator=(char str)       { String({ &str, 1ull }); }
 
         template<typename T>
         void Value(T&& value)

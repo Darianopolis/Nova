@@ -1,6 +1,7 @@
 #include "example_Main.hpp"
 
 #include <nova/core/nova_Debug.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 std::vector<ExampleListing>& GetExamples()
 {
@@ -8,7 +9,7 @@ std::vector<ExampleListing>& GetExamples()
     return examples;
 }
 
-std::monostate RegisterExample(const char* name, ExampleEntryFnPtr fn)
+std::monostate RegisterExample(nova::StringView name, ExampleEntryFnPtr fn)
 {
     GetExamples().emplace_back(name, fn);
     return {};
@@ -18,16 +19,18 @@ int main(int argc, char* argv[]) try
 {
     std::sort(GetExamples().begin(), GetExamples().end(), [](const auto& l, const auto& r) {
         return std::lexicographical_compare(
-            l.name, l.name + strlen(l.name),
-            r.name, r.name + strlen(r.name));
+            l.name.Data(), l.name.Data() + l.name.Size(),
+            r.name.Data(), r.name.Data() + r.name.Size());
     });
 
     if (argc > 1) {
         for (auto& example : GetExamples()) {
-            if (!strcmp(example.name, argv[1])) {
+            if (example.name == argv[1]) {
                 try {
-                    std::vector<std::string_view> args(&argv[2], &argv[2] + std::max(0, argc - 2));
+                    std::vector<nova::StringView> args(&argv[2], &argv[2] + std::max(0, argc - 2));
                     example.fn(args);
+
+                    NOVA_LOG("Example({}) exited successfully", example.name);
                 } catch (std::exception& e) {
                     NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
                     if (auto* ne = dynamic_cast<nova::Exception*>(&e)) {

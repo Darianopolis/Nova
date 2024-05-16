@@ -1,6 +1,7 @@
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 #include <nova/core/nova_Files.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 #include <simdutf.h>
 
@@ -75,13 +76,11 @@ namespace nova
     };
 
     std::vector<u32> Vulkan_CompileHlslToSpirv(
-            ShaderStage stage,
-            std::string_view entry,
-            std::string_view filename,
-            Span<std::string_view> fragments)
+            ShaderStage          stage,
+            StringView           entry,
+            StringView        filename,
+            Span<StringView> fragments)
     {
-        NOVA_STACK_POINT();
-
         // Init
 
         ComPtr<IDxcLibrary> library;
@@ -104,7 +103,7 @@ namespace nova
         std::string hlsl;
         if (fragments.size()) {
             for (auto& f : fragments) {
-                hlsl.append(f);
+                hlsl.append_range(f);
             }
         } else {
             hlsl = files::ReadTextFile(filename);
@@ -134,11 +133,14 @@ namespace nova
         }
 #undef NOVA_HLSL_SM
 
+        auto wfilename = ToUtf16(filename);
+        auto wentry = ToUtf16(entry);
+
         auto arguments = std::to_array<const wchar_t*>({
 
             // Input
-            NOVA_STACK_TO_UTF16(filename).data(),
-            L"-E", NOVA_STACK_TO_UTF16(entry).data(),
+            wfilename.c_str(),
+            L"-E", wentry.c_str(),
 
             // Include
             L"-I", L".",

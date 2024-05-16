@@ -11,14 +11,12 @@
 
 namespace nova
 {
-    ImageFileFormat ImageFileFormatFromName(std::string_view filename)
+    ImageFileFormat ImageFileFormatFromName(StringView filename)
     {
-        if (filename.size() < 4) return ImageFileFormat::Unknown;
+        if (filename.Size() < 4) return ImageFileFormat::Unknown;
 
-        NOVA_STACK_POINT();
-        auto copy = NOVA_STACK_TO_CSTR(filename);
-        std::transform(copy, copy + filename.size(), copy, [](char c) { return char(std::toupper(c)); });
-        std::string_view str = { copy, filename.size() };
+        auto str = std::string(filename);
+        std::ranges::transform(str, str.data(), [](char c) { return char(std::toupper(c)); });
 
         if (str.ends_with(".PNG")) return ImageFileFormat::PNG;
         if (str.ends_with(".JPG") || str.ends_with(".JPEG"))
@@ -33,12 +31,10 @@ namespace nova
         return ImageFileFormat::Unknown;
     }
 
-    void Image_Load(ImageDescription* desc, ImageLoadData* output, std::string_view filename)
+    void Image_Load(ImageDescription* desc, ImageLoadData* output, StringView filename)
     {
         if (!desc) NOVA_THROW("Expected desc");
         if (!output) NOVA_THROW("Expected output");
-
-        NOVA_STACK_POINT();
 
         auto format = ImageFileFormatFromName(filename);
 
@@ -49,7 +45,7 @@ namespace nova
                   case ImageFileFormat::GIF:
                 {
                     int w, h, c;
-                    output->data = stbi_load(NOVA_STACK_TO_CSTR(filename), &w, &h, &c, STBI_rgb_alpha);
+                    output->data = stbi_load(filename.CStr(), &w, &h, &c, STBI_rgb_alpha);
                     if (!output->data) NOVA_THROW("Failed to load image");
 
                     output->deleter = [](void* data) { stbi_image_free(data); };
@@ -66,7 +62,7 @@ namespace nova
                     int w, h;
                     output->data = nullptr;
                     const char* err = nullptr;
-                    if (LoadEXRWithLayer((float**)&output->data, &w, &h, NOVA_STACK_TO_CSTR(filename), nullptr, &err) < 0) {
+                    if (LoadEXRWithLayer((float**)&output->data, &w, &h, filename.CStr(), nullptr, &err) < 0) {
                         NOVA_THROW("Error loading EXR: {}", err ? err : "N/A");
                     }
 
@@ -82,7 +78,7 @@ namespace nova
             break;case ImageFileFormat::HDR:
                 {
                     int w, h, c;
-                    output->data = stbi_loadf(NOVA_STACK_TO_CSTR(filename), &w, &h, &c, STBI_rgb_alpha);
+                    output->data = stbi_loadf(filename.CStr(), &w, &h, &c, STBI_rgb_alpha);
                     if (!output->data) NOVA_THROW("Failed to load HDR image");
 
                     output->deleter = [](void* data) { stbi_image_free(data); };
@@ -100,7 +96,7 @@ namespace nova
                     output->deleter = [](void* data) { free(data); };
 
                     {
-                        std::ifstream file(NOVA_STACK_TO_CSTR(filename), std::ios::ate | std::ios::binary);
+                        std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
                         output->size = file.tellg();
                         file.seekg(0);
                         output->data = malloc(output->size);

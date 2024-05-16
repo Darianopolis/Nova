@@ -1,6 +1,7 @@
 #include <nova/core/nova_Timer.hpp>
 
 #include <nova/core/win32/nova_Win32Include.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 namespace nova
 {

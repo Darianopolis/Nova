@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nova/core/nova_Math.hpp>
+#include <nova/core/nova_Strings.hpp>
 
 namespace nova
 {
@@ -143,7 +144,7 @@ namespace nova
         }
     };
 
-    void Image_Load(ImageDescription* desc, ImageLoadData* data, std::string_view filename);
+    void Image_Load(ImageDescription* desc, ImageLoadData* data, StringView filename);
     void Image_Copy(const ImageAccessor& src, const void* src_data, const ImageAccessor& dst, void* dst_data);
 
 // -----------------------------------------------------------------------------

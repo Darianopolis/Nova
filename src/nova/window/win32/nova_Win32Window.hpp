@@ -27,9 +27,9 @@ namespace nova
         {
             char16_t high_surrogate;
 
-            std::vector<u32>              from_win32_virtual_key;
-            std::vector<u32>              to_win32_virtual_key;
-            std::vector<std::string_view> key_names;
+            std::vector<u32> from_win32_virtual_key;
+            std::vector<u32>   to_win32_virtual_key;
+            std::vector<StringView>       key_names;
         } win32_input;
 
         void InitMappings();
