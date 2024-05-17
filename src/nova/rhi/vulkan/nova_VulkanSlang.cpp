@@ -61,7 +61,7 @@ namespace nova
             Slang::ComPtr<slang::IBlob> diagnostics_blob;
             slang_module = session->loadModuleFromSourceString("shader", "generated", str.c_str(), diagnostics_blob.writeRef());
             if (diagnostics_blob) {
-                NOVA_LOG("{}", (const char*)diagnostics_blob->getBufferPointer());
+                Log("{}", (const char*)diagnostics_blob->getBufferPointer());
             }
             if (!slang_module) {
                 NOVA_THROW("Expected slang_module, got none");
@@ -86,7 +86,7 @@ namespace nova
                 composed_program.writeRef(),
                 diagnostics_blob.writeRef());
             if (diagnostics_blob) {
-                NOVA_LOG("{}", (const char*)diagnostics_blob->getBufferPointer());
+                Log("{}", (const char*)diagnostics_blob->getBufferPointer());
             }
             if (SLANG_FAILED(result)) {
                 NOVA_THROW("slang failed composing program");
@@ -98,7 +98,7 @@ namespace nova
             Slang::ComPtr<slang::IBlob> diagnostics_blob;
             auto result = composed_program->getEntryPointCode(0, 0, spirv_code.writeRef(), diagnostics_blob.writeRef());
             if (diagnostics_blob) {
-                NOVA_LOG("{}", (const char*)diagnostics_blob->getBufferPointer());
+                Log("{}", (const char*)diagnostics_blob->getBufferPointer());
             }
             if (SLANG_FAILED(result)) {
                 NOVA_THROW("slang failed composing program");

@@ -12,7 +12,7 @@
 NOVA_EXAMPLE(Compute, "compute")
 {
     if (args.size() < 2) {
-        NOVA_LOG("Usage: <encoding> <file>");
+        nova::Log("Usage: <encoding> <file>");
         return;
     }
 
@@ -26,15 +26,15 @@ NOVA_EXAMPLE(Compute, "compute")
             }
         }
         if (!found_encoding) {
-            NOVA_LOG("Unrecognized encoding: {}", encoding);
-            NOVA_LOG("Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7");
+            nova::Log("Unrecognized encoding: {}", encoding);
+            nova::Log("Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7");
             return;
         }
     }
 
     auto file = args[1];
     if (!std::filesystem::exists(file)) {
-        NOVA_LOG("Could not file: {}", file);
+        nova::Log("Could not file: {}", file);
         return;
     }
 
@@ -92,16 +92,16 @@ NOVA_EXAMPLE(Compute, "compute")
         // Debug source format
 
         switch (desc.format) {
-            break;case nova::ImageFormat::RGBA8:        NOVA_LOG("Loading: RGBA8");
-            break;case nova::ImageFormat::RGBA16_Float: NOVA_LOG("Loading: RGBA16_Float");
-            break;case nova::ImageFormat::RGBA32_Float: NOVA_LOG("Loading: RGBA32_Float");
-            break;case nova::ImageFormat::BC1:          NOVA_LOG("Loading: BC1");
-            break;case nova::ImageFormat::BC2:          NOVA_LOG("Loading: BC2");
-            break;case nova::ImageFormat::BC3:          NOVA_LOG("Loading: BC3");
-            break;case nova::ImageFormat::BC4:          NOVA_LOG("Loading: BC4");
-            break;case nova::ImageFormat::BC5:          NOVA_LOG("Loading: BC5");
-            break;case nova::ImageFormat::BC6:          NOVA_LOG("Loading: BC6");
-            break;case nova::ImageFormat::BC7:          NOVA_LOG("Loading: BC7");
+            break;case nova::ImageFormat::RGBA8:        nova::Log("Loading: RGBA8");
+            break;case nova::ImageFormat::RGBA16_Float: nova::Log("Loading: RGBA16_Float");
+            break;case nova::ImageFormat::RGBA32_Float: nova::Log("Loading: RGBA32_Float");
+            break;case nova::ImageFormat::BC1:          nova::Log("Loading: BC1");
+            break;case nova::ImageFormat::BC2:          nova::Log("Loading: BC2");
+            break;case nova::ImageFormat::BC3:          nova::Log("Loading: BC3");
+            break;case nova::ImageFormat::BC4:          nova::Log("Loading: BC4");
+            break;case nova::ImageFormat::BC5:          nova::Log("Loading: BC5");
+            break;case nova::ImageFormat::BC6:          nova::Log("Loading: BC6");
+            break;case nova::ImageFormat::BC7:          nova::Log("Loading: BC7");
         }
 
         // Resize window
@@ -139,7 +139,7 @@ NOVA_EXAMPLE(Compute, "compute")
             target_desc.format = nova::ImageFormat::BC7;
             format = nova::Format::BC7_Unorm;
         } else {
-            NOVA_LOG("Invalid encoding must be one of: rgba, bc[1-7]");
+            nova::Log("Invalid encoding must be one of: rgba, bc[1-7]");
             return;
         }
 
@@ -277,7 +277,7 @@ void main() {
         frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
-            NOVA_LOG("Frametime = {:.3f} ({} fps)", 1e6 / frames, frames);
+            nova::Log("Frametime = {:.3f} ({} fps)", 1e6 / frames, frames);
             last_time = std::chrono::steady_clock::now();
             frames = 0;
         }

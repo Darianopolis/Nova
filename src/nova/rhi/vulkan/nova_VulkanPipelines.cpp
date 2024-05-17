@@ -186,7 +186,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Compiled new graphics pipeline in {}",
+            Log("Compiled new graphics pipeline in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 
@@ -254,7 +254,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Compiled new graphics vertex input    stage permutation in {}",
+            Log("Compiled new graphics vertex input    stage permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 
@@ -325,7 +325,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Compiled new graphics pre-raster      stage permutation in {}",
+            Log("Compiled new graphics pre-raster      stage permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 
@@ -386,7 +386,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Compiled new graphics fragment shader stage permutation in {}",
+            Log("Compiled new graphics fragment shader stage permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 
@@ -485,7 +485,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Compiled new graphics fragment output stage permutation in {}",
+            Log("Compiled new graphics fragment output stage permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 
@@ -543,7 +543,7 @@ namespace nova
 
         auto dur = std::chrono::steady_clock::now() - start;
         if (context->config.trace) {
-            NOVA_LOG("Linked new graphics library set permutation in {}",
+            Log("Linked new graphics library set permutation in {}",
                 std::chrono::duration_cast<std::chrono::microseconds>(dur));
         }
 

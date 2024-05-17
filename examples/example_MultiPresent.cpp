@@ -26,7 +26,10 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     std::vector<nova::Swapchain> swapchains;
 
     for (u32 i = 0; i < NumWindows; ++i) {
-        auto window = windows.emplace_back(nova::Window::Create(app).SetTitle(std::format("Nova - Multi Present {}", i)).SetSize({ 1920, 1080 }, nova::WindowPart::Client).Show(true));
+        auto window = windows.emplace_back(nova::Window::Create(app)
+            .SetTitle(std::format("Nova - Multi Present {}", i))
+            .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
+            .Show(true));
         swapchains.emplace_back(nova::Swapchain::Create(context, window.NativeHandle(), swapchain_usage, present_mode));
     }
     NOVA_DEFER(&) {
@@ -41,6 +44,13 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 
+    app.AddCallback([&](const nova::AppEvent& e) {
+        if (e.type == nova::EventType::WindowClosing) {
+            auto i = std::distance(windows.begin(), std::ranges::find(windows, e.window));
+            swapchains[i].Destroy();
+        }
+    });
+
     u64 frame = 0;
     auto last_time = std::chrono::steady_clock::now();
     auto frames = 0;
@@ -49,14 +59,15 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
-            NOVA_LOG("\nFrametime = {} ({} fps)\nAllocations = {:3} (+ {} /s)",
+            nova::Log("Frametime   = {} ({} fps)"
+                    "\nAllocations = {:3} (+ {} /s)",
                 nova::DurationToString((new_time - last_time) / frames), frames, nova::rhi::stats::AllocationCount.load(),
                 nova::rhi::stats::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
-            NOVA_LOG("submit :: clear     = {:.2f}\n"
-                     "submit :: adapting1 = {:.2f}\n"
-                     "submit :: adapting2 = {:.2f}\n"
-                     "present             = {:.2f}",
+            nova::Log("submit :: clear     = {:.2f}"
+                    "\nsubmit :: adapting1 = {:.2f}"
+                    "\nsubmit :: adapting2 = {:.2f}"
+                    "\npresent             = {:.2f}\n",
                 nova::rhi::stats::TimeSubmitting.exchange(0) / divisor,
                 nova::rhi::stats::TimeAdaptingFromAcquire.exchange(0)  / divisor,
                 nova::rhi::stats::TimeAdaptingToPresent.exchange(0)  / divisor,
@@ -73,11 +84,12 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         wait_values[fif].Wait();
 
         NOVA_STACK_POINT();
+        usz swapchain_count = 0;
         auto hswapchains = NOVA_STACK_ALLOC(nova::HSwapchain, swapchains.size());
         for (u32 i = 0; i < swapchains.size(); ++i) {
-            hswapchains[i] = swapchains[i];
+            if (swapchains[i]) hswapchains[swapchain_count++] = swapchains[i];
         }
-        auto swapchain_span = nova::Span<nova::HSwapchain>(hswapchains, swapchains.size());
+        auto swapchain_span = nova::Span<nova::HSwapchain>(hswapchains, swapchain_count);
 
         // Acquire new images from swapchains
         queue.Acquire(swapchain_span);
@@ -85,8 +97,8 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
         // Reset command pool and begin new command list
         auto cmd = queue.Begin();
 
-        for (auto& swapchain : swapchains) {
-           auto target = swapchain.Target();
+        for (auto& swapchain : swapchain_span) {
+           auto target = swapchain.Unwrap().Target();
 
             // Clear screen
             cmd.ClearColor(target, Vec4(26 / 255.f, 89 / 255.f, 71 / 255.f, 1.f));

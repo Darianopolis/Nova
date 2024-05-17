@@ -54,14 +54,11 @@ namespace nova
 #define NOVA_DEBUG() \
     ::nova::Log("    Debug :: {} - {}", __LINE__, __FILE__)
 
-#define NOVA_LOG(fmt_str, ...) \
-    ::nova::Log(fmt_str __VA_OPT__(,) __VA_ARGS__)
-
 #define NOVA_FMTEXPR(expr) \
-    ::nova::FormatStr(#expr " = {}", (expr))
+    ::nova::Fmt(#expr " = {}", (expr))
 
 #define NOVA_THROW(fmt_str, ...) \
-    throw ::nova::Exception(::nova::FormatStr(fmt_str __VA_OPT__(,) __VA_ARGS__))
+    throw ::nova::Exception(::nova::Fmt(fmt_str __VA_OPT__(,) __VA_ARGS__))
 
 #define NOVA_ASSERT(condition, fmt_str, ...) do { \
     if (!(condition)) [[unlikely]]                \

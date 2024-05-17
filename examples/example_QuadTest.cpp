@@ -173,7 +173,7 @@ void main() {
         frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
-            NOVA_LOG("Indexed = {}\tInstanced = {}\tFrametime = {} ({} fps)", indexed, instanced, nova::DurationToString(std::chrono::duration<float>(1.f / frames)), frames);
+            nova::Log("Indexed = {}\tInstanced = {}\tFrametime = {} ({} fps)", indexed, instanced, nova::DurationToString(std::chrono::duration<float>(1.f / frames)), frames);
 
             last_time = std::chrono::steady_clock::now();
             frames = 0;

@@ -26,7 +26,7 @@ namespace nova::win
     inline
     void DebugRes(HRESULT res)
     {
-        NOVA_LOG("Debug res");
+        Log("Debug res");
         wchar_t* lp_msg_buf;
 
         FormatMessageW(
@@ -39,7 +39,7 @@ namespace nova::win
             reinterpret_cast<wchar_t *>(&lp_msg_buf), // Really MS?
             0, nullptr);
 
-        NOVA_LOG("Message: {}", FromUtf16(lp_msg_buf));
+        Log("Message: {}", FromUtf16(lp_msg_buf));
 
         LocalFree(lp_msg_buf);
     }

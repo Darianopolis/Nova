@@ -30,29 +30,29 @@ int main(int argc, char* argv[]) try
                     std::vector<nova::StringView> args(&argv[2], &argv[2] + std::max(0, argc - 2));
                     example.fn(args);
 
-                    NOVA_LOG("Example({}) exited successfully", example.name);
+                    nova::Log("Example({}) exited successfully", example.name);
                 } catch (std::exception& e) {
-                    NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
+                    nova::Log("────────────────────────────────────────────────────────────────────────────────");
                     if (auto* ne = dynamic_cast<nova::Exception*>(&e)) {
-                        NOVA_LOG("Location: {}({})", ne->location().file_name(), ne->location().line());
-                        NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
-                        NOVA_LOG("{}", std::to_string(ne->stack()));
-                        NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
+                        nova::Log("Location: {}({})", ne->location().file_name(), ne->location().line());
+                        nova::Log("────────────────────────────────────────────────────────────────────────────────");
+                        nova::Log("{}", std::to_string(ne->stack()));
+                        nova::Log("────────────────────────────────────────────────────────────────────────────────");
                     }
-                    NOVA_LOG("Error: {}", e.what());
-                    NOVA_LOG("────────────────────────────────────────────────────────────────────────────────");
+                    nova::Log("Error: {}", e.what());
+                    nova::Log("────────────────────────────────────────────────────────────────────────────────");
                 } catch (...) {
-                    NOVA_LOG("Unknown Error");
+                    nova::Log("Unknown Error");
                 }
                 return EXIT_SUCCESS;
             }
         }
     }
 
-    NOVA_LOG("Examples:");
+    nova::Log("Examples:");
     for (auto& example : GetExamples())
-        NOVA_LOG(" - {}", example.name);
+        nova::Log(" - {}", example.name);
 }
 catch (const std::exception& e) {
-    NOVA_LOG("Error: {}", e.what());
+    nova::Log("Error: {}", e.what());
 }

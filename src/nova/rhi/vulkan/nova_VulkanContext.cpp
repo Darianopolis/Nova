@@ -22,7 +22,7 @@ namespace nova
             return VK_FALSE;
         }
 
-        NOVA_LOG(R"(
+        Log(R"(
 ────────────────────────────────────────────────────────────────────────────────
 {}
 ────────────────────────────────────────────────────────────────────────────────
@@ -107,12 +107,12 @@ Validation-VUID({}): {}
                     extensions.emplace_back(extension);
                 }
                 if (ctx->config.trace) {
-                    NOVA_LOG("Extension added         [{}]", extension);
+                    Log("Extension added         [{}]", extension);
                 }
                 return true;
             }
             if (ctx->config.trace) {
-                NOVA_LOG("Extension not supported [{}]", extension);
+                Log("Extension not supported [{}]", extension);
             }
             return false;
         }
@@ -153,12 +153,12 @@ Validation-VUID({}): {}
                 }
                 GetFieldAtByteOffset<VkBool32>(*target_features, feature.offset) = VK_TRUE;
                 if (ctx->config.trace) {
-                    NOVA_LOG("Feature   added         [{}] ", feature.name);
+                    Log("Feature   added         [{}] ", feature.name);
                 }
                 return true;
             }
             if (ctx->config.trace) {
-                NOVA_LOG("Feature   not supported [{}] ", feature.name);
+                Log("Feature   not supported [{}] ", feature.name);
             }
             return false;
         }
@@ -209,7 +209,7 @@ Validation-VUID({}): {}
         NOVA_DEFER(&) {
             if (!exceptions && config.trace) {
                 auto end = std::chrono::steady_clock::now();
-                NOVA_LOG("Vulkan context created in {}", DurationToString(end - context_create_start));
+                Log("Vulkan context created in {}", DurationToString(end - context_create_start));
             }
         };
 
@@ -253,16 +253,16 @@ Validation-VUID({}): {}
 
         //     auto available_instance_extensions = NOVA_STACK_VKH_ENUMERATE(VkExtensionProperties, impl->vkEnumerateInstanceExtensionProperties, nullptr);
 
-        //     NOVA_LOG("Instance extensions({}):", available_instance_extensions.size());
+        //     Log("Instance extensions({}):", available_instance_extensions.size());
         //     for (auto& extension : available_instance_extensions) {
-        //         NOVA_LOG(" - {}", extension.extensionName);
+        //         Log(" - {}", extension.extensionName);
         //     }
 
         //     auto available_instance_layers = NOVA_STACK_VKH_ENUMERATE(VkLayerProperties, impl->vkEnumerateInstanceLayerProperties);
 
-        //     NOVA_LOG("Instance layers({}):", available_instance_layers.size());
+        //     Log("Instance layers({}):", available_instance_layers.size());
         //     for (auto& layer : available_instance_layers) {
-        //         NOVA_LOG(" - {}", layer.layerName);
+        //         Log(" - {}", layer.layerName);
         //     }
         // }
 
@@ -305,7 +305,7 @@ Validation-VUID({}): {}
             .ppEnabledExtensionNames = instance_extensions.data(),
         }), impl->alloc, &impl->instance));
 
-        NOVA_LOG("Instance: {}", (void*)impl->instance);
+        Log("Instance: {}", (void*)impl->instance);
 
         // Load instance functions
 
@@ -326,19 +326,19 @@ Validation-VUID({}): {}
         auto gpus = NOVA_STACK_VKH_ENUMERATE(VkPhysicalDevice, impl->vkEnumeratePhysicalDevices, impl->instance);
 
         if (gpus.empty()) {
-            NOVA_LOG("Critical error: No physical devices found");
+            Log("Critical error: No physical devices found");
         }
 
         if (auto gpu_override = GetEnv("NOVA_GPU_SELECT"); !gpu_override.empty()) {
             auto index = std::stoi(gpu_override);
             if (index >= gpus.size()) {
-                NOVA_LOG("Invalid index provided for GPU override: {}", index);
+                Log("Invalid index provided for GPU override: {}", index);
             } else {
                 VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
                 impl->gpu = gpus[index];
                 impl->vkGetPhysicalDeviceProperties2(impl->gpu, &properties);
                 if (config.trace) {
-                    NOVA_LOG("Overriding GPU selection [{}]: {}", index, properties.properties.deviceName);
+                    Log("Overriding GPU selection [{}]: {}", index, properties.properties.deviceName);
                 }
             }
         }
@@ -347,7 +347,7 @@ Validation-VUID({}): {}
 
         if (!impl->gpu) {
             if (config.trace) {
-                NOVA_LOG("Automatically selecting GPU");
+                Log("Automatically selecting GPU");
             }
             for (auto& gpu : gpus) {
                 VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -356,7 +356,7 @@ Validation-VUID({}): {}
                         && Platform_GpuSupportsPresent({impl}, gpu)) {
                     impl->gpu = gpu;
                     if (config.trace) {
-                        NOVA_LOG("  Found discrete GPU: {}", properties.properties.deviceName);
+                        Log("  Found discrete GPU: {}", properties.properties.deviceName);
                     }
                     break;
                 }
@@ -364,7 +364,7 @@ Validation-VUID({}): {}
 
             if (!impl->gpu) {
                 if (config.trace) {
-                    NOVA_LOG("  No discrete GPU found, defaulting to first available GPU");
+                    Log("  No discrete GPU found, defaulting to first available GPU");
                 }
                 for (auto& gpu : gpus) {
                     if (Platform_GpuSupportsPresent({impl}, gpu)) {
@@ -410,7 +410,7 @@ Validation-VUID({}): {}
                 impl->resizable_bar = true;
             }
 
-            NOVA_LOG("Max device memory: {} ({} bytes)", ByteSizeToString(max_device_memory), max_device_memory);
+            Log("Max device memory: {} ({} bytes)", ByteSizeToString(max_device_memory), max_device_memory);
         }
 
         // Swapchains
@@ -656,7 +656,7 @@ Validation-VUID({}): {}
             });
 
             if (config.trace) {
-                NOVA_LOG("Creating {} queues with index {}", count, info.family_index);
+                Log("Creating {} queues with index {}", count, info.family_index);
             }
 
             impl->queue_families[impl->queue_family_count++] = info.family_index;
@@ -765,9 +765,9 @@ Validation-VUID({}): {}
             u32 num_sampler_descriptors = std::min(MaxNumSamplerDescriptors, props.properties.limits.maxSamplerAllocationCount);
 
             if (config.trace) {
-                NOVA_LOG("Heap image descriptors: {}", num_image_descriptors);
-                NOVA_LOG("Heap sampler descriptors: {}", num_sampler_descriptors);
-                NOVA_LOG("Push constant size: {}", impl->properties.max_push_constant_size);
+                Log("Heap image descriptors: {}", num_image_descriptors);
+                Log("Heap sampler descriptors: {}", num_sampler_descriptors);
+                Log("Push constant size: {}", impl->properties.max_push_constant_size);
             }
 
             impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
@@ -830,7 +830,7 @@ Validation-VUID({}): {}
         impl->vkDestroyInstance(impl->instance, impl->alloc);
 
         if (rhi::stats::MemoryAllocated > 0 || rhi::stats::AllocationCount > 0) {
-            NOVA_LOG("WARNING: {} memory allocation ({}) remaining. Improper cleanup",
+            Log("WARNING: {} memory allocation ({}) remaining. Improper cleanup",
                 rhi::stats::AllocationCount.load(), ByteSizeToString(rhi::stats::MemoryAllocated.load()));
         }
 
@@ -868,7 +868,7 @@ Validation-VUID({}): {}
             ++rhi::stats::NewAllocationCount;
 
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
+            Log("Allocated    {}, size = {}", (void*)ByteOffsetPointer(ptr, 8), size);
 #endif
         }
 
@@ -883,7 +883,7 @@ Validation-VUID({}): {}
             usz old_size  = static_cast<usz*>(orig)[-1];
 
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Reallocating {}, size = {}/{}", orig, old_size, size);
+            Log("Reallocating {}, size = {}/{}", orig, old_size, size);
 #endif
 
             rhi::stats::MemoryAllocated -= old_size;
@@ -910,7 +910,7 @@ Validation-VUID({}): {}
             usz size = static_cast<usz*>(ptr)[-1];
 
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Freeing      {}, size = {}", ptr, size);
+            Log("Freeing      {}, size = {}", ptr, size);
 #endif
 
             rhi::stats::MemoryAllocated -= size;
@@ -925,7 +925,7 @@ Validation-VUID({}): {}
     void Vulkan_NotifyAllocation(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
     {
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-        NOVA_LOG("Internal allocation of size {}, type = {}", size, int(type));
+        Log("Internal allocation of size {}, type = {}", size, int(type));
 #endif
         rhi::stats::MemoryAllocated += size;
         ++rhi::stats::AllocationCount;
@@ -936,7 +936,7 @@ Validation-VUID({}): {}
     void Vulkan_NotifyFree(void*, size_t size, VkInternalAllocationType, VkSystemAllocationScope)
     {
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-        NOVA_LOG("Internal free of size {}, type = {}", size, int(type));
+        Log("Internal free of size {}, type = {}", size, int(type));
 #endif
         rhi::stats::MemoryAllocated -= size;
         --rhi::stats::AllocationCount;

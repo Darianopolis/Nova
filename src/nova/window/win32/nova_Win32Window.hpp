@@ -18,6 +18,8 @@ namespace nova
 
         std::vector<Window> windows;
 
+        void RemoveWindow(Window window);
+
         std::vector<AppCallback> callbacks;
 
         bool      running = true;

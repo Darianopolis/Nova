@@ -53,8 +53,8 @@ namespace nova
                     userdata->content = nova::files::ReadTextFile(userdata->name);
                 }
             } else {
-                userdata->content = FormatStr("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
-                NOVA_LOG("{}", userdata->content);
+                userdata->content = Fmt("Failed to find include [{}] requested by [{}]", requested_source, requesting_source);
+                Log("{}", userdata->content);
             }
 
             return new IncludeResult(userdata->name, userdata->content.data(), userdata->content.size(), userdata);
@@ -159,7 +159,7 @@ namespace nova
             std::string line;
             u32 line_num = 0;
             while (std::getline(iss, line)) {
-                NOVA_LOG("{:3} : {}", ++line_num + 1, line);
+                Log("{:3} : {}", ++line_num + 1, line);
             }
         };
 
@@ -214,7 +214,7 @@ namespace nova
         glslang::GlslangToSpv(*intermediate, spirv, &logger, &spv_options);
 
         if (!logger.getAllMessages().empty()) {
-            NOVA_LOG("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
+            Log("Shader ({}) SPIR-V messages:\n{}", filename, logger.getAllMessages());
         }
 
         return spirv;

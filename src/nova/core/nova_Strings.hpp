@@ -233,13 +233,13 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     inline
-    std::string FormatStr(StringView str)
+    std::string Fmt(StringView str)
     {
         return std::string(str);
     }
 
     template<class ...Args>
-    std::string FormatStr(const fmt::format_string<Args...> fmt, Args&&... args)
+    std::string Fmt(const fmt::format_string<Args...> fmt, Args&&... args)
     {
         return fmt::vformat(fmt.get(), fmt::make_format_args(args...));
     }

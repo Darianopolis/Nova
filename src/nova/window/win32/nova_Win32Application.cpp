@@ -38,16 +38,24 @@ namespace nova
         delete impl;
     }
 
+    void Application::AddCallback(AppCallback callback) const
+    {
+        impl->callbacks.emplace_back(std::move(callback));
+    }
+
+    void Application::Impl::RemoveWindow(Window window)
+    {
+        std::erase(windows, window);
+        if (windows.empty()) {
+            ::PostQuitMessage(0);
+        }
+    }
+
     void Application::WaitForEvents() const
     {
         if (impl->running) {
             ::WaitMessage();
         }
-    }
-
-    void Application::AddCallback(AppCallback callback) const
-    {
-        impl->callbacks.emplace_back(std::move(callback));
     }
 
     void Application::Impl::Send(AppEvent event)
@@ -59,51 +67,51 @@ namespace nova
             {
                 break;case EventType::Text:
                     {
-                        NOVA_LOG("Application :: Text({})", event.text.text);
+                        Log("Application :: Text({})", event.text.text);
                     }
 
                 break;case EventType::Input:
                     {
                         auto app = Application(this);
 
-                        NOVA_LOG("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
+                        Log("Application :: Button(code = {0} ({0:#x}), pressed = {1}, mapped = {2})",
                             event.input.channel.code, event.input.pressed,
                             app.VirtualKeyToString(app.ToVirtualKey(event.input.channel)));
                     }
 
                 // break;case EventType::MouseMove:
                 //     {
-                //         NOVA_LOG("Application :: MouseMove({}, {})", event.mouse_move.position.x, event.mouse_move.position.y);
+                //         Log("Application :: MouseMove({}, {})", event.mouse_move.position.x, event.mouse_move.position.y);
                 //     }
 
                 break;case EventType::MouseScroll:
                     {
-                        NOVA_LOG("Application :: MouseScroll({}, {})", event.scroll.scrolled.x, event.scroll.scrolled.y);
+                        Log("Application :: MouseScroll({}, {})", event.scroll.scrolled.x, event.scroll.scrolled.y);
                     }
 
                 break;case EventType::WindowFocus:
                     {
-                        NOVA_LOG("Application :: WindowFocus(gained = {})", bool(event.focus.gaining));
+                        Log("Application :: WindowFocus(gained = {})", bool(event.focus.gaining));
                     }
 
                 break;case EventType::WindowResized:
                     {
-                        NOVA_LOG("Application :: WindowResized(...)");
+                        Log("Application :: WindowResized(...)");
                     }
 
                 break;case EventType::WindowState:
                     {
-                        NOVA_LOG("Application :: WindowState(...)");
+                        Log("Application :: WindowState(...)");
                     }
 
                 break;case EventType::WindowCloseRequested:
                     {
-                        NOVA_LOG("Application :: WindowCloseRequested(...)");
+                        Log("Application :: WindowCloseRequested(...)");
                     }
 
                 break;case EventType::Shutdown:
                     {
-                        NOVA_LOG("Application :: Shutdown");
+                        Log("Application :: Shutdown");
                     }
             }
         }
@@ -120,11 +128,11 @@ namespace nova
             while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
                 switch (msg.message) {
                     break;case WM_HOTKEY:
-                        NOVA_LOG("hotkey");
+                        Log("hotkey");
                     break;case WM_TIMER:
-                        // NOVA_LOG("timer");
+                        // Log("timer");
                     break;case WM_QUIT:
-                        NOVA_LOG("quitting");
+                        Log("quitting");
                         impl->running = false;
                         impl->Send({ .type = EventType::Shutdown });
                     break;default:

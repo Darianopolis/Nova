@@ -24,24 +24,24 @@ namespace nova
         GetRawInputDeviceList(raw_devices.data(), &raw_device_count, sizeof(RAWINPUTDEVICELIST));
 
         for (auto[id, raw_device] : raw_devices | Enumerate) {
-            NOVA_LOG("Raw device: {}", id);
+            Log("Raw device: {}", id);
 
             // Try and use the data in RID_DEVICE_INFO to associate `device` with a device from devices
             u32 rid_device_info_size = sizeof(RID_DEVICE_INFO);
             RID_DEVICE_INFO rid_device_info;
             if (auto res = GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICEINFO, &rid_device_info, &rid_device_info_size); res == ~0u || res == 0) {
-                // NOVA_LOG("Skipping device because we failed to get the necessary info to associate it");
+                // Log("Skipping device because we failed to get the necessary info to associate it");
                 continue;
             }
-            NOVA_LOG("  product id: {}", rid_device_info.hid.dwProductId);
-            NOVA_LOG("  vendor id: {}", rid_device_info.hid.dwVendorId);
+            Log("  product id: {}", rid_device_info.hid.dwProductId);
+            Log("  vendor id: {}", rid_device_info.hid.dwVendorId);
 
             u32 device_path_size;
             GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICENAME, nullptr, &device_path_size);
             std::wstring device_path(device_path_size, 0);
             GetRawInputDeviceInfo(raw_device.hDevice, RIDI_DEVICENAME, device_path.data(), &device_path_size);
 
-            NOVA_LOG("  device path: {}", FromUtf16(device_path));
+            Log("  device path: {}", FromUtf16(device_path));
 
             {
                 wchar_t product_str[1024] = {};
@@ -51,9 +51,9 @@ namespace nova
                 HidD_GetProductString(h, product_str, 1024);
                 HidD_GetManufacturerString(h, manufacturer_str, 1024);
                 HidD_GetSerialNumberString(h, serial_number, 4093);
-                NOVA_LOG("  product: {}", FromUtf16(product_str).data());
-                NOVA_LOG("  manufacturer: {}", FromUtf16(manufacturer_str).data());
-                NOVA_LOG("  serial number: {}", FromUtf16(serial_number).data());
+                Log("  product: {}", FromUtf16(product_str).data());
+                Log("  manufacturer: {}", FromUtf16(manufacturer_str).data());
+                Log("  serial number: {}", FromUtf16(serial_number).data());
                 CloseHandle(h);
             }
 
@@ -67,7 +67,7 @@ namespace nova
             std::wstring instance_id;
             instance_id.resize(property_size);
             cr = CM_Get_Device_Interface_PropertyW(device_path.c_str(), &DEVPKEY_Device_InstanceId, &property_type, reinterpret_cast<PBYTE>(instance_id.data()), &property_size, 0);
-            NOVA_LOG("  instance id: {}", FromUtf16(instance_id));
+            Log("  instance id: {}", FromUtf16(instance_id));
 
             DEVINST dev_inst;
             cr = CM_Locate_DevNodeW(&dev_inst, reinterpret_cast<DEVINSTID>(instance_id.data()), CM_LOCATE_DEVNODE_NORMAL);
@@ -87,7 +87,7 @@ namespace nova
 
             OLECHAR* guid_str;
             StringFromCLSID(*guid, &guid_str);
-            NOVA_LOG("  guid: {}", FromUtf16(guid_str));
+            Log("  guid: {}", FromUtf16(guid_str));
             ::CoTaskMemFree(guid_str);
 
             property_size = 0;
@@ -96,8 +96,8 @@ namespace nova
             manufacturer_name.resize(property_size);
             cr = ::CM_Get_DevNode_PropertyW(dev_inst, &DEVPKEY_Device_Manufacturer, &property_type, reinterpret_cast<PBYTE>(manufacturer_name.data()), &property_size, 0);
 
-            NOVA_LOG("  device name: {}", FromUtf16(friendly_name));
-            NOVA_LOG("  manufacturer name: {}", FromUtf16(manufacturer_name));
+            Log("  device name: {}", FromUtf16(friendly_name));
+            Log("  manufacturer name: {}", FromUtf16(manufacturer_name));
         }
     }
 
@@ -107,8 +107,8 @@ namespace nova
         auto* info = device.handle->GetDeviceInfo();
 
         {
-            NOVA_LOG("  product id: {}", info->productId);
-            NOVA_LOG("  vendor id: {}", info->vendorId);
+            Log("  product id: {}", info->productId);
+            Log("  vendor id: {}", info->vendorId);
 
             u32 raw_device_count;
             GetRawInputDeviceList(nullptr, &raw_device_count, sizeof(RAWINPUTDEVICELIST));
@@ -177,7 +177,7 @@ namespace nova
 
         auto* info = device->GetDeviceInfo();
 
-        NOVA_LOG("GameInput Device[{}]", static_cast<void*>(device));
+        Log("GameInput Device[{}]", static_cast<void*>(device));
 
         auto StatusString = [](GameInputDeviceStatus status) {
             std::string str;
@@ -198,12 +198,12 @@ namespace nova
             return str;
         };
 
-        NOVA_LOG("  status [{}] -> [{}]", StatusString(previous_status), StatusString(current_status));
+        Log("  status [{}] -> [{}]", StatusString(previous_status), StatusString(current_status));
 
         if (!(current_status & GameInputDeviceConnected)) {
             for (auto& reg : app->game_input.devices) {
                 if (reg.handle == device) {
-                    NOVA_LOG("  name = {}", reg.name);
+                    Log("  name = {}", reg.name);
                     break;
                 }
             }
@@ -218,34 +218,34 @@ namespace nova
 
         FetchDeviceName(registered_device);
 
-        NOVA_LOG("  name = {}", registered_device.name);
-        NOVA_LOG("  manufacturer = {}", registered_device.manufacturer);
+        Log("  name = {}", registered_device.name);
+        Log("  manufacturer = {}", registered_device.manufacturer);
 
-        NOVA_LOG("  supported:");
-        if (info->supportedInput & GameInputKindUnknown)          NOVA_LOG("    Unknown");
-        if (info->supportedInput & GameInputKindRawDeviceReport)  NOVA_LOG("    RawDeviceReport");
-        if (info->supportedInput & GameInputKindControllerAxis)   NOVA_LOG("    ControllerAxis");
-        if (info->supportedInput & GameInputKindControllerButton) NOVA_LOG("    ControllerButton");
-        if (info->supportedInput & GameInputKindControllerSwitch) NOVA_LOG("    ControllerSwitch");
-        if (info->supportedInput & GameInputKindController)       NOVA_LOG("    Controller");
-        if (info->supportedInput & GameInputKindKeyboard)         NOVA_LOG("    Keyboard");
-        if (info->supportedInput & GameInputKindMouse)            NOVA_LOG("    Mouse");
-        if (info->supportedInput & GameInputKindTouch)            NOVA_LOG("    Touch");
-        if (info->supportedInput & GameInputKindMotion)           NOVA_LOG("    Motion");
-        if (info->supportedInput & GameInputKindArcadeStick)      NOVA_LOG("    ArcadeStick");
-        if (info->supportedInput & GameInputKindFlightStick)      NOVA_LOG("    FlightStick");
-        if (info->supportedInput & GameInputKindGamepad)          NOVA_LOG("    Gamepad");
-        if (info->supportedInput & GameInputKindRacingWheel)      NOVA_LOG("    RacingWheel");
-        if (info->supportedInput & GameInputKindUiNavigation)     NOVA_LOG("    UiNavigation");
+        Log("  supported:");
+        if (info->supportedInput & GameInputKindUnknown)          Log("    Unknown");
+        if (info->supportedInput & GameInputKindRawDeviceReport)  Log("    RawDeviceReport");
+        if (info->supportedInput & GameInputKindControllerAxis)   Log("    ControllerAxis");
+        if (info->supportedInput & GameInputKindControllerButton) Log("    ControllerButton");
+        if (info->supportedInput & GameInputKindControllerSwitch) Log("    ControllerSwitch");
+        if (info->supportedInput & GameInputKindController)       Log("    Controller");
+        if (info->supportedInput & GameInputKindKeyboard)         Log("    Keyboard");
+        if (info->supportedInput & GameInputKindMouse)            Log("    Mouse");
+        if (info->supportedInput & GameInputKindTouch)            Log("    Touch");
+        if (info->supportedInput & GameInputKindMotion)           Log("    Motion");
+        if (info->supportedInput & GameInputKindArcadeStick)      Log("    ArcadeStick");
+        if (info->supportedInput & GameInputKindFlightStick)      Log("    FlightStick");
+        if (info->supportedInput & GameInputKindGamepad)          Log("    Gamepad");
+        if (info->supportedInput & GameInputKindRacingWheel)      Log("    RacingWheel");
+        if (info->supportedInput & GameInputKindUiNavigation)     Log("    UiNavigation");
     }
 
     void Application::Impl::InitGameInput()
     {
         ListHIDDevices();
 
-        NOVA_LOG("-----------------------------------");
-        NOVA_LOG("-- Registering GameInput Devices --");
-        NOVA_LOG("-----------------------------------");
+        Log("-----------------------------------");
+        Log("-- Registering GameInput Devices --");
+        Log("-----------------------------------");
 
         GameInputCreate(&game_input.handle);
         game_input.handle->RegisterDeviceCallback(
@@ -320,7 +320,7 @@ namespace nova
         for (auto& device : gi.devices) {
             IGameInputReading* reading;
 
-            bool showing = ImGui::CollapsingHeader(FormatStr("[{}]: {}", ++device_index, device.name).c_str());
+            bool showing = ImGui::CollapsingHeader(Fmt("[{}]: {}", ++device_index, device.name).c_str());
 
             gi.handle->GetCurrentReading(device.kinds, device.handle, &reading);
             NOVA_DEFER(&) { reading->Release(); };

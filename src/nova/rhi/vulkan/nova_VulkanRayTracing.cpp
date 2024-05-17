@@ -130,7 +130,7 @@ namespace nova
 
         if (table_size > impl->sbt_buffer.Size()) {
             if (impl->context->config.trace) {
-                NOVA_LOG("Resizing existing buffer");
+                Log("Resizing existing buffer");
             }
             impl->sbt_buffer.Resize(std::max(256ull, table_size));
         }

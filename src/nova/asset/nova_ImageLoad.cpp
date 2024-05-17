@@ -142,8 +142,8 @@ namespace nova
                     desc->layers = u32(info.num_layers);
                     desc->mips = u32(info.num_mips);
 
-                    NOVA_LOG("Loaded data = {}, size = {}, offset = {}", output->data, output->size, info.data_offset);
-                    NOVA_LOG("  width = {}, height = {}, layers = {}, mips = {}", info.width, info.height, info.num_layers, info.num_mips);
+                    Log("Loaded data = {}, size = {}, offset = {}", output->data, output->size, info.data_offset);
+                    Log("  width = {}, height = {}, layers = {}, mips = {}", info.width, info.height, info.num_layers, info.num_mips);
 
                     output->data = (b8*)output->data + info.data_offset;
                     output->offset = usz(info.data_offset);

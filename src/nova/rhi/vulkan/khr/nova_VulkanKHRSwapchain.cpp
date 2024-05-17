@@ -187,7 +187,7 @@ namespace nova
 
                 if (result != VK_SUCCESS) {
                     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
-                        NOVA_LOG("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(result));
+                        Log("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(result));
                         swapchain->invalid = true;
                     } else {
                         vkh::Check(result);
@@ -318,7 +318,7 @@ namespace nova
         for (u32 i = 0; i < swapchains.size(); ++i) {
             if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR) {
                 if (impl->context->config.trace) {
-                    NOVA_LOG("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i]->swapchain, int(results[i]));
+                    Log("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchains[i]->swapchain, int(results[i]));
                 }
                 swapchains[i]->invalid = true;
             } else {

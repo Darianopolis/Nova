@@ -156,9 +156,9 @@ namespace nova
 
                 for (auto& signal : job->signals) {
                     // signal->Signal();
-                    // NOVA_LOG("Signalling, counter = {}", signal->counter.load());
+                    // Log("Signalling, counter = {}", signal->counter.load());
                     if (--signal->counter == 0) {
-                        // NOVA_LOG("  Reached 0!");
+                        // Log("  Reached 0!");
                         for (auto& task : signal->pending) {
                             task->system->Submit(task, true);
                         }

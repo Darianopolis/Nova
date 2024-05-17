@@ -30,29 +30,26 @@ namespace nova
 
         // {
         //     auto str = Win32MessageToString(msg);
-        //     if (str.size()) {
-        //         NOVA_LOG("MSG: {:3} ({:#5x} :: {:15}), WPARAM: {:8} ({:#10x}), LPARAM: {:8} ({:#10x})", msg, msg, str, wparam, wparam, lparam, lparam);
+        //     if (str.Size()) {
+        //         Log("MSG: {} ({:#x} :: {}), WPARAM: {} ({:#x}), LPARAM: {} ({:#x})", msg, msg, str, wparam, wparam, lparam, lparam);
         //     }
         // }
 
         switch (msg) {
             break;case WM_CLOSE:
-                NOVA_LOG("Window close requested");
                 window->app->Send({
                     .window = window,
                     .type = EventType::WindowCloseRequested,
                 });
             break;case WM_DESTROY:
-                NOVA_LOG("Destroying window...");
                 window->app->Send({
                     .window = window,
                     .type = EventType::WindowClosing,
                 });
                 return 0;
             break;case WM_NCDESTROY:
-                NOVA_LOG("Window destroyed, freeing handle");
+                window->app->RemoveWindow(window);
                 delete window.impl;
-                ::PostQuitMessage(0);
                 return 0;
             break;case WM_LBUTTONDOWN:
                   case WM_LBUTTONUP:

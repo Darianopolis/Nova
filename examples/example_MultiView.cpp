@@ -51,7 +51,7 @@ void main() {
         )glsl"
     });
 
-    NOVA_LOG(NOVA_FMTEXPR(context.Properties().max_multiview_count));
+    nova::Log(NOVA_FMTEXPR(context.Properties().max_multiview_count));
 
     while (app.ProcessEvents()) {
 

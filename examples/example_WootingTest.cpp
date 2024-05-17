@@ -22,15 +22,15 @@ NOVA_EXAMPLE(WootingTest, "wooting")
 {
     auto woores = wooting_analog_initialise();
     if (woores >= 0) {
-        NOVA_LOG("Successfully initialized wooting, found {} devices", woores);
+        nova::Log("Successfully initialized wooting, found {} devices", woores);
     } else {
         switch (WootingAnalogResult(woores)) {
             break;case WootingAnalogResult_NoPlugins:
-                NOVA_LOG("Wooting error: NoPlugins");
+                nova::Log("Wooting error: NoPlugins");
             break;case WootingAnalogResult_FunctionNotFound:
-                NOVA_LOG("Wooting error: FunctionNotFound");
+                nova::Log("Wooting error: FunctionNotFound");
             break;case WootingAnalogResult_IncompatibleVersion:
-                NOVA_LOG("Wooting error: IncompatibleVersion");
+                nova::Log("Wooting error: IncompatibleVersion");
         }
     }
 

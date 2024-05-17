@@ -17,7 +17,7 @@ namespace nova
         void Check(VkResult res, const std::source_location& loc = std::source_location::current())
         {
             if (res != VK_SUCCESS) {
-                throw Exception(FormatStr("Error: {}", int(res)), loc);
+                throw Exception(Fmt("Error: {}", int(res)), loc);
             }
         }
 

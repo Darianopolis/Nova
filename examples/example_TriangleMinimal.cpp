@@ -61,11 +61,11 @@ void main() {
         frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
-            NOVA_LOG("\nFrame time = {} ({} fps)\nAllocations = {:3} (+ {} /s)",
+            nova::Log("\nFrame time = {} ({} fps)\nAllocations = {:3} (+ {} /s)",
                 nova::DurationToString((new_time - last_time) / frames), frames, nova::rhi::stats::AllocationCount.load(),
                 nova::rhi::stats::NewAllocationCount.exchange(0));
             f64 divisor = 1000.0 * frames;
-            NOVA_LOG("submit :: clear     = {:.2f}\n"
+            nova::Log("submit :: clear     = {:.2f}\n"
                      "submit :: adapting1 = {:.2f}\n"
                      "submit :: adapting2 = {:.2f}\n"
                      "present             = {:.2f}",

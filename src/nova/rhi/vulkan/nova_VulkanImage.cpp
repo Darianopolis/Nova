@@ -28,7 +28,7 @@ namespace nova
             std::scoped_lock lock{ context->global_heap.mutex };
             impl->descriptor_index = context->global_heap.sampler_handles.Acquire();
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Sampler Descriptor Acquired: {}", impl->descriptorIndex);
+            Log("Sampler Descriptor Acquired: {}", impl->descriptorIndex);
 #endif
         }
         context->global_heap.WriteSampler(impl->descriptor_index, impl);
@@ -48,7 +48,7 @@ namespace nova
             std::scoped_lock lock{ impl->context->global_heap.mutex };
             impl->context->global_heap.sampler_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Sampler Descriptor Released: {}", impl->descriptorIndex);
+            Log("Sampler Descriptor Released: {}", impl->descriptorIndex);
 #endif
         }
 
@@ -208,7 +208,7 @@ namespace nova
             std::scoped_lock lock{ heap.mutex };
             impl->context->global_heap.image_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-            NOVA_LOG("Image Descriptor Released: {} (total = {})",
+            Log("Image Descriptor Released: {} (total = {})",
                 impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
 #endif
         }
@@ -225,7 +225,7 @@ namespace nova
                 std::scoped_lock lock{ heap.mutex };
                 impl->descriptor_index = heap.image_handles.Acquire();
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
-                NOVA_LOG("Image Descriptor Acquired: {} (total = {})",
+                Log("Image Descriptor Acquired: {} (total = {})",
                     impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
 #endif
             }

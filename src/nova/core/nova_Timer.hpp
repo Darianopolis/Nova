@@ -38,7 +38,7 @@ namespace nova
 
 #define NOVA_TIMEIT(...) do {                                                  \
     using namespace std::chrono;                                               \
-    NOVA_LOG("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+    ::nova::Log("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
         duration_cast<milliseconds>(steady_clock::now()                        \
             - ::nova::detail::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
     ::nova::detail::NovaTimeitLast = steady_clock::now();                      \
