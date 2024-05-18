@@ -14,6 +14,8 @@ struct fmt::formatter<std::stacktrace> : fmt::ostream_formatter {};
 
 // -----------------------------------------------------------------------------
 
+#define NOVA_ENABLE_STACK_TRACE
+
 namespace nova
 {
     inline
@@ -30,24 +32,49 @@ namespace nova
 
     struct Exception : std::exception
     {
+        struct NoStack {};
+
+        Exception(NoStack,
+            std::string msg,
+            std::source_location loc = std::source_location::current())
+            : message(std::move(msg))
+            , source_location(std::move(loc))
+        {
+            LogContents();
+        }
+
         Exception(std::string msg,
-            const std::source_location& loc = std::source_location::current(),
-            std::stacktrace           trace = std::stacktrace::current())
+            std::source_location loc = std::source_location::current(),
+            std::stacktrace  trace = std::stacktrace::current())
             : message(std::move(msg))
             , source_location(std::move(loc))
             , back_trace(std::move(trace))
         {
-            Log("{}\nError: {}", stack(), what());
+            LogContents();
         }
 
-        const char*                     what() const { return message.c_str(); }
-        const std::source_location& location() const { return source_location; }
-        const std::stacktrace&         stack() const { return back_trace;      }
+        void LogContents()
+        {
+            if (HasStack()) {
+                Log("────────────────────────────────────────────────────────────────────────────────\n{}", Stack());
+            }
+            Log("────────────────────────────────────────────────────────────────────────────────\n"
+                "Error: {}\n"
+                "────────────────────────────────────────────────────────────────────────────────",
+                What());
+        }
+
+        const char*                     What() const noexcept { return message.c_str(); }
+        const std::source_location& Location() const noexcept { return source_location; }
+        bool                        HasStack() const noexcept { return back_trace.has_value(); }
+        const std::stacktrace&         Stack() const { return back_trace.value(); }
+
+        const char*                     what() const noexcept { return What(); }
 
     private:
         std::string                         message;
         const std::source_location& source_location;
-        std::stacktrace                  back_trace;
+        std::optional<std::stacktrace>   back_trace;
     };
 }
 
@@ -59,6 +86,9 @@ namespace nova
 
 #define NOVA_THROW(fmt_str, ...) \
     throw ::nova::Exception(::nova::Fmt(fmt_str __VA_OPT__(,) __VA_ARGS__))
+
+#define NOVA_THROW_STACKLESS(fmt_str, ...) \
+    throw ::nova::Exception(::nova::Exception::NoStack{}, ::nova::Fmt(fmt_str __VA_OPT__(,) __VA_ARGS__));
 
 #define NOVA_ASSERT(condition, fmt_str, ...) do { \
     if (!(condition)) [[unlikely]]                \

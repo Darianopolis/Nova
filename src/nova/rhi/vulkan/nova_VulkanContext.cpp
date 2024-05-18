@@ -132,7 +132,7 @@ Validation-VUID({}): {}
             std::memset(requested, 0, feature.size);
             reinterpret_cast<VkBaseInStructure*>(requested)->sType = feature.sType;
 
-            ctx->vkGetPhysicalDeviceFeatures2(gpu, Temp(VkPhysicalDeviceFeatures2 {
+            ctx->vkGetPhysicalDeviceFeatures2(gpu, PtrTo(VkPhysicalDeviceFeatures2 {
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
                 .pNext = requested,
             }));
@@ -285,17 +285,17 @@ Validation-VUID({}): {}
             .pUserData = impl,
         };
 
-        vkh::Check(impl->vkCreateInstance(Temp(VkInstanceCreateInfo {
+        vkh::Check(impl->vkCreateInstance(PtrTo(VkInstanceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pNext = config.debug
-                ? Temp(VkValidationFeaturesEXT {
+                ? PtrTo(VkValidationFeaturesEXT {
                     .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
                     .pNext = &debug_messenger_info,
                     .enabledValidationFeatureCount = u32(validation_features_enabled.size()),
                     .pEnabledValidationFeatures = validation_features_enabled.data(),
                 })
                 : nullptr,
-            .pApplicationInfo = Temp(VkApplicationInfo {
+            .pApplicationInfo = PtrTo(VkApplicationInfo {
                 .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
                 .apiVersion = VK_API_VERSION_1_3,
             }),
@@ -682,7 +682,7 @@ Validation-VUID({}): {}
 
         // Create device
 
-        vkh::Check(impl->vkCreateDevice(impl->gpu, Temp(VkDeviceCreateInfo {
+        vkh::Check(impl->vkCreateDevice(impl->gpu, PtrTo(VkDeviceCreateInfo {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             .pNext = chain.Build(),
             .queueCreateInfoCount = u32(queue_create_infos.size()),
@@ -701,7 +701,7 @@ Validation-VUID({}): {}
 
         // Query device properties
 
-        impl->vkGetPhysicalDeviceProperties2(impl->gpu, Temp(VkPhysicalDeviceProperties2 {
+        impl->vkGetPhysicalDeviceProperties2(impl->gpu, PtrTo(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &impl->descriptor_sizes,
         }));
@@ -724,12 +724,12 @@ Validation-VUID({}): {}
 
         // Create VMA allocator
 
-        vkh::Check(vmaCreateAllocator(Temp(VmaAllocatorCreateInfo {
+        vkh::Check(vmaCreateAllocator(PtrTo(VmaAllocatorCreateInfo {
             .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
             .physicalDevice = impl->gpu,
             .device = impl->device,
             .pAllocationCallbacks = impl->alloc,
-            .pVulkanFunctions = Temp(VmaVulkanFunctions {
+            .pVulkanFunctions = PtrTo(VmaVulkanFunctions {
                 .vkGetInstanceProcAddr = impl->vkGetInstanceProcAddr,
                 .vkGetDeviceProcAddr = impl->vkGetDeviceProcAddr,
             }),
@@ -739,7 +739,7 @@ Validation-VUID({}): {}
 
         // Create pipeline cache
 
-        vkh::Check(impl->vkCreatePipelineCache(impl->device, Temp(VkPipelineCacheCreateInfo {
+        vkh::Check(impl->vkCreatePipelineCache(impl->device, PtrTo(VkPipelineCacheCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
             .initialDataSize = 0,
         }), impl->alloc, &impl->pipeline_cache));

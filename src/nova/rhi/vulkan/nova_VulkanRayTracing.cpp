@@ -102,7 +102,7 @@ namespace nova
 
         vkh::Check(impl->context->vkCreateRayTracingPipelinesKHR(impl->context->device,
             0, impl->context->pipeline_cache,
-            1, Temp(VkRayTracingPipelineCreateInfoKHR {
+            1, PtrTo(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
                 .flags = impl->context->descriptor_buffers
                     ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT

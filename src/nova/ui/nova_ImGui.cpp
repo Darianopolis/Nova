@@ -319,7 +319,7 @@ void main() {
             }
 
             // Register dockspace
-            ImGui::Begin("Dockspace", Temp(true), dockspace_window_flags);
+            ImGui::Begin("Dockspace", PtrTo(true), dockspace_window_flags);
             ImGui::PopStyleVar(3);
             ImGui::DockSpace(ImGui::GetID("DockspaceID"), ImVec2(0.f, 0.f), dockspace_flags);
 

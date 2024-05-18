@@ -56,7 +56,7 @@ namespace nova
             NOVA_THROW("Could not load vkCreateWin32SurfaceKHR to create Win32 surface");
         }
 
-        vkh::Check(vkCreateWin32SurfaceKHR(context->instance, Temp(VkWin32SurfaceCreateInfoKHR {
+        vkh::Check(vkCreateWin32SurfaceKHR(context->instance, PtrTo(VkWin32SurfaceCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = HWND(handle),

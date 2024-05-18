@@ -6,7 +6,7 @@ namespace nova
     {
         if (pools.empty()) {
             CommandPool* pool = new CommandPool{};
-            vkh::Check(context->vkCreateCommandPool(context->device, Temp(VkCommandPoolCreateInfo {
+            vkh::Check(context->vkCreateCommandPool(context->device, PtrTo(VkCommandPoolCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
                 .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
                 .queueFamilyIndex = family,
@@ -81,7 +81,7 @@ namespace nova
             cmd->queue = *this;
             cmd->context = impl->context;
 
-            vkh::Check(impl->context->vkAllocateCommandBuffers(impl->context->device, Temp(VkCommandBufferAllocateInfo {
+            vkh::Check(impl->context->vkAllocateCommandBuffers(impl->context->device, PtrTo(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = pool->command_pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -98,7 +98,7 @@ namespace nova
         cmd->bound_graphics_pipeline = nullptr;
         cmd->shaders.clear();
 
-        vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, Temp(VkCommandBufferBeginInfo {
+        vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, PtrTo(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
@@ -131,10 +131,10 @@ namespace nova
 
     void CommandList::Barrier(PipelineStage src, PipelineStage dst) const
     {
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
+        impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
-            .pMemoryBarriers = Temp(VkMemoryBarrier2 {
+            .pMemoryBarriers = PtrTo(VkMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                 .srcStageMask = GetVulkanPipelineStage(src),
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,

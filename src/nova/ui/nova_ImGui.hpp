@@ -51,7 +51,6 @@ namespace nova::imgui
 
         std::chrono::steady_clock::time_point last_time = {};
 
-
         bool ended = false;
 
         bool dock_menu_bar = true;

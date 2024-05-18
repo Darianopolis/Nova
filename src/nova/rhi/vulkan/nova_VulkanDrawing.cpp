@@ -103,7 +103,7 @@ namespace nova
     void CommandList::ClearColor(u32 attachment, std::variant<Vec4, Vec4U, Vec4I> value, Vec2U size, Vec2I offset) const
     {
         impl->context->vkCmdClearAttachments(
-            impl->buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::PtrTo(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .colorAttachment = attachment,
                 .clearValue = {std::visit(Overloads {
@@ -112,7 +112,7 @@ namespace nova
                     [&](const Vec4I& v) { return VkClearColorValue{   .int32{ v.r, v.g, v.b, v.a }}; },
                 }, value)},
             }),
-            1, nova::Temp(VkClearRect {
+            1, nova::PtrTo(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
                 .baseArrayLayer = 0, // TODO: Layers
                 .layerCount = 1, // TODO: Layers
@@ -122,11 +122,11 @@ namespace nova
     void CommandList::ClearDepth(f32 depth, Vec2U size, Vec2I offset) const
     {
         impl->context->vkCmdClearAttachments(
-            impl->buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::PtrTo(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .clearValue = { .depthStencil = { .depth = depth } },
             }),
-            1, nova::Temp(VkClearRect {
+            1, nova::PtrTo(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
                 .baseArrayLayer = 0, // TODO: Layers
                 .layerCount = 1, // TODO: Layers
@@ -136,11 +136,11 @@ namespace nova
     void CommandList::ClearStencil(u32 value, Vec2U size, Vec2I offset) const
     {
         impl->context->vkCmdClearAttachments(
-            impl->buffer, 1, nova::Temp(VkClearAttachment {
+            impl->buffer, 1, nova::PtrTo(VkClearAttachment {
                 .aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT,
                 .clearValue = { .depthStencil = { .stencil = value } },
             }),
-            1, nova::Temp(VkClearRect {
+            1, nova::PtrTo(VkClearRect {
                 .rect = { { offset.x, offset.y }, { size.x, size.y } },
                 .baseArrayLayer = 0, // TODO: Layers
                 .layerCount = 1, // TODO: Layers

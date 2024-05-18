@@ -91,23 +91,11 @@ namespace nova
 // -----------------------------------------------------------------------------
 
     template<typename T>
-    T* Temp(T&& v)
+    T* PtrTo(T&& v)
     {
         return &v;
     }
 }
-
-// -----------------------------------------------------------------------------
-
-    template<typename Container>
-    concept IsResizableContainer = requires(Container& c) { { c.resize(1ull) }; }
-                                || requires(Container& c) { { c.Resize(1ull) }; };
-
-    template<typename Func, typename Return, typename... Args>
-    concept IsSameReturn = requires(Func func, Args&&... args)
-    {
-        { func(std::forward<Args>(args)...) } -> std::same_as<Return>;
-    };
 
 // -----------------------------------------------------------------------------
 

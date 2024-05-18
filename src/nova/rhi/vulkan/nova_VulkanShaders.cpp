@@ -56,14 +56,14 @@ namespace nova
         // TODO: remove shader module creation,
         //   store spirv and simply pass to pipelines
 
-        vkh::Check(impl->context->vkCreateShaderModule(context->device, Temp(VkShaderModuleCreateInfo {
+        vkh::Check(impl->context->vkCreateShaderModule(context->device, PtrTo(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * sizeof(u32),
             .pCode = spirv.data(),
         }), context->alloc, &shader->handle));
 
         if (generate_shader_object) {
-            vkh::Check(impl->context->vkCreateShadersEXT(context->device, 1, Temp(VkShaderCreateInfoEXT {
+            vkh::Check(impl->context->vkCreateShadersEXT(context->device, 1, PtrTo(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
                 .nextStage = next_stages,
@@ -74,7 +74,7 @@ namespace nova
                 .setLayoutCount = 1,
                 .pSetLayouts = &context->global_heap.heap_layout,
                 .pushConstantRangeCount = 1,
-                .pPushConstantRanges = Temp(VkPushConstantRange {
+                .pPushConstantRanges = PtrTo(VkPushConstantRange {
                     .stageFlags = VK_SHADER_STAGE_ALL,
                     .size = context->properties.max_push_constant_size,
                 }),

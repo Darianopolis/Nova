@@ -131,7 +131,7 @@ namespace nova
         ::CreateDXGIFactory2(0, IID_PPV_ARGS(&swapchain->dxfactory));
 
         VkPhysicalDeviceIDProperties id_props { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES };
-        context->vkGetPhysicalDeviceProperties2(context->gpu, Temp(VkPhysicalDeviceProperties2KHR {
+        context->vkGetPhysicalDeviceProperties2(context->gpu, PtrTo(VkPhysicalDeviceProperties2KHR {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
             .pNext = &id_props,
         }));
@@ -142,7 +142,7 @@ namespace nova
 
         ::D3D12CreateDevice(swapchain->dxadapter, D3D_FEATURE_LEVEL_11_1, IID_PPV_ARGS(&swapchain->dxdevice));
 
-        swapchain->dxdevice->CreateCommandQueue(Temp(D3D12_COMMAND_QUEUE_DESC {
+        swapchain->dxdevice->CreateCommandQueue(PtrTo(D3D12_COMMAND_QUEUE_DESC {
             .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
             .Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
             .Flags = D3D12_COMMAND_QUEUE_FLAG_NONE,
@@ -356,7 +356,7 @@ namespace nova
 
             VkDeviceMemory memory;
 
-            vkh::Check(swapchain->context->vkAllocateMemory(swapchain->context->device, Temp(VkMemoryAllocateInfo {
+            vkh::Check(swapchain->context->vkAllocateMemory(swapchain->context->device, PtrTo(VkMemoryAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                 .pNext = &imi,
                 .allocationSize = mem_req.size,
@@ -379,7 +379,7 @@ namespace nova
                 image->layers = 1;
 
                 image->image = vkimage;
-                vkh::Check(swapchain->context->vkCreateImageView(swapchain->context->device, Temp(VkImageViewCreateInfo {
+                vkh::Check(swapchain->context->vkCreateImageView(swapchain->context->device, PtrTo(VkImageViewCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                     .image = vkimage,
                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -422,7 +422,7 @@ namespace nova
                 values[i] = waits[i].Value();
             }
 
-            vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
+            vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, PtrTo(VkSemaphoreWaitInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                 .semaphoreCount = u32(waits.size()),
                 .pSemaphores = semaphores,
@@ -433,7 +433,7 @@ namespace nova
         for (auto swapchain : swapchains) {
             // TODO: Parameterize sync interval on present mode
             // TODO: Allow tearing
-            swapchain->dxswapchain->Present1(1, 0, Temp(DXGI_PRESENT_PARAMETERS {}));
+            swapchain->dxswapchain->Present1(1, 0, PtrTo(DXGI_PRESENT_PARAMETERS {}));
             if (swapchain->comp_enabled) {
                 swapchain->dcomp_visual->SetContent(swapchain->dxswapchain);
                 swapchain->dcomp_target->SetRoot(swapchain->dcomp_visual);

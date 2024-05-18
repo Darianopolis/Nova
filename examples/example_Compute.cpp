@@ -11,9 +11,10 @@
 
 NOVA_EXAMPLE(Compute, "compute")
 {
+    nova::Log("Running example: Compute");
+
     if (args.size() < 2) {
-        nova::Log("Usage: <encoding> <file>");
-        return;
+        NOVA_THROW_STACKLESS("Usage: <encoding> <file>");
     }
 
     auto encoding = args[0];
@@ -26,16 +27,15 @@ NOVA_EXAMPLE(Compute, "compute")
             }
         }
         if (!found_encoding) {
-            nova::Log("Unrecognized encoding: {}", encoding);
-            nova::Log("Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7");
-            return;
+            NOVA_THROW_STACKLESS("Unrecognized encoding: {}\n"
+                       "Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7",
+                       encoding);
         }
     }
 
     auto file = args[1];
     if (!std::filesystem::exists(file)) {
-        nova::Log("Could not file: {}", file);
-        return;
+        NOVA_THROW_STACKLESS("Could not file: {}", file);
     }
 
 // -----------------------------------------------------------------------------

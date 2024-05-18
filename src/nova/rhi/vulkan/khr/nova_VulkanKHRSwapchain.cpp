@@ -116,7 +116,7 @@ namespace nova
                         | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
                     swapchain->extent = caps.currentExtent;
-                    vkh::Check(impl->context->vkCreateSwapchainKHR(impl->context->device, Temp(VkSwapchainCreateInfoKHR {
+                    vkh::Check(impl->context->vkCreateSwapchainKHR(impl->context->device, PtrTo(VkSwapchainCreateInfoKHR {
                         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                         .surface = swapchain->surface,
                         .minImageCount = caps.minImageCount,
@@ -146,7 +146,7 @@ namespace nova
 
                     while (swapchain->semaphores.size() < vk_images.size() * 2) {
                         auto& semaphore = swapchain->semaphores.emplace_back();
-                        vkh::Check(impl->context->vkCreateSemaphore(impl->context->device, Temp(VkSemaphoreCreateInfo {
+                        vkh::Check(impl->context->vkCreateSemaphore(impl->context->device, PtrTo(VkSemaphoreCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
                         }), impl->context->alloc, &semaphore));
                     }
@@ -167,7 +167,7 @@ namespace nova
                         image->layers = 1;
 
                         image->image = vk_images[i];
-                        vkh::Check(impl->context->vkCreateImageView(impl->context->device, Temp(VkImageViewCreateInfo {
+                        vkh::Check(impl->context->vkCreateImageView(impl->context->device, PtrTo(VkImageViewCreateInfo {
                             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                             .image = vk_images[i],
                             .viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -177,7 +177,7 @@ namespace nova
                     }
                 }
 
-                auto result = impl->context->vkAcquireNextImage2KHR(impl->context->device, Temp(VkAcquireNextImageInfoKHR {
+                auto result = impl->context->vkAcquireNextImage2KHR(impl->context->device, PtrTo(VkAcquireNextImageInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
                     .swapchain = swapchain->swapchain,
                     .timeout = UINT64_MAX,
@@ -218,7 +218,7 @@ namespace nova
             };
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, PtrTo(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(swapchains.size()),
                 .pWaitSemaphoreInfos = wait_infos,
@@ -249,7 +249,7 @@ namespace nova
                 values[i] = waits[i].value;
             }
 
-            vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
+            vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, PtrTo(VkSemaphoreWaitInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                 .semaphoreCount = u32(waits.size()),
                 .pSemaphores = semaphores,
@@ -277,7 +277,7 @@ namespace nova
             }
 
             auto start = std::chrono::steady_clock::now();
-            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+            vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, PtrTo(VkSubmitInfo2 {
                 .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
                 .waitSemaphoreInfoCount = u32(waits.size()),
                 .pWaitSemaphoreInfos = wait_infos,
@@ -304,7 +304,7 @@ namespace nova
 
         auto results = NOVA_STACK_ALLOC(VkResult, swapchains.size());
         auto start = std::chrono::steady_clock::now();
-        impl->context->vkQueuePresentKHR(impl->handle, Temp(VkPresentInfoKHR {
+        impl->context->vkQueuePresentKHR(impl->handle, PtrTo(VkPresentInfoKHR {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = binary_waits ? u32(swapchains.size()) : 0u,
             .pWaitSemaphores = binary_waits,

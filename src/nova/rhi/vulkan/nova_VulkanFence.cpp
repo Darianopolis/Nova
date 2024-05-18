@@ -7,9 +7,9 @@ namespace nova
         auto impl = new Impl;
         impl->context = context;
 
-        vkh::Check(impl->context->vkCreateSemaphore(context->device, Temp(VkSemaphoreCreateInfo {
+        vkh::Check(impl->context->vkCreateSemaphore(context->device, PtrTo(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-            .pNext = Temp(VkSemaphoreTypeCreateInfo {
+            .pNext = PtrTo(VkSemaphoreTypeCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
                 .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE,
                 .initialValue = 0,
@@ -33,7 +33,7 @@ namespace nova
 
     void Fence::Wait(u64 wait_value) const
     {
-        vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, Temp(VkSemaphoreWaitInfo {
+        vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, PtrTo(VkSemaphoreWaitInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
             .pSemaphores = &impl->semaphore,
@@ -48,7 +48,7 @@ namespace nova
 
     void Fence::Signal(u64 signal_value) const
     {
-        vkh::Check(impl->context->vkSignalSemaphore(impl->context->device, Temp(VkSemaphoreSignalInfo {
+        vkh::Check(impl->context->vkSignalSemaphore(impl->context->device, PtrTo(VkSemaphoreSignalInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
             .semaphore = impl->semaphore,
             .value = (signal_value != ~0ull) ? signal_value : impl->value,

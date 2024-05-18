@@ -135,9 +135,9 @@ namespace nova
         }
 
         vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineRenderingCreateInfo {
+                .pNext = PtrTo(VkPipelineRenderingCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                     .viewMask = cmd->view_mask,
                     .colorAttachmentCount = u32(cmd->color_attachments_formats.size()),
@@ -150,32 +150,32 @@ namespace nova
                         : VkPipelineCreateFlags(0),
                 .stageCount = u32(cmd->shaders.size()),
                 .pStages = stages,
-                .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
+                .pVertexInputState = PtrTo(VkPipelineVertexInputStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
                 }),
-                .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
+                .pInputAssemblyState = PtrTo(VkPipelineInputAssemblyStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
                     .topology = GetVulkanTopology(key.topology),
                 }),
-                .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
+                .pViewportState = PtrTo(VkPipelineViewportStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
                 }),
-                .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
+                .pRasterizationState = PtrTo(VkPipelineRasterizationStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
                     .polygonMode = GetVulkanPolygonMode(cmd->polygon_mode),
                 }),
-                .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                     .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
                 }),
-                .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
+                .pColorBlendState = PtrTo(VkPipelineColorBlendStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                     .logicOpEnable = VK_FALSE,
                     .logicOp = VK_LOGIC_OP_COPY,
                     .attachmentCount = u32(cmd->color_attachments_formats.size()),
                     .pAttachments = attach_blend_states,
                 }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                .pDynamicState = PtrTo(VkPipelineDynamicStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
                     .dynamicStateCount = u32(DynamicStates.size()),
                     .pDynamicStates = DynamicStates.data(),
@@ -218,11 +218,11 @@ namespace nova
 
         auto start = std::chrono::steady_clock::now();
         vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                .pNext = PtrTo(VkGraphicsPipelineLibraryCreateInfoEXT {
                     .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
-                    .pNext = Temp(VkPipelineRenderingCreateInfo {
+                    .pNext = PtrTo(VkPipelineRenderingCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
                     }),
                     .flags = VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT,
@@ -230,21 +230,21 @@ namespace nova
                 .flags = context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                         : VkPipelineCreateFlags(0),
-                .pVertexInputState = Temp(VkPipelineVertexInputStateCreateInfo {
+                .pVertexInputState = PtrTo(VkPipelineVertexInputStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
                 }),
-                .pInputAssemblyState = Temp(VkPipelineInputAssemblyStateCreateInfo {
+                .pInputAssemblyState = PtrTo(VkPipelineInputAssemblyStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
                     .topology = GetVulkanTopology(key.topology),
                 }),
-                .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                     .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
                 }),
-                .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
+                .pDepthStencilState = PtrTo(VkPipelineDepthStencilStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
                 }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                .pDynamicState = PtrTo(VkPipelineDynamicStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
                     .dynamicStateCount = u32(DynamicStates.size()),
                     .pDynamicStates = DynamicStates.data(),
@@ -293,11 +293,11 @@ namespace nova
 
         auto start = std::chrono::steady_clock::now();
         vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineRenderingCreateInfo {
+                .pNext = PtrTo(VkPipelineRenderingCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                    .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                    .pNext = PtrTo(VkGraphicsPipelineLibraryCreateInfoEXT {
                         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT,
                     }),
@@ -307,14 +307,14 @@ namespace nova
                         : VkPipelineCreateFlags(0),
                 .stageCount = u32(shaders.size()),
                 .pStages = stages,
-                .pViewportState = Temp(VkPipelineViewportStateCreateInfo {
+                .pViewportState = PtrTo(VkPipelineViewportStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
                 }),
-                .pRasterizationState = Temp(VkPipelineRasterizationStateCreateInfo {
+                .pRasterizationState = PtrTo(VkPipelineRasterizationStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
                     .polygonMode = GetVulkanPolygonMode(cmd->polygon_mode),
                 }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                .pDynamicState = PtrTo(VkPipelineDynamicStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
                     .dynamicStateCount = u32(DynamicStates.size()),
                     .pDynamicStates = DynamicStates.data(),
@@ -354,11 +354,11 @@ namespace nova
 
         auto start = std::chrono::steady_clock::now();
         vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineRenderingCreateInfo {
+                .pNext = PtrTo(VkPipelineRenderingCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                    .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                    .pNext = PtrTo(VkGraphicsPipelineLibraryCreateInfoEXT {
                         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT,
                     }),
@@ -367,15 +367,15 @@ namespace nova
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                         : VkPipelineCreateFlags(0),
                 .stageCount = 1,
-                .pStages = Temp(shader->GetStageInfo()),
-                .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                .pStages = PtrTo(shader->GetStageInfo()),
+                .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                     .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
                 }),
-                .pDepthStencilState = Temp(VkPipelineDepthStencilStateCreateInfo {
+                .pDepthStencilState = PtrTo(VkPipelineDepthStencilStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
                 }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                .pDynamicState = PtrTo(VkPipelineDynamicStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
                     .dynamicStateCount = u32(DynamicStates.size()),
                     .pDynamicStates = DynamicStates.data(),
@@ -448,11 +448,11 @@ namespace nova
 
         auto start = std::chrono::steady_clock::now();
         vkh::Check(cmd->context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineRenderingCreateInfo {
+                .pNext = PtrTo(VkPipelineRenderingCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-                    .pNext = Temp(VkGraphicsPipelineLibraryCreateInfoEXT {
+                    .pNext = PtrTo(VkGraphicsPipelineLibraryCreateInfoEXT {
                         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_LIBRARY_CREATE_INFO_EXT,
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT,
                     }),
@@ -464,18 +464,18 @@ namespace nova
                 .flags = context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                         : VkPipelineCreateFlags(0),
-                .pMultisampleState = Temp(VkPipelineMultisampleStateCreateInfo {
+                .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                     .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
                 }),
-                .pColorBlendState = Temp(VkPipelineColorBlendStateCreateInfo {
+                .pColorBlendState = PtrTo(VkPipelineColorBlendStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                     .logicOpEnable = VK_FALSE,
                     .logicOp = VK_LOGIC_OP_COPY,
                     .attachmentCount = u32(cmd->color_attachments_formats.size()),
                     .pAttachments = attach_blend_states,
                 }),
-                .pDynamicState = Temp(VkPipelineDynamicStateCreateInfo {
+                .pDynamicState = PtrTo(VkPipelineDynamicStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
                     .dynamicStateCount = u32(DynamicStates.size()),
                     .pDynamicStates = DynamicStates.data(),
@@ -527,9 +527,9 @@ namespace nova
 
         auto start = std::chrono::steady_clock::now();
         vkh::Check(context->vkCreateGraphicsPipelines(context->device, context->pipeline_cache,
-            1, Temp(VkGraphicsPipelineCreateInfo {
+            1, PtrTo(VkGraphicsPipelineCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                .pNext = Temp(VkPipelineLibraryCreateInfoKHR {
+                .pNext = PtrTo(VkPipelineLibraryCreateInfoKHR {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR,
                     .libraryCount = 4,
                     .pLibraries = stages.data(),
@@ -582,7 +582,7 @@ namespace nova
     {
         if (impl->using_shader_objects) {
             impl->context->vkCmdSetAlphaToCoverageEnableEXT(impl->buffer, false);
-            impl->context->vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::Temp<VkSampleMask>(0xFFFF'FFFF));
+            impl->context->vkCmdSetSampleMaskEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT, nova::PtrTo<VkSampleMask>(0xFFFF'FFFF));
             impl->context->vkCmdSetRasterizationSamplesEXT(impl->buffer, VK_SAMPLE_COUNT_1_BIT);
             impl->context->vkCmdSetVertexInputEXT(impl->buffer, 0, nullptr, 0, nullptr);
         }
@@ -746,7 +746,7 @@ namespace nova
 
                 auto pipeline = context->compute_pipelines[key];
                 if (!pipeline) {
-                    vkh::Check(impl->context->vkCreateComputePipelines(context->device, context->pipeline_cache, 1, Temp(VkComputePipelineCreateInfo {
+                    vkh::Check(impl->context->vkCreateComputePipelines(context->device, context->pipeline_cache, 1, PtrTo(VkComputePipelineCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
                         .flags = context->descriptor_buffers
                                 ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT

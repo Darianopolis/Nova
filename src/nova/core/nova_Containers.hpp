@@ -4,6 +4,8 @@
 
 #include <ankerl/unordered_dense.h>
 
+#include <ranges>
+
 namespace nova
 {
 // -----------------------------------------------------------------------------

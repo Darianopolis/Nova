@@ -7,7 +7,7 @@ namespace nova
         auto impl = new Impl;
         impl->context = context;
 
-        vkh::Check(context->vkCreateQueryPool(context->device, Temp(VkQueryPoolCreateInfo {
+        vkh::Check(context->vkCreateQueryPool(context->device, PtrTo(VkQueryPoolCreateInfo {
             .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
             .queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
             .queryCount = 1,
@@ -144,7 +144,7 @@ namespace nova
         context->vkGetAccelerationStructureBuildSizesKHR(
             context->device,
             VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-            Temp(VkAccelerationStructureBuildGeometryInfoKHR {
+            PtrTo(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = builder->type,
                 .flags = builder->flags,
@@ -199,7 +199,7 @@ namespace nova
             impl->buffer = buffer;
         }
 
-        vkh::Check(context->vkCreateAccelerationStructureKHR(context->device, Temp(VkAccelerationStructureCreateInfoKHR {
+        vkh::Check(context->vkCreateAccelerationStructureKHR(context->device, PtrTo(VkAccelerationStructureCreateInfoKHR {
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
             .buffer = impl->buffer->buffer,
             .offset = offset,
@@ -209,7 +209,7 @@ namespace nova
 
         impl->address = context->vkGetAccelerationStructureDeviceAddressKHR(
             context->device,
-            Temp(VkAccelerationStructureDeviceAddressInfoKHR {
+            PtrTo(VkAccelerationStructureDeviceAddressInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
                 .accelerationStructure = impl->structure,
             }));
@@ -246,7 +246,7 @@ namespace nova
 
         impl->context->vkCmdBuildAccelerationStructuresKHR(
             impl->buffer,
-            1, Temp(VkAccelerationStructureBuildGeometryInfoKHR {
+            1, PtrTo(VkAccelerationStructureBuildGeometryInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 .type = builder->type,
                 .flags = builder->flags,
@@ -255,14 +255,14 @@ namespace nova
                 .pGeometries = builder->geometries.data() + builder->first_geometry,
                 .scratchData = {{ AlignUpPower2(scratch->address,
                     impl->context->accel_structure_properties.minAccelerationStructureScratchOffsetAlignment) }},
-            }), Temp(builder->ranges.data()));
+            }), PtrTo(builder->ranges.data()));
 
 
         if (compact) {
-            impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
+            impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .memoryBarrierCount = 1,
-                .pMemoryBarriers = Temp(VkMemoryBarrier2 {
+                .pMemoryBarriers = PtrTo(VkMemoryBarrier2 {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
                     .srcStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
                     .dstStageMask = VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -278,7 +278,7 @@ namespace nova
 
     void CommandList::CompactAccelerationStructure(HAccelerationStructure dst, HAccelerationStructure src) const
     {
-        impl->context->vkCmdCopyAccelerationStructureKHR(impl->buffer, Temp(VkCopyAccelerationStructureInfoKHR {
+        impl->context->vkCmdCopyAccelerationStructureKHR(impl->buffer, PtrTo(VkCopyAccelerationStructureInfoKHR {
             .sType = VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,
             .src = src->structure,
             .dst = dst->structure,

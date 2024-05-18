@@ -60,7 +60,7 @@ namespace nova
         };
 
         auto start = std::chrono::steady_clock::now();
-        vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, Temp(VkSubmitInfo2 {
+        vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, PtrTo(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
             .pWaitSemaphoreInfos = wait_infos,

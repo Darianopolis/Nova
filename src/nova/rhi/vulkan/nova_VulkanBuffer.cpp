@@ -67,7 +67,7 @@ namespace nova
 
         vkh::Check(vmaCreateBuffer(
             impl->context->vma,
-            Temp(VkBufferCreateInfo {
+            PtrTo(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = impl->size,
                 .usage = vk_usage,
@@ -75,7 +75,7 @@ namespace nova
                 .queueFamilyIndexCount = impl->context->queue_family_count,
                 .pQueueFamilyIndices = impl->context->queue_families.data(),
             }),
-            Temp(VmaAllocationCreateInfo {
+            PtrTo(VmaAllocationCreateInfo {
                 .flags = vmaFlags,
                 .usage = VMA_MEMORY_USAGE_AUTO,
                 .requiredFlags = (impl->flags >= BufferFlags::DeviceLocal)
@@ -87,7 +87,7 @@ namespace nova
             nullptr));
 
         if (impl->flags >= BufferFlags::Addressable) {
-            impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, Temp(VkBufferDeviceAddressInfo {
+            impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                 .buffer = impl->buffer,
             }));
@@ -120,12 +120,12 @@ namespace nova
 
     void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dst_offset, u64 src_offset) const
     {
-        impl->context->vkCmdCopyBuffer2(impl->buffer, Temp(VkCopyBufferInfo2 {
+        impl->context->vkCmdCopyBuffer2(impl->buffer, PtrTo(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
             .srcBuffer = src->buffer,
             .dstBuffer = dst->buffer,
             .regionCount = 1,
-            .pRegions = Temp(VkBufferCopy2 {
+            .pRegions = PtrTo(VkBufferCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
                 .srcOffset = src_offset,
                 .dstOffset = dst_offset,
@@ -136,10 +136,10 @@ namespace nova
 
     void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst) const
     {
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, Temp(VkDependencyInfo {
+        impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = Temp(VkBufferMemoryBarrier2 {
+            .pBufferMemoryBarriers = PtrTo(VkBufferMemoryBarrier2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
                 .srcStageMask = GetVulkanPipelineStage(src),
                 .srcAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT,
