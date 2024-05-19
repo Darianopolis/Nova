@@ -15,10 +15,10 @@ namespace nova::draw
         f32 corner_radius;
         f32  border_width;
 
-        Vec4        tex_tint;
-        u32          tex_idx;
-        Vec2  tex_center_pos;
-        Vec2 tex_half_extent;
+        Vec4                     tex_tint;
+        ImageSamplerDescriptor tex_handle;
+        Vec2               tex_center_pos;
+        Vec2              tex_half_extent;
     };
 
     enum class DrawType

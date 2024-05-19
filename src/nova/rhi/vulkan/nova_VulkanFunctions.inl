@@ -146,4 +146,6 @@ NOVA_VULKAN_FUNCTION(vkGetSemaphoreCounterValue)
 NOVA_VULKAN_FUNCTION(vkFreeCommandBuffers)
 NOVA_VULKAN_FUNCTION(vkResetCommandBuffer)
 
+NOVA_VULKAN_FUNCTION(vkQueueSubmit)
+
 #undef NOVA_VULKAN_FUNCTION

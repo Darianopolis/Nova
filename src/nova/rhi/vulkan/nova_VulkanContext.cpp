@@ -747,8 +747,8 @@ Validation-VUID({}): {}
         // Create descriptor heap
 
         {
-            constexpr u32 MaxNumImageDescriptors   = 1'000'000;
-            constexpr u32 MaxNumSamplerDescriptors =     4'000;
+            constexpr u32 MaxNumImageDescriptors   = 1'000'000; // < 2^20
+            constexpr u32 MaxNumSamplerDescriptors =     4'000; // < 2^12
             constexpr u32 MaxPushConstantSize      =       128;
 
             VkPhysicalDeviceProperties2 props = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };

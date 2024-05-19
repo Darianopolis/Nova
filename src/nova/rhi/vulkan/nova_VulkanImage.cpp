@@ -56,7 +56,7 @@ namespace nova
         impl = nullptr;
     }
 
-    u32 Sampler::Descriptor() const
+    SamplerDescriptor Sampler::Descriptor() const
     {
         return impl->descriptor_index;
     }
@@ -217,7 +217,7 @@ namespace nova
         impl = nullptr;
     }
 
-    u32 Image::Descriptor() const
+    ImageDescriptor Image::Descriptor() const
     {
         if (impl->descriptor_index == UINT_MAX) {
             auto& heap = impl->context->global_heap;

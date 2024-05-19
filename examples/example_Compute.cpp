@@ -167,10 +167,9 @@ NOVA_EXAMPLE(Compute, "compute")
 
     struct PushConstants
     {
-        u32   image;
-        u32 sampler;
-        u32  target;
-        Vec2   size;
+        nova::ImageSamplerDescriptor source;
+        nova::ImageDescriptor        target;
+        Vec2                           size;
     };
 
     auto hlsl_shader = nova::Shader::Create(context, nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {
@@ -180,10 +179,9 @@ NOVA_EXAMPLE(Compute, "compute")
 [[vk::binding(2, 0)]] SamplerState            Sampler[];
 
 struct PushConstants {
-    uint          image;
-    uint linear_sampler;
-    uint         target;
-    float2         size;
+    uint source;
+    uint target;
+    float2 size;
 };
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
@@ -191,7 +189,8 @@ struct PushConstants {
 [numthreads(16, 16, 1)]
 void main(uint2 id: SV_DispatchThreadID) {
     float2 uv = float2(id) / pc.size;
-    float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+    // TODO: Move this descriptor handling to a shared library
+    float4 source = Image2D[pc.source & 0xFFFFF].SampleLevel(Sampler[pc.source >> 20], uv, 0);
     float4 dest = float4(1, 0, 1, 1);
     float3 color = lerp(dest.rgb, source.rgb, source.a);
     RWImage2DF4[pc.target][id] = float4(color, 1);
@@ -207,10 +206,9 @@ void main(uint2 id: SV_DispatchThreadID) {
 [[vk::binding(2, 0)]] SamplerState            Sampler[];
 
 struct PushConstants {
-    uint          image;
-    uint linear_sampler;
-    uint         target;
-    float2         size;
+    uint source;
+    uint target;
+    float2 size;
 };
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> pc;
@@ -219,7 +217,8 @@ struct PushConstants {
 [numthreads(16, 16, 1)]
 void main(uint2 id: SV_DispatchThreadID) {
     float2 uv = float2(id) / pc.size;
-    float4 source = Image2D[pc.image].SampleLevel(Sampler[pc.linear_sampler], uv, 0);
+    // TODO: Move this descriptor handling to a shared library
+    float4 source = Image2D[pc.source & 0xFFFFF].SampleLevel(Sampler[pc.source >> 20], uv, 0);
     float4 dest = float4(1, 0, 1, 1);
     float3 color = lerp(dest.rgb, source.rgb, source.a);
     RWImage2DF4[pc.target][id] = float4(color, 1);
@@ -240,17 +239,17 @@ layout(set = 0, binding = 1) uniform image2D RWImage2D[];
 layout(set = 0, binding = 2) uniform sampler   Sampler[];
 
 layout(push_constant, scalar) uniform PushConstants {
-    uint          image;
-    uint linear_sampler;
-    uint         target;
-    vec2           size;
+    uint source;
+    uint target;
+    vec2   size;
 } pc;
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = vec2(pos) / pc.size;
-    vec4 source = texture(sampler2D(Image2D[pc.image], Sampler[pc.linear_sampler]), uv);
+    // TODO: Move this descriptor handling to a shared library
+    vec4 source = texture(sampler2D(Image2D[pc.source & 0xFFFFF], Sampler[pc.source >> 20]), uv);
     vec4 dest = vec4(1, 0, 1, 1);
     vec3 color = mix(dest.rgb, source.rgb, source.a);
     imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
@@ -303,8 +302,7 @@ void main() {
         // Dispatch
 
         cmd.PushConstants(PushConstants {
-            .image = image.Descriptor(),
-            .sampler = sampler.Descriptor(),
+            .source = {image.Descriptor(), sampler.Descriptor()},
             .target = swapchain.Target().Descriptor(),
             .size = Vec2(swapchain.Extent()),
         });

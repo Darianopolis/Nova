@@ -263,7 +263,6 @@ namespace nova
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
                     .semaphore = waits[i].fence->semaphore,
                     .value = waits[i].Value(),
-                    .stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
                 };
             }
 

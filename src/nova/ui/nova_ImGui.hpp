@@ -56,13 +56,23 @@ namespace nova::imgui
         bool dock_menu_bar = true;
         bool    no_dock_bg = true;
 
+        struct TextureDescriptor
+        {
+            ImageSamplerDescriptor handle;
+            u32                   padding = {};
+
+            TextureDescriptor(ImageDescriptor image, SamplerDescriptor sampler)
+                : handle(image, sampler)
+            {}
+        };
+
     public:
         ImGuiLayer(const ImGuiConfig& config);
         ~ImGuiLayer();
 
         ImTextureID TextureID(Image image, Sampler sampler = {}) const
         {
-            return std::bit_cast<ImTextureID>(Vec2U(image.Descriptor(), (sampler ? sampler : default_sampler).Descriptor()));
+            return std::bit_cast<ImTextureID>(TextureDescriptor(image.Descriptor(), (sampler ? sampler : default_sampler).Descriptor()));
         }
 
         void BeginFrame(FunctionRef<void()> fn = []{});

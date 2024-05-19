@@ -5,7 +5,7 @@
 
 #include <nova/window/nova_Window.hpp>
 
-NOVA_EXAMPLE(RayTracing, "tri-rt")
+NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 {
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
@@ -49,25 +49,25 @@ NOVA_EXAMPLE(RayTracing, "tri-rt")
 
     // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
 
-     auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::ClosestHit, "main", "", {
-         R"glsl(
- #extension GL_EXT_ray_tracing                      : require
- #extension GL_EXT_scalar_block_layout              : require
- #extension GL_EXT_shader_explicit_arithmetic_types : require
- #extension GL_EXT_nonuniform_qualifier             : require
+    auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::ClosestHit, "main", "", {
+        R"glsl(
+#extension GL_EXT_ray_tracing                      : require
+#extension GL_EXT_scalar_block_layout              : require
+#extension GL_EXT_shader_explicit_arithmetic_types : require
+#extension GL_EXT_nonuniform_qualifier             : require
 
- layout(location = 0) rayPayloadInEXT vec3 payload;
- hitAttributeEXT vec3 bary;
+layout(location = 0) rayPayloadInEXT vec3 payload;
+hitAttributeEXT vec3 bary;
 
- void main() {
-     payload = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
- }
-         )glsl"
-     });
-     NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
+void main() {
+    payload = vec3(1.0 - bary.x - bary.y, bary.x, bary.y);
+}
+        )glsl"
+    });
+    NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
 
-     auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
-         R"glsl(
+    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
+        R"glsl(
 #extension GL_EXT_ray_tracing                      : require
 #extension GL_EXT_shader_image_load_formatted      : require
 #extension GL_EXT_scalar_block_layout              : require
@@ -92,9 +92,9 @@ void main() {
 
     imageStore(RWImage2D[pc.target], ivec2(gl_LaunchIDEXT.xy), vec4(payload, 1));
 }
-          )glsl"
-     });
-     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
+         )glsl"
+    });
+    NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
     auto ray_query_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
         R"glsl(
@@ -268,9 +268,9 @@ void main() {
 
         struct PushConstants
         {
-            u64 tlas;
-            u32 target;
-            Vec2U size;
+            u64                     tlas;
+            nova::ImageDescriptor target;
+            Vec2U                   size;
         };
 
         cmd.PushConstants(PushConstants {

@@ -10,10 +10,10 @@ namespace nova::imgui
     {
         struct ImGuiPushConstants
         {
-            u64  vertices;
-            Vec2    scale;
-            Vec2   offset;
-            Vec2U texture;
+            u64                   vertices;
+            Vec2                     scale;
+            Vec2                    offset;
+            ImageSamplerDescriptor texture;
         };
 
         static
@@ -32,7 +32,7 @@ layout(push_constant, scalar) readonly uniform pc_ {
     ImDrawVert vertices;
     vec2          scale;
     vec2         offset;
-    uvec2       texture;
+    uint        texture;
 } pc;
         )glsl"sv;
     }
@@ -177,9 +177,7 @@ layout(push_constant, scalar) readonly uniform pc_ {
         , default_sampler(config.sampler)
         , frames_in_flight(config.frames_in_flight)
     {
-        if (frames_in_flight == 0) {
-            NOVA_THROW("frames_in_flight must be greater than 0!");
-        }
+        NOVA_ASSERT(frames_in_flight != 0, "frames_in_flight must be greater than 0!");
 
         for (u32 i = 0; i < frames_in_flight; ++i) {
             frame_data.push_back(FrameData {
@@ -218,7 +216,8 @@ layout(location = 0) in vec2 in_uv;
 layout(location = 1) in vec4 in_color;
 layout(location = 0) out vec4 out_color;
 void main() {
-    out_color = texture(sampler2D(Image2D[pc.texture.x], Sampler[pc.texture.y]), in_uv)
+    // TODO: Move this descriptor handling to a shared header
+    out_color = texture(sampler2D(Image2D[pc.texture & 0xFFFFF], Sampler[pc.texture >> 20]), in_uv)
         * in_color;
 }
                 )glsl"
@@ -423,7 +422,7 @@ void main() {
                         .vertices = vertex_buffer.DeviceAddress(),
                         .scale = 2.f / Vec2(target.Extent()),
                         .offset = Vec2(-1.f),
-                        .texture = std::bit_cast<Vec2U>(im_cmd.TextureId),
+                        .texture = std::bit_cast<TextureDescriptor>(im_cmd.TextureId).handle,
                     });
 
                     cmd.DrawIndexed(im_cmd.ElemCount, 1,

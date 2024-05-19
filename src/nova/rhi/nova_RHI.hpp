@@ -338,6 +338,35 @@ namespace nova
     };
 
 // -----------------------------------------------------------------------------
+
+    struct ImageDescriptor
+    {
+        u32 value;
+
+        ImageDescriptor(u32 value)
+            : value(value & 0xFFFF)
+        {}
+    };
+
+    struct SamplerDescriptor
+    {
+        u32 value;
+
+        SamplerDescriptor(u32 value)
+            : value(value & 0xFFF)
+        {}
+    };
+
+    struct ImageSamplerDescriptor
+    {
+        u32 value;
+
+        ImageSamplerDescriptor(ImageDescriptor image, SamplerDescriptor sampler)
+            : value((image.value & 0xFFFFF) | (sampler.value << 20))
+        {}
+    };
+
+// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
@@ -532,7 +561,7 @@ namespace nova
         static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
 
-        u32 Descriptor() const;
+        SamplerDescriptor Descriptor() const;
     };
 
 // -----------------------------------------------------------------------------
@@ -549,7 +578,7 @@ namespace nova
         void Set(Vec3I offset, Vec3U extent, const void* data) const;
         void Transition(ImageLayout layout) const;
 
-        u32 Descriptor() const;
+        ImageDescriptor Descriptor() const;
     };
 
 // -----------------------------------------------------------------------------

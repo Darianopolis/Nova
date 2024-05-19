@@ -22,7 +22,7 @@ namespace nova::draw
 #extension GL_EXT_scalar_block_layout  : require
 #extension GL_EXT_buffer_reference2    : require
 #extension GL_EXT_nonuniform_qualifier : require
-expl
+
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImRoundRect {
     vec4 center_color;
     vec4 border_color;
@@ -34,7 +34,7 @@ layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImR
     float  border_width;
 
     vec4        tex_tint;
-    uint       tex_index;
+    uint      tex_handle;
     vec2  tex_center_pos;
     vec2 tex_half_extent;
 };
@@ -97,8 +97,9 @@ void main() {
     vec2 abs_pos = abs(in_tex);
     vec2 corner_focus = box.half_extent - vec2(box.corner_radius);
 
+    // TODO: Move this descriptor handling to a shared header
     vec4 sampled = box.tex_tint.a > 0
-        ? box.tex_tint * texture(sampler2D(Image2D[nonuniformEXT(box.tex_index)], Sampler[0]),
+        ? box.tex_tint * texture(sampler2D(Image2D[nonuniformEXT(box.tex_handle & 0xFFFFF)], Sampler[nonuniformEXT(box.tex_handle >> 20)]),
             (in_tex / box.half_extent) * box.tex_half_extent + box.tex_center_pos)
         : vec4(0);
     vec4 center_color = vec4(
@@ -246,7 +247,7 @@ void main() {
                     .center_pos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                     .half_extent = { g.width / 2.f, g.height / 2.f },
                     .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
-                    .tex_idx = g.image.Descriptor(),
+                    .tex_handle = {g.image.Descriptor(), default_sampler.Descriptor()},
                     .tex_center_pos = { 0.5f, 0.5f },
                     .tex_half_extent = { 0.5f, 0.5f },
                 });

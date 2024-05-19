@@ -75,7 +75,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 5.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.Descriptor(),
+        .tex_handle = {image.Descriptor(), im_draw.default_sampler.Descriptor()},
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 1.f },
     };
@@ -89,7 +89,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.Descriptor(),
+        .tex_handle = {image.Descriptor(), im_draw.default_sampler.Descriptor()},
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 0.5f, 0.5f },
     };
@@ -103,7 +103,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .border_width = 10.f,
 
         .tex_tint = { 1.f, 1.f, 1.f, 1.f },
-        .tex_idx = image.Descriptor(),
+        .tex_handle = {image.Descriptor(), im_draw.default_sampler.Descriptor()},
         .tex_center_pos = { 0.5f, 0.5f },
         .tex_half_extent = { 1.f, 0.5f },
     };
