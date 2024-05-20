@@ -20,10 +20,12 @@ NOVA_EXAMPLE(CommandTest, "cmd-test")
     auto context = nova::Context::Create({
         .debug = false,
     });
+    NOVA_DEFER(&) { context.Destroy(); };
     auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Immediate);
+    NOVA_DEFER(&) { swapchain.Destroy(); };
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
     std::array<nova::SyncPoint, 2> wait_values;
@@ -40,6 +42,7 @@ NOVA_EXAMPLE(CommandTest, "cmd-test")
     // int buffer_count = 10, command_count = 10'000;
     // int buffer_count = 1, command_count = 100'000;
 
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
         // Debug output statistics

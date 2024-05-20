@@ -443,6 +443,8 @@ Validation-VUID({}): {}
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, multiviewGeometryShader));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, multiviewTessellationShader));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, shaderDrawParameters));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, variablePointers));
+        chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, variablePointersStorageBuffer));
 
         // Vulkan 1.2
 
@@ -559,6 +561,7 @@ Validation-VUID({}): {}
                 NOVA_VK_EXTENSION(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME),
                 NOVA_VK_FEATURE(VkPhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline),
                 NOVA_VK_FEATURE(VkPhysicalDeviceAccelerationStructureFeaturesKHR, accelerationStructure),
+                NOVA_VK_FEATURE(VkPhysicalDeviceAccelerationStructureFeaturesKHR, descriptorBindingAccelerationStructureUpdateAfterBind),
             })) {
                 chain.AddAll({
                     NOVA_VK_EXTENSION(VK_KHR_RAY_QUERY_EXTENSION_NAME),

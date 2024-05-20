@@ -3,6 +3,8 @@
 #include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 
+#include "example_RayTracing.slang"
+
 #include <nova/window/nova_Window.hpp>
 
 NOVA_EXAMPLE(RayTracing, "rt")
@@ -34,150 +36,13 @@ NOVA_EXAMPLE(RayTracing, "rt")
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    // Create the ray gen shader to draw a shaded triangle based on barycentric interpolation
+    // Shaders
 
-    struct PushConstants
-    {
-        u64                     tlas;
-        nova::ImageDescriptor target;
-    };
-
-    auto preamble = R"glsl(
-#extension GL_EXT_ray_tracing                      : require
-#extension GL_EXT_shader_image_load_formatted      : require
-#extension GL_EXT_scalar_block_layout              : require
-#extension GL_EXT_shader_explicit_arithmetic_types : require
-#extension GL_EXT_nonuniform_qualifier             : require
-
-struct Payload
-{
-    vec3 color;
-    bool allow_reflection;
-    bool missed;
-};
-
-const vec3 Camera = vec3(0, 1.5, -7);
-const vec3 Light = vec3(0, 200, 0);
-const vec3 SkyTop = vec3(0.24, 0.44, 0.72);
-const vec3 SkyBottom = vec3(0.75, 0.86, 0.93);
-
-layout(set = 0, binding = 1) uniform image2D RWImage2D[];
-
-layout(push_constant, scalar) uniform pc_ {
-    uint64_t tlas;
-    uint   target;
-} pc;
-    )glsl";
-
-    // Ray generation shader
-
-    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::RayGen, "main", "", {
-        preamble,
-        R"glsl(
-layout(location = 0) rayPayloadEXT Payload payload;
-
-void main() {
-    uvec2 idx = gl_LaunchIDEXT.xy;
-    vec2 size = vec2(gl_LaunchSizeEXT.xy);
-
-    vec2 uv = idx / size;
-    vec3 target = vec3((uv.x * 2 - 1) * 1.8 * (size.x / size.y),
-                       (1 - uv.y) * 4 - 2 + Camera.y,
-                       0);
-
-    payload.allow_reflection = true;
-    payload.missed = false;
-    traceRayEXT(accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, Camera, 0.001, target - Camera, 1000, 0);
-
-    imageStore(RWImage2D[pc.target & 0xFFFFF], ivec2(gl_LaunchIDEXT.xy), vec4(payload.color, 1));
-}
-        )glsl"
-    });
+    auto ray_gen_shader = nova::Shader::Create(context,     nova::ShaderLang::Slang, nova::ShaderStage::RayGen,     "RayGeneration", "example_RayTracing.slang");
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
-
-    // Miss shader
-
-    auto miss_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Miss, "main", "", {
-        preamble,
-        R"glsl(
-layout(location = 0) rayPayloadInEXT Payload payload;
-
-void main()
-{
-    float slope = normalize(gl_WorldRayDirectionEXT).y;
-    float t = clamp(slope * 5 + 0.5, 0, 1);
-    payload.color = mix(SkyBottom, SkyTop, t);
-    payload.missed = true;
-}
-        )glsl",
-    });
+    auto miss_shader = nova::Shader::Create(context,        nova::ShaderLang::Slang, nova::ShaderStage::Miss,       "Miss",          "example_RayTracing.slang");
     NOVA_DEFER(&) { miss_shader.Destroy(); };
-
-    // Closest hit shader
-
-    auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::ClosestHit, "main", "", {
-        preamble,
-        R"glsl(
-layout(location = 0) rayPayloadInEXT Payload payload;
-layout(location = 1) rayPayloadEXT Payload shadow_payload;
-hitAttributeEXT vec3 uv;
-
-void HitCube()
-{
-    uint tri = gl_PrimitiveID;
-    tri /= 2;
-    vec3 normal = vec3(uvec3(equal(uvec3(tri) % 3, uvec3(0, 1, 2))) * (tri < 3 ? -1 : 1));
-    vec3 world_normal = normalize(normal * mat3(gl_ObjectToWorld3x4EXT));
-    vec3 color = abs(normal) / 3 + 0.5;
-    if (uv.x < 0.03 || uv.y < 0.03) {
-        color = vec3(0.25);
-    }
-    color *= clamp(dot(world_normal, normalize(Light)), 0, 1) + 0.33;
-    payload.color = color;
-}
-
-void HitMirror()
-{
-    if (!payload.allow_reflection) {
-        payload.color = vec3(0, 0, 0);
-        return;
-    }
-
-    vec3 pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_RayTmaxEXT;
-    vec3 normal = normalize(vec3(0, 1, 0) * mat3(gl_ObjectToWorld3x4EXT));
-    vec3 reflected = reflect(normalize(gl_WorldRayDirectionEXT), normal);
-
-    payload.allow_reflection = false;
-    traceRayEXT(accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0.001, reflected, 1000, 0);
-}
-
-void HitFloor()
-{
-    vec3 pos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_RayTmaxEXT;
-
-    bvec2 pattern = greaterThan(fract(pos.xz), vec2(0.5));
-    payload.color = (pattern.x != pattern.y) ? vec3(0.6) : vec3(0.4);
-
-    shadow_payload.allow_reflection = false;
-    shadow_payload.missed = false;
-    traceRayEXT(accelerationStructureEXT(pc.tlas), 0, 0xFF, 0, 0, 0, pos, 0.001, Light - pos, 1000, 1);
-
-    if (!shadow_payload.missed) {
-        payload.color /= 2;
-    }
-}
-
-void main()
-{
-    switch (gl_InstanceID) {
-        case 0: HitCube(); break;
-        case 1: HitMirror(); break;
-        case 2: HitFloor(); break;
-        default: payload.color = vec3(1, 0, 1); break;
-    }
-}
-        )glsl"
-    });
+    auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::ClosestHit, "ClosestHit",    "example_RayTracing.slang");
     NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
 
     // Create ray tracing pipeline

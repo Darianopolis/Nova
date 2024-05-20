@@ -2,25 +2,10 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 
+#include "nova_Draw2DShared.slang"
+
 namespace nova::draw
 {
-    struct Rectangle
-    {
-        Vec4 center_color;
-        Vec4 border_color;
-
-        Vec2  center_pos;
-        Vec2 half_extent;
-
-        f32 corner_radius;
-        f32  border_width;
-
-        Vec4                     tex_tint;
-        ImageSamplerDescriptor tex_handle;
-        Vec2               tex_center_pos;
-        Vec2              tex_half_extent;
-    };
-
     enum class DrawType
     {
         RoundRect,

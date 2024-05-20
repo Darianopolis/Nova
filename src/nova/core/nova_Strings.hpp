@@ -9,7 +9,7 @@
 
 namespace nova
 {
-    template<class CharT>
+    template<typename CharT>
     class CString
     {
         static constexpr const CharT Empty[] { 0 };
@@ -69,7 +69,7 @@ namespace nova
     // TODO: Hashing, comparison, etc..
     // TODO: One String class to rule them all with COW semantics?
 
-    template<class CharT>
+    template<typename CharT>
     class BasicStringView
     {
         const CharT*   data      = CString<CharT>::Empty;
@@ -219,13 +219,13 @@ namespace nova
         }
     };
 
-    template<class CharT>
+    template<typename CharT>
     std::basic_ostream<CharT, std::char_traits<CharT>>& operator<<(std::basic_ostream<CharT, std::char_traits<CharT>>& os, const BasicStringView<CharT>& str)
     {
         return os << std::basic_string_view<CharT>(str);
     }
 
-    template<class CharT>
+    template<typename CharT>
     struct fmt::formatter<BasicStringView<CharT>> : fmt::ostream_formatter {};
 
     using StringView = BasicStringView<char>;
@@ -238,7 +238,7 @@ namespace nova
         return std::string(str);
     }
 
-    template<class ...Args>
+    template<typename ...Args>
     std::string Fmt(const fmt::format_string<Args...> fmt, Args&&... args)
     {
         return fmt::vformat(fmt.get(), fmt::make_format_args(args...));

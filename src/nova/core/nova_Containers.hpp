@@ -12,7 +12,7 @@ namespace nova
 //                                  Span
 // -----------------------------------------------------------------------------
 
-    template<class T>
+    template<typename T>
     concept IsContiguousContainer = requires(T t)
     {
         { t.begin() } -> std::contiguous_iterator;
@@ -25,11 +25,13 @@ namespace nova
         std::span<const T> span;
 
     public:
+        Span() = default;
+
         Span(const std::initializer_list<T>& init)
             : span(init.begin(), init.end())
         {}
 
-        template<class C>
+        template<typename C>
         requires IsContiguousContainer<C>
         Span(C&& c)
             : span(c.begin(), c.end())
@@ -45,7 +47,7 @@ namespace nova
         const T& operator[](usz i) const noexcept { return span.begin()[i]; }
 
         Span(const Span& other) noexcept : span(other.span) {}
-        Span& operator=(const Span& other) noexcept { span = other.span; }
+        Span& operator=(const Span& other) noexcept { span = other.span; return *this; }
 
         decltype(auto) begin() const noexcept { return span.data(); }
         decltype(auto) end()   const noexcept { return span.data() + span.size(); }
@@ -59,25 +61,25 @@ namespace nova
 //                        Type erased functor reference
 // -----------------------------------------------------------------------------
 
-    template<class Ret, class... Types>
+    template<typename Ret, typename... Types>
     struct FuncBase {
         void* body;
         Ret(*fptr)(void*, Types...);
 
         Ret operator()(Types... args) {
-            return fptr(body, std::forward<Types>(args)...);
+            return fptr(body, std::move<Types>(args)...);
         }
     };
 
-    template<class Tx>
+    template<typename Tx>
     struct GetFunctionImpl {};
 
-    template<class Ret, class... Types>
+    template<typename Ret, typename... Types>
     struct GetFunctionImpl<Ret(Types...)> { using type = FuncBase<Ret, Types...>; };
 
-    template<class Sig>
+    template<typename Sig>
     struct FunctionRef : GetFunctionImpl<Sig>::type {
-        template<class Fn>
+        template<typename Fn>
         FunctionRef(Fn&& fn)
             : GetFunctionImpl<Sig>::type(&fn,
                 [](void*b, auto&&... args) -> auto {
@@ -95,7 +97,7 @@ namespace nova
         const void* data;
         usz   size;
 
-        template<class T>
+        template<typename T>
         RawByteView(const T& t)
             : data((const void*)&t), size(sizeof(T))
         {}

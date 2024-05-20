@@ -44,20 +44,17 @@ NOVA_EXAMPLE(WootingTest, "wooting")
     auto context = nova::Context::Create({
         .debug = true,
     });
+    NOVA_DEFER(&) { context.Destroy(); };
     auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
+    NOVA_DEFER(&) { swapchain.Destroy(); };
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+
     auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
-
-    NOVA_DEFER(&)
-    {
-        sampler.Destroy();
-        swapchain.Destroy();
-        context.Destroy();
-    };
+    NOVA_DEFER(&) { sampler.Destroy(); };
 
     auto imgui = nova::imgui::ImGuiLayer({
         .window = window,
@@ -66,16 +63,12 @@ NOVA_EXAMPLE(WootingTest, "wooting")
         .frames_in_flight = 1,
     });
 
-    NOVA_DEFER(&)
-    {
-        queue.WaitIdle();
-    };
-
     std::vector<unsigned short> wooting_codes (1024);
     std::vector<float>          wooting_values(1024);
 
     wooting_analog_set_keycode_mode(WootingAnalog_KeycodeType::WootingAnalog_KeycodeType_ScanCode1);
 
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
         queue.WaitIdle();

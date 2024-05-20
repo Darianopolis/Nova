@@ -10,6 +10,9 @@
 
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
+    auto app = nova::Application::Create();
+    NOVA_DEFER(&) { app.Destroy(); };
+
     auto context = nova::Context::Create({
         .debug = false,
     });
@@ -18,12 +21,16 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     auto present_mode = nova::PresentMode::Mailbox;
     auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
 
-    auto app = nova::Application::Create();
-
     constexpr u32 NumWindows = 4;
 
     std::vector<nova::Window> windows;
     std::vector<nova::Swapchain> swapchains;
+
+    NOVA_DEFER(&) {
+        for (auto swapchain : swapchains) {
+            swapchain.Destroy();
+        }
+    };
 
     for (u32 i = 0; i < NumWindows; ++i) {
         auto window = windows.emplace_back(nova::Window::Create(app)
@@ -32,11 +39,6 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
             .Show(true));
         swapchains.emplace_back(nova::Swapchain::Create(context, window.NativeHandle(), swapchain_usage, present_mode));
     }
-    NOVA_DEFER(&) {
-        for (auto swapchain : swapchains) {
-            swapchain.Destroy();
-        }
-    };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
     std::array<nova::SyncPoint, 2> wait_values;

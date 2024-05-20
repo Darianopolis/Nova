@@ -46,6 +46,7 @@ if Project "nova" then
         "src/nova/db/*",
         "src/nova/ui/*",
         "src/nova/asset/*",
+        "src/nova/vfs/*",
     }
 
 --------------------------------------------------------------------------------
@@ -85,12 +86,24 @@ if Project "nova" then
 
 end
 
+if Project "nova-pack" then
+    Compile "src/nova/rhi-shader-gen/**"
+    Import "nova"
+    Artifact { "out/pack", type = "Console" }
+end
+
+if Project "nova-pack-output" then
+    Compile ".vfs-pack-output/*"
+    Import "nova"
+end
+
 --------------------------------------------------------------------------------
 --                               Examples
 --------------------------------------------------------------------------------
 
+
 if Project "nova-examples" then
     Compile "examples/**"
-    Import "nova"
+    Import { "nova", "nova-pack-output" }
     Artifact { "out/example", type = "Console" }
 end

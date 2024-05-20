@@ -4,7 +4,7 @@
 
 namespace nova::vkh
 {
-    template<class VulkanType>
+    template<typename VulkanType>
     consteval VkStructureType GetStructureType() = delete;
 
 #define NOVA_VK_STYPE(Structure, Value) template<> consteval VkStructureType GetStructureType<Structure>() { return Value; }

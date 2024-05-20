@@ -23,7 +23,7 @@ namespace nova
         File(const char* path, bool write = false);
         ~File();
 
-        template<class T>
+        template<typename T>
         T Read()
         {
             T t;
@@ -31,13 +31,13 @@ namespace nova
             return t;
         }
 
-        template<class T>
+        template<typename T>
         void Read(T& t)
         {
             Read(reinterpret_cast<char*>(&t), sizeof(T));
         }
 
-        template<class T>
+        template<typename T>
         void Write(const T& t)
         {
             Write(reinterpret_cast<const char*>(&t), sizeof(T));

@@ -50,7 +50,7 @@ namespace nova::detail
         auto   operator=(ThreadStackPoint&&) = delete;
     };
 
-    template<class T>
+    template<typename T>
     T* StackAlloc(usz count)
     {
         auto& stack = GetThreadStack();

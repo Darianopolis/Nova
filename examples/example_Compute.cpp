@@ -9,6 +9,8 @@
 
 #include <nova/asset/nova_Image.hpp>
 
+#include "example_Compute.slang"
+
 NOVA_EXAMPLE(Compute, "compute")
 {
     nova::Log("Running example: Compute");
@@ -115,29 +117,21 @@ NOVA_EXAMPLE(Compute, "compute")
         target_desc.is_signed = false;
         nova::Format format;
         if (encoding == "rgba") {
-            target_desc.format = nova::ImageFormat::RGBA8;
-            format = nova::Format::RGBA8_UNorm;
+            target_desc.format = nova::ImageFormat::RGBA8; format = nova::Format::RGBA8_UNorm;
         } else if (encoding == "bc1") {
-            target_desc.format = nova::ImageFormat::BC1;
-            format = nova::Format::BC1A_UNorm;
+            target_desc.format = nova::ImageFormat::BC1; format = nova::Format::BC1A_UNorm;
         } else if (encoding == "bc2") {
-            target_desc.format = nova::ImageFormat::BC2;
-            format = nova::Format::BC2_UNorm;
+            target_desc.format = nova::ImageFormat::BC2; format = nova::Format::BC2_UNorm;
         } else if (encoding == "bc3") {
-            target_desc.format = nova::ImageFormat::BC3;
-            format = nova::Format::BC3_UNorm;
+            target_desc.format = nova::ImageFormat::BC3; format = nova::Format::BC3_UNorm;
         } else if (encoding == "bc4") {
-            target_desc.format = nova::ImageFormat::BC4;
-            format = nova::Format::BC4_UNorm;
+            target_desc.format = nova::ImageFormat::BC4; format = nova::Format::BC4_UNorm;
         } else if (encoding == "bc5") {
-            target_desc.format = nova::ImageFormat::BC5;
-            format = nova::Format::BC5_UNorm;
+            target_desc.format = nova::ImageFormat::BC5; format = nova::Format::BC5_UNorm;
         } else if (encoding == "bc6") {
-            target_desc.format = nova::ImageFormat::BC6;
-            format = nova::Format::BC6_UFloat;
+            target_desc.format = nova::ImageFormat::BC6; format = nova::Format::BC6_UFloat;
         } else if (encoding == "bc7") {
-            target_desc.format = nova::ImageFormat::BC7;
-            format = nova::Format::BC7_Unorm;
+            target_desc.format = nova::ImageFormat::BC7; format = nova::Format::BC7_Unorm;
         } else {
             nova::Log("Invalid encoding must be one of: rgba, bc[1-7]");
             return;
@@ -163,104 +157,10 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_TIMEIT("image-upload");
     }
 
-    // Shaders
+    // Shader
 
-    struct PushConstants
-    {
-        nova::ImageSamplerDescriptor source;
-        nova::ImageDescriptor        target;
-        Vec2                           size;
-    };
-
-    auto hlsl_shader = nova::Shader::Create(context, nova::ShaderLang::Hlsl, nova::ShaderStage::Compute, "main", "", {
-        R"hlsl(
-[[vk::binding(0, 0)]] Texture2D               Image2D[];
-[[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
-[[vk::binding(2, 0)]] SamplerState            Sampler[];
-
-struct PushConstants {
-    uint source;
-    uint target;
-    float2 size;
-};
-
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
-
-[numthreads(16, 16, 1)]
-void main(uint2 id: SV_DispatchThreadID) {
-    float2 uv = float2(id) / pc.size;
-    // TODO: Move this descriptor handling to a shared library
-    float4 source = Image2D[pc.source & 0xFFFFF].SampleLevel(Sampler[pc.source >> 20], uv, 0);
-    float4 dest = float4(1, 0, 1, 1);
-    float3 color = lerp(dest.rgb, source.rgb, source.a);
-    RWImage2DF4[pc.target][id] = float4(color, 1);
-}
-        )hlsl"
-    });
-    NOVA_DEFER(&) { hlsl_shader.Destroy(); };
-
-    auto slang_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "main", "", {
-        R"slang(
-[[vk::binding(0, 0)]] Texture2D               Image2D[];
-[[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2DF4[];
-[[vk::binding(2, 0)]] SamplerState            Sampler[];
-
-struct PushConstants {
-    uint source;
-    uint target;
-    float2 size;
-};
-
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
-
-[shader("compute")]
-[numthreads(16, 16, 1)]
-void main(uint2 id: SV_DispatchThreadID) {
-    float2 uv = float2(id) / pc.size;
-    // TODO: Move this descriptor handling to a shared library
-    float4 source = Image2D[pc.source & 0xFFFFF].SampleLevel(Sampler[pc.source >> 20], uv, 0);
-    float4 dest = float4(1, 0, 1, 1);
-    float3 color = lerp(dest.rgb, source.rgb, source.a);
-    RWImage2DF4[pc.target][id] = float4(color, 1);
-}
-        )slang"
-    });
-    NOVA_DEFER(&) { slang_shader.Destroy(); };
-
-    auto glsl_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Compute, "main", "", {
-        R"glsl(
-#extension GL_EXT_scalar_block_layout  : require
-#extension GL_EXT_nonuniform_qualifier : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
-#extension GL_EXT_shader_image_load_formatted  : require
-
-layout(set = 0, binding = 0) uniform texture2D Image2D[];
-layout(set = 0, binding = 1) uniform image2D RWImage2D[];
-layout(set = 0, binding = 2) uniform sampler   Sampler[];
-
-layout(push_constant, scalar) uniform PushConstants {
-    uint source;
-    uint target;
-    vec2   size;
-} pc;
-
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-void main() {
-    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    vec2 uv = vec2(pos) / pc.size;
-    // TODO: Move this descriptor handling to a shared library
-    vec4 source = texture(sampler2D(Image2D[pc.source & 0xFFFFF], Sampler[pc.source >> 20]), uv);
-    vec4 dest = vec4(1, 0, 1, 1);
-    vec3 color = mix(dest.rgb, source.rgb, source.a);
-    imageStore(RWImage2D[pc.target], pos, vec4(color, 1));
-}
-        )glsl"
-    });
-    NOVA_DEFER(&) { glsl_shader.Destroy(); };
-
-    // Alternate shaders each frame
-
-    std::array<nova::Shader, 3> shaders = { hlsl_shader, slang_shader, glsl_shader  };
+    auto shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_Compute.slang");
+    NOVA_DEFER(&) { shader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
@@ -306,7 +206,7 @@ void main() {
             .target = swapchain.Target().Descriptor(),
             .size = Vec2(swapchain.Extent()),
         });
-        cmd.BindShaders({shaders[frame_index % shaders.size()]});
+        cmd.BindShaders(shader);
         cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
 
         // Submit and present work

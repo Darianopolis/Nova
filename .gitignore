@@ -15,6 +15,9 @@ cmake-build-relwithdebinfo/
 # Assets
 assets/models/
 
+# Generated
+.vfs-pack-output/
+
 # Runtime
 imgui.ini
 renderdoc.cap

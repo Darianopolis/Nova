@@ -17,10 +17,12 @@ NOVA_EXAMPLE(Multiview, "multiview")
     auto context = nova::Context::Create({
         .debug = true,
     });
+    NOVA_DEFER(&) { context.Destroy(); };
     auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
+    NOVA_DEFER(&) { swapchain.Destroy(); };
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
     auto image = nova::Image::Create(context,
@@ -28,31 +30,16 @@ NOVA_EXAMPLE(Multiview, "multiview")
         nova::ImageUsage::ColorAttach,
         nova::Format::RGBA8_UNorm,
         nova::ImageFlags::Array);
+    NOVA_DEFER(&) { image.Destroy(); };
 
-    auto vertex_shader = nova::Shader::Create(context,nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        R"glsl(
-layout(location = 0) out vec3 color;
-const vec2 positions[3] = vec2[] (vec2(-0.6, 0.6), vec2(0.6, 0.6), vec2(0, -0.6));
-const vec3    colors[3] = vec3[] (vec3(1, 0, 0),   vec3(0, 1, 0),  vec3(0, 0, 1));
-void main() {
-    color = colors[gl_VertexIndex];
-    gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-}
-        )glsl"
-    });
-
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        R"glsl(
-layout(location = 0) in vec3 in_color;
-layout(location = 0) out vec4 frag_color;
-void main() {
-    frag_color = vec4(in_color, 0.1);
-}
-        )glsl"
-    });
+    auto vertex_shader   = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex,   "Vertex",   "example_TriangleMinimal.slang");
+    NOVA_DEFER(&) { vertex_shader.Destroy(); };
+    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_TriangleMinimal.slang");
+    NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     nova::Log(NOVA_FMTEXPR(context.Properties().max_multiview_count));
 
+    NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
 
         queue.WaitIdle();

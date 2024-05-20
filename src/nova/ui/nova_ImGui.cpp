@@ -2,41 +2,12 @@
 
 #include <nova/core/nova_Guards.hpp>
 
+#include "nova_ImGui.slang"
+
 #include <imgui.h>
 
 namespace nova::imgui
 {
-    namespace
-    {
-        struct ImGuiPushConstants
-        {
-            u64                   vertices;
-            Vec2                     scale;
-            Vec2                    offset;
-            ImageSamplerDescriptor texture;
-        };
-
-        static
-        constexpr auto Preamble = R"glsl(
-#extension GL_EXT_scalar_block_layout  : require
-#extension GL_EXT_buffer_reference2    : require
-#extension GL_EXT_nonuniform_qualifier : require
-
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer ImDrawVert {
-    vec2 pos;
-    vec2  uv;
-    uint col;
-};
-
-layout(push_constant, scalar) readonly uniform pc_ {
-    ImDrawVert vertices;
-    vec2          scale;
-    vec2         offset;
-    uint        texture;
-} pc;
-        )glsl"sv;
-    }
-
     void ImGui_ImplNova_NewFrame(ImGuiLayer& layer)
     {
         auto& io = ImGui::GetIO();
@@ -191,37 +162,8 @@ layout(push_constant, scalar) readonly uniform pc_ {
             });
         }
 
-        vertex_shader = Shader::Create(context,
-            ShaderLang::Glsl, ShaderStage::Vertex, "main", "", {
-                Preamble,
-                R"glsl(
-layout(location = 0) out vec2 out_uv;
-layout(location = 1) out vec4 out_color;
-void main() {
-    ImDrawVert v = pc.vertices[gl_VertexIndex];
-    out_uv = v.uv;
-    out_color = unpackUnorm4x8(v.col);
-    gl_Position = vec4((v.pos * pc.scale) + pc.offset, 0, 1);
-}
-                )glsl"
-            });
-
-        fragment_shader = Shader::Create(context,
-            ShaderLang::Glsl, ShaderStage::Fragment, "main", "", {
-                Preamble,
-                R"glsl(
-layout(set = 0, binding = 0) uniform texture2D Image2D[];
-layout(set = 0, binding = 2) uniform sampler Sampler[];
-layout(location = 0) in vec2 in_uv;
-layout(location = 1) in vec4 in_color;
-layout(location = 0) out vec4 out_color;
-void main() {
-    // TODO: Move this descriptor handling to a shared header
-    out_color = texture(sampler2D(Image2D[pc.texture & 0xFFFFF], Sampler[pc.texture >> 20]), in_uv)
-        * in_color;
-}
-                )glsl"
-            });
+        vertex_shader   = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_ImGui.slang");
+        fragment_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_ImGui.slang");
 
         // Create ImGui context and initialize
 
@@ -418,8 +360,8 @@ void main() {
                     }
 
                     cmd.SetScissors({{Vec2I(clip_min), Vec2I(clip_max - clip_min)}});
-                    cmd.PushConstants(ImGuiPushConstants {
-                        .vertices = vertex_buffer.DeviceAddress(),
+                    cmd.PushConstants(PushConstants {
+                        .vertices = (ImDrawVert*)vertex_buffer.DeviceAddress(),
                         .scale = 2.f / Vec2(target.Extent()),
                         .offset = Vec2(-1.f),
                         .texture = std::bit_cast<TextureDescriptor>(im_cmd.TextureId).handle,

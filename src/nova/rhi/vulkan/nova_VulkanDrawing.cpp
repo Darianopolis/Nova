@@ -199,6 +199,7 @@ namespace nova
     {
         impl->EnsureGraphicsState();
         impl->context->vkCmdDrawMeshTasksEXT(impl->buffer, groups.x, groups.y, groups.z);
+
     }
 
     void CommandList::DrawMeshTasksIndirect(HBuffer buffer, u64 offset, u32 count, u32 stride) const

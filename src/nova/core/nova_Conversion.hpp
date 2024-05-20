@@ -5,7 +5,7 @@
 
 namespace nova
 {
-    template<class Target, class Source>
+    template<typename Target, typename Source>
     Target Cast(Source source)
     {
         /*

@@ -42,6 +42,8 @@ namespace nova
 
     std::vector<char> files::ReadBinaryFile(StringView filename)
     {
+        // TODO: Result instead of exception
+
         std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             NOVA_THROW("Failed to open file: [{}]", filename);
@@ -59,6 +61,8 @@ namespace nova
 
     std::string files::ReadTextFile(StringView filename)
     {
+        // TODO: Result instead of exception
+
         std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             NOVA_THROW("Failed to open file: [{}]", filename);

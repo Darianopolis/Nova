@@ -333,7 +333,6 @@ namespace nova
     enum class ShaderLang
     {
         Glsl,
-        Hlsl,
         Slang,
     };
 

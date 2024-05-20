@@ -7,7 +7,7 @@
 
 namespace nova::win
 {
-    template<class T>
+    template<typename T>
     void Check(T expected, T actual)
     {
         if (expected != actual) {
@@ -15,7 +15,7 @@ namespace nova::win
         }
     }
 
-    template<class T>
+    template<typename T>
     void CheckNot(T error, T actual)
     {
         if (error == actual) {

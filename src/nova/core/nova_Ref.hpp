@@ -110,9 +110,7 @@ namespace nova::types
             : value(moved.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (this == &moved) {
-                NOVA_THROW("Ref::Ref(Ref<T>&&) called on self");
-            }
+            NOVA_ASSERT(this != &moved, "Ref::Ref(Ref<T>&&) called on self");
 #endif
             moved.value = nullptr;
         }
@@ -132,9 +130,7 @@ namespace nova::types
             : value(copied.value)
         {
 #ifdef NOVA_SAFE_REFERENCES
-            if (this == &copied) {
-                NOVA_THROW("Ref::Ref(const Ref<T>&) called on self");
-            }
+            NOVA_ASSERT(this != &copied, "Ref::Ref(const Ref<T>&) called on self");
 #endif
             if (value) {
                 value->RefCounted_Acquire();

@@ -21,7 +21,7 @@ namespace nova
             }
         }
 
-        template<class VulkanType, class Fn, class ...Args>
+        template<typename VulkanType, typename Fn, typename ...Args>
         Span<VulkanType> StackEnumerate(Fn&& fn, Args&&... args)
         {
             auto& stack = detail::GetThreadStack();
@@ -393,7 +393,6 @@ namespace nova
     void Platform_AddPlatformExtensions(std::vector<const char*>& extensions);
 
     std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage,  StringView entry, StringView filename, Span<StringView> fragments);
-    std::vector<u32> Vulkan_CompileHlslToSpirv(ShaderStage stage,  StringView entry, StringView filename, Span<StringView> fragments);
     std::vector<u32> Vulkan_CompileSlangToSpirv(ShaderStage stage, StringView entry, StringView filename, Span<StringView> fragments);
 
     void* Vulkan_TrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);

@@ -5,17 +5,8 @@
 
 #include <nova/window/nova_Window.hpp>
 
-struct PushConstants
-{
-    u64 vertices;
-    Vec3  offset;
-};
-
-struct Vertex
-{
-    Vec3 position;
-    Vec3    color;
-};
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
+#include "example_TriangleExtended.slang"
 
 NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 {
@@ -61,43 +52,10 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Shaders
 
-    auto vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        R"glsl(
-#extension GL_EXT_scalar_block_layout  : require
-#extension GL_EXT_buffer_reference2    : require
-#extension GL_EXT_nonuniform_qualifier : require
-
-layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer Vertex {
-    vec3 position;
-    vec3 color;
-};
-
-layout(push_constant, scalar) uniform pc_ {
-    Vertex vertices;
-    vec3     offset;
-} pc;
-
-layout(location = 0) out vec3 color;
-
-void main() {
-    Vertex v = pc.vertices[gl_VertexIndex];
-    color = v.color;
-    gl_Position = vec4(v.position + pc.offset, 1);
-}
-        )glsl"
-    });
+    auto vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexShader", "example_TriangleExtended.slang");
     NOVA_DEFER(&) { vertex_shader.Destroy(); };
 
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        R"glsl(
-layout(location = 0) in vec3 in_color;
-layout(location = 0) out vec4 frag_color;
-
-void main() {
-    frag_color = vec4(in_color, 1);
-}
-        )glsl"
-    });
+    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "FragmentShader", "example_TriangleExtended.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Draw
@@ -121,7 +79,7 @@ void main() {
         cmd.BindShaders({vertex_shader, fragment_shader});
 
         cmd.PushConstants(PushConstants {
-            .vertices = vertices.DeviceAddress(),
+            .vertices = (Vertex*)vertices.DeviceAddress(),
             .offset = {0.f, 0.25f, 0.f},
         });
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);

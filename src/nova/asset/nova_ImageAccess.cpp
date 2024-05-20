@@ -24,7 +24,7 @@ namespace nova
             return offset;
         }
 
-        template<class ChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, u32 ... Channels>
+        template<typename ChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, u32 ... Channels>
         void ImageBlockReadPacked(const ImageAccessor& accessor, const void* data, ImagePos pos, Block& output)
         {
             constexpr usz PixelPitch = sizeof(ChannelT) * sizeof...(Channels);
@@ -51,7 +51,7 @@ namespace nova
             }
         }
 
-        template<class ChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, u32 ... Channels>
+        template<typename ChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, u32 ... Channels>
         void ImageBlockWritePacked(const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
         {
             constexpr usz PixelPitch = sizeof(ChannelT) * sizeof...(Channels);
@@ -73,7 +73,7 @@ namespace nova
             }
         }
 
-        template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
+        template<typename ChannelT, typename FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, typename DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
         void ImageBlockReadBC12367(const ImageAccessor& accessor, const void* data, ImagePos pos, Block& output)
         {
             const uc8* block_ptr = static_cast<const uc8*>(data) + ComputeBlockOffset(accessor, pos);
@@ -92,7 +92,7 @@ namespace nova
             }
         }
 
-        template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class CompressFnT, CompressFnT CompressFn, u32 ... Channels>
+        template<typename ChannelT, typename FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, typename CompressFnT, CompressFnT CompressFn, u32 ... Channels>
         void ImageBlockWriteBC12367(const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
         {
             uc8* block_ptr = static_cast<uc8*>(data) + ComputeBlockOffset(accessor, pos);
@@ -110,7 +110,7 @@ namespace nova
             CompressFn((FnChannelT*)&decoded[0][0][0], sizeof...(Channels) * 4, block_ptr, accessor.write_payload);
         }
 
-        template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
+        template<typename ChannelT, typename FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, typename DecompressFnT, DecompressFnT DecompressFn, u32 ... Channels>
         void ImageBlockReadBC45(const ImageAccessor& accessor, const void* data, ImagePos pos, Block& output)
         {
             const uc8* block_ptr = static_cast<const uc8*>(data) + ComputeBlockOffset(accessor, pos);
@@ -134,7 +134,7 @@ namespace nova
             }
         }
 
-        template<class ChannelT, class FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, class CompressFnT, CompressFnT CompressFn, u32 ... Channels>
+        template<typename ChannelT, typename FnChannelT, f32 Scale, bool Clamp, f32 Min, f32 Max, typename CompressFnT, CompressFnT CompressFn, u32 ... Channels>
         void ImageBlockWriteBC45(const ImageAccessor& accessor, void* data, ImagePos pos, const Block& input)
         {
             uc8* block_ptr = static_cast<uc8*>(data) + ComputeBlockOffset(accessor, pos);
@@ -179,13 +179,8 @@ namespace nova
     ImageAccessor::ImageAccessor(ImageDescription _desc)
         : desc(_desc)
     {
-        if (desc.width == 0 || desc.height == 0 || desc.layers == 0 || desc.mips == 0) {
-            NOVA_THROW("Image dimensions must be non-zero");
-        }
-
-        if (desc.mips > 16) {
-            NOVA_THROW("Too many mips requested");
-        }
+        NOVA_ASSERT(desc.width > 0 && desc.height > 0 && desc.layers > 0 && desc.mips > 0, "Image dimensions must be non-zero");
+        NOVA_ASSERT(desc.mips <= 16, "Mips must be <= 16");
 
         // Initialize accessor functions
 
@@ -356,12 +351,10 @@ namespace nova
 
     void Image_Copy(const ImageAccessor& src, const void* src_data, const ImageAccessor& dst, void* dst_data)
     {
-        if (src.desc.width != dst.desc.width
-                || src.desc.height != dst.desc.height
-                || src.desc.layers != dst.desc.layers
-                || src.desc.mips != dst.desc.mips) {
-            NOVA_THROW("Copy dimension mismatch");
-        }
+        NOVA_ASSERT(src.desc.width == dst.desc.width
+                && src.desc.height == dst.desc.height
+                && src.desc.layers == dst.desc.layers
+                && src.desc.mips == dst.desc.mips, "Copy dimensions must match");
 
         for (u32 mip = 0; mip < src.desc.mips; ++mip) {
             for (u32 layer = 0; layer < src.desc.layers; ++layer) {

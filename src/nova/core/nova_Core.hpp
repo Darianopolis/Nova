@@ -79,6 +79,9 @@ namespace nova
 
     using namespace types;
 
+    namespace fs = std::filesystem;
+    namespace chr = std::chrono;
+
 // -----------------------------------------------------------------------------
 
     template<typename... Ts>

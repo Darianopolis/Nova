@@ -33,10 +33,12 @@ namespace nova
 
     void Image_Load(ImageDescription* desc, ImageLoadData* output, StringView filename)
     {
-        if (!desc) NOVA_THROW("Expected desc");
-        if (!output) NOVA_THROW("Expected output");
+        NOVA_ASSERT(desc, "Expected desc");
+        NOVA_ASSERT(output, "Expected output");
 
         auto format = ImageFileFormatFromName(filename);
+
+        // TODO: Result instead of exception
 
         switch (format) {
             break;case ImageFileFormat::PNG:

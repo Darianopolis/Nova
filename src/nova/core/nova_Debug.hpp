@@ -6,7 +6,7 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
-template<class ... DurationT>
+template<typename ... DurationT>
 struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};
 
 template<>
@@ -24,7 +24,7 @@ namespace nova
         fmt::println("{}", str);
     }
 
-    template<class ...Args>
+    template<typename ...Args>
     void Log(const fmt::format_string<Args...> fmt, Args&&... args)
     {
         fmt::println(fmt, std::forward<Args>(args)...);
@@ -94,6 +94,9 @@ namespace nova
     if (!(condition)) [[unlikely]]                \
         NOVA_THROW(fmt_str, __VA_ARGS__);         \
 } while (0)
+
+#define NOVA_UNREACHABLE() \
+    NOVA_ASSERT(false, "Unreachable")
 
 #define NOVA_ASSERT_NONULL(condition) \
     NOVA_ASSERT(condition, "Expected non-null: " #condition)

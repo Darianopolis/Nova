@@ -122,7 +122,7 @@ namespace nova
             break;case VK_FORMAT_BC7_UNORM_BLOCK:      return Format::BC7_Unorm;
         }
 
-        NOVA_THROW("Unknown VkFormat: {}", u32(format));
+        NOVA_UNREACHABLE();
     }
 
     VkIndexType GetVulkanIndexType(IndexType type)
@@ -133,7 +133,7 @@ namespace nova
             break;case IndexType::U8:  return VK_INDEX_TYPE_UINT8_EXT;
         }
 
-        NOVA_THROW("Unknown IndexType: {}", u32(type));
+        NOVA_UNREACHABLE();
     }
 
     VkFilter GetVulkanFilter(Filter filter)
@@ -143,7 +143,7 @@ namespace nova
             break;case Filter::Nearest: return VK_FILTER_NEAREST;
         }
 
-        NOVA_THROW("Unknown Filter: {}", u32(filter));
+        NOVA_UNREACHABLE();
     }
 
     VkSamplerAddressMode GetVulkanAddressMode(AddressMode mode)
@@ -155,7 +155,7 @@ namespace nova
             break;case AddressMode::Border:         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         }
 
-        NOVA_THROW("Unknown AddressMode: {}", u32(mode));
+        NOVA_UNREACHABLE();
     }
 
     VkBorderColor GetVulkanBorderColor(BorderColor color)
@@ -166,7 +166,7 @@ namespace nova
             break;case BorderColor::White:            return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         }
 
-        NOVA_THROW("Unknown BorderColor: {}", u32(color));
+        NOVA_UNREACHABLE();
     }
 
     VkShaderStageFlags GetVulkanShaderStage(ShaderStage in)
@@ -199,7 +199,7 @@ namespace nova
             break;case PresentMode::FifoRelaxed: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
         }
 
-        NOVA_THROW("Unknown PresentMode: {}", u32(mode));
+        NOVA_UNREACHABLE();
     }
 
     VkPipelineBindPoint GetVulkanPipelineBindPoint(BindPoint point)
@@ -210,7 +210,7 @@ namespace nova
             break;case BindPoint::RayTracing: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
         }
 
-        NOVA_THROW("Unknown BindPoint: {}", u32(point));
+        NOVA_UNREACHABLE();
     }
 
     VkAccelerationStructureTypeKHR GetVulkanAccelStructureType(AccelerationStructureType type)
@@ -220,7 +220,7 @@ namespace nova
             break;case AccelerationStructureType::TopLevel:    return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
         }
 
-        NOVA_THROW("Unknown AccelerationStructureType: {}", u32(type));
+        NOVA_UNREACHABLE();
     }
 
     VkBuildAccelerationStructureFlagsKHR GetVulkanAccelStructureBuildFlags(AccelerationStructureFlags in)
@@ -245,7 +245,7 @@ namespace nova
             break;case DescriptorType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
 
-        NOVA_THROW("Unknown DescriptorType: {}", u32(type));
+        NOVA_UNREACHABLE();
     }
 
     VkCompareOp GetVulkanCompareOp(CompareOp op)
@@ -261,7 +261,7 @@ namespace nova
             break;case CompareOp::Always:         return VK_COMPARE_OP_ALWAYS;
         }
 
-        NOVA_THROW("Unknown CompareOp: {}", u32(op));
+        NOVA_UNREACHABLE();
     }
 
     VkCullModeFlags GetVulkanCullMode(CullMode in)
@@ -281,7 +281,7 @@ namespace nova
             break;case FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
         }
 
-        NOVA_THROW("Unknown FrontFace: {}", u32(face));
+        NOVA_UNREACHABLE();
     }
 
     VkPolygonMode GetVulkanPolygonMode(PolygonMode mode)
@@ -292,7 +292,7 @@ namespace nova
             break;case PolygonMode::Point: return VK_POLYGON_MODE_POINT;
         }
 
-        NOVA_THROW("Unknown PolygonMode: {}", u32(mode));
+        NOVA_UNREACHABLE();
     }
 
     VkPrimitiveTopology GetVulkanTopology(Topology topology)
@@ -307,7 +307,7 @@ namespace nova
             break;case Topology::Patches:       return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
         }
 
-        NOVA_THROW("Unknown Topology: {}", u32(topology));
+        NOVA_UNREACHABLE();
     }
 
     VkQueueFlags GetVulkanQueueFlags(QueueFlags in)
@@ -345,6 +345,6 @@ namespace nova
             break;case ImageLayout::Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         }
 
-        NOVA_THROW("Unknown ImageLayout: {}", u32(layout));
+        NOVA_UNREACHABLE();
     }
 }

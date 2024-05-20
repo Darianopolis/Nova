@@ -12,18 +12,16 @@ namespace nova
         switch (lang) {
             break;case ShaderLang::Glsl:
                 spirv = Vulkan_CompileGlslToSpirv(stage, entry, filename, fragments);
-            break;case ShaderLang::Hlsl:
-                spirv = Vulkan_CompileHlslToSpirv(stage, entry, filename, fragments);
             break;case ShaderLang::Slang:
                 spirv = Vulkan_CompileSlangToSpirv(stage, entry, filename, fragments);
             break;default:
-                NOVA_THROW("Unknown shader language");
+                NOVA_UNREACHABLE();
         }
 
         Shader shader{ impl };
 
         shader->id = context->GetUID();
-        shader->entry = std::move(entry);
+        shader->entry = "main";
 
         bool generate_shader_object = true;
         VkShaderStageFlags next_stages = 0;
