@@ -202,8 +202,7 @@ namespace nova
 
             if (!impl->handle) {
                 auto res = ::GetLastError();
-                win::DebugRes(res);
-                NOVA_THROW("Error creating window: {:#x}", u32(HRESULT_FROM_WIN32(res)));
+                NOVA_THROW("Error creating window: {:#x} ({})", u32(HRESULT_FROM_WIN32(res)), win::HResultToString(HRESULT_FROM_WIN32(res)));
             }
 
         }
@@ -216,7 +215,7 @@ namespace nova
         if (!impl) return;
 
         // TODO
-        DestroyWindow(impl->handle);
+        ::DestroyWindow(impl->handle);
 
         delete impl;
         impl = nullptr;

@@ -22,22 +22,22 @@ namespace nova
             const char* requesting_source,
             bool is_relative)
         {
-            std::filesystem::path requested = requested_source;
-            std::filesystem::path current = requesting_source;
+            fs::path requested = requested_source;
+            fs::path current = requesting_source;
 
-            std::filesystem::path target;
+            fs::path target;
             bool exists = false;
 
             if (is_relative) {
                 target = current.parent_path() / requested;
-                exists = std::filesystem::exists(target);
+                exists = fs::exists(target);
 
             }
 
             if (!exists) {
                 for (auto& dir : include_dirs) {
                     target = dir / requested;
-                    if (std::filesystem::exists(target)) {
+                    if (fs::exists(target)) {
                         exists = true;
                         break;
                     }
@@ -76,21 +76,21 @@ namespace nova
             delete data;
         }
 
-        void AddIncludeDir(std::filesystem::path path)
+        void AddIncludeDir(fs::path path)
         {
             include_dirs.push_back(path);
         }
 
     private:
-        std::vector<std::filesystem::path> include_dirs;
+        std::vector<fs::path> include_dirs;
 
-        ankerl::unordered_dense::set<std::filesystem::path> included;
+        ankerl::unordered_dense::set<fs::path> included;
     };
 
     std::vector<uint32_t> Vulkan_CompileGlslToSpirv(
             ShaderStage          stage,
-            StringView          entry,
-            StringView       filename,
+            StringView           entry,
+            StringView        filename,
             Span<StringView> fragments)
     {
 

@@ -49,6 +49,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     app.AddCallback([&](const nova::AppEvent& e) {
         if (e.type == nova::EventType::WindowClosing) {
             auto i = std::distance(windows.begin(), std::ranges::find(windows, e.window));
+            queue.WaitIdle();
             swapchains[i].Destroy();
         }
     });

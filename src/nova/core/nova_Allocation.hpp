@@ -21,4 +21,9 @@ namespace nova
 
     void* AllocVirtual(AllocationType type, usz size);
     void FreeVirtual(FreeType type, void* ptr, usz size = 0);
+
+    void* Alloc(usz size);
+    void* Alloc(usz size, usz align);
+    void Free(void* ptr);
+
 }

@@ -237,6 +237,7 @@ namespace nova
 
     void Queue::Present(Span<HSwapchain> swapchains, Span<SyncPoint> waits, PresentFlag flags) const
     {
+        if (swapchains.empty()) return;
         NOVA_STACK_POINT();
 
         VkSemaphore* binary_waits = nullptr;

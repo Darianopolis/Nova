@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nova_Core.hpp"
+#include "nova_Hash.hpp"
 
 #include <ankerl/unordered_dense.h>
 
@@ -170,22 +171,6 @@ namespace nova
     template<typename E>
     using HashSet = ankerl::unordered_dense::set<E>;
 }
-
-#define NOVA_MEMORY_EQUALITY_MEMBER(type)                                      \
-    bool operator==(const type& other) const                                   \
-    {                                                                          \
-        return std::memcmp(this, &other, sizeof(type)) == 0;                   \
-    }
-
-#define NOVA_MEMORY_HASH(type)                                                 \
-    template<>                                                                 \
-    struct ankerl::unordered_dense::hash<type>                                 \
-    {                                                                          \
-        using is_avalanching = void;                                           \
-        uint64_t operator()(const type& key) const noexcept {                  \
-            return detail::wyhash::hash(&key, sizeof(key));                    \
-        }                                                                      \
-    };
 
 // -----------------------------------------------------------------------------
 

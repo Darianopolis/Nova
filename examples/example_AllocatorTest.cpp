@@ -2,21 +2,10 @@
 
 #include <nova/core/win32/nova_Win32Include.hpp>
 #include <nova/core/nova_ToString.hpp>
-
-#include <mimalloc.h>
+#include <nova/core/nova_Allocation.hpp>
 
 NOVA_EXAMPLE(AllocTest, "alloc")
 {
-    for (u32 i = 0; i < 10; ++i) {
-        try {
-            NOVA_THROW_STACKLESS("This is a test: {}", i);
-        }
-        catch (const nova::Exception&)
-        {
-            nova::Log("Caught");
-        }
-    }
-
     using namespace std::chrono;
 
     constexpr u64 Count = 100'000'000;
@@ -63,11 +52,11 @@ NOVA_EXAMPLE(AllocTest, "alloc")
             for (u64 i = 0; i < Count; ++i) {
                 if (num_allocs < MaxAllocs) {
                     local_allocs++;
-                    allocations[num_allocs++] = malloc(SizeBins[size_bin_dist(rng)]);
+                    allocations[num_allocs++] = nova::Alloc(SizeBins[size_bin_dist(rng)]);
                 } else {
                     local_frees++;
                     u32 to_free = std::uniform_int_distribution<u32>(0, --num_allocs)(rng);
-                    free(allocations[to_free]);
+                    nova::Free(allocations[to_free]);
                     allocations[to_free] = allocations[num_allocs];
                 }
             }
@@ -99,6 +88,6 @@ NOVA_EXAMPLE(AllocTest, "alloc")
 
     nova::Log("{}/{} allocations/frees in {}", total_allocs.load(), total_frees.load(), TimeStr(wall_seconds));
     nova::Log("{} alloc/s", wall_allocs_per_second);
-    nova::Log("cpu wall time: ({}) / ({} total)", TimeStr(cpu_seconds / total_allocs), TimeStr(cpu_seconds));
-    nova::Log("cpu user time: ({}) / ({} total)", TimeStr(user_seconds / total_allocs), TimeStr(user_seconds));
+    nova::Log("per thread wall time: ({}) / ({} total)", TimeStr(cpu_seconds / total_allocs), TimeStr(cpu_seconds));
+    nova::Log("per thread user time: ({}) / ({} total)", TimeStr(user_seconds / total_allocs), TimeStr(user_seconds));
 }

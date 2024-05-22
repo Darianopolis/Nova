@@ -305,8 +305,6 @@ Validation-VUID({}): {}
             .ppEnabledExtensionNames = instance_extensions.data(),
         }), impl->alloc, &impl->instance));
 
-        Log("Instance: {}", (void*)impl->instance);
-
         // Load instance functions
 
 #define NOVA_VULKAN_FUNCTION(name) {                                           \
@@ -410,7 +408,9 @@ Validation-VUID({}): {}
                 impl->resizable_bar = true;
             }
 
-            Log("Max device memory: {} ({} bytes)", ByteSizeToString(max_device_memory), max_device_memory);
+            if (config.trace) {
+                Log("Max device memory: {} ({} bytes)", ByteSizeToString(max_device_memory), max_device_memory);
+            }
         }
 
         // Swapchains

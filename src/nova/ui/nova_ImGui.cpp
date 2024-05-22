@@ -184,7 +184,9 @@ namespace nova::imgui
         auto font_config = ImFontConfig();
         font_config.GlyphOffset = ImVec2(config.glyph_offset.x, config.glyph_offset.y);
         ImGui::GetIO().Fonts->ClearFonts();
-        ImGui::GetIO().Fonts->AddFontFromFileTTF(config.font, config.font_size, &font_config);
+
+        font_config.FontDataOwnedByAtlas = false;
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF(const_cast<b8*>(config.font.data()), int(config.font.size()), config.font_size, &font_config);
 
         {
             // Upload font

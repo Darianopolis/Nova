@@ -36,7 +36,7 @@ NOVA_EXAMPLE(Compute, "compute")
     }
 
     auto file = args[1];
-    if (!std::filesystem::exists(file)) {
+    if (!nova::fs::exists(file)) {
         NOVA_THROW_STACKLESS("Could not file: {}", file);
     }
 

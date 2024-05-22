@@ -5,6 +5,7 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
 
 #include <nova/core/win32/nova_Win32Include.hpp>
 #pragma warning(push)
@@ -64,7 +65,7 @@ NOVA_EXAMPLE(Draw, "draw")
     auto size = app.PrimaryDisplay().Size();
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
-    auto font = im_draw.LoadFont("assets/fonts/arial.ttf", 20.f);
+    auto font = im_draw.LoadFont(nova::vfs::Load("fonts/arial.ttf"), 20.f);
 
     nova::draw::Rectangle box1 {
         .center_color = { 1.f, 0.f, 0.f, 0.5f },

@@ -84,6 +84,9 @@ namespace nova
 #define NOVA_FMTEXPR(expr) \
     ::nova::Fmt(#expr " = {}", (expr))
 
+#define NOVA_DEBUGEXPR(expr) \
+    ::nova::Log(NOVA_FMTEXPR(expr))
+
 #define NOVA_THROW(fmt_str, ...) \
     throw ::nova::Exception(::nova::Fmt(fmt_str __VA_OPT__(,) __VA_ARGS__))
 

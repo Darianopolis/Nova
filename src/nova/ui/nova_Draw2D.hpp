@@ -70,7 +70,7 @@ namespace nova::draw
         Sampler DefaultSampler() noexcept;
         const Bounds2& Bounds() const noexcept;
 
-        std::unique_ptr<Font> LoadFont(const char* file, f32 size);
+        std::unique_ptr<Font> LoadFont(std::span<const std::byte> data, f32 size);
 
         void Reset();
         void DrawRect(const Rectangle& rect);

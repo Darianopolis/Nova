@@ -128,11 +128,10 @@ namespace nova
             while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
                 switch (msg.message) {
                     break;case WM_HOTKEY:
-                        Log("hotkey");
+                        // Log("hotkey");
                     break;case WM_TIMER:
                         // Log("timer");
                     break;case WM_QUIT:
-                        Log("quitting");
                         impl->running = false;
                         impl->Send({ .type = EventType::Shutdown });
                     break;default:

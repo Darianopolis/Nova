@@ -14,26 +14,27 @@ if Project "nova" then
         "mimalloc",
         "glm",
         "simdutf",
-        "spdlog",
+        "fmt",
+        -- "spdlog",
 
         "sqlite3",
 
         "freetype",
-        "harfbuzz",
+        -- "harfbuzz",
 
         "imgui",
 
-        "assimp",
-        "fastgltf",
-        "fast-obj",
-        "ufbx",
+        -- "assimp",
+        -- "fastgltf",
+        -- "fast-obj",
+        -- "ufbx",
 
         "stb_image",
         "tinyexr",
         "dds-ktx",
         "bc7enc",
         "Compressonator",
-        "meshoptimizer",
+        -- "meshoptimizer",
 
         "ms-gdk",
         "wooting-sdk",
@@ -66,7 +67,6 @@ if Project "nova" then
             "vulkan",
             "VulkanMemoryAllocator",
             "glslang",
-            "DXC",
         }
 
         Compile {

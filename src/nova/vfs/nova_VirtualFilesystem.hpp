@@ -8,18 +8,6 @@ namespace nova
 {
     namespace vfs
     {
-        namespace detail
-        {
-            std::monostate Register(std::string path, Span<const b8> data);
-            std::monostate RegisterUC8(std::string path, Span<const uc8> data);
-        }
-
-        template<usz Size>
-        Span<const b8> FromString(const char (&str)[Size])
-        {
-            return Span((const b8*)&str[0], Size);
-        }
-
         std::optional<Span<const b8>> LoadMaybe(StringView path);
         Span<const b8> Load(StringView path);
 

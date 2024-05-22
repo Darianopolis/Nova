@@ -3,6 +3,7 @@
 #include <nova/core/nova_ToString.hpp>
 #include <nova/core/nova_Strings.hpp>
 #include <nova/core/nova_Files.hpp>
+#include <nova/core/nova_Base64.hpp>
 
 #include <slang.h>
 #include <slang-com-ptr.h>
@@ -15,16 +16,10 @@ namespace nova
         slang::TargetDesc                             target_desc;
         slang::SessionDesc                           session_desc;
 
-        std::stringstream output;
-
-        static constexpr const char RawStringSeqChars[63] { "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" };
-        static constexpr u32 RawStringSeqLen = 16;
-        std::mt19937 rng{0};
-        std::uniform_int_distribution<u32> dist{0, sizeof(RawStringSeqChars) - 2};
+        static constexpr std::string_view              PackFolder = ".vfs-pack-output";
+        ankerl::unordered_dense::set<std::string> generated_files;
 
         std::string seq_end;
-
-        u32 resource_idx = 0;
 
         void Init()
         {
@@ -44,80 +39,94 @@ namespace nova
                 .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
             };
 
-            output << "#include <nova/vfs/nova_VirtualFilesystem.hpp>\n";
-
-            seq_end = GenerateRawEndString();
+            fs::create_directories(PackFolder);
         }
 
-        void Write()
+        void RemoveStalePackFiles()
         {
-            auto path = ".vfs-pack-output/vfs_pack_output.cpp";
-
-            auto new_contents = output.str();
-
-            nova::Log("vfs-pack-output:\n  size = {}", nova::ByteSizeToString(new_contents.size()));
-
-            if (fs::exists(path)) {
-                auto prev_contents = files::ReadTextFile(path);
-                if (prev_contents == new_contents) {
-                    nova::Log("No change in pack!");
-                    return;
+            for (auto& path : fs::directory_iterator(PackFolder)) {
+                auto filename = path.path().filename().string();
+                if (!generated_files.contains(filename)) {
+                    // nova::Log("Removing pack file [{}]", filename);
+                    fs::remove(path.path());
                 }
             }
-
-            std::filesystem::create_directories(".vfs-pack-output");
-
-            std::ofstream file(path, std::ios::binary);
-            file.write(new_contents.data(), new_contents.size());
         }
 
-        std::string GenerateRawEndString()
+        void PackBinaryData(StringView virtual_path, void* data, size_t size_in_bytes)
         {
-            std::string out;
-            out.resize(RawStringSeqLen + 2);
-            out[0] = ')';
-            out[1 + RawStringSeqLen] = '\"';
-            for (u32 i = 0; i < RawStringSeqLen; ++i) {
-                out[i + 1] = char(RawStringSeqChars[dist(rng)]);
+            auto u64_count = (size_in_bytes + 7) / 8;
+
+            // TODO: This is only meaningful when packing multiple resources into the same file
+            u32 resource_idx = 0;
+
+            std::stringstream output;
+            output << "// " << virtual_path << '\n';
+            output << "namespace nova::vfs::detail { int Register(const char* name, const void* data, size_t size); }\n";
+
+            u32 index = 0;
+            constexpr u32 WrapIndex = 16;
+
+            output << "static constexpr unsigned long long nova_vfs_resource" << resource_idx << "_array[] {\n";
+            output << std::hex;
+            for (u32 i = 0; i < u64_count; ++i) {
+                usz offset = i * 8;
+                u64 value = {};
+                memcpy(&value, (const char*)data + offset, std::min(8ull, size_in_bytes - offset));
+                output << "0x" << value << ",";
+                if (index++ >= WrapIndex) {
+                    output << '\n';
+                    index = 0;
+                }
             }
-            return out;
+            output << std::dec;
+            output << "};\n";
+            output << "static int nova_vfs_resource" << resource_idx << " = nova::vfs::detail::Register(\"" << virtual_path << "\", nova_vfs_resource" << resource_idx << "_array, " << size_in_bytes << ");\n";
+
+            resource_idx++;
+
+            {
+                // TODO: Move this to separate function
+                // TODO: ALlow packing of multiple resources into the same file
+
+                auto new_contents = output.str();
+
+                auto hash = nova::hash::Hash(new_contents.data(), new_contents.size());
+                auto output_file_name = Fmt("nova_VfsOutput_s{}_h{}.cpp", new_contents.size(), hash);
+
+                generated_files.emplace(output_file_name);
+
+                auto path = fs::path(PackFolder) / output_file_name;
+
+                if (fs::exists(path)) {
+                    auto prev_contents = files::ReadTextFile(path.string());
+                    if (prev_contents == new_contents) {
+                        return;
+                    } else {
+                        // TODO: Use discriminator to resolve collisions
+                        NOVA_THROW("Hash collision!");
+                    }
+                }
+
+                nova::Log("Packing [{}], size = {}", virtual_path, size_in_bytes);
+
+                std::ofstream file(path, std::ios::binary);
+                file.write(new_contents.data(), new_contents.size());
+            }
         }
 
         void PackBinaryFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadBinaryFile(path);
 
-            nova::Log("Packing binary file [{}], size = {}", path, contents.size());
-
-            u32 index = 0;
-            constexpr u32 WrapIndex = 64;
-
-            output << "static std::monostate nova_vfs_resource" << resource_idx++ << " = nova::vfs::detail::RegisterUC8(\"" << virtual_path << "\", std::array<nova::uc8, " << contents.size() << ">{\n";
-            for (u32 i = 0; i < contents.size(); ++i) {
-                output << u32(uc8(contents[i])) << ",";
-                if (index++ >= WrapIndex) {
-                    output << '\n';
-                    index = 0;
-                }
-            }
-            output << "});\n";
+            PackBinaryData(virtual_path, contents.data(), contents.size());
         }
 
         void PackTextFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadTextFile(path);
 
-            nova::Log("Packing text file [{}], size = {}", path, contents.size());
-
-            // std::string seq_end;
-            // do {
-            //     seq_end = GenerateRawEndString();
-            // } while (contents.contains(seq_end));
-
-            std::string_view seq = std::string_view(seq_end).substr(1, RawStringSeqLen);
-
-            output << "static std::monostate nova_vfs_resource" << resource_idx++ << " = nova::vfs::detail::Register(\"" << virtual_path << "\", nova::vfs::FromString(\n";
-            output << "R\"" << seq << "(" << contents << seq_end << "));\n";
+            PackBinaryData(virtual_path, contents.data(), contents.size() + 1 /* null terminator */);
         }
 
         // void PackSlangFile(const fs::path& path)
@@ -223,8 +232,19 @@ namespace nova
 
                 auto path = entry.path();
 
-                if (path.extension().string() == ".slang") {
+                auto ext = path.extension().string();
+                std::ranges::transform(ext, ext.data(), [](char c) { return char(std::toupper(c)); });
+
+                if (ext == ".SLANG") {
                     PackTextFile(path.string(), fs::relative(path, root).generic_string());
+                }
+
+                // if (ext == ".CPP" || ext == ".HPP") {
+                //     PackTextFile(path.string(), fs::relative(path, root).generic_string());
+                // }
+
+                if (ext == ".TTF") {
+                    PackBinaryFile(path.string(), fs::relative(path, root).generic_string());
                 }
             }
         }
@@ -243,7 +263,7 @@ namespace nova
             packer.ScanRoot(arg);
         }
 
-        packer.Write();
+        packer.RemoveStalePackFiles();
     }
 }
 

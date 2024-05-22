@@ -36,7 +36,7 @@ NOVA_EXAMPLE(RayTracing, "rt")
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    // Shaders
+    // Create Shaders and Pipeline
 
     auto ray_gen_shader = nova::Shader::Create(context,     nova::ShaderLang::Slang, nova::ShaderStage::RayGen,     "RayGeneration", "example_RayTracing.slang");
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
@@ -44,8 +44,6 @@ NOVA_EXAMPLE(RayTracing, "rt")
     NOVA_DEFER(&) { miss_shader.Destroy(); };
     auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::ClosestHit, "ClosestHit",    "example_RayTracing.slang");
     NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
-
-    // Create ray tracing pipeline
 
     auto pipeline = nova::RayTracingPipeline::Create(context);
     NOVA_DEFER(&) { pipeline.Destroy(); };

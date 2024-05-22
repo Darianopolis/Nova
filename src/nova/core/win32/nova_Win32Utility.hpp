@@ -23,24 +23,5 @@ namespace nova::win
         }
     }
 
-    inline
-    void DebugRes(HRESULT res)
-    {
-        Log("Debug res");
-        wchar_t* lp_msg_buf;
-
-        FormatMessageW(
-            FORMAT_MESSAGE_ALLOCATE_BUFFER
-            | FORMAT_MESSAGE_FROM_SYSTEM
-            | FORMAT_MESSAGE_IGNORE_INSERTS,
-            nullptr,
-            res,
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            reinterpret_cast<wchar_t *>(&lp_msg_buf), // Really MS?
-            0, nullptr);
-
-        Log("Message: {}", FromUtf16(lp_msg_buf));
-
-        LocalFree(lp_msg_buf);
-    }
+    std::string HResultToString(HRESULT res);
 }

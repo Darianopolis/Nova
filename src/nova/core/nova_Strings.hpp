@@ -205,9 +205,9 @@ namespace nova
             return std::basic_string_view<CharT>(data, length);
         }
 
-        constexpr operator std::filesystem::path() const noexcept
+        constexpr operator fs::path() const noexcept
         {
-            return std::filesystem::path(std::basic_string_view<CharT>(*this));
+            return fs::path(std::basic_string_view<CharT>(*this));
         }
 
 // -----------------------------------------------------------------------------

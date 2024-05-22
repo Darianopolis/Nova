@@ -2,6 +2,7 @@
 
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/window/nova_Window.hpp>
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
 
 #include <imgui.h>
 
@@ -9,11 +10,11 @@ namespace nova::imgui
 {
     struct ImGuiConfig
     {
-        f32      ui_scale = 1.5f;
-        const char*  font = "assets/fonts/CONSOLA.TTF";
-        f32     font_size = 20.f;
-        Vec2 glyph_offset = Vec2(1.f, 1.67f);
-        i32         flags = 0;
+        f32             ui_scale = 1.5f;
+        std::span<const b8> font = nova::vfs::Load("fonts/CONSOLA.TTF");
+        f32            font_size = 20.f;
+        Vec2        glyph_offset = Vec2(1.f, 1.67f);
+        i32                flags = 0;
 
         Window window;
 

@@ -25,7 +25,6 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
     constexpr f32 inv_half_size = 2.f / quad_side_count;
     constexpr u32 num_indices = num_quads * 6;
 
-NOVA_DEBUG();
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)

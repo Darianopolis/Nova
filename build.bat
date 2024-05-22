@@ -1,5 +1,6 @@
 @echo off
 
-@REM bldr make nova nova-pack
-out\pack.exe src examples
-bldr make nova nova-pack-output nova-examples
+bldr make %* nova nova-pack
+if %errorlevel% neq 0 exit /b %errorlevel%
+out\pack.exe src examples assets
+bldr make %* nova-pack-output nova-examples

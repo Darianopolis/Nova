@@ -131,9 +131,11 @@ namespace nova
             nova::Log("Loading slang module [{}]...", path);
             auto path_cstr = path.CStr();
 
+            auto source = vfs::LoadString(path);
+
             Slang::ComPtr<slang::IBlob> diagnostics_blob;
             auto module = session->loadModuleFromSourceString(path_cstr, path_cstr,
-                vfs::LoadString(path).CStr(), diagnostics_blob.writeRef());
+                source.CStr(), diagnostics_blob.writeRef());
 
             if (diagnostics_blob) {
                 Log("Error loading module[{}]\n{}", path, (const char*)diagnostics_blob->getBufferPointer());

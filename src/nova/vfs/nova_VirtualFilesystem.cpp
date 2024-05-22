@@ -12,17 +12,12 @@ namespace nova::vfs
 
         static VirtualFilesystem NovaVFS;
 
-        std::monostate Register(std::string path, Span<const b8> data)
+        int Register(const char* name, const void* data, size_t size)
         {
-            std::string_view str = *NovaVFS.paths.emplace_back(new std::string(std::move(path)));
-            NovaVFS.files[str] = data;
+            std::string_view str = *NovaVFS.paths.emplace_back(new std::string(name));
+            NovaVFS.files[str] = Span((const b8*)data, size);
 
             return {};
-        }
-
-        std::monostate RegisterUC8(std::string path, Span<const uc8> data)
-        {
-            return Register(std::move(path), Span<const b8>((const b8*)data.data(), data.size()));
         }
     }
 

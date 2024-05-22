@@ -43,7 +43,7 @@ namespace nova::draw
 
 // -----------------------------------------------------------------------------
 
-    std::unique_ptr<Font> Draw2D::LoadFont(const char* file, f32 size)
+    std::unique_ptr<Font> Draw2D::LoadFont(std::span<const std::byte> data, f32 size)
     {
         // https://freetype.org/freetype2/docs/reference/ft2-lcd_rendering.html
 
@@ -53,7 +53,7 @@ namespace nova::draw
         }
 
         FT_Face face;
-        if (auto ec = FT_New_Face(ft, file, 0, &face)) {
+        if (auto ec = FT_New_Memory_Face(ft, reinterpret_cast<const FT_Byte*>(data.data()), FT_Long(data.size()), 0, &face)) {
             NOVA_THROW("Failed to load font - {}", int(ec));
         }
 

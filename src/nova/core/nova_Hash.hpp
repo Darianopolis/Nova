@@ -19,3 +19,9 @@
             return detail::wyhash::hash(&key, sizeof(key));                    \
         }                                                                      \
     };
+
+namespace nova::hash
+{
+    u64 Hash(const void* data, usz size);
+    u64 Mix(u64 a, u64 b);
+}
