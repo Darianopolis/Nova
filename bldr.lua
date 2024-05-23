@@ -48,6 +48,7 @@ if Project "nova" then
         "src/nova/ui/*",
         "src/nova/asset/*",
         "src/nova/vfs/*",
+        "src/nova/rhi/slang/**",
     }
 
 --------------------------------------------------------------------------------

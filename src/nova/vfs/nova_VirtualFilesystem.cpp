@@ -39,7 +39,7 @@ namespace nova::vfs
             return opt.value();
         }
 
-        NOVA_THROW_STACKLESS("File [{}] not found in Nova VFS", path);
+        NOVA_THROW("File [{}] not found in Nova VFS", path);
     }
 
     std::optional<StringView> LoadStringMaybe(StringView path)

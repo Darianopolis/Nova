@@ -12,12 +12,12 @@ namespace nova
     template<typename CharT>
     class CString
     {
-        static constexpr const CharT Empty[] { 0 };
-
-        const CharT* data = Empty;
+        const CharT* data = EmptyCStr;
         bool        owned = false;
 
     public:
+        static constexpr const CharT EmptyCStr[] { 0 };
+
         constexpr CString() = default;
 
         constexpr CString(const CharT* _data, usz length, bool null_terminated)
@@ -72,7 +72,7 @@ namespace nova
     template<typename CharT>
     class BasicStringView
     {
-        const CharT*   data      = CString<CharT>::Empty;
+        const CharT*   data      = CString<CharT>::EmptyCStr;
         u64          length : 63 = 0;
         u64 null_terminated :  1 = false;
 
@@ -88,7 +88,7 @@ namespace nova
 
     public:
         constexpr BasicStringView() noexcept
-            : data(CString<CharT>::Empty)
+            : data(CString<CharT>::EmptyCStr)
             , length(0)
             , null_terminated(true)
         {}

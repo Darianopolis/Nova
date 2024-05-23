@@ -5,62 +5,19 @@
 #include <nova/core/nova_Files.hpp>
 #include <nova/core/nova_Base64.hpp>
 
-#include <slang.h>
-#include <slang-com-ptr.h>
+#include <nova/rhi/slang/nova_SlangCompiler.hpp>
 
 namespace nova
 {
-    struct Packer
+    struct PackFile
     {
-        Slang::ComPtr<slang::IGlobalSession> slang_global_session;
-        slang::TargetDesc                             target_desc;
-        slang::SessionDesc                           session_desc;
+        std::stringstream output;
+        u32         resource_idx = 0;
 
-        static constexpr std::string_view              PackFolder = ".vfs-pack-output";
-        ankerl::unordered_dense::set<std::string> generated_files;
-
-        std::string seq_end;
-
-        void Init()
-        {
-            if (SLANG_FAILED(slang::createGlobalSession(slang_global_session.writeRef()))) {
-                NOVA_THROW("slang failed creating global session");
-            }
-
-            target_desc = {
-                .format = SLANG_SPIRV,
-                .profile = slang_global_session->findProfile("glsl460"),
-                .flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY,
-            };
-
-            session_desc = {
-                .targets = &target_desc,
-                .targetCount = 1,
-                .defaultMatrixLayoutMode = SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
-            };
-
-            fs::create_directories(PackFolder);
-        }
-
-        void RemoveStalePackFiles()
-        {
-            for (auto& path : fs::directory_iterator(PackFolder)) {
-                auto filename = path.path().filename().string();
-                if (!generated_files.contains(filename)) {
-                    // nova::Log("Removing pack file [{}]", filename);
-                    fs::remove(path.path());
-                }
-            }
-        }
-
-        void PackBinaryData(StringView virtual_path, void* data, size_t size_in_bytes)
+        void AppendResource(StringView virtual_path, void* data, size_t size_in_bytes)
         {
             auto u64_count = (size_in_bytes + 7) / 8;
 
-            // TODO: This is only meaningful when packing multiple resources into the same file
-            u32 resource_idx = 0;
-
-            std::stringstream output;
             output << "// " << virtual_path << '\n';
             output << "namespace nova::vfs::detail { int Register(const char* name, const void* data, size_t size); }\n";
 
@@ -84,144 +41,126 @@ namespace nova
             output << "static int nova_vfs_resource" << resource_idx << " = nova::vfs::detail::Register(\"" << virtual_path << "\", nova_vfs_resource" << resource_idx << "_array, " << size_in_bytes << ");\n";
 
             resource_idx++;
-
-            {
-                // TODO: Move this to separate function
-                // TODO: ALlow packing of multiple resources into the same file
-
-                auto new_contents = output.str();
-
-                auto hash = nova::hash::Hash(new_contents.data(), new_contents.size());
-                auto output_file_name = Fmt("nova_VfsOutput_s{}_h{}.cpp", new_contents.size(), hash);
-
-                generated_files.emplace(output_file_name);
-
-                auto path = fs::path(PackFolder) / output_file_name;
-
-                if (fs::exists(path)) {
-                    auto prev_contents = files::ReadTextFile(path.string());
-                    if (prev_contents == new_contents) {
-                        return;
-                    } else {
-                        // TODO: Use discriminator to resolve collisions
-                        NOVA_THROW("Hash collision!");
-                    }
-                }
-
-                nova::Log("Packing [{}], size = {}", virtual_path, size_in_bytes);
-
-                std::ofstream file(path, std::ios::binary);
-                file.write(new_contents.data(), new_contents.size());
-            }
         }
+    };
+
+    struct Packer
+    {
+        SlangCompiler compiler;
+
+        std::vector<StringView> search_dirs;
+
+        static constexpr std::string_view              PackFolder = ".vfs-pack-output";
+        ankerl::unordered_dense::set<std::string> generated_files;
+
+        usz total_packed_size = 0;
+
+        std::string seq_end;
+
+        void Init()
+        {
+            fs::create_directories(PackFolder);
+        }
+
+        void RemoveStalePackFiles()
+        {
+            for (auto& path : fs::directory_iterator(PackFolder)) {
+                auto filename = path.path().filename().string();
+                if (!generated_files.contains(filename)) {
+                    // nova::Log("Removing pack file [{}]", filename);
+                    fs::remove(path.path());
+                }
+            }
+
+            nova::Log("Total packed assets = {}", nova::ByteSizeToString(total_packed_size));
+        }
+
+        usz SavePackFile(const PackFile& pack_file)
+        {
+            auto new_contents = pack_file.output.str();
+
+            auto hash = nova::hash::Hash(new_contents.data(), new_contents.size());
+            auto output_file_name = Fmt("nova_VfsOutput_s{}_h{}.cpp", new_contents.size(), hash);
+
+            generated_files.emplace(output_file_name);
+
+            auto path = fs::path(PackFolder) / output_file_name;
+
+            if (fs::exists(path)) {
+                auto prev_contents = files::ReadTextFile(path.string());
+                if (prev_contents == new_contents) {
+                    return 0;
+                } else {
+                    // TODO: Use discriminator to resolve collisions
+                    NOVA_THROW("Hash collision!");
+                }
+            }
+
+            std::ofstream file(path, std::ios::binary);
+            file.write(new_contents.data(), new_contents.size());
+
+            return new_contents.size();
+        }
+
+// -----------------------------------------------------------------------------
 
         void PackBinaryFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadBinaryFile(path);
 
-            PackBinaryData(virtual_path, contents.data(), contents.size());
+            PackFile pack_file;
+            pack_file.AppendResource(virtual_path, contents.data(), contents.size());
+            if (SavePackFile(pack_file)) {
+                nova::Log("Packing binary file [{}], size = {}", virtual_path, nova::ByteSizeToString(contents.size()));
+            }
+
+            total_packed_size += contents.size();
         }
 
         void PackTextFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadTextFile(path);
 
-            PackBinaryData(virtual_path, contents.data(), contents.size() + 1 /* null terminator */);
+            PackFile pack_file;
+            pack_file.AppendResource(virtual_path, contents.data(), contents.size() + 1 /* null terminator */);
+            if (SavePackFile(pack_file)) {
+                nova::Log("Packing text file [{}], size = {}", virtual_path, nova::ByteSizeToString(contents.size()));
+            }
+
+            total_packed_size += contents.size() + 1;
         }
 
-        // void PackSlangFile(const fs::path& path)
-        // {
-        //     auto path_str = path.string();
-        //     auto source = files::ReadTextFile(path.string());
+        void PackSlangFile(StringView path, StringView virtual_path)
+        {
+            PackFile pack_file;
 
-        //     Slang::ComPtr<slang::ISession> session;
-        //     if (SLANG_FAILED(slang_global_session->createSession(session_desc, session.writeRef()))) {
-        //         NOVA_THROW("slang failed created local session");
-        //     }
+            auto contents = files::ReadTextFile(path);
 
-        //     // Load shader code
+            usz data_size = 0;
 
-        //     slang::IModule* slang_module = nullptr;
-        //     {
-        //         Slang::ComPtr<slang::IBlob> diagnostics_blob;
-        //         slang_module = session->loadModuleFromSourceString("shader", path_str.c_str(), source.c_str(), diagnostics_blob.writeRef());
-        //         if (diagnostics_blob) {
-        //             Log("{}", (const char*)diagnostics_blob->getBufferPointer());
-        //         }
-        //         if (!slang_module) {
-        //             NOVA_THROW("Expected slang_module, got none");
-        //         }
-        //     }
+            auto text_size = contents.size() + 1; // Null terminator
+            pack_file.AppendResource(virtual_path, contents.data(), text_size);
+            data_size += text_size;
 
-        //     // Find all entry points
+            auto session = compiler.CreateSession(/* use_vfs = */ false, search_dirs);
 
-        //     std::vector<Slang::ComPtr<slang::IEntryPoint>> entry_points;
+            auto module = session.Load(path, contents);
 
-        //     auto entry_point_count = u32(slang_module->getDefinedEntryPointCount());
-        //     for (u32 i = 0; i < entry_point_count; ++i) {
-        //         Slang::ComPtr<slang::IEntryPoint> entry_point;
-        //         if (SLANG_FAILED(slang_module->getDefinedEntryPoint(i, entry_point.writeRef()))) {
-        //             NOVA_THROW("slang failed to read defined entry point");
-        //         }
+            for (auto& entry_point : module.GetEntryPointNames()) {
+                auto code = module.GenerateCode(entry_point);
+                auto code_size = code.size() * sizeof(u32);
+                pack_file.AppendResource(Fmt("{}:{}", virtual_path, entry_point), code.data(), code_size);
+                data_size += code_size;
+            }
 
-        //         entry_points.push_back(std::move(entry_point));
-        //     }
+            if (SavePackFile(pack_file)) {
+                nova::Log("Packing slang file [{}], size = {}", virtual_path, nova::ByteSizeToString(data_size));
+            }
 
-        //     // Create composed program including all entry points
+            total_packed_size += data_size;
+        }
 
-        //     std::vector<slang::IComponentType*> component_types;
-        //     component_types.push_back(slang_module);
-        //     for (auto& entry_point : entry_points) component_types.push_back(entry_point);
-
-        //     Slang::ComPtr<slang::IComponentType> composed_program;
-        //     {
-        //         Slang::ComPtr<slang::IBlob> diagnostics_blob;
-        //         auto result = session->createCompositeComponentType(
-        //             component_types.data(), component_types.size(),
-        //             composed_program.writeRef(),
-        //             diagnostics_blob.writeRef());
-
-        //         if (diagnostics_blob) {
-        //             Log("{}", (const char*)diagnostics_blob->getBufferPointer());
-        //         }
-
-        //         if (SLANG_FAILED(result)) {
-        //             NOVA_THROW("Slang failed composing program");
-        //         }
-        //     }
-
-        //     // Reflect on composed program entry points
-
-        //     auto layout = composed_program->getLayout();
-        //     {
-        //         entry_point_count = u32(layout->getEntryPointCount());
-        //         nova::Log("ep_count = {}", entry_point_count);
-        //         for (u32 i = 0; i < entry_point_count; ++i) {
-        //             auto entry_point = layout->getEntryPointByIndex(i);
-        //             nova::Log("Entry point: {}", entry_point->getName());
-        //         }
-        //     }
-
-        //     // Create SPIR-V for each entry point
-
-        //     for (u32 i = 0; i < entry_point_count; ++i) {
-        //         Slang::ComPtr<slang::IBlob> spirv_code;
-        //         {
-        //             Slang::ComPtr<slang::IBlob> diagnostics_blob;
-        //             auto result = composed_program->getEntryPointCode(i, 0, spirv_code.writeRef(), diagnostics_blob.writeRef());
-
-        //             if (diagnostics_blob) {
-        //                 Log("{}", (const char*)diagnostics_blob->getBufferPointer());
-        //             }
-
-        //             if (SLANG_FAILED(result)) {
-        //                 NOVA_THROW("Slang failed compiling shader");
-        //             }
-
-        //             nova::Log("Compiled SPIR-V for [{}], size = {}", layout->getEntryPointByIndex(i)->getName(), spirv_code->getBufferSize());
-        //         }
-        //     }
-        // }
+// -----------------------------------------------------------------------------
 
         void ScanRoot(const fs::path& root)
         {
@@ -236,7 +175,7 @@ namespace nova
                 std::ranges::transform(ext, ext.data(), [](char c) { return char(std::toupper(c)); });
 
                 if (ext == ".SLANG") {
-                    PackTextFile(path.string(), fs::relative(path, root).generic_string());
+                    PackSlangFile(path.string(), fs::relative(path, root).generic_string());
                 }
 
                 // if (ext == ".CPP" || ext == ".HPP") {
@@ -258,6 +197,8 @@ namespace nova
 
         Packer packer;
         packer.Init();
+
+        std::ranges::copy(args, std::back_insert_iterator(packer.search_dirs));
 
         for (auto& arg : args) {
             packer.ScanRoot(arg);
