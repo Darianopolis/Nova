@@ -1,10 +1,8 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
-#include <nova/core/nova_ToString.hpp>
+
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 NOVA_EXAMPLE(Copy, "copy")
 {

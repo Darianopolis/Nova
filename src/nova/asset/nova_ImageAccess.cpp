@@ -1,7 +1,5 @@
 #include "nova_Image.hpp"
 
-#include <nova/core/nova_Debug.hpp>
-
 #include <rdo_bc_encoder.h>
 
 #pragma warning(push)

@@ -1,7 +1,5 @@
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
-#include <nova/core/nova_Stack.hpp>
-
 namespace nova
 {
     template<>

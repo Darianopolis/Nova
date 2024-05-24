@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nova_Core.hpp"
-#include "nova_Strings.hpp"
 
 namespace nova
 {
@@ -20,8 +19,18 @@ namespace nova
         FILE* file;
 
     public:
-        File(const char* path, bool write = false);
-        ~File();
+        File(const char* path, bool write = false)
+        {
+            if (fopen_s(&file, path, write ? "wb" : "rb")) {
+                NOVA_THROW("Failed to open file: {}", path);
+            }
+        }
+
+        ~File()
+        {
+            fflush(file);
+            fclose(file);
+        }
 
         template<typename T>
         T Read()
@@ -43,17 +52,63 @@ namespace nova
             Write(reinterpret_cast<const char*>(&t), sizeof(T));
         }
 
-        void Read(void* out, size_t bytes);
+        void Read(void* out, size_t bytes)
+        {
+            fread(out, 1, bytes, file);
+        }
 
-        void Write(const void* in, size_t bytes);
+        void Write(const void* in, size_t bytes)
+        {
+            fwrite(in, 1, bytes, file);
+        }
 
-        void Seek(int64_t offset, Position location = Start);
+        void Seek(int64_t offset, Position location = Start)
+        {
+            _fseeki64(file, offset, int(location));
+        }
 
-        int64_t GetOffset();
+        int64_t GetOffset()
+        {
+            return ftell(file);
+        }
     };
 
     namespace files {
-        std::vector<char> ReadBinaryFile(StringView filename);
-        std::string ReadTextFile(StringView filename);
+        inline
+        std::vector<char> ReadBinaryFile(StringView filename)
+        {
+            // TODO: Result instead of exception
+
+            std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
+            if (!file.is_open()) {
+                NOVA_THROW("Failed to open file: [{}]", filename);
+            }
+
+            auto file_size = size_t(file.tellg());
+            std::vector<char> buffer(file_size);
+
+            file.seekg(0);
+            file.read(buffer.data(), file_size);
+
+            file.close();
+            return buffer;
+        }
+
+        inline
+        std::string ReadTextFile(StringView filename)
+        {
+            // TODO: Result instead of exception
+
+            std::ifstream file(filename.CStr(), std::ios::ate | std::ios::binary);
+            if (!file.is_open()) {
+                NOVA_THROW("Failed to open file: [{}]", filename);
+            }
+
+            std::string output;
+            output.reserve((size_t)file.tellg());
+            file.seekg(0);
+            output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+            return output;
+        }
     }
 }

@@ -1,18 +1,11 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-
 #include <nova/ui/nova_ImGui.hpp>
-
 #include <nova/window/nova_Window.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 
 #include <wooting-analog-wrapper.h>
-
-#include <nova/core/win32//nova_Win32Include.hpp>
-
-#include <stdint.h>
-#include <cstdint>
 
 using enum WootingAnalogResult;
 

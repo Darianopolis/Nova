@@ -1,9 +1,8 @@
-#include <nova/core/nova_Guards.hpp>
-#include <nova/core/nova_Files.hpp>
-
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
-#include <nova/vfs/nova_VirtualFilesystem.hpp>
 
+#include <nova/core/nova_Core.hpp>
+#include <nova/core/nova_Files.hpp>
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
 #include <nova/rhi/slang/nova_SlangCompiler.hpp>
 
 namespace nova

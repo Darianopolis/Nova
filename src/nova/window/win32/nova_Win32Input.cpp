@@ -2,8 +2,6 @@
 
 #include <GameInput.h>
 #include <imgui.h>
-#include <nova/core/nova_Guards.hpp>
-#include <nova/core/nova_Strings.hpp>
 
 #include <initguid.h>
 #include <cfgmgr32.h>

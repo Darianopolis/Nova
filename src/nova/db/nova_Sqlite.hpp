@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_Strings.hpp>
 
 #include <sqlite3.h>
 

@@ -1,7 +1,6 @@
-#include <nova/core/nova_Guards.hpp>
-#include <nova/core/nova_Files.hpp>
-
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+
+#include <nova/core/nova_Files.hpp>
 
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/ResourceLimits.h>

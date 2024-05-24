@@ -1,12 +1,9 @@
 #include "main/example_Main.hpp"
-
-#include <nova/core/nova_Guards.hpp>
-#include <nova/rhi/nova_RHI.hpp>
-
-#include <nova/window/nova_Window.hpp>
-
-#include <nova/vfs/nova_VirtualFilesystem.hpp>
 #include "example_TriangleExtended.slang"
+
+#include <nova/rhi/nova_RHI.hpp>
+#include <nova/window/nova_Window.hpp>
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
 
 NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 {

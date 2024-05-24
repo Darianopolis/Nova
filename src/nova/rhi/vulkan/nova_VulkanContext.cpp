@@ -1,12 +1,6 @@
-#include <nova/core/nova_Guards.hpp>
-
 #include "nova_VulkanRHI.hpp"
 
 #include "nova_VulkanStructureTypes.hpp"
-
-#include <nova/core/nova_Stack.hpp>
-#include <nova/core/nova_ToString.hpp>
-#include <nova/core/nova_Env.hpp>
 
 namespace nova
 {
@@ -327,7 +321,7 @@ Validation-VUID({}): {}
             Log("Critical error: No physical devices found");
         }
 
-        if (auto gpu_override = GetEnv("NOVA_GPU_SELECT"); !gpu_override.empty()) {
+        if (auto gpu_override = env::GetValue("NOVA_GPU_SELECT"); !gpu_override.empty()) {
             auto index = std::stoi(gpu_override);
             if (index >= gpus.size()) {
                 Log("Invalid index provided for GPU override: {}", index);

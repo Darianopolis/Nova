@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_Math.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 
 // Descriptors

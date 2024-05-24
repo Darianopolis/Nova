@@ -1,12 +1,10 @@
 #include "nova_Draw2D.hpp"
+#include "nova_Draw2D.slang"
 
 #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
 #include <ft2build.h>
 #include <freetype/freetype.h>
-
 #include <freetype/ftlcdfil.h>
-
-#include "nova_Draw2D.slang"
 
 namespace nova::draw
 {
@@ -36,7 +34,7 @@ namespace nova::draw
         return default_sampler;
     }
 
-    const Bounds2& Draw2D::Bounds() const noexcept
+    const Bounds2F& Draw2D::Bounds() const noexcept
     {
         return bounds;
     }
@@ -154,9 +152,9 @@ namespace nova::draw
         }
     }
 
-    Bounds2 Draw2D::MeasureString(StringView str, Font& font)
+    Bounds2F Draw2D::MeasureString(StringView str, Font& font)
     {
-        Bounds2 str_bounds = {};
+        Bounds2F str_bounds = {};
 
         Vec2 pos = Vec2(0);
 

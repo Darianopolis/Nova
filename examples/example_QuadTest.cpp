@@ -1,9 +1,6 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
-#include <nova/core/nova_ToString.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-
 #include <nova/window/nova_Window.hpp>
 
 struct PushConstants

@@ -1,6 +1,5 @@
 #include "nova_SlangCompiler.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Files.hpp>
 
 #include <nova/vfs/nova_VirtualFilesystem.hpp>

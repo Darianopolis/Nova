@@ -1,7 +1,6 @@
 #include <nova/core/nova_Timer.hpp>
 
-#include <nova/core/win32/nova_Win32Include.hpp>
-#include <nova/core/nova_Strings.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 
 namespace nova
 {
@@ -15,7 +14,7 @@ namespace nova
         std::chrono::nanoseconds                min_quantum;
 
         TimerResolutionGuard()
-            : ZwSetTimerResolution{ZwSetTimerResolutionType(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "ZwSetTimerResolution"))}
+            : ZwSetTimerResolution{ZwSetTimerResolutionType(::GetProcAddress(::GetModuleHandleW(L"ntdll.dll"), "ZwSetTimerResolution"))}
         {
             ULONG min_period;
             ZwSetTimerResolution(0, true, &min_period);

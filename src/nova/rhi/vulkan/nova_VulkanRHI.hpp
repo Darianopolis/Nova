@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nova/core/nova_Strings.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 
 #ifndef VK_NO_PROTOTYPES

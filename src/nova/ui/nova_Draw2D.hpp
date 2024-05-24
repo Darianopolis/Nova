@@ -1,8 +1,8 @@
 #pragma once
 
-#include <nova/rhi/nova_RHI.hpp>
-
 #include "nova_Draw2DShared.slang"
+
+#include <nova/rhi/nova_RHI.hpp>
 
 namespace nova::draw
 {
@@ -59,7 +59,7 @@ namespace nova::draw
         Buffer      rect_buffer;
         u32          rect_index = 0;
 
-        Bounds2 bounds;
+        Bounds2F bounds;
 
         std::vector<DrawCommand> draw_commands;
 
@@ -68,7 +68,7 @@ namespace nova::draw
         ~Draw2D();
 
         Sampler DefaultSampler() noexcept;
-        const Bounds2& Bounds() const noexcept;
+        const Bounds2F& Bounds() const noexcept;
 
         std::unique_ptr<Font> LoadFont(std::span<const std::byte> data, f32 size);
 
@@ -76,7 +76,7 @@ namespace nova::draw
         void DrawRect(const Rectangle& rect);
         void DrawString(StringView str, Vec2 pos, Font& font);
 
-        Bounds2 MeasureString(StringView str, Font& font);
+        Bounds2F MeasureString(StringView str, Font& font);
 
         void Record(CommandList, Image target);
     };

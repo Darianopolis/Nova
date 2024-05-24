@@ -1,6 +1,6 @@
 #include "nova_Win32Window.hpp"
 
-#include <nova/core/win32/nova_Win32Utility.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 
 namespace nova
 {
@@ -12,7 +12,10 @@ namespace nova
 
         impl->InitMappings();
 
-        win::Check(TRUE, ::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
+        if (!::SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
+            NOVA_THROW("Failed to set process DPI awareness context. Error: {}",
+                win::HResultToString(HRESULT_FROM_WIN32(GetLastError())));
+        }
 
         WNDCLASSW class_info {
             .lpfnWndProc = Window::Impl::WindowProc,
@@ -22,7 +25,10 @@ namespace nova
             .lpszClassName = Win32WndClassName,
         };
 
-        win::CheckNot(ATOM(0), ::RegisterClassW(&class_info));
+        if (!::RegisterClassW(&class_info)) {
+            NOVA_THROW("Failed to register class. Error: {}",
+                win::HResultToString(HRESULT_FROM_WIN32(GetLastError())));
+        }
 
         // impl->InitGameInput();
 

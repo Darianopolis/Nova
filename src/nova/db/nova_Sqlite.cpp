@@ -1,7 +1,5 @@
 #include "nova_Sqlite.hpp"
 
-#include <nova/core/nova_Debug.hpp>
-
 namespace nova
 {
     Database::Database(const std::string& path)

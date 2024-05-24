@@ -1,8 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_Containers.hpp>
-#include <nova/core/nova_Strings.hpp>
 
 #include <slang.h>
 #include <slang-com-ptr.h>

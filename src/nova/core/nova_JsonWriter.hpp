@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nova_Core.hpp"
-#include "nova_Strings.hpp"
 
 namespace nova
 {

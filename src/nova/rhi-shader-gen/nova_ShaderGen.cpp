@@ -1,7 +1,6 @@
 #pragma once
 
-#include <nova/core/nova_ToString.hpp>
-#include <nova/core/nova_Strings.hpp>
+#include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Files.hpp>
 #include <nova/core/nova_Base64.hpp>
 

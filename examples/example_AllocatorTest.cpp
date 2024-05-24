@@ -1,8 +1,6 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/win32/nova_Win32Include.hpp>
-#include <nova/core/nova_ToString.hpp>
-#include <nova/core/nova_Allocation.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 
 NOVA_EXAMPLE(AllocTest, "alloc")
 {

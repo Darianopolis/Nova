@@ -1,10 +1,5 @@
 #include "nova_Image.hpp"
 
-#include <nova/core/nova_Stack.hpp>
-#include <nova/core/nova_Guards.hpp>
-#include <nova/core/nova_Debug.hpp>
-#include <nova/core/nova_Files.hpp>
-
 #include <stb_image.h>
 #include <tinyexr.h>
 #include <dds-ktx.h>

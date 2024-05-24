@@ -1,11 +1,8 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_ImGui.hpp>
-
-#include <imgui.h>
 
 NOVA_EXAMPLE(ImGuiTest, "imgui")
 {

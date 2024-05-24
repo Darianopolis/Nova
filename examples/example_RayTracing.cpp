@@ -1,10 +1,7 @@
 #include "main/example_Main.hpp"
-
-#include <nova/core/nova_Guards.hpp>
-#include <nova/rhi/nova_RHI.hpp>
-
 #include "example_RayTracing.slang"
 
+#include <nova/rhi/nova_RHI.hpp>
 #include <nova/window/nova_Window.hpp>
 
 NOVA_EXAMPLE(RayTracing, "rt")

@@ -1,7 +1,5 @@
 #include "nova_VulkanRHI.hpp"
 
-#include <nova/core/nova_Stack.hpp>
-
 namespace nova
 {
     Queue Context::Queue(QueueFlags flags, u32 index) const

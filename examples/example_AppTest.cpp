@@ -1,6 +1,5 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/window/nova_Window.hpp>
 
 NOVA_EXAMPLE(AppTest, "app")

@@ -1,8 +1,6 @@
 if Project "nova" then
 
     local win32 = true
-
-    local vulkan = true
     local vkdxgi = false
 
 --------------------------------------------------------------------------------
@@ -10,36 +8,37 @@ if Project "nova" then
     Include "src"
 
     Import {
+        -- Core
         "ankerl-maps",
         "mimalloc",
         "glm",
         "simdutf",
         "fmt",
-        -- "spdlog",
 
+        -- Database
         "sqlite3",
 
+        -- UI
         "freetype",
-        -- "harfbuzz",
-
+        "harfbuzz",
         "imgui",
 
-        -- "assimp",
-        -- "fastgltf",
-        -- "fast-obj",
-        -- "ufbx",
-
+        -- Asset
         "stb_image",
         "tinyexr",
         "dds-ktx",
         "bc7enc",
         "Compressonator",
-        -- "meshoptimizer",
 
+        -- Window
         "ms-gdk",
         "wooting-sdk",
 
+        -- RHI
         "slang",
+        "vulkan",
+        "VulkanMemoryAllocator",
+        "glslang",
     }
 
     Compile {
@@ -56,33 +55,25 @@ if Project "nova" then
     if win32 then
         Define "NOVA_PLATFORM_WINDOWS"
         Compile {
-            "src/nova/core/win32/*",
-            "src/nova/window/win32/*",
+            "src/nova/core/win32/**",
+            "src/nova/window/win32/**",
         }
     end
 
 --------------------------------------------------------------------------------
 
-    if vulkan then
-        Import {
-            "vulkan",
-            "VulkanMemoryAllocator",
-            "glslang",
-        }
+    Compile {
+        "src/nova/rhi/vulkan/*",
+    }
 
-        Compile {
-            "src/nova/rhi/vulkan/*",
-        }
+    if win32 then
+        Compile "src/nova/rhi/vulkan/win32/*"
+    end
 
-        if win32 then
-            Compile "src/nova/rhi/vulkan/win32/*"
-        end
-
-        if vkdxgi then
-            Compile "src/nova/rhi/vulkan/dxgi/*"
-        else
-            Compile "src/nova/rhi/vulkan/khr/*"
-        end
+    if vkdxgi then
+        Compile "src/nova/rhi/vulkan/dxgi/*"
+    else
+        Compile "src/nova/rhi/vulkan/khr/*"
     end
 
 end
@@ -101,7 +92,6 @@ end
 --------------------------------------------------------------------------------
 --                               Examples
 --------------------------------------------------------------------------------
-
 
 if Project "nova-examples" then
     Compile "examples/**"

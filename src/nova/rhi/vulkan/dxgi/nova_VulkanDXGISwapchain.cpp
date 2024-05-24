@@ -1,20 +1,14 @@
-#include <nova/core/win32/nova_Win32Include.hpp>
-
 #define VK_NO_PROTOTYPES
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
-#include <nova/core/nova_Guards.hpp>
-
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
-#include <nova/core/win32/nova_Win32Include.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 #include <d3d11_1.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <dcomp.h>
-
-#include <nova/core/nova_Stack.hpp>
 
 namespace nova
 {

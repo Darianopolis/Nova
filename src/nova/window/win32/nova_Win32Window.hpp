@@ -1,11 +1,9 @@
 #pragma once
 
-#include <nova/core/win32/nova_Win32Include.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 
 #include <GameInput.h>
 #include <nova/window/nova_Window.hpp>
-
-#include <nova/core/nova_Debug.hpp>
 
 namespace nova
 {

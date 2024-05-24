@@ -1,19 +1,17 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Guards.hpp>
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
 #include <nova/vfs/nova_VirtualFilesystem.hpp>
+#include <nova/asset/nova_Image.hpp>
 
-#include <nova/core/win32/nova_Win32Include.hpp>
+#include <nova/core/win32/nova_Win32.hpp>
 #pragma warning(push)
 #pragma warning(disable: 4263)
 #include "dcomp.h"
 #pragma warning(pop)
-
-#include <stb_image.h>
 
 NOVA_EXAMPLE(Draw, "draw")
 {
@@ -47,16 +45,24 @@ NOVA_EXAMPLE(Draw, "draw")
 
     nova::Image image;
     {
-        i32 w, h, c;
-        auto data = stbi_load("assets/textures/statue.jpg", &w, &h, &c, STBI_rgb_alpha);
-        NOVA_DEFER(&) { stbi_image_free(data); };
+        nova::ImageDescription desc;
+        nova::ImageLoadData src;
+        nova::Image_Load(&desc, &src, "assets/textures/statue.jpg");
+        NOVA_DEFER(&) { src.Destroy(); };
+
+        nova::ImageDescription target_desc{ desc };
+        target_desc.is_signed = false;
+        target_desc.format = nova::ImageFormat::RGBA8;
+        nova::ImageAccessor target_accessor(target_desc);
+        std::vector<b8> data(target_accessor.GetSize());
+        nova::Image_Copy(desc, src.data, target_accessor, data.data());
 
         image = nova::Image::Create(context,
-            Vec3U(u32(w), u32(h), 0),
+            Vec3U(desc.width, desc.height, 0),
             nova::ImageUsage::Sampled,
             nova::Format::RGBA8_UNorm);
 
-        image.Set({}, {u32(w), u32(h), 1}, data);
+        image.Set({}, {desc.width, desc.height, 1}, data.data());
         image.Transition(nova::ImageLayout::Sampled);
     }
 

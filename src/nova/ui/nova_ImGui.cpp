@@ -1,10 +1,5 @@
-#include <nova/ui/nova_ImGui.hpp>
-
-#include <nova/core/nova_Guards.hpp>
-
+#include "nova_ImGui.hpp"
 #include "nova_ImGui.slang"
-
-#include <imgui.h>
 
 namespace nova::imgui
 {

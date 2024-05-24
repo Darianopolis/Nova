@@ -1,11 +1,6 @@
 #pragma once
 
 #include <nova/core/nova_Core.hpp>
-#include <nova/core/nova_Ref.hpp>
-#include <nova/core/nova_Math.hpp>
-#include <nova/core/nova_Containers.hpp>
-#include <nova/core/nova_Flags.hpp>
-#include <nova/core/nova_Strings.hpp>
 
 namespace nova
 {
