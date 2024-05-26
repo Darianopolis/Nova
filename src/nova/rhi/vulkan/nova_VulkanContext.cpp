@@ -429,7 +429,9 @@ Validation-VUID({}): {}
 
         // External memory imports (for DXGI interop)
 
+#ifdef NOVA_PLATFORM_WINDOWS
         chain.Add(NOVA_VK_EXTENSION("VK_KHR_external_memory_win32"));
+#endif
 
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, storageBuffer16BitAccess));
         chain.Add(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan11Features, storagePushConstant16));
@@ -473,6 +475,10 @@ Validation-VUID({}): {}
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceMemoryPriorityFeaturesEXT, memoryPriority));
         chain.Require(NOVA_VK_EXTENSION(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDevicePageableDeviceLocalMemoryFeaturesEXT, pageableDeviceLocalMemory));
+
+        // Memory imports
+
+        chain.Require(NOVA_VK_EXTENSION(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME));
 
         // Extended Dynamic State
 
@@ -696,14 +702,55 @@ Validation-VUID({}): {}
 }
 #include "nova_VulkanFunctions.inl"
 
+        // Query memory properties
+
+        {
+            auto& mem_props = impl->memory_properties;
+            impl->vkGetPhysicalDeviceMemoryProperties(impl->gpu, &mem_props);
+
+            nova::Log("Memory types:");
+            for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+                auto MakeFlags = [&](const VkMemoryType& type) {
+                    std::string flags;
+                    if (type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)  flags += "device ::";
+                    else                                                           flags += "host   ::";
+
+                    if (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)  flags += " visible";
+                    if (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) flags += " coherent";
+                    if (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT)   flags += " cached";
+                    return flags;
+                };
+                auto& type = mem_props.memoryTypes[i];
+                nova::Log(" - Memory type [{}]: Heap = {}, Flags = {}", i, type.heapIndex, MakeFlags(type));
+            }
+
+            nova::Log("Memory heaps:");
+            for (uint32_t i = 0; i < mem_props.memoryHeapCount; ++i) {
+                auto MakeFlags = [&](const VkMemoryHeap& heap) {
+                    std::string flags;
+                    if (heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) flags += "device";
+                    else flags += "host";
+                    return flags;
+                };
+                auto& heap = mem_props.memoryHeaps[i];
+                nova::Log(" - Memory Heap [{}]: Size = {}, Flags = {}", i, heap.size, MakeFlags(heap));
+            }
+        }
+
         // Query device properties
+
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host_properties = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT,
+            .pNext = &impl->descriptor_sizes,
+        };
 
         impl->vkGetPhysicalDeviceProperties2(impl->gpu, PtrTo(VkPhysicalDeviceProperties2 {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-            .pNext = &impl->descriptor_sizes,
+            .pNext = &external_memory_host_properties,
         }));
 
         impl->properties.max_multiview_count = impl->vulkan11_properties.maxMultiviewViewCount;
+        impl->properties.min_imported_host_pointer_alignment = external_memory_host_properties.minImportedHostPointerAlignment;
 
         // Get queues
 

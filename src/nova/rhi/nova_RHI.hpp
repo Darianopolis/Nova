@@ -52,6 +52,7 @@ namespace nova
         Addressable  = 1 << 0,
         DeviceLocal  = 1 << 1 | Addressable,
         Mapped       = 1 << 2,
+        ImportHost   = 1 << 3,
     };
     NOVA_DECORATE_FLAG_ENUM(BufferFlags)
 
@@ -368,6 +369,7 @@ namespace nova
     {
         u32 max_push_constant_size;
         u32 max_multiview_count;
+        u64 min_imported_host_pointer_alignment;
     };
 
 // -----------------------------------------------------------------------------
@@ -422,17 +424,22 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    static constexpr u64 InvalidFenceValue = ~0ull;
+
     struct Fence : Handle<Fence>
     {
         static Fence Create(HContext);
         void Destroy();
 
-        void Wait(u64 wait_value = ~0ull) const;
-        u64  Advance() const;
-        void Signal(u64 signal_value = ~0ull) const;
-        u64  PendingValue() const;
-        u64  CurrentValue() const;
-        bool Check(u64 check_value = ~0ull) const;
+        u64 Advance() const;
+        void AdvanceTo(u64 value) const;
+        void Signal(u64 signal_value = InvalidFenceValue) const;
+
+        // Thread safe operations
+        void Wait(u64 wait_value = InvalidFenceValue) const;
+        u64 PendingValue() const;
+        u64 CurrentValue() const;
+        bool Check(u64 check_value = InvalidFenceValue) const;
 
         operator SyncPoint() const;
     };
@@ -440,10 +447,10 @@ namespace nova
     struct SyncPoint
     {
         Fence fence = {};
-        u64   value = ~0ull;
+        u64   value = InvalidFenceValue;
 
         void Wait() const { if (fence) { fence.Wait(value); } }
-        u64 Value() const { return value == ~0ull ? fence.PendingValue() : value; }
+        u64 Value() const { return (value == InvalidFenceValue && fence) ? fence.PendingValue() : value; }
     };
 
     inline
@@ -579,7 +586,7 @@ namespace nova
 
     struct Buffer : Handle<Buffer>
     {
-        static Buffer Create(HContext, u64 size, BufferUsage, BufferFlags = {});
+        static Buffer Create(HContext, u64 size, BufferUsage, BufferFlags = {}, void* to_import = {});
         void Destroy();
 
         void Resize(u64 size) const;

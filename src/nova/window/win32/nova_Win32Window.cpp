@@ -641,13 +641,18 @@ namespace nova
         return *this;
     }
 
-    Window Window::SetTransparent(bool state, Vec3U chroma_key) const
+    Window Window::SetTransparency(TransparencyMode mode, Vec3U chroma_key) const
     {
-        if (state) {
-            Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT, 0);
-            ::SetLayeredWindowAttributes(impl->handle, RGB(chroma_key.r, chroma_key.g, chroma_key.b), 0, LWA_COLORKEY);
-        } else {
-            Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+        switch (mode) {
+            break;case TransparencyMode::Disabled:
+                Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+            break;case TransparencyMode::ChromaKey:
+                Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT, 0);
+                ::SetLayeredWindowAttributes(impl->handle, RGB(chroma_key.r, chroma_key.g, chroma_key.b), 0, LWA_COLORKEY);
+            break;case TransparencyMode::PerPixel:
+                // Must clear layered bit in case last state was ChromaKey
+                Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED, 0);
         }
 
         return *this;
@@ -665,7 +670,7 @@ namespace nova
                 };
             }
 
-            // Pick monitor based on window location
+            // TODO: Pick monitor based on window location
             auto monitor = impl->app.PrimaryDisplay();
 
             SetDecorate(false);

@@ -31,7 +31,7 @@ if Project "nova" then
         "Compressonator",
 
         -- Window
-        "ms-gdk",
+        "GameInput",
         "wooting-sdk",
 
         -- RHI

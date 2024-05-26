@@ -89,9 +89,10 @@ namespace nova
     template<>
     struct Handle<Fence>::Impl
     {
-        Context       context = {};
-        VkSemaphore semaphore = {};
-        u64             value = 0;
+        Context                       context = {};
+        VkSemaphore                 semaphore = {};
+        std::atomic<u64> last_submitted_value = 0;
+        std::atomic<u64>      last_seen_value = 0;
     };
 
     template<>
@@ -199,11 +200,15 @@ namespace nova
         Context context = {};
 
         VkBuffer          buffer = {};
-        VmaAllocation allocation = {};
-        VkDeviceSize        size = 0ull;
-        VkDeviceAddress  address = 0ull;
-        BufferFlags        flags = BufferFlags::None;
-        BufferUsage        usage = {};
+        union {
+            VmaAllocation allocation = {};
+            VkDeviceMemory  imported;
+        };
+        VkDeviceSize       size = 0ull;
+        VkDeviceAddress address = 0ull;
+        void*      host_address = 0ull;
+        BufferFlags       flags = BufferFlags::None;
+        BufferUsage       usage = {};
     };
 
     template<>
@@ -442,6 +447,8 @@ namespace nova
         bool        descriptor_buffers = false;
         bool             resizable_bar = false;
         bool              mesh_shading = false;
+
+        VkPhysicalDeviceMemoryProperties memory_properties = {};
 
         VkPhysicalDeviceVulkan11Properties vulkan11_properties  = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES,

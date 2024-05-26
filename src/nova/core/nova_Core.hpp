@@ -461,6 +461,13 @@ namespace nova
         return T(u64(v) &~ (align - 1));
     }
 
+    template<typename T>
+    constexpr
+    bool IsAlignedTo(T v, u64 align) noexcept
+    {
+        return (u64(v) & (align - 1)) == 0;
+    }
+
     inline constexpr
     u32 RoundUpPower2(u32 v) noexcept
     {
@@ -473,6 +480,26 @@ namespace nova
         v++;
 
         return v;
+    }
+}
+
+// -----------------------------------------------------------------------------
+//                              Atomic Helpers
+// -----------------------------------------------------------------------------
+
+namespace nova
+{
+    template<typename T>
+    void AtomicSetMax(std::atomic<T>& maximum, T value)
+    {
+        T prev = maximum;
+        while (prev < value && !maximum.compare_exchange_weak(prev, value));
+    }
+
+    template<typename T>
+    void AtomicSetMax(std::atomic<T>& maximum, T prev, T value)
+    {
+        while (prev < value && !maximum.compare_exchange_weak(prev, value));
     }
 }
 
@@ -701,6 +728,40 @@ namespace nova
 }
 
 // -----------------------------------------------------------------------------
+//                        Type erased functor reference
+// -----------------------------------------------------------------------------
+
+namespace nova
+{
+    template<typename Ret, typename... Types>
+    struct FuncBase {
+        void* body;
+        Ret(*fptr)(void*, Types...);
+
+        Ret operator()(Types... args) {
+            return fptr(body, std::move<Types>(args)...);
+        }
+    };
+
+    template<typename Tx>
+    struct GetFunctionImpl {};
+
+    template<typename Ret, typename... Types>
+    struct GetFunctionImpl<Ret(Types...)> { using type = FuncBase<Ret, Types...>; };
+
+    template<typename Sig>
+    struct FunctionRef : GetFunctionImpl<Sig>::type {
+        template<typename Fn>
+        FunctionRef(Fn&& fn)
+            : GetFunctionImpl<Sig>::type(&fn,
+                [](void*b, auto&&... args) -> auto {
+                    return (*(Fn*)b)(std::forward<decltype(args)>(args)...);
+                })
+        {};
+    };
+}
+
+// -----------------------------------------------------------------------------
 //                                  Span
 // -----------------------------------------------------------------------------
 
@@ -738,6 +799,8 @@ namespace nova
         Span(const T* first, usz count) : span(first, count) {}
 
     public:
+
+    public:
         const T& operator[](usz i) const noexcept { return span.begin()[i]; }
 
         Span(const Span& other) noexcept : span(other.span) {}
@@ -753,37 +816,22 @@ namespace nova
 }
 
 // -----------------------------------------------------------------------------
-//                        Type erased functor reference
+//                             Byte Span helpers
 // -----------------------------------------------------------------------------
 
 namespace nova
 {
-    template<typename Ret, typename... Types>
-    struct FuncBase {
-        void* body;
-        Ret(*fptr)(void*, Types...);
+    inline
+    Span<b8> Bytes(const void* first, usz byte_size)
+    {
+        return Span(reinterpret_cast<const b8*>(first), byte_size);
+    }
 
-        Ret operator()(Types... args) {
-            return fptr(body, std::move<Types>(args)...);
-        }
-    };
-
-    template<typename Tx>
-    struct GetFunctionImpl {};
-
-    template<typename Ret, typename... Types>
-    struct GetFunctionImpl<Ret(Types...)> { using type = FuncBase<Ret, Types...>; };
-
-    template<typename Sig>
-    struct FunctionRef : GetFunctionImpl<Sig>::type {
-        template<typename Fn>
-        FunctionRef(Fn&& fn)
-            : GetFunctionImpl<Sig>::type(&fn,
-                [](void*b, auto&&... args) -> auto {
-                    return (*(Fn*)b)(std::forward<decltype(args)>(args)...);
-                })
-        {};
-    };
+    template<IsContiguousContainer C>
+    Span<b8> Bytes(C&& c)
+    {
+        return Bytes(&*c.begin(), std::distance(c.begin(), c.end()) * sizeof(decltype(*c.begin())));
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -1265,9 +1313,10 @@ namespace nova::detail
 
 #define NOVA_TIMEIT(...) do {                                                  \
     using namespace std::chrono;                                               \
-    ::nova::Log("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",                \
+    ::nova::Log("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",             \
         duration_cast<milliseconds>(steady_clock::now()                        \
-            - ::nova::detail::NovaTimeitLast), __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__); \
+            - ::nova::detail::NovaTimeitLast),                                 \
+         __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__);                         \
     ::nova::detail::NovaTimeitLast = steady_clock::now();                      \
 } while (0)
 
@@ -1275,9 +1324,9 @@ namespace nova::detail
 //                                 Asserts
 // -----------------------------------------------------------------------------
 
-#define NOVA_ASSERT(condition, fmt_str, ...) do { \
-    if (!(condition)) [[unlikely]]                \
-        NOVA_THROW(fmt_str, __VA_ARGS__);         \
+#define NOVA_ASSERT(condition, fmt_str, ...) do {                              \
+    if (!(condition)) [[unlikely]]                                             \
+        NOVA_THROW(fmt_str, __VA_ARGS__);                                      \
 } while (0)
 
 #define NOVA_UNREACHABLE() \

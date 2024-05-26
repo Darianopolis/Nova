@@ -140,7 +140,7 @@ namespace nova
         }
 
         inline
-        std::string Encode(Span<b8> bytes, bool pad = true, const Table& table = tables::Default)
+        std::string EncodeToString(Span<b8> bytes, bool pad = true, const Table& table = tables::Default)
         {
             std::string str(Encode(nullptr, 0, bytes.data(), bytes.size(), pad, table), '\0');
             Encode(str.data(), str.size(), bytes.data(), bytes.size(), pad, table);
@@ -148,9 +148,17 @@ namespace nova
         }
 
         inline
-        std::vector<b8> Decode(std::string_view encoded, const Table& table = tables::Default)
+        std::vector<b8> DecodeToVector(std::string_view encoded, const Table& table = tables::Default)
         {
             std::vector<b8> dec(Decode(nullptr, 0, encoded.data(), encoded.size(), table));
+            Decode(dec.data(), dec.size(), encoded.data(), encoded.size(), table);
+            return dec;
+        }
+
+        inline
+        std::string DecodeToString(std::string_view encoded, const Table& table = tables::Default)
+        {
+            std::string dec(Decode(nullptr, 0, encoded.data(), encoded.size(), table), '\0');
             Decode(dec.data(), dec.size(), encoded.data(), encoded.size(), table);
             return dec;
         }

@@ -219,6 +219,12 @@ namespace nova
         Log("  name = {}", registered_device.name);
         Log("  manufacturer = {}", registered_device.manufacturer);
 
+        if (info->displayName) {
+            Log("  display name = {}", std::string_view(info->displayName->data, info->displayName->sizeInBytes));
+        } else {
+            Log("  display name = N/A");
+        }
+
         Log("  supported:");
         if (info->supportedInput & GameInputKindUnknown)          Log("    Unknown");
         if (info->supportedInput & GameInputKindRawDeviceReport)  Log("    RawDeviceReport");

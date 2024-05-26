@@ -24,6 +24,13 @@ namespace nova
         Client,
     };
 
+    enum class TransparencyMode
+    {
+        Disabled,
+        ChromaKey,
+        PerPixel,
+    };
+
 // -----------------------------------------------------------------------------
 
     enum class Cursor
@@ -291,8 +298,7 @@ namespace nova
 
         Window SetCursor(Cursor cursor) const;
         Window SetDecorate(bool state) const;
-        // TODO: Chroma key is bad and you should feel bad
-        Window SetTransparent(bool state, Vec3U chroma_key) const;
+        Window SetTransparency(TransparencyMode mode, Vec3U chroma_key = {}) const;
         Window SetFullscreen(bool enabled) const;
     };
 }

@@ -2,7 +2,21 @@
 
 namespace nova
 {
-    Buffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags)
+    static
+    VkBufferUsageFlags GetBufferUsageFlags(BufferUsage usage, BufferFlags flags)
+    {
+        auto vk_usage = GetVulkanBufferUsage(usage);
+        vk_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (flags >= BufferFlags::Addressable) {
+            vk_usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        }
+        return vk_usage;
+    }
+
+    // TODO: Clean up host importing, use BufferInfo create struct instead of param list?
+    // TODO: Remove resizing?
+
+    Buffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags, void* to_import)
     {
         auto impl = new Impl;
         impl->context = context;
@@ -10,7 +24,66 @@ namespace nova
         impl->usage = usage;
 
         Buffer buffer{ impl };
-        buffer.Resize(size);
+        if (flags >= BufferFlags::ImportHost) {
+            nova::Log("Importing memory");
+
+            nova::vkh::Check(context->vkCreateBuffer(context->device, nova::PtrTo(VkBufferCreateInfo {
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                    .size = size,
+                    .usage = GetBufferUsageFlags(usage, flags),
+                    .sharingMode = VK_SHARING_MODE_CONCURRENT,
+                    .queueFamilyIndexCount = context->queue_family_count,
+                    .pQueueFamilyIndices = context->queue_families.data(),
+                }), context->alloc, &buffer->buffer));
+
+            VkMemoryRequirements mem_reqs = {};
+            context->vkGetBufferMemoryRequirements(context->device, buffer->buffer, &mem_reqs);
+
+            nova::Log("  Min alignment = {}", context->properties.min_imported_host_pointer_alignment);
+
+            VkMemoryHostPointerPropertiesEXT props = {};
+            props.sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT;
+            context->vkGetMemoryHostPointerPropertiesEXT(context->device,
+                VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, to_import, &props);
+
+            auto memory_type_bits = mem_reqs.memoryTypeBits & props.memoryTypeBits;
+
+            std::optional<u32> memory_type;
+            for (u32 i = 0; i < context->memory_properties.memoryTypeCount; ++i) {
+                u32 flag_bit = 1 << i;
+                if (memory_type_bits & flag_bit) {
+                    nova::Log("  - can import as type {}", i);
+                    memory_type = i;
+                }
+            }
+
+            auto size_rounded = AlignUpPower2(mem_reqs.size, context->properties.min_imported_host_pointer_alignment);
+            vkh::Check(context->vkAllocateMemory(context->device, PtrTo(VkMemoryAllocateInfo {
+                    .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                    .pNext = nova::PtrTo(VkImportMemoryHostPointerInfoEXT {
+                        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
+                        .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT,
+                        .pHostPointer = to_import,
+                    }),
+                    .allocationSize = size_rounded,
+                    .memoryTypeIndex = memory_type.value(),
+                }), context->alloc, &impl->imported));
+
+            nova::vkh::Check(context->vkBindBufferMemory(context->device, buffer->buffer, impl->imported, 0));
+
+            if (impl->flags >= BufferFlags::Addressable) {
+                impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
+                    .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                    .buffer = impl->buffer,
+                }));
+            }
+
+            if (impl->flags >= BufferFlags::Mapped) {
+                nova::vkh::Check(context->vkMapMemory(context->device, impl->imported, 0, size, 0, &impl->host_address));
+            }
+        } else {
+            buffer.Resize(size);
+        }
         return buffer;
     }
 
@@ -33,7 +106,12 @@ namespace nova
             return;
         }
 
-        ResetBuffer(impl->context, *this);
+        if (impl->flags >= BufferFlags::ImportHost) {
+            impl->context->vkFreeMemory(impl->context->device, impl->imported, impl->context->alloc);
+            impl->context->vkDestroyBuffer(impl->context->device, impl->buffer, impl->context->alloc);
+        } else {
+            ResetBuffer(impl->context, *this);
+        }
 
         delete impl;
         impl = nullptr;
@@ -41,6 +119,8 @@ namespace nova
 
     void Buffer::Resize(u64 _size) const
     {
+        NOVA_ASSERT(!(impl->flags >= BufferFlags::ImportHost), "Can't resize imported host buffer");
+
         if (impl->size >= _size) {
             return;
         }
@@ -59,18 +139,14 @@ namespace nova
             }
         }
 
-        auto vk_usage = GetVulkanBufferUsage(impl->usage);
-        vk_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        if (impl->flags >= BufferFlags::Addressable) {
-            vk_usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-        }
+        VmaAllocationInfo info;
 
         vkh::Check(vmaCreateBuffer(
             impl->context->vma,
             PtrTo(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = impl->size,
-                .usage = vk_usage,
+                .usage = GetBufferUsageFlags(impl->usage, impl->flags),
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
                 .queueFamilyIndexCount = impl->context->queue_family_count,
                 .pQueueFamilyIndices = impl->context->queue_families.data(),
@@ -84,7 +160,7 @@ namespace nova
             }),
             &impl->buffer,
             &impl->allocation,
-            nullptr));
+            &info));
 
         if (impl->flags >= BufferFlags::Addressable) {
             impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
@@ -92,6 +168,8 @@ namespace nova
                 .buffer = impl->buffer,
             }));
         }
+
+        impl->host_address = info.pMappedData;
     }
 
     u64 Buffer::Size() const
@@ -101,9 +179,7 @@ namespace nova
 
     b8* Buffer::HostAddress() const
     {
-        VmaAllocationInfo info;
-        vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
-        return reinterpret_cast<b8*>(info.pMappedData);
+        return reinterpret_cast<b8*>(impl->host_address);
     }
 
     u64 Buffer::DeviceAddress() const

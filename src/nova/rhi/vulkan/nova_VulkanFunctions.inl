@@ -145,7 +145,11 @@ NOVA_VULKAN_FUNCTION(vkEnumerateInstanceExtensionProperties)
 NOVA_VULKAN_FUNCTION(vkGetSemaphoreCounterValue)
 NOVA_VULKAN_FUNCTION(vkFreeCommandBuffers)
 NOVA_VULKAN_FUNCTION(vkResetCommandBuffer)
-
-NOVA_VULKAN_FUNCTION(vkQueueSubmit)
+NOVA_VULKAN_FUNCTION(vkCreateBuffer)
+NOVA_VULKAN_FUNCTION(vkBindBufferMemory)
+NOVA_VULKAN_FUNCTION(vkDestroyBuffer)
+NOVA_VULKAN_FUNCTION(vkMapMemory)
+NOVA_VULKAN_FUNCTION(vkGetMemoryHostPointerPropertiesEXT)
+NOVA_VULKAN_FUNCTION(vkGetBufferMemoryRequirements)
 
 #undef NOVA_VULKAN_FUNCTION
