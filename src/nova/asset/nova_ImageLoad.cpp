@@ -1,5 +1,7 @@
 #include "nova_Image.hpp"
 
+#include <nova/core/nova_Core.hpp>
+
 #include <stb_image.h>
 #include <tinyexr.h>
 #include <dds-ktx.h>
@@ -32,8 +34,6 @@ namespace nova
         NOVA_ASSERT(output, "Expected output");
 
         auto format = ImageFileFormatFromName(filename);
-
-        // TODO: Result instead of exception
 
         switch (format) {
             break;case ImageFileFormat::PNG:

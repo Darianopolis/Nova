@@ -13,7 +13,7 @@ cmake-build-release/
 cmake-build-relwithdebinfo/
 
 # Assets
-assets/models/
+assets-external/
 
 # Generated
 .vfs-pack-output/

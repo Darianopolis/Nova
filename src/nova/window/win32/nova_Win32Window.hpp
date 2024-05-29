@@ -92,6 +92,10 @@ namespace nova
 
         std::string title;
 
+        bool swapchain_handles_move_size = false;
+        Vec2I                   position;
+        Vec2U                       size;
+
         struct Restore {
             Rect2I rect;
         } restore;

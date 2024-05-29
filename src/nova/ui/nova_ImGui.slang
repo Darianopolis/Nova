@@ -17,7 +17,7 @@ struct ImDrawVert
     RGBA32 color;
 };
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 struct VertexOutput
 {

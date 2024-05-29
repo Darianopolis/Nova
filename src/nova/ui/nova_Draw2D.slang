@@ -9,7 +9,7 @@ struct PushConstants
 
 #ifndef __cplusplus
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 static const float2 deltas[6] = {
     { -1, -1 }, { -1, 1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 }

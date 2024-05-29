@@ -66,7 +66,6 @@ namespace nova
         { VirtualKey::NumMultiply, VK_MULTIPLY, "NumMultiply" },
         { VirtualKey::NumSubtract, VK_SUBTRACT, "NumSubtract" },
         { VirtualKey::NumAdd,      VK_ADD,      "NumAdd"      },
-        { VirtualKey::NumEnter,    VK_RETURN,   "NumEnter"    },
 // -------------------------------------------------------------------------------------------------------------
         // TODO: Use scan codes to differentiate
         { VirtualKey::LeftShift,    VK_LSHIFT,   "LeftShift"    },

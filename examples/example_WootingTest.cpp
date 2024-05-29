@@ -38,7 +38,7 @@ NOVA_EXAMPLE(WootingTest, "wooting")
         .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);

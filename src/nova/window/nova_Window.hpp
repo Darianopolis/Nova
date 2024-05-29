@@ -122,7 +122,6 @@ namespace nova
         NumMultiply,
         NumSubtract,
         NumAdd,
-        NumEnter,
         NumEqual,
 
         Shift,
@@ -185,6 +184,8 @@ namespace nova
 
         WindowCloseRequested,
         WindowClosing,
+
+        Hotkey, // TODO: Registering and payload!
 
         Shutdown,
     };
@@ -284,6 +285,8 @@ namespace nova
 
         bool Minimized() const;
         Window Show(bool state) const;
+
+        void Focus() const;
 
         Vec2U Size(WindowPart) const;
         Window SetSize(Vec2U size, WindowPart) const;

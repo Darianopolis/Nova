@@ -26,7 +26,7 @@ NOVA_EXAMPLE(RayTracing, "rt")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::Storage
         | nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,

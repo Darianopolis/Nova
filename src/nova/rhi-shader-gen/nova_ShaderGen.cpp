@@ -184,6 +184,10 @@ namespace nova
                 if (ext == ".TTF") {
                     PackBinaryFile(path.string(), fs::relative(path, root).generic_string());
                 }
+
+                // if (ext == ".HDR" || ext == ".TGA" || ext == ".PNG" || ext == ".JPG" || ext == ".EXR" || ext == ".GIF") {
+                //     PackBinaryFile(path.string(), fs::relative(path, root).generic_string());
+                // }
             }
         }
     };

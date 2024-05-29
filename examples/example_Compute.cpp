@@ -58,7 +58,7 @@ NOVA_EXAMPLE(Compute, "compute")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::Storage
         | nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
@@ -81,8 +81,8 @@ NOVA_EXAMPLE(Compute, "compute")
         // Load image
 
         NOVA_TIMEIT_RESET();
-        nova::ImageDescription desc;
-        nova::ImageLoadData src;
+        nova::ImageDescription desc = {};
+        nova::ImageLoadData src = {};
         nova::Image_Load(&desc, &src, file);
         NOVA_DEFER(&) { src.Destroy(); };
         NOVA_TIMEIT("image-load");
@@ -106,6 +106,15 @@ NOVA_EXAMPLE(Compute, "compute")
 
         Vec3U extent = { desc.width, desc.height, 0u };
         window.SetSize({ desc.width, desc.height }, nova::WindowPart::Client);
+
+NOVA_DEBUG();
+        NOVA_DEBUGEXPR(desc.width);
+        NOVA_DEBUGEXPR(desc.height);
+        NOVA_DEBUGEXPR(desc.layers);
+        NOVA_DEBUGEXPR(desc.mips);
+        NOVA_DEBUGEXPR(src.data);
+        NOVA_DEBUGEXPR(src.offset);
+        NOVA_DEBUGEXPR(src.size);
 
         // Select target format
 
@@ -138,7 +147,9 @@ NOVA_EXAMPLE(Compute, "compute")
         NOVA_TIMEIT_RESET();
         nova::ImageAccessor target_accessor(target_desc);
         std::vector<b8> data(target_accessor.GetSize());
+NOVA_DEBUG();
         nova::Image_Copy(desc, src.data, target_accessor, data.data());
+NOVA_DEBUG();
         NOVA_TIMEIT("image-encode");
 
         // Upload to GPU

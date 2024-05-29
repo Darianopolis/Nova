@@ -149,6 +149,8 @@ namespace nova
             &impl->allocation,
             &info));
 
+        rhi::stats::AllocationCount++;
+        rhi::stats::NewAllocationCount++;
         rhi::stats::MemoryAllocated += info.size;
 
         // ---- Pick aspects -----
@@ -199,6 +201,7 @@ namespace nova
         if (impl->allocation) {
             VmaAllocationInfo info;
             vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
+            rhi::stats::AllocationCount--;
             rhi::stats::MemoryAllocated -= info.size;
             vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
         }
@@ -408,7 +411,7 @@ namespace nova
             }));
     }
 
-    void CommandList::CopyFromImage(HBuffer dst, HImage src, Rect2D region) const
+    void CommandList::CopyFromImage(HBuffer dst, HImage src, Rect2D region, u32 buffer_row_pitch) const
     {
         impl->Transition(src,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -421,6 +424,7 @@ namespace nova
             .regionCount = 1,
             .pRegions = nova::PtrTo(VkBufferImageCopy2 {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+                .bufferRowLength = buffer_row_pitch,
                 .imageSubresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
                 .imageOffset{ region.offset.x, region.offset.y, 0 },
                 .imageExtent{ region.extent.x, region.extent.y, 1 },

@@ -272,7 +272,7 @@ namespace nova::types
         }
 
         Vec2 Size()   const noexcept { return max - min; }
-        Vec2 Center() const noexcept { return 0.5f * (max + min); }
+        Vec2 Center() const noexcept { return min + 0.5f * (max - min); }
 
         float Width()  const noexcept { return max.x - min.x; }
         float Height() const noexcept { return max.y - min.y; }
@@ -338,6 +338,13 @@ namespace nova::types
 
         Mat4 GetMatrix() const noexcept
         {
+            // Unrolled and simplified version of
+            //
+            // auto t = glm::translate(Mat4(1.f), translation);
+            // auto r = glm::mat4_cast(rotation);
+            // auto s = glm::scale(Mat4(1.f), scale);
+            // return t * r * s;
+
             f32 rx = rotation.x, ry = rotation.y, rz = rotation.z, rw = rotation.w;
             f32 qxx = rx * rx, qyy = ry * ry, qzz = rz * rz;
             f32 qxz = rx * rz, qxy = rx * ry, qyz = ry * rz;
@@ -345,8 +352,8 @@ namespace nova::types
 
             return {
                 (1.f - 2.f * (qyy + qzz)) * scale.x,        2.f * (qxy + qwz)  * scale.x,        2.f * (qxz - qwy)  * scale.x, 0.f,
-                    2.f * (qxy - qwz)  * scale.y, (1.f - 2.f * (qxx + qzz)) * scale.y,        2.f * (qyz + qwx)  * scale.y, 0.f,
-                    2.f * (qxz + qwy)  * scale.z,        2.f * (qyz - qwx)  * scale.z, (1.f - 2.f * (qxx + qyy)) * scale.z, 0.f,
+                       2.f * (qxy - qwz)  * scale.y, (1.f - 2.f * (qxx + qzz)) * scale.y,        2.f * (qyz + qwx)  * scale.y, 0.f,
+                       2.f * (qxz + qwy)  * scale.z,        2.f * (qyz - qwx)  * scale.z, (1.f - 2.f * (qxx + qyy)) * scale.z, 0.f,
                 translation.x, translation.y, translation.z, 1.f
             };
         }
@@ -393,6 +400,7 @@ namespace nova::types
             };
         }
 
+        static
         Trs FromAffineTransform(Mat4 _matrix)
         {
             Trs trs = {};
@@ -782,6 +790,9 @@ namespace nova
     public:
         Span() = default;
 
+        Span(const Span& other) noexcept : span(other.span) {}
+        Span& operator=(const Span& other) noexcept { span = other.span; return *this; }
+
         Span(const std::initializer_list<T>& init)
             : span(init.begin(), init.end())
         {}
@@ -802,9 +813,6 @@ namespace nova
 
     public:
         const T& operator[](usz i) const noexcept { return span.begin()[i]; }
-
-        Span(const Span& other) noexcept : span(other.span) {}
-        Span& operator=(const Span& other) noexcept { span = other.span; return *this; }
 
         decltype(auto) begin() const noexcept { return span.data(); }
         decltype(auto) end()   const noexcept { return span.data() + span.size(); }
@@ -1212,13 +1220,13 @@ namespace nova
     inline
     void Log(StringView str)
     {
-        fmt::println("{}", str);
+        std::cout << str << '\n';
     }
 
     template<typename ...Args>
     void Log(const fmt::format_string<Args...> fmt, Args&&... args)
     {
-        fmt::println(fmt, std::forward<Args>(args)...);
+        std::cout << Fmt(fmt, std::forward<Args>(args)...) << '\n';
     }
 }
 

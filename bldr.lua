@@ -68,13 +68,11 @@ if Project "nova" then
 
     if win32 then
         Compile "src/nova/rhi/vulkan/win32/*"
+        Compile "src/nova/rhi/vulkan/gdi/*"
     end
 
-    if vkdxgi then
-        Compile "src/nova/rhi/vulkan/dxgi/*"
-    else
-        Compile "src/nova/rhi/vulkan/khr/*"
-    end
+    Compile "src/nova/rhi/vulkan/dxgi/*"
+    Compile "src/nova/rhi/vulkan/khr/*"
 
 end
 

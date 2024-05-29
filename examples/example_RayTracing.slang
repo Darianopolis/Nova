@@ -15,7 +15,7 @@ struct Payload
     bool           missed;
 };
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 static const float3 Camera    = float3(0, 1.5, -7);
 static const float3 Light     = float3(0,  200, 0);

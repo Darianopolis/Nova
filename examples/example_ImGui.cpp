@@ -16,7 +16,7 @@ NOVA_EXAMPLE(ImGuiTest, "imgui")
 
     auto app = nova::Application::Create();
     nova::Window window = nova::Window::Create(app).SetTitle("Nova - ImGui").SetSize({ 1920, 1080 }, nova::WindowPart::Client).Show(true);
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(), swapchain_usage, present_mode);
+    auto swapchain = nova::Swapchain::Create(context, window, swapchain_usage, present_mode);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);

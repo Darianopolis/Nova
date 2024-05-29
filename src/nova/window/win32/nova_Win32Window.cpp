@@ -302,6 +302,7 @@ namespace nova
                     .window = window,
                     .type = EventType::WindowClosing,
                 });
+                window->handle = {};
                 return 0;
             break;case WM_NCDESTROY:
                 window->app->RemoveWindow(window);
@@ -460,7 +461,6 @@ namespace nova
                 auto res = ::GetLastError();
                 NOVA_THROW("Error creating window: {:#x} ({})", u32(HRESULT_FROM_WIN32(res)), win::HResultToString(HRESULT_FROM_WIN32(res)));
             }
-
         }
 
         return { impl };
@@ -470,10 +470,8 @@ namespace nova
     {
         if (!impl) return;
 
-        // TODO
         ::DestroyWindow(impl->handle);
 
-        delete impl;
         impl = nullptr;
     }
 
@@ -489,9 +487,20 @@ namespace nova
 
     Window Window::Show(bool state) const
     {
-        ::ShowWindow(impl->handle, state ? SW_SHOW : SW_HIDE);
+        ::ShowWindow(impl->handle, state ? SW_SHOWNA : SW_HIDE);
+        if (state) {
+            // TODO: Only do if "focus on show"
+            Focus();
+        }
 
         return *this;
+    }
+
+    void Window::Focus() const
+    {
+        ::BringWindowToTop(impl->handle);
+        ::SetForegroundWindow(impl->handle);
+        ::SetFocus(impl->handle);
     }
 
     Vec2U Window::Size(WindowPart part) const
@@ -509,6 +518,9 @@ namespace nova
 
     Window Window::SetSize(Vec2U new_size, WindowPart part) const
     {
+        impl->size = new_size;
+        if (impl->swapchain_handles_move_size) return *this;
+
         if (part == WindowPart::Client) {
             RECT client;
             ::GetClientRect(impl->handle, &client);
@@ -542,6 +554,9 @@ namespace nova
 
     Window Window::SetPosition(Vec2I pos, WindowPart part) const
     {
+        impl->position = pos;
+        if (impl->swapchain_handles_move_size) return *this;
+
         if (part == WindowPart::Client) {
             RECT window_rect;
             ::GetWindowRect(impl->handle, &window_rect);
@@ -650,6 +665,7 @@ namespace nova
                 Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT, 0);
                 ::SetLayeredWindowAttributes(impl->handle, RGB(chroma_key.r, chroma_key.g, chroma_key.b), 0, LWA_COLORKEY);
             break;case TransparencyMode::PerPixel:
+                // TODO: This should communicate with swapchain
                 // Must clear layered bit in case last state was ChromaKey
                 Win32_UpdateStyles(impl->handle, 0, 0, 0, WS_EX_LAYERED | WS_EX_TRANSPARENT);
                 Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED, 0);

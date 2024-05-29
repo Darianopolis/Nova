@@ -31,7 +31,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::Storage | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };

@@ -25,7 +25,12 @@ namespace nova::draw
     }
 
     Draw2D::~Draw2D()
-    {}
+    {
+        rect_buffer.Destroy();
+        rect_frag_shader.Destroy();
+        rect_vert_shader.Destroy();
+        default_sampler.Destroy();
+    }
 
 // -----------------------------------------------------------------------------
 
@@ -135,7 +140,10 @@ namespace nova::draw
     void Draw2D::DrawString(StringView str, Vec2 pos, Font& font)
     {
         for (auto c : str) {
-            auto& g = font.glyphs[c];
+            u8 uc = u8(c);
+            // TODO: Unicode!
+            if (uc >= 128) uc = 0;
+            auto& g = font.glyphs[uc];
 
             if (g.image) {
                 DrawRect(Rectangle {

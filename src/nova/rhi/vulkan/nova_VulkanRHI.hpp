@@ -177,6 +177,29 @@ namespace nova
         void Destroy();
     };
 
+    struct SwapchainStrategy
+    {
+    protected:
+        ~SwapchainStrategy() = default;
+
+    public:
+        virtual void Destroy(Swapchain impl) = 0;
+
+        virtual Image Target(Swapchain impl) = 0;
+        virtual Vec2U Extent(Swapchain impl) = 0;
+        virtual Format Format(Swapchain impl) = 0;
+
+        virtual SyncPoint Acquire(Queue impl, Span<HSwapchain> swapchains, bool* any_resized) = 0;
+        virtual void Present(Queue impl, Span<HSwapchain> swapchains, Span<SyncPoint> waits, PresentFlag flags) = 0;
+        virtual void PreparePresent(CommandList cmd, HSwapchain swapchain) = 0;
+    };
+
+    template<>
+    struct Handle<Swapchain>::Impl
+    {
+        SwapchainStrategy* strategy;
+    };
+
     template<>
     struct Handle<Shader>::Impl
     {

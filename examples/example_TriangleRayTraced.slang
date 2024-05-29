@@ -14,7 +14,7 @@ struct Payload
     float3 color;
 };
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 [shader("raygeneration")]
 void RayGeneration()

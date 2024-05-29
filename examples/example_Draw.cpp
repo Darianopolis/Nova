@@ -2,16 +2,14 @@
 
 #include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
-#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 #include <nova/ui/nova_Draw2D.hpp>
 #include <nova/window/nova_Window.hpp>
 #include <nova/vfs/nova_VirtualFilesystem.hpp>
 #include <nova/asset/nova_Image.hpp>
 
-#include <nova/core/win32/nova_Win32.hpp>
 #pragma warning(push)
 #pragma warning(disable: 4263)
-#include "dcomp.h"
+#include <dcomp.h>
 #pragma warning(pop)
 
 NOVA_EXAMPLE(Draw, "draw")
@@ -30,11 +28,12 @@ NOVA_EXAMPLE(Draw, "draw")
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
-    // auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
-    //     nova::ImageUsage::TransferDst
-    //     | nova::ImageUsage::ColorAttach,
-    //     nova::PresentMode::Fifo);
-    // NOVA_DEFER(&) { swapchain.Destroy(); };
+    auto swapchain = nova::Swapchain::Create(context, window,
+        nova::ImageUsage::TransferDst
+        | nova::ImageUsage::ColorAttach,
+        nova::PresentMode::Layered,
+        nova::SwapchainFlags::PreMultipliedAlpha);
+    NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
@@ -66,33 +65,7 @@ NOVA_EXAMPLE(Draw, "draw")
         image.Set({}, {desc.width, desc.height, 1}, data.data());
         image.Transition(nova::ImageLayout::Sampled);
     }
-
-// -----------------------------------------------------------------------------
-
-    nova::Image target;
-    nova::Buffer buffer;
-    HDC hdc_screen = GetDC(nullptr);
-    BITMAPINFO bmi = {};
-    HANDLE file = {};
-    bool file_map_bitmap = false;
-    HBITMAP bitmap = {};
-    void* bits = {};
-    NOVA_DEFER(&) {
-        target.Destroy();
-        buffer.Destroy();
-        if (bitmap) {
-            DeleteObject(bitmap);
-        }
-        if (file) {
-            CloseHandle(file);
-        }
-        // if (buffer) {
-        //     context->vkDestroyBuffer(context->device, buffer->buffer, context->alloc);
-        // }
-        // if (memory) {
-        //     context->vkFreeMemory(context->device, memory, context->alloc);
-        // }
-    };
+    NOVA_DEFER(&) { image.Destroy(); };
 
 // -----------------------------------------------------------------------------
 
@@ -153,6 +126,10 @@ NOVA_EXAMPLE(Draw, "draw")
 
     NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
+        if (app.IsVirtualKeyDown(nova::VirtualKey::Escape)) {
+            window.Destroy();
+            continue;
+        }
 
         auto new_time = std::chrono::steady_clock::now();
 
@@ -182,13 +159,15 @@ NOVA_EXAMPLE(Draw, "draw")
 
 // -----------------------------------------------------------------------------
 
+        bool any_moved = false;
+
         if (!skip_update) {
             auto MoveBox = [&](nova::draw::Rectangle& box, nova::VirtualKey left, nova::VirtualKey right, nova::VirtualKey up, nova::VirtualKey down) {
                 float speed = 1000.f * delta_time;
-                if (app.IsVirtualKeyDown(left))  { box.center_pos.x -= speed; redraw = true; }
-                if (app.IsVirtualKeyDown(right)) { box.center_pos.x += speed; redraw = true; }
-                if (app.IsVirtualKeyDown(up))    { box.center_pos.y -= speed; redraw = true; }
-                if (app.IsVirtualKeyDown(down))  { box.center_pos.y += speed; redraw = true; }
+                if (app.IsVirtualKeyDown(left))  { box.center_pos.x -= speed; redraw = true; any_moved = true; }
+                if (app.IsVirtualKeyDown(right)) { box.center_pos.x += speed; redraw = true; any_moved = true; }
+                if (app.IsVirtualKeyDown(up))    { box.center_pos.y -= speed; redraw = true; any_moved = true; }
+                if (app.IsVirtualKeyDown(down))  { box.center_pos.y += speed; redraw = true; any_moved = true; }
             };
 
             MoveBox(box1, nova::VirtualKey::A, nova::VirtualKey::D, nova::VirtualKey::W, nova::VirtualKey::S);
@@ -216,8 +195,8 @@ NOVA_EXAMPLE(Draw, "draw")
         im_draw.DrawRect(box3);
 
         im_draw.DrawString(
-            "C:/Program Files (x86)/Steam/steamapps/common/BeamNG.drive/BeamNG.drive.exe",
-            Vec2(size.x * 0.25f, size.y * 0.4f),
+            "Hello Nova Draw 2D API Example",
+            Vec2(size.x * 0.25f, size.y * 0.45f),
             *font);
 
 // -----------------------------------------------------------------------------
@@ -230,130 +209,27 @@ NOVA_EXAMPLE(Draw, "draw")
 
         // Update window size, record primary buffer and present
 
-        // TODO: Investigate integratino of this and/or a manual swapchain implementation?
-        // DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
+        // Window borders need to lie on pixel boundaries
+        im_draw.bounds.Expand({
+            .min = glm::floor(im_draw.bounds.min),
+            .max = glm::ceil(im_draw.bounds.max),
+        });
 
-        u32 w = u32(im_draw.Bounds().Width());
-        u32 h = u32(im_draw.Bounds().Height());
-
-        if (!target || target.Extent() != Vec3U(w, h, 1)) {
-            nova::Log("Recreating target image, size = ({}, {})", w, h);
-            target.Destroy();
-            target = nova::Image::Create(context, {w, h, 0},
-                nova::ImageUsage::Storage,
-                nova::Format::BGRA8_UNorm,
-                nova::ImageFlags::None);
-
-            auto alignment = context.Properties().min_imported_host_pointer_alignment;
-            usz buffer_size = w * h * 4;
-
-            for(;;) {
-                u32 file_offset = 0;
-
-                if (file_map_bitmap) {
-                    usz mapped_file_size = nova::AlignUpPower2(buffer_size, alignment) + alignment;
-
-                    if (file) {
-                        CloseHandle(file);
-                    }
-
-                    file = CreateFileMapping2(nullptr,  // File
-                        nullptr,                        // Security Attributes
-                        FILE_MAP_READ | FILE_MAP_WRITE, // Desired Access
-                        PAGE_READWRITE,                 // Page Protection
-                        SEC_COMMIT,                     // Allocation Flags
-                        mapped_file_size,               // Size
-                        nullptr,                        // Name
-                        nullptr, 0);                    // Extended params
-
-                    if (!file) {
-                        auto err = GetLastError();
-                        nova::Log("Error creating file mapping: ({}) {}", err, nova::win::HResultToString(HRESULT_FROM_WIN32(err)));
-                    }
-
-                    auto address = MapViewOfFile(file, FILE_MAP_ALL_ACCESS, 0, 0, mapped_file_size);
-                    if (!address) {
-                        nova::Log("Error mapping file: {}", nova::win::LastErrorString());
-                    }
-
-                    file_offset = u32(nova::AlignUpPower2(uintptr_t(address), alignment) - uintptr_t(address));
-                    nova::Log("file_offset = {}", file_offset);
-
-                    UnmapViewOfFile(address);
-                }
-
-                if (bitmap) {
-                    DeleteObject(bitmap);
-                }
-
-                bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-                bmi.bmiHeader.biWidth = int(w);
-                bmi.bmiHeader.biHeight = -int(h);
-                bmi.bmiHeader.biPlanes = 1;
-                bmi.bmiHeader.biBitCount = 32;
-                bmi.bmiHeader.biCompression = BI_RGB;
-                bitmap = CreateDIBSection(hdc_screen, &bmi, DIB_RGB_COLORS, &bits, file, file_offset);
-
-                if (!bitmap) {
-                    nova::Log("Error creating DIB section: {}", nova::win::LastErrorString());
-                }
-
-                if (nova::IsAlignedTo(bits, alignment)) {
-                    // memory is aligned, ready for import
-                    break;
-                } else {
-                    NOVA_ASSERT(!file_map_bitmap, "Alignment should not fail when file-mapping");
-                    nova::Log("CreateDIBSection did not meet Vulkan memory import alignment restrictions, falling back to memory mapped file backing");
-                    file_map_bitmap = true;
-                    continue;
-                }
-            }
-
-            // Import BITMAP memory into a buffer
-
-            buffer.Destroy();
-            buffer = nova::Buffer::Create(context, buffer_size, {}, nova::BufferFlags::ImportHost, bits);
-        }
-
-        // window.SetSize({ w, h }, nova::WindowPart::Client);
-        // queue.Acquire({swapchain});
-        // auto target = swapchain.Target();
+        window.SetSize(Vec2U(im_draw.Bounds().Size()), nova::WindowPart::Client);
+        queue.Acquire({swapchain});
+        auto target = swapchain.Target();
 
         Vec3 color = { 0.3f, 0.2f, 0.5f };
-        f32 alpha = 0.4f;
+        f32 alpha = 0.f;
         cmd.ClearColor(target, Vec4(color * alpha, alpha));
 
         im_draw.Record(cmd, target);
 
-        // cmd.Present(swapchain);
-
-        cmd.Barrier(nova::PipelineStage::Graphics, nova::PipelineStage::Transfer);
-        cmd.CopyFromImage(buffer, target, {{}, {w, h}});
+        cmd.Present(swapchain);
 
         queue.Submit({cmd}, {}).Wait();
 
-        // window.SetPosition({ im_draw.Bounds().min.x, im_draw.Bounds().min.y }, nova::WindowPart::Client);
-        // queue.Present({swapchain}, {});
-
-        {
-            HDC hdc = CreateCompatibleDC(hdc_screen);
-            NOVA_DEFER(&) { DeleteObject(hdc); };
-
-            auto old_object = SelectObject(hdc, bitmap);
-            NOVA_DEFER(&) { SelectObject(hdc, old_object); };
-
-            if (!UpdateLayeredWindow(
-                    HWND(window.NativeHandle()),
-                    hdc_screen,
-                    nova::PtrTo(POINT{LONG(im_draw.Bounds().min.x), LONG(im_draw.Bounds().min.y)}),
-                    nova::PtrTo(SIZE{int(w), int(h)}),
-                    hdc,
-                    nova::PtrTo(POINT{0, 0}),
-                    0,
-                    nova::PtrTo(BLENDFUNCTION{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA}),
-                    ULW_ALPHA)) {
-                nova::Log(nova::win::LastErrorString());
-            }
-        }
+        window.SetPosition({ im_draw.Bounds().min.x, im_draw.Bounds().min.y }, nova::WindowPart::Client);
+        queue.Present({swapchain}, {});
     }
 }

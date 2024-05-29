@@ -25,10 +25,16 @@ namespace nova
 
         Buffer buffer{ impl };
         if (flags >= BufferFlags::ImportHost) {
-            nova::Log("Importing memory");
+            // Log("Importing memory");
 
-            nova::vkh::Check(context->vkCreateBuffer(context->device, nova::PtrTo(VkBufferCreateInfo {
+            constexpr auto MemoryHandleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT;
+
+            vkh::Check(context->vkCreateBuffer(context->device, PtrTo(VkBufferCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                    .pNext = PtrTo(VkExternalMemoryBufferCreateInfo {
+                        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+                        .handleTypes = MemoryHandleType,
+                    }),
                     .size = size,
                     .usage = GetBufferUsageFlags(usage, flags),
                     .sharingMode = VK_SHARING_MODE_CONCURRENT,
@@ -39,12 +45,11 @@ namespace nova
             VkMemoryRequirements mem_reqs = {};
             context->vkGetBufferMemoryRequirements(context->device, buffer->buffer, &mem_reqs);
 
-            nova::Log("  Min alignment = {}", context->properties.min_imported_host_pointer_alignment);
+            // Log("  Min alignment = {}", context->properties.min_imported_host_pointer_alignment);
 
             VkMemoryHostPointerPropertiesEXT props = {};
             props.sType = VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT;
-            context->vkGetMemoryHostPointerPropertiesEXT(context->device,
-                VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, to_import, &props);
+            context->vkGetMemoryHostPointerPropertiesEXT(context->device, MemoryHandleType, to_import, &props);
 
             auto memory_type_bits = mem_reqs.memoryTypeBits & props.memoryTypeBits;
 
@@ -52,7 +57,7 @@ namespace nova
             for (u32 i = 0; i < context->memory_properties.memoryTypeCount; ++i) {
                 u32 flag_bit = 1 << i;
                 if (memory_type_bits & flag_bit) {
-                    nova::Log("  - can import as type {}", i);
+                    // Log("  - can import as type {}", i);
                     memory_type = i;
                 }
             }
@@ -60,16 +65,16 @@ namespace nova
             auto size_rounded = AlignUpPower2(mem_reqs.size, context->properties.min_imported_host_pointer_alignment);
             vkh::Check(context->vkAllocateMemory(context->device, PtrTo(VkMemoryAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                    .pNext = nova::PtrTo(VkImportMemoryHostPointerInfoEXT {
+                    .pNext = PtrTo(VkImportMemoryHostPointerInfoEXT {
                         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT,
-                        .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT,
+                        .handleType = MemoryHandleType,
                         .pHostPointer = to_import,
                     }),
                     .allocationSize = size_rounded,
                     .memoryTypeIndex = memory_type.value(),
                 }), context->alloc, &impl->imported));
 
-            nova::vkh::Check(context->vkBindBufferMemory(context->device, buffer->buffer, impl->imported, 0));
+            vkh::Check(context->vkBindBufferMemory(context->device, buffer->buffer, impl->imported, 0));
 
             if (impl->flags >= BufferFlags::Addressable) {
                 impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
@@ -79,7 +84,7 @@ namespace nova
             }
 
             if (impl->flags >= BufferFlags::Mapped) {
-                nova::vkh::Check(context->vkMapMemory(context->device, impl->imported, 0, size, 0, &impl->host_address));
+                vkh::Check(context->vkMapMemory(context->device, impl->imported, 0, size, 0, &impl->host_address));
             }
         } else {
             buffer.Resize(size);
@@ -94,6 +99,7 @@ namespace nova
             return;
         }
 
+        rhi::stats::AllocationCount--;
         rhi::stats::MemoryAllocated -= buffer->size;
 
         vmaDestroyBuffer(ctx->vma, buffer->buffer, buffer->allocation);
@@ -127,6 +133,8 @@ namespace nova
 
         ResetBuffer(impl->context, *this);
         impl->size = _size;
+        rhi::stats::AllocationCount++;
+        rhi::stats::NewAllocationCount++;
         rhi::stats::MemoryAllocated += impl->size;
 
         VmaAllocationCreateFlags vmaFlags = {};

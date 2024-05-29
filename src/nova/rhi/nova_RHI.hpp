@@ -36,6 +36,10 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
+    struct Window;
+
+// -----------------------------------------------------------------------------
+
     enum class Features
     {
         MeshShader,
@@ -193,6 +197,10 @@ namespace nova
         Mailbox,
         Fifo,
         FifoRelaxed,
+
+        // TODO: This should be detect at Acquire time from window properties
+        //       with dynamically switching swapchain implementations
+        Layered,
     };
 
     enum class BindPoint : u32
@@ -324,7 +332,7 @@ namespace nova
 
         HostWaitOnFences = 1 << 0,
     };
-    NOVA_DECORATE_FLAG_ENUM(PresentFlag);
+    NOVA_DECORATE_FLAG_ENUM(PresentFlag)
 
     enum class ShaderLang
     {
@@ -332,20 +340,37 @@ namespace nova
         Slang,
     };
 
+    enum class SwapchainFlags : u32
+    {
+        None,
+
+        // TODO: Need better handling for all forms of transparency
+        PreMultipliedAlpha,
+    };
+    NOVA_DECORATE_FLAG_ENUM(SwapchainFlags)
+
 // -----------------------------------------------------------------------------
 
     struct ImageDescriptor
     {
         u32 value;
 
+        ImageDescriptor()
+            : value(0xFFFFF)
+        {}
+
         ImageDescriptor(u32 value)
-            : value(value & 0xFFFF)
+            : value(value & 0xFFFFF)
         {}
     };
 
     struct SamplerDescriptor
     {
         u32 value;
+
+        SamplerDescriptor()
+            : value(0xFFF)
+        {}
 
         SamplerDescriptor(u32 value)
             : value(value & 0xFFF)
@@ -355,6 +380,10 @@ namespace nova
     struct ImageSamplerDescriptor
     {
         u32 value;
+
+        ImageSamplerDescriptor()
+            : value(0xFFF'FFFFF)
+        {}
 
         ImageSamplerDescriptor(ImageDescriptor image, SamplerDescriptor sampler)
             : value((image.value & 0xFFFFF) | (sampler.value << 20))
@@ -523,7 +552,7 @@ namespace nova
         void ClearColor(HImage, std::variant<Vec4, Vec4U, Vec4I> value) const;
         void CopyToImage(HImage dst, HBuffer src, u64 src_offset = 0) const;
         void CopyToImage(HImage dst, HImage src) const;
-        void CopyFromImage(HBuffer dst, HImage src, Rect2D region) const;
+        void CopyFromImage(HBuffer dst, HImage src, Rect2D region, u32 buffer_row_pitch = 0) const;
         void GenerateMips(HImage) const;
         void BlitImage(HImage dst, HImage src, Filter) const;
 
@@ -537,7 +566,7 @@ namespace nova
 
     struct Swapchain : Handle<Swapchain>
     {
-        static Swapchain Create(HContext, void* window, ImageUsage, PresentMode);
+        static Swapchain Create(HContext, Window window, ImageUsage, PresentMode, SwapchainFlags = {});
         void Destroy();
 
         Image Target() const;

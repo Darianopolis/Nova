@@ -4,6 +4,8 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_ImGui.hpp>
 
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
+
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
     auto app = nova::Application::Create();
@@ -33,7 +35,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
             .SetTitle(std::format("Nova - Multi Present {}", i))
             .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
             .Show(true));
-        swapchains.emplace_back(nova::Swapchain::Create(context, window.NativeHandle(), swapchain_usage, present_mode));
+        swapchains.emplace_back(nova::Swapchain::Create(context, window, swapchain_usage, present_mode));
     }
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);

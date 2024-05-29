@@ -16,7 +16,7 @@ NOVA_EXAMPLE(InputTest, "input-test")
     auto context = nova::Context::Create({
         .debug = true,
     });
-    auto swapchain = nova::Swapchain::Create(context, window.NativeHandle(),
+    auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);

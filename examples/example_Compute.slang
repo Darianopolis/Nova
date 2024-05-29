@@ -8,7 +8,7 @@ struct PushConstants {
 
 #ifndef __cplusplus
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 [shader("compute")]
 [numthreads(16, 16, 1)]

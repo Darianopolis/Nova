@@ -14,7 +14,7 @@ struct PushConstants
 
 #ifndef __cplusplus
 
-[[vk::push_constant]] ConstantBuffer<PushConstants> pc;
+[vk::push_constant] PushConstants pc;
 
 struct VertexOutput
 {

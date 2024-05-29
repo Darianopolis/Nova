@@ -6,9 +6,9 @@
 
 #else
 
-[[vk::binding(0, 0)]] Texture2D             Image2D_Heap[];
-[[vk::binding(1, 0)]] RWTexture2D<float4> RWImage2D_Heap[];
-[[vk::binding(2, 0)]] SamplerState          Sampler_Heap[];
+[vk::binding(0, 0)] Texture2D             Image2D_Heap[];
+[vk::binding(1, 0)] RWTexture2D<float4> RWImage2D_Heap[];
+[vk::binding(2, 0)] SamplerState          Sampler_Heap[];
 
 struct Image
 {

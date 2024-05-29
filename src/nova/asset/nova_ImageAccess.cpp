@@ -30,8 +30,8 @@ namespace nova
             const auto& mip_accessor = accessor.accessors[pos.mip];
             const b8* block_ptr = static_cast<const b8*>(data) + ComputeBlockOffset(accessor, pos);
 
-            u32 max_x = std::min(4u, (pos.block_x * 4) - mip_accessor.width ) - 1;
-            u32 max_y = std::min(4u, (pos.block_y * 4) - mip_accessor.height) - 1;
+            u32 max_x = std::min(4u, mip_accessor.width  - (pos.block_x * 4)) - 1;
+            u32 max_y = std::min(4u, mip_accessor.height - (pos.block_y * 4)) - 1;
             for (u32 y = 0; y < 4; ++y) {
                 for (u32 x = 0; x < 4; ++x) {
                     const b8* pixel_ptr = block_ptr
@@ -56,8 +56,8 @@ namespace nova
 
             const auto& mip_accessor = accessor.accessors[pos.mip];
             b8* block_ptr = static_cast<b8*>(data) + ComputeBlockOffset(accessor, pos);
-            u32 max_x = std::min(4u, (pos.block_x * 4) - mip_accessor.width ) - 1;
-            u32 max_y = std::min(4u, (pos.block_y * 4) - mip_accessor.height) - 1;
+            u32 max_x = std::min(4u, mip_accessor.width  - (pos.block_x * 4)) - 1;
+            u32 max_y = std::min(4u, mip_accessor.height - (pos.block_y * 4)) - 1;
             for (u32 y = 0; y <= max_y; ++y) {
                 for (u32 x = 0; x <= max_x; ++x) {
                     b8* pixel_ptr = block_ptr + (mip_accessor.row_pitch * y) + (PixelPitch * x);
