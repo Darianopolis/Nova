@@ -518,7 +518,13 @@ namespace nova
         void SetDepthState(bool test_enable, bool write_enable, CompareOp) const;
         void SetBlendState(Span<bool> blends) const; // TODO: Actually customizable blend options!
         void BindShaders(Span<HShader>) const;
-        void PushConstants(RawByteView data, u64 offset = 0) const;
+        void PushConstants(const void* data, u64 size, u64 offset) const;
+
+        template<typename T>
+        void PushConstants(const T& t, u64 offset = 0) const
+        {
+            PushConstants(&t, sizeof(t), offset);
+        }
 
         void Barrier(PipelineStage src, PipelineStage dst) const;
 

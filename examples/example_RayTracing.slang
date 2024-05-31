@@ -1,12 +1,18 @@
 #include <nova/rhi/slang/nova_Slang.slang>
 
+#ifdef __cplusplus
+namespace {
+#endif
+
 struct PushConstants
 {
     AccelerationStructureHandle tlas;
     ImageDescriptor           target;
 };
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+}
+#else
 
 struct Payload
 {

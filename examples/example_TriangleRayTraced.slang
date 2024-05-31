@@ -1,5 +1,9 @@
 #include <nova/rhi/slang/nova_Slang.slang>
 
+#ifdef __cplusplus
+namespace {
+#endif
+
 struct PushConstants
 {
     AccelerationStructureHandle tlas;
@@ -7,7 +11,9 @@ struct PushConstants
     uint2                       size;
 };
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+}
+#else
 
 struct Payload
 {

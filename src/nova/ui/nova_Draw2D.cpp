@@ -17,7 +17,7 @@ namespace nova::draw
             16.f);
 
         rect_vert_shader   = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
-        rect_frag_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
+        rect_frag_shader = Shader::Create(context,   ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
 
         rect_buffer = Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,
@@ -197,9 +197,9 @@ namespace nova::draw
 
         for (auto& command : draw_commands) {
             switch (command.type) {
-            break;case DrawType::RoundRect:
-                cmd.BindShaders({rect_vert_shader, rect_frag_shader});
-                cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
+                break;case DrawType::RoundRect:
+                    cmd.BindShaders({rect_vert_shader, rect_frag_shader});
+                    cmd.Draw(6 * command.count, 1, 6 * command.first, 0);
             }
         }
 

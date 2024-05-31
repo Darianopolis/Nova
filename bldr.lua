@@ -1,10 +1,4 @@
 if Project "nova" then
-
-    local win32 = true
-    local vkdxgi = false
-
---------------------------------------------------------------------------------
-
     Include "src"
 
     Import {
@@ -35,10 +29,8 @@ if Project "nova" then
         "wooting-sdk",
 
         -- RHI
-        "slang",
         "vulkan",
         "VulkanMemoryAllocator",
-        "glslang",
     }
 
     Compile {
@@ -47,43 +39,54 @@ if Project "nova" then
         "src/nova/ui/*",
         "src/nova/asset/*",
         "src/nova/vfs/*",
-        "src/nova/rhi/slang/**",
     }
 
---------------------------------------------------------------------------------
+    Compile {
+        "src/nova/rhi/vulkan/*",
+        "src/nova/rhi/vulkan/dxgi/*",
+        "src/nova/rhi/vulkan/khr/*",
+    }
 
-    if win32 then
+    if Platform "Win32" then
         Define "NOVA_PLATFORM_WINDOWS"
         Compile {
             "src/nova/core/win32/**",
             "src/nova/window/win32/**",
+            "src/nova/rhi/vulkan/win32/*",
+            "src/nova/rhi/vulkan/gdi/*",
         }
     end
+end
 
 --------------------------------------------------------------------------------
+--                         Shader compiler modules
+--------------------------------------------------------------------------------
 
+if Project "nova-slang" then
     Compile {
-        "src/nova/rhi/vulkan/*",
+        "src/nova/rhi/slang/**",
+        "src/nova/rhi/vulkan/slang/**",
     }
-
-    if win32 then
-        Compile "src/nova/rhi/vulkan/win32/*"
-        Compile "src/nova/rhi/vulkan/gdi/*"
-    end
-
-    Compile "src/nova/rhi/vulkan/dxgi/*"
-    Compile "src/nova/rhi/vulkan/khr/*"
-
+    Import { "nova", "slang" }
 end
+
+if Project "nova-glsl" then
+    Compile "src/nova/rhi/glsl/**"
+    Import { "nova", "glslang" }
+end
+
+--------------------------------------------------------------------------------
+--                       Resource packing / embedding
+--------------------------------------------------------------------------------
 
 if Project "nova-pack" then
-    Compile "src/nova/rhi-shader-gen/**"
-    Import "nova"
-    Artifact { "out/pack", type = "Console" }
+    Compile "src/nova/vfs/npk/**"
+    Import { "nova", "nova-slang" }
+    Artifact { "out-packer/pack", type = "Console" }
 end
 
-if Project "nova-pack-output" then
-    Compile ".vfs-pack-output/*"
+if Project "nova-embeds" then
+    Compile ".npk-embed/*"
     Import "nova"
 end
 
@@ -93,6 +96,6 @@ end
 
 if Project "nova-examples" then
     Compile "examples/**"
-    Import { "nova", "nova-pack-output" }
+    Import { "nova", "nova-embeds" }
     Artifact { "out/example", type = "Console" }
 end

@@ -419,8 +419,8 @@ namespace nova
     bool Platform_GpuSupportsPresent(Context, VkPhysicalDevice handle);
     void Platform_AddPlatformExtensions(std::vector<const char*>& extensions);
 
-    std::vector<u32> Vulkan_CompileGlslToSpirv(ShaderStage stage,  StringView entry, StringView filename, Span<StringView> fragments);
-    std::vector<u32> Vulkan_CompileSlangToSpirv(ShaderStage stage, StringView entry, StringView filename, Span<StringView> fragments);
+    using Vulkan_ShaderCompilerFuncPtr = std::vector<u32>(*)(ShaderStage /* stage */, StringView /* entry */, StringView /* filename */, Span<StringView> /* fragments */);
+    std::monostate Vulkan_RegisterCompiler(ShaderLang lang, Vulkan_ShaderCompilerFuncPtr fptr);
 
     void* Vulkan_TrackedAllocate(  void* userdata,                 size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
     void* Vulkan_TrackedReallocate(void* userdata, void* original, size_t size, size_t alignment,         VkSystemAllocationScope allocation_scope);
@@ -432,11 +432,16 @@ namespace nova
 //                                 Context
 // -----------------------------------------------------------------------------
 
+    void VulkanFunctions_Init(Handle<Context>::Impl* vk_functions, PFN_vkGetInstanceProcAddr loader);
+    void VulkanFunctions_LoadInstance(Handle<Context>::Impl* vk_functions, VkInstance instance);
+    void VulkanFunctions_LoadDevice(Handle<Context>::Impl* vk_functions, VkDevice device);
+
     template<>
     struct Handle<Context>::Impl
     {
-#define NOVA_VULKAN_FUNCTION(name) PFN_##name name = (PFN_##name)+[]{ NOVA_THROW("Function " #name " not loaded"); };
+#define NOVA_VULKAN_FUNCTION(vk_function) PFN_##vk_function vk_function;
 #include "nova_VulkanFunctions.inl"
+#undef NOVA_VULKAN_FUNCTION
 
         ContextConfig config = {};
 

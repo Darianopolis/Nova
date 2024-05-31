@@ -1,4 +1,4 @@
-#pragma once
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
 
 #include <nova/core/nova_Core.hpp>
 #include <nova/core/nova_Files.hpp>
@@ -8,12 +8,12 @@
 
 namespace nova
 {
-    struct PackFile
+    struct EmbedFile
     {
         std::stringstream output;
         u32         resource_idx = 0;
 
-        void AppendResource(StringView virtual_path, void* data, size_t size_in_bytes)
+        void AppendResource(StringView virtual_path, const void* data, size_t size_in_bytes)
         {
             auto u64_count = (size_in_bytes + 7) / 8;
 
@@ -45,23 +45,55 @@ namespace nova
 
     struct Packer
     {
-        SlangCompiler compiler;
-
+        SlangCompiler              compiler;
         std::vector<StringView> search_dirs;
 
-        static constexpr std::string_view              PackFolder = ".vfs-pack-output";
+        std::string pack_output;
+
+        static constexpr std::string_view              PackFolder = ".npk-embed";
         ankerl::unordered_dense::set<std::string> generated_files;
 
-        usz total_packed_size = 0;
+        bool embed = true;
 
-        std::string seq_end;
-
-        void Init()
+        void Init(StringView output)
         {
+            pack_output = Fmt("{}{}", output, vfs::PackFileExt);
+            fs::create_directories(fs::path(pack_output).parent_path());
             fs::create_directories(PackFolder);
         }
 
-        void RemoveStalePackFiles()
+        void Finalize()
+        {
+            if (embed) {
+                fs::remove(pack_output);
+            } else {
+                SavePackFile();
+            }
+            RemoveStaleEmbeds();
+        }
+
+        struct Entry
+        {
+            std::string virtual_path;
+            size_t            offset;
+            size_t              size;
+        };
+
+        std::vector<Entry>  entries;
+        std::vector<std::byte> data;
+
+        void PadFileToPage(File& file)
+        {
+            constexpr static uint8_t zeroes[4096] = {};
+
+            auto offset = file.GetOffset();
+            auto aligned = AlignUpPower2(offset, 4096);
+            if (aligned > offset) {
+                file.Write(zeroes, aligned - offset);
+            }
+        }
+
+        void RemoveStaleEmbeds()
         {
             for (auto& path : fs::directory_iterator(PackFolder)) {
                 auto filename = path.path().filename().string();
@@ -70,16 +102,58 @@ namespace nova
                     fs::remove(path.path());
                 }
             }
-
-            nova::Log("Total packed assets = {}", nova::ByteSizeToString(total_packed_size));
         }
 
-        usz SavePackFile(const PackFile& pack_file)
+        void SavePackFile()
+        {
+            File file(pack_output.c_str(), true);
+
+            // Magic
+            file.Write(vfs::PackFileMagic);
+
+            // Version
+            file.Write(0ull);
+
+            // Header size placeholder (TODO calculate this up front)
+            auto header_size_offset = file.GetOffset();
+            file.Write(0ull);
+
+            NOVA_DEBUGEXPR(header_size_offset);
+
+            file.Write(entries.size());
+
+            nova::Log("entry count = {}", entries.size());
+
+            for (auto& entry : entries) {
+                file.Write(entry.virtual_path.size());
+                file.Write(entry.virtual_path.data(), entry.virtual_path.size());
+                file.Write(entry.offset);
+                file.Write(entry.size);
+            }
+
+            PadFileToPage(file);
+
+            // Go back and poke file header size in
+            // TODO: Need a more convenient way of doing this
+            auto data_offset = file.GetOffset();
+            file.Seek(header_size_offset);
+            file.Write(data_offset - header_size_offset);
+            file.Seek(data_offset);
+
+            nova::Log("header size = {}", data_offset - header_size_offset);
+            nova::Log("data offset = {}", data_offset);
+
+            file.Write(data.data(), data.size());
+
+            PadFileToPage(file);
+        }
+
+        usz SaveEmbedFile(const EmbedFile& pack_file)
         {
             auto new_contents = pack_file.output.str();
 
             auto hash = nova::hash::Hash(new_contents.data(), new_contents.size());
-            auto output_file_name = Fmt("nova_VfsOutput_s{}_h{}.cpp", new_contents.size(), hash);
+            auto output_file_name = Fmt("npk_Embed_s{}_h{}.cpp", new_contents.size(), hash);
 
             generated_files.emplace(output_file_name);
 
@@ -101,44 +175,55 @@ namespace nova
             return new_contents.size();
         }
 
+        void PushEntry(std::string virtual_path, const void* entry_data, size_t size)
+        {
+            if (embed) {
+                EmbedFile embed_file;
+                embed_file.AppendResource(virtual_path, entry_data, size);
+                if (SaveEmbedFile(embed_file)) {
+                    nova::Log("Packing resource [{}], size = {}", virtual_path, nova::ByteSizeToString(size));
+                }
+            } else {
+                auto offset = data.size();
+                auto aligned_offset = AlignUpPower2(offset, 256);
+
+                // nova::Log("Entry(path = {}, offset = {}, size = {})", virtual_path, aligned_offset, nova::ByteSizeToString(size));
+
+                entries.emplace_back(Entry {
+                    .virtual_path = virtual_path,
+                    .offset = aligned_offset,
+                    .size = size,
+                });
+
+                data.resize(aligned_offset + size);
+                std::memcpy(data.data() + aligned_offset, entry_data, size);
+            }
+        }
+
 // -----------------------------------------------------------------------------
 
         void PackBinaryFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadBinaryFile(path);
 
-            PackFile pack_file;
-            pack_file.AppendResource(virtual_path, contents.data(), contents.size());
-            if (SavePackFile(pack_file)) {
-                nova::Log("Packing binary file [{}], size = {}", virtual_path, nova::ByteSizeToString(contents.size()));
-            }
-
-            total_packed_size += contents.size();
+            PushEntry(std::string(virtual_path), contents.data(), contents.size());
         }
 
         void PackTextFile(StringView path, StringView virtual_path)
         {
             auto contents = files::ReadTextFile(path);
 
-            PackFile pack_file;
-            pack_file.AppendResource(virtual_path, contents.data(), contents.size() + 1 /* null terminator */);
-            if (SavePackFile(pack_file)) {
-                nova::Log("Packing text file [{}], size = {}", virtual_path, nova::ByteSizeToString(contents.size()));
-            }
-
-            total_packed_size += contents.size() + 1;
+            PushEntry(std::string(virtual_path), contents.data(), contents.size() + 1 /* null terminator */);
         }
 
         void PackSlangFile(StringView path, StringView virtual_path)
         {
-            PackFile pack_file;
-
             auto contents = files::ReadTextFile(path);
 
             usz data_size = 0;
 
             auto text_size = contents.size() + 1; // Null terminator
-            pack_file.AppendResource(virtual_path, contents.data(), text_size);
+            PushEntry(std::string(virtual_path), contents.data(), text_size);
             data_size += text_size;
 
             auto session = compiler.CreateSession(/* use_vfs = */ false, search_dirs);
@@ -148,15 +233,9 @@ namespace nova
             for (auto& entry_point : module.GetEntryPointNames()) {
                 auto code = module.GenerateCode(entry_point);
                 auto code_size = code.size() * sizeof(u32);
-                pack_file.AppendResource(Fmt("{}:{}", virtual_path, entry_point), code.data(), code_size);
+                PushEntry(Fmt("{}:{}", virtual_path, entry_point), code.data(), code_size);
                 data_size += code_size;
             }
-
-            if (SavePackFile(pack_file)) {
-                nova::Log("Packing slang file [{}], size = {}", virtual_path, nova::ByteSizeToString(data_size));
-            }
-
-            total_packed_size += data_size;
         }
 
 // -----------------------------------------------------------------------------
@@ -194,20 +273,20 @@ namespace nova
 
     void Main(std::span<const nova::StringView> args)
     {
-        if (args.size() < 1) {
-            NOVA_THROW_STACKLESS("Usage: Root search dirs...");
+        if (args.size() < 2) {
+            NOVA_THROW_STACKLESS("Usage: (output) (dirs)...");
         }
 
         Packer packer;
-        packer.Init();
+        packer.Init(args[0]);
 
         std::ranges::copy(args, std::back_insert_iterator(packer.search_dirs));
 
-        for (auto& arg : args) {
+        for (auto& arg : std::span(args.begin() + 1, args.end())) {
             packer.ScanRoot(arg);
         }
 
-        packer.RemoveStalePackFiles();
+        packer.Finalize();
     }
 }
 

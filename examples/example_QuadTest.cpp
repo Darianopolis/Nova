@@ -1,22 +1,24 @@
+#include "example_QuadTest.slang"
+
 #include "main/example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/window/nova_Window.hpp>
 
-struct PushConstants
-{
-    u64 quads;
-    Vec2 quad_size;
-};
+// struct PushConstants
+// {
+//     u64 quads;
+//     Vec2 quad_size;
+// };
 
-struct Quad
-{
-    Vec2 position;
-};
+// struct Quad
+// {
+//     Vec2 position;
+// };
 
 NOVA_EXAMPLE(QuadTest, "quad-test")
 {
-    constexpr u32 size = 2048;
+    constexpr u32 size = 1024;
     constexpr u32 quad_side_count = size / 1;
     constexpr u32 num_quads = quad_side_count * quad_side_count;
     constexpr f32 inv_half_size = 2.f / quad_side_count;
@@ -67,76 +69,24 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         }, i);
     }
 
-    std::array<nova::SyncPoint, 2> wait_values;
-
     // Shaders
 
-    auto vertex_preamble =
-        R"glsl(
-#extension GL_EXT_scalar_block_layout  : require
-#extension GL_EXT_buffer_reference2    : require
-#extension GL_EXT_nonuniform_qualifier : require
-
-const vec2 positions[6] = vec2[] (
-    vec2(0, 1), vec2(1, 1), vec2(0, 0),
-    vec2(1, 1), vec2(1, 0), vec2(0, 0)
-);
-
-layout(buffer_reference, scalar, buffer_reference_align = 8) readonly buffer Quad {
-    vec2 position;
-};
-
-layout(push_constant, scalar) uniform pc_ {
-    Quad quads;
-    vec2 quad_size;
-} pc;
-
-layout(location = 0) out vec2 uv;
-        )glsl";
-
-    // Vertex shader for batched (all quads in one instance)
-
-    auto batch_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        vertex_preamble,
-        R"glsl(
-void main() {
-    Quad q = pc.quads[gl_VertexIndex / 6];
-    vec2 local_pos = positions[gl_VertexIndex % 6];
-    gl_Position = vec4(q.position + (local_pos * pc.quad_size), 0, 1);
-    uv = (q.position * 0.5) + 1.0;
-}
-        )glsl"
-    });
+    auto batch_vertex_shader    = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexBatched", "example_QuadTest.slang");
     NOVA_DEFER(&) { batch_vertex_shader.Destroy(); };
 
-    // Vertex shader for instanced (one quad per instance)
-
-    auto instance_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Vertex, "main", "", {
-        vertex_preamble,
-        R"glsl(
-void main() {
-    Quad q = pc.quads[gl_InstanceIndex];
-    vec2 local_pos = positions[gl_VertexIndex];
-    gl_Position = vec4(q.position + (local_pos * pc.quad_size), 0, 1);
-    uv = (q.position * 0.5) + 1.0;
-}
-        )glsl"
-    });
+    auto instance_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexInstanced", "example_QuadTest.slang");
     NOVA_DEFER(&) { instance_vertex_shader.Destroy(); };
 
-    // Fragment shader
-
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Glsl, nova::ShaderStage::Fragment, "main", "", {
-        R"glsl(
-layout(location = 0) in vec2 in_uv;
-// layout(location = 0) out vec4 frag_color;
-
-void main() {
-    // frag_color = vec4(in_uv, 0, 1);
-}
-        )glsl"
-    });
+    auto fragment_shader        = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_QuadTest.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
+
+    // Variables
+
+    auto last_time = std::chrono::steady_clock::now();
+    u32 frames = 0;
+
+    u32 fif = 1;
+    std::array<nova::SyncPoint, 2> wait_values;
 
     bool indexed = true;
     bool instanced = false;
@@ -151,11 +101,7 @@ void main() {
         }
     });
 
-    // Draw
-
-    auto last_time = std::chrono::steady_clock::now();
-    u32 frames = 0;
-    u32 fif = 1;
+    // Draw loop
 
     NOVA_DEFER(&) { queue.WaitIdle(); };
     while (app.ProcessEvents()) {
@@ -187,7 +133,7 @@ void main() {
         cmd.SetBlendState({false});
 
         cmd.PushConstants(PushConstants {
-            .quads = quads.DeviceAddress(),
+            .quads = (Quad*)quads.DeviceAddress(),
             .quad_size = Vec2(inv_half_size),
         });
 

@@ -1,5 +1,7 @@
 #include "nova_Win32.hpp"
 
+#include "shellapi.h"
+
 namespace {
     std::monostate Win32_EnableUTF8 = []() -> std::monostate {
         ::SetConsoleOutputCP(CP_UTF8);
@@ -58,5 +60,34 @@ namespace nova::env
         value.resize(res);
 
         return FromUtf16(value);
+    }
+
+    fs::path GetExecutablePath()
+    {
+        char module_filename[4096];
+        GetModuleFileNameA(nullptr, module_filename, sizeof(module_filename));
+        return std::filesystem::path(module_filename);
+    }
+
+    std::string GetCmdLineArgs()
+    {
+        return FromUtf16(GetCommandLineW());
+    }
+
+    std::vector<std::string> ParseCmdLineArgs(StringView args)
+    {
+        int num_args = 0;
+        auto arg_list = CommandLineToArgvW(ToUtf16(args).c_str(), &num_args);
+        if (!arg_list) {
+            NOVA_THROW(win::LastErrorString());
+        }
+        NOVA_DEFER(&) { LocalFree(arg_list); };
+
+        std::vector<std::string> out;
+        for (int i = 0; i < num_args; ++i) {
+            out.emplace_back(FromUtf16(arg_list[i]));
+        }
+
+        return out;
     }
 }

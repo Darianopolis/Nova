@@ -218,4 +218,7 @@ namespace nova
 
         return spirv;
     }
+
+    static
+    std::monostate glslang_loaded = Vulkan_RegisterCompiler(ShaderLang::Glsl, Vulkan_CompileGlslToSpirv);
 }

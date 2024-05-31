@@ -77,4 +77,22 @@ namespace nova::win
     {
         return HResultToString(HRESULT_FROM_WIN32(GetLastError()));
     }
+
+    inline
+    void Check(HRESULT hres)
+    {
+        if (FAILED(hres)) {
+            NOVA_THROW(LastErrorString());
+        }
+    }
+
+    inline
+    HANDLE Check(HANDLE handle, std::string_view message)
+    {
+        if (handle == INVALID_HANDLE_VALUE) {
+            auto err_str = LastErrorString();
+            NOVA_THROW(Fmt("Error {}: {}", message, err_str));
+        }
+        return handle;
+    }
 }

@@ -1,5 +1,9 @@
 #include <nova/rhi/slang/nova_Slang.slang>
 
+#ifdef __cplusplus
+namespace {
+#endif
+
 struct Vertex
 {
     float3 position;
@@ -12,7 +16,9 @@ struct PushConstants
     float3    offset;
 };
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+}
+#else
 
 [vk::push_constant] PushConstants pc;
 

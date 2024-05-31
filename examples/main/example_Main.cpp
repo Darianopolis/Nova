@@ -12,7 +12,7 @@ std::monostate RegisterExample(nova::StringView name, ExampleEntryFnPtr fn)
     return {};
 }
 
-int main(int argc, char* argv[])
+int main()
 {
     std::sort(GetExamples().begin(), GetExamples().end(), [](const auto& l, const auto& r) {
         return std::lexicographical_compare(
@@ -20,12 +20,15 @@ int main(int argc, char* argv[])
             r.name.Data(), r.name.Data() + r.name.Size());
     });
 
-    if (argc > 1) {
+    auto args = nova::env::ParseCmdLineArgs(nova::env::GetCmdLineArgs());
+    args.erase(args.begin());
+
+    for (;;) {
         for (auto& example : GetExamples()) {
-            if (example.name == argv[1]) {
+            if (example.name == args[0]) {
                 try {
-                    std::vector<nova::StringView> args(&argv[2], &argv[2] + std::max(0, argc - 2));
-                    example.fn(args);
+                    std::vector<nova::StringView> arg_view(&args[1], &args[1] + std::max(0ull, args.size() - 1));
+                    example.fn(arg_view);
 
                     nova::Log("\nExample({}) exited successfully", example.name);
 
@@ -44,11 +47,18 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
         }
-    }
 
-    nova::Log("Examples:");
-    for (auto& example : GetExamples()) {
-        nova::Log(" - {}", example.name);
+        nova::Log("Examples:");
+        for (auto& example : GetExamples()) {
+            nova::Log(" - {}", example.name);
+        }
+
+        std::cout << "> " << std::flush;
+
+        std::string arg_str;
+        std::getline(std::cin, arg_str);
+
+        args = nova::env::ParseCmdLineArgs(arg_str);
     }
 
     return EXIT_FAILURE;

@@ -200,8 +200,8 @@ Validation-VUID({}): {}
         NOVA_STACK_POINT();
 
         auto context_create_start = std::chrono::steady_clock::now();
-        NOVA_DEFER(&) {
-            if (!exceptions && config.trace) {
+        NOVA_CLEANUP_ON_SUCCESS(&) {
+            if (config.trace) {
                 auto end = std::chrono::steady_clock::now();
                 Log("Vulkan context created in {}", DurationToString(end - context_create_start));
             }
@@ -212,13 +212,7 @@ Validation-VUID({}): {}
 
         // Load pre-instance functions
 
-        impl->vkGetInstanceProcAddr = Platform_LoadGetInstanceProcAddr();
-
-#define NOVA_VULKAN_FUNCTION(name) {                                    \
-    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(nullptr, #name); \
-    if (pfn) impl->name = pfn;                                          \
-}
-#include "nova_VulkanFunctions.inl"
+        VulkanFunctions_Init(impl, Platform_LoadGetInstanceProcAddr());
 
         // Configure instance layers and validation features
 
@@ -301,11 +295,7 @@ Validation-VUID({}): {}
 
         // Load instance functions
 
-#define NOVA_VULKAN_FUNCTION(name) {                                           \
-    auto pfn = (PFN_##name)impl->vkGetInstanceProcAddr(impl->instance, #name); \
-    if (pfn) impl->name = pfn;                                                 \
-}
-#include "nova_VulkanFunctions.inl"
+        VulkanFunctions_LoadInstance(impl, impl->instance);
 
         // Create debug messenger
 
@@ -696,11 +686,7 @@ Validation-VUID({}): {}
 
         // Load device functions
 
-#define NOVA_VULKAN_FUNCTION(name) {                                           \
-    auto pfn = (PFN_##name)impl->vkGetDeviceProcAddr(impl->device, #name);     \
-    if (pfn) impl->name = pfn;                                                 \
-}
-#include "nova_VulkanFunctions.inl"
+        VulkanFunctions_LoadDevice(impl, impl->device);
 
         // Query memory properties
 
@@ -791,8 +777,10 @@ Validation-VUID({}): {}
         // Create descriptor heap
 
         {
-            constexpr u32 MaxNumImageDescriptors   = 1'000'000; // < 2^20
-            constexpr u32 MaxNumSamplerDescriptors =     4'000; // < 2^12
+            // Based on NVIDIA limits for packing into a 32 bit handle (20 bits for image, 12 bits for sampler)
+            // 4000 samplers max instead of 4096 due to NVIDIA sampler allocation limit.
+            constexpr u32 MaxNumImageDescriptors   = 1'048'576;
+            constexpr u32 MaxNumSamplerDescriptors =     4'000;
             constexpr u32 MaxPushConstantSize      =       128;
 
             VkPhysicalDeviceProperties2 props = { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };

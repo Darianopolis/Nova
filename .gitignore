@@ -6,6 +6,7 @@
 .vs/
 build/
 out/
+out-packer/
 CMakeLists.txt
 CMakeSettings.json
 cmake-build-debug/
@@ -16,8 +17,9 @@ cmake-build-relwithdebinfo/
 assets-external/
 
 # Generated
-.vfs-pack-output/
+.npk-embed
 
 # Runtime
 imgui.ini
 renderdoc.cap
+.raddbg

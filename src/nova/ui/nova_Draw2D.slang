@@ -1,5 +1,9 @@
 #include "nova_Draw2DShared.slang"
 
+#ifdef __cplusplus
+namespace {
+#endif
+
 struct PushConstants
 {
     float2       inv_half_extent;
@@ -7,7 +11,9 @@ struct PushConstants
     nova::draw::Rectangle *rects;
 };
 
-#ifndef __cplusplus
+#ifdef __cplusplus
+}
+#else
 
 [vk::push_constant] PushConstants pc;
 

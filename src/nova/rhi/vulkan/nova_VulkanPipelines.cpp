@@ -2,11 +2,11 @@
 
 namespace nova
 {
-    void CommandList::PushConstants(RawByteView data, u64 offset) const
+    void CommandList::PushConstants(const void* data, u64 size, u64 offset) const
     {
         impl->context->vkCmdPushConstants(impl->buffer,
             impl->context->global_heap.pipeline_layout, VK_SHADER_STAGE_ALL,
-            u32(offset), u32(data.size), data.data);
+            u32(offset), u32(size), data);
     }
 
 // -----------------------------------------------------------------------------

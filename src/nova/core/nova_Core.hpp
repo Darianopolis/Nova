@@ -525,6 +525,12 @@ namespace nova
         return T(uintptr_t(ptr) + offset);
     }
 
+    constexpr
+    ptrdiff_t ByteDistance(const void* first, const void* second)
+    {
+        return (const char*)second - (const char*)first;
+    }
+
     template<typename FieldT, typename ObjectT>
     constexpr
     FieldT& GetFieldAtByteOffset(const ObjectT& object, uintptr_t offset) noexcept
@@ -655,43 +661,68 @@ namespace nova::guards
     };
 
     template<typename Fn>
-    class CleanupGuard
+    class DeferGuard
     {
         Fn fn;
 
     public:
-        CleanupGuard(Fn fn)
+        DeferGuard(Fn fn)
             : fn(std::move(fn))
         {}
 
-        ~CleanupGuard()
+        ~DeferGuard()
         {
             fn();
         }
     };
 
     template<typename Fn>
-    class DeferGuard
+    class CleanupOnSuccessGuard
     {
         Fn fn;
         i32 exceptions;
 
     public:
-        DeferGuard(Fn fn)
+        CleanupOnSuccessGuard(Fn fn)
             : fn(std::move(fn))
             , exceptions(std::uncaught_exceptions())
         {}
 
-        ~DeferGuard()
+        ~CleanupOnSuccessGuard()
         {
-            fn(std::uncaught_exceptions() - exceptions);
+            if (std::uncaught_exceptions() - exceptions) {
+                fn();
+            }
+        }
+    };
+
+    template<typename Fn>
+    class CleanupOnExceptionGuard
+    {
+        Fn fn;
+        i32 exceptions;
+
+    public:
+        CleanupOnExceptionGuard(Fn fn)
+            : fn(std::move(fn))
+            , exceptions(std::uncaught_exceptions())
+        {}
+
+        ~CleanupOnExceptionGuard()
+        {
+            if (std::uncaught_exceptions() - exceptions) {
+                fn();
+            }
         }
     };
 }
 
 #define NOVA_DO_ONCE(...) static ::nova::guards::DoOnceGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]
 #define NOVA_ON_EXIT(...) static ::nova::guards::OnExitGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]
-#define NOVA_DEFER(...)          ::nova::guards::DeferGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]([[maybe_unused]] ::nova::i32 exceptions)
+#define NOVA_DEFER(...)          ::nova::guards::DeferGuard  NOVA_UNIQUE_VAR() = [__VA_ARGS__]
+
+#define NOVA_CLEANUP_ON_SUCCESS(...)   ::nova::guards::CleanupOnSuccessGuard   NOVA_UNIQUE_VAR() = [__VA_ARGS__]
+#define NOVA_CLEANUP_ON_EXCEPTION(...) ::nova::guards::CleanupOnExceptionGuard NOVA_UNIQUE_VAR() = [__VA_ARGS__]
 
 // -----------------------------------------------------------------------------
 //                                Allocation
@@ -1537,15 +1568,16 @@ namespace nova::math
 namespace nova::env
 {
     std::string GetValue(StringView name);
+
+    fs::path GetExecutablePath();
+
+    std::string GetCmdLineArgs();
+    std::vector<std::string> ParseCmdLineArgs(StringView args);
 }
 
 // -----------------------------------------------------------------------------
 //                          Nova Supplementary Stack
 // -----------------------------------------------------------------------------
-
-#ifndef NOVA_STACK_SIZE
-#  define NOVA_STACK_SIZE 128ull * 1024 * 1024
-#endif
 
 namespace nova::detail
 {
@@ -1556,10 +1588,12 @@ namespace nova::detail
         std::byte* beg;
         std::byte* end;
 
+        static constexpr usz StackSize = 128ull * 1024 * 1024;
+
         ThreadStack()
-            : ptr(static_cast<std::byte *>(AllocVirtual(AllocationType::Commit | AllocationType::Reserve, NOVA_STACK_SIZE)))
+            : ptr(static_cast<std::byte *>(AllocVirtual(AllocationType::Commit | AllocationType::Reserve, StackSize)))
             , beg(ptr)
-            , end(ptr + NOVA_STACK_SIZE)
+            , end(ptr + StackSize)
         {}
 
         ~ThreadStack()

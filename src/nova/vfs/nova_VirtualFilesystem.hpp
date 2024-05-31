@@ -6,6 +6,14 @@ namespace nova
 {
     namespace vfs
     {
+        constexpr static std::array<char, 8> PackFileMagic = { 'n', 'o', 'v', 'a', 'p', 'a', 'c', 'k' };
+        constexpr static std::string_view PackFileExt = ".npk";
+
+        namespace detail
+        {
+            int Register(const char* name, const void* data, size_t size);
+        }
+
         std::optional<Span<const b8>> LoadMaybe(StringView path);
         Span<const b8> Load(StringView path);
 

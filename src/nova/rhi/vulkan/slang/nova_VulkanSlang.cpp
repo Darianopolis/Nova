@@ -13,19 +13,9 @@ namespace nova
             StringView        filename,
             Span<StringView> fragments)
     {
-        static SlangCompiler compiler;
-
         NOVA_ASSERT(fragments.empty(), "slang must be compiled through virtual filesystem resources");
 
-        auto bytecode_resource_path = Fmt("{}:{}", filename, entry);
-
-        if (auto data = vfs::LoadMaybe(bytecode_resource_path)) {
-            nova::Log("Loading bytecode [{}]", bytecode_resource_path);
-
-            std::vector<u32> code(data->size() / sizeof(u32));
-            std::memcpy(code.data(), data->data(), data->size());
-            return code;
-        }
+        static SlangCompiler compiler;
 
         nova::Log("────────────────────────────────────────────────────────────────────────────────");
         nova::Log("Compiling slang to spirv");
@@ -47,4 +37,7 @@ namespace nova
 
         return slang_module.GenerateCode(entry);
     }
+
+    static
+    std::monostate slang_loaded = Vulkan_RegisterCompiler(ShaderLang::Slang, Vulkan_CompileSlangToSpirv);
 }

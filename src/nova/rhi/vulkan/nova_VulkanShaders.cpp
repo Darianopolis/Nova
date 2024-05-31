@@ -1,22 +1,76 @@
 #include "nova_VulkanRHI.hpp"
 
+#include <nova/vfs/nova_VirtualFilesystem.hpp>
+
 namespace nova
 {
+    namespace
+    {
+        struct ShaderCompilerEntry
+        {
+            ShaderLang                   lang;
+            Vulkan_ShaderCompilerFuncPtr fptr;
+        };
+
+        struct ShaderCompilers
+        {
+            std::vector<ShaderCompilerEntry> entries;
+        };
+
+        ShaderCompilers& GetShaderCompilers()
+        {
+            static ShaderCompilers compilers;
+            return compilers;
+        }
+    }
+
+
+    std::monostate Vulkan_RegisterCompiler(ShaderLang lang, Vulkan_ShaderCompilerFuncPtr fptr)
+    {
+        GetShaderCompilers().entries.emplace_back(lang, fptr);
+        return {};
+    }
+
     Shader Shader::Create(HContext context, ShaderLang lang, ShaderStage stage, std::string entry, StringView filename, Span<StringView> fragments)
     {
         auto impl = new Impl;
         impl->context = context;
         impl->stage = stage;
 
-        std::vector<u32> spirv;
-        switch (lang) {
-            break;case ShaderLang::Glsl:
-                spirv = Vulkan_CompileGlslToSpirv(stage, entry, filename, fragments);
-            break;case ShaderLang::Slang:
-                spirv = Vulkan_CompileSlangToSpirv(stage, entry, filename, fragments);
-            break;default:
-                NOVA_UNREACHABLE();
+        std::optional<std::vector<u32>> _spirv;
+
+        {
+            auto bytecode_resource_path = Fmt("{}:{}", filename, entry);
+
+            if (auto data = vfs::LoadMaybe(bytecode_resource_path)) {
+                nova::Log("Loading bytecode [{}]", bytecode_resource_path);
+
+                std::vector<u32> code(data->size() / sizeof(u32));
+                std::memcpy(code.data(), data->data(), data->size());
+                _spirv = std::move(code);
+            }
         }
+
+        if (!_spirv) {
+            nova::Log("Could not find SPIR-V for shader, compiling dynamically...");
+
+            for (auto& compiler : GetShaderCompilers().entries) {
+                if (compiler.lang == lang) {
+                    _spirv = compiler.fptr(stage, entry, filename, fragments);
+                }
+            }
+        }
+
+        if (!_spirv) {
+            std::string_view lang_str;
+            switch (lang) {
+                break;case ShaderLang::Glsl:  lang_str  = "GLSL";
+                break;case ShaderLang::Slang: lang_str = "Slang";
+            }
+            NOVA_THROW("Cannot compile shader, no available compiler for {}", lang_str);
+        }
+
+        auto spirv = std::move(*_spirv);
 
         Shader shader{ impl };
 

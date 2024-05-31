@@ -436,7 +436,7 @@ namespace nova
     Window Window::Create(nova::Application app)
     {
         auto impl = new Impl;
-        NOVA_DEFER(&) { if (exceptions) delete impl; };
+        NOVA_CLEANUP_ON_EXCEPTION(&) { delete impl; };
 
         impl->app = app;
 

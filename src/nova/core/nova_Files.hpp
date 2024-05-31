@@ -111,4 +111,61 @@ namespace nova
             return output;
         }
     }
+
+    struct MappedFile : Handle<MappedFile>
+    {
+        static MappedFile Open(StringView path, bool write = false);
+        void Destroy();
+
+        void* GetAddress() const;
+        usz GetSize() const;
+
+        void Seek(usz offset) const;
+        usz GetOffset() const;
+
+        void Write(const void* data, usz size) const;
+        void Read(void* data, usz size) const;
+
+        template<typename T>
+        T Read() const
+        {
+            union {
+                std::monostate ms;
+                T t;
+            };
+            Read(&t, sizeof(T));
+            return t;
+        }
+
+        template<typename T>
+        void Read(T& t) const
+        {
+            Read(reinterpret_cast<char*>(&t), sizeof(T));
+        }
+
+        template<typename T>
+        void Write(const T& t) const
+        {
+            Write(reinterpret_cast<const char*>(&t), sizeof(T));
+        }
+    };
+
+    namespace streams
+    {
+        template<typename T>
+        void Write(std::ostream& os, const T& t)
+        {
+            os.write(reinterpret_cast<const char*>(&t), sizeof(t));
+        }
+
+        template<typename T>
+        T Read(std::istream& os)
+        {
+            union {
+                T t;
+            };
+            os.read(reinterpret_cast<char*>(&t), sizeof(T));
+            return t;
+        }
+    }
 }

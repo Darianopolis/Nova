@@ -193,8 +193,6 @@ namespace nova
                 swapchain->last_pos = swapchain->window->position;
                 swapchain->last_size = window_size;
 
-                //std::memset(swapchain->bits, 0xFF, swapchain->bitmap_size.x * swapchain->bitmap_size.y * 4);
-
                 // Create a device context to use as our update source
                 HDC hdc = CreateCompatibleDC(swapchain->hdc_screen);
                 NOVA_DEFER(&) { DeleteObject(hdc); };
@@ -204,7 +202,7 @@ namespace nova
                 NOVA_DEFER(&) { SelectObject(hdc, old_object); };
 
                 // Perform (nearly) atomic move/size/repaint
-                // > This stil isn't *perfectly* atomic. Occasionally (frequency depending
+                // > This still isn't *perfectly* atomic. Occasionally (frequency depending
                 //   on window size: small = very infrequent, larger = more frequent and
                 //   more severe) windows will process a move out of sync with presentation
                 //   which causes flickering of contents that is positioned independently
@@ -223,8 +221,8 @@ namespace nova
                 }
             }
 
-            // Wait for VSync
-            DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
+            // // Wait for VSync
+            // DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
         }
     };
 
