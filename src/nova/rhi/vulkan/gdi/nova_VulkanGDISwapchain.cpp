@@ -175,6 +175,11 @@ namespace nova
                 wait.Wait();
             }
 
+            queue.WaitIdle();
+
+            // Wait for compositor
+            DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
+
             for (auto& _swapchain : swapchains) {
                 auto* swapchain = static_cast<GDISwapchainData*>(_swapchain.operator->());
 
@@ -210,19 +215,16 @@ namespace nova
                 if (!UpdateLayeredWindow(
                         (HWND)swapchain->window.NativeHandle(),
                         swapchain->hdc_screen,
-                        nova::PtrTo(POINT{LONG(swapchain->last_pos.x), LONG(swapchain->last_pos.y)}),
-                        nova::PtrTo(SIZE{int(window_size.x), int(window_size.y)}),
+                        PtrTo(POINT{LONG(swapchain->last_pos.x), LONG(swapchain->last_pos.y)}),
+                        PtrTo(SIZE{int(window_size.x), int(window_size.y)}),
                         hdc,
-                        nova::PtrTo(POINT{0, 0}),
+                        PtrTo(POINT{0, 0}),
                         0,
-                        nova::PtrTo(BLENDFUNCTION{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA}),
+                        PtrTo(BLENDFUNCTION{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA}),
                         ULW_ALPHA)) {
-                    NOVA_THROW(nova::win::LastErrorString());
+                    NOVA_THROW(win::LastErrorString());
                 }
             }
-
-            // // Wait for VSync
-            // DCompositionWaitForCompositorClock(0, nullptr, INFINITE);
         }
     };
 

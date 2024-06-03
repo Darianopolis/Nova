@@ -12,8 +12,9 @@ struct Vertex
 
 struct PushConstants
 {
-    Vertex *vertices;
-    float3    offset;
+    ImageSamplerDescriptor image;
+    Vertex*             vertices;
+    float3                offset;
 };
 
 #ifdef __cplusplus
@@ -26,6 +27,7 @@ struct VertexOutput
 {
     float4 position : SV_Position;
     float3    color : COLOR;
+    float2       uv : UV;
 };
 
 [shader("vertex")]
@@ -35,13 +37,14 @@ VertexOutput VertexShader(uint id : SV_VertexID)
     VertexOutput out = {};
     out.position = float4(v.position + pc.offset, 1);
     out.color = v.color;
+    out.uv = (out.position.xy * 0.5 / 0.6) + 0.5;
     return out;
 }
 
 [shader("fragment")]
-float4 FragmentShader(float3 color : COLOR)
+float4 FragmentShader(float3 color : COLOR, float2 uv : UV)
 {
-    return float4(color, 1);
+    return lerp(float4(color, 1), pc.image.Sample(uv), 0.5);
 }
 
 #endif

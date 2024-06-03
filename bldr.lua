@@ -41,6 +41,8 @@ if Project "nova" then
         "src/nova/vfs/*",
     }
 
+    Embed "assets/fonts/CONSOLA.TTF"
+
     Compile {
         "src/nova/rhi/vulkan/*",
         "src/nova/rhi/vulkan/dxgi/*",
@@ -71,23 +73,8 @@ if Project "nova-slang" then
 end
 
 if Project "nova-glsl" then
-    Compile "src/nova/rhi/glsl/**"
+    Compile "src/nova/rhi/vulkan/glsl/**"
     Import { "nova", "glslang" }
-end
-
---------------------------------------------------------------------------------
---                       Resource packing / embedding
---------------------------------------------------------------------------------
-
-if Project "nova-pack" then
-    Compile "src/nova/vfs/npk/**"
-    Import { "nova", "nova-slang" }
-    Artifact { "out-packer/pack", type = "Console" }
-end
-
-if Project "nova-embeds" then
-    Compile ".npk-embed/*"
-    Import "nova"
 end
 
 --------------------------------------------------------------------------------
@@ -96,6 +83,7 @@ end
 
 if Project "nova-examples" then
     Compile "examples/**"
-    Import { "nova", "nova-embeds" }
+    Embed "assets/fonts/arial.ttf"
+    Import "nova"
     Artifact { "out/example", type = "Console" }
 end

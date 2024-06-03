@@ -7,11 +7,6 @@
 #include <nova/vfs/nova_VirtualFilesystem.hpp>
 #include <nova/asset/nova_Image.hpp>
 
-#pragma warning(push)
-#pragma warning(disable: 4263)
-#include <dcomp.h>
-#pragma warning(pop)
-
 NOVA_EXAMPLE(Draw, "draw")
 {
     auto app = nova::Application::Create();
@@ -72,7 +67,7 @@ NOVA_EXAMPLE(Draw, "draw")
     auto size = app.PrimaryDisplay().Size();
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
-    auto font = im_draw.LoadFont(nova::vfs::Load("fonts/arial.ttf"), 20.f);
+    auto font = im_draw.LoadFont(nova::vfs::Load("arial.ttf"), 20.f);
 
     nova::draw::Rectangle box1 {
         .center_color = { 1.f, 0.f, 0.f, 0.5f },

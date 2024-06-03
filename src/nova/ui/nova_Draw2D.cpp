@@ -16,8 +16,8 @@ namespace nova::draw
             BorderColor::TransparentBlack,
             16.f);
 
-        rect_vert_shader   = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
-        rect_frag_shader = Shader::Create(context,   ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
+        rect_vert_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
+        rect_frag_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
 
         rect_buffer = Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,

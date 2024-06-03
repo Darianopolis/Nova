@@ -24,7 +24,6 @@ namespace nova
         }
     }
 
-
     std::monostate Vulkan_RegisterCompiler(ShaderLang lang, Vulkan_ShaderCompilerFuncPtr fptr)
     {
         GetShaderCompilers().entries.emplace_back(lang, fptr);
@@ -38,16 +37,19 @@ namespace nova
         impl->stage = stage;
 
         std::optional<std::vector<u32>> _spirv;
+        std::string actual_entry = "main";
 
         {
-            auto bytecode_resource_path = Fmt("{}:{}", filename, entry);
+            auto bytecode_resource_path = fs::path(filename).filename().replace_extension(".spv");
 
-            if (auto data = vfs::LoadMaybe(bytecode_resource_path)) {
-                nova::Log("Loading bytecode [{}]", bytecode_resource_path);
+            if (auto data = vfs::LoadMaybe(bytecode_resource_path.string())) {
+                nova::Log("Loading bytecode [{}]", bytecode_resource_path.string());
 
                 std::vector<u32> code(data->size() / sizeof(u32));
                 std::memcpy(code.data(), data->data(), data->size());
                 _spirv = std::move(code);
+
+                actual_entry = entry;
             }
         }
 
@@ -75,7 +77,7 @@ namespace nova
         Shader shader{ impl };
 
         shader->id = context->GetUID();
-        shader->entry = "main";
+        shader->entry = std::move(actual_entry);
 
         bool generate_shader_object = true;
         VkShaderStageFlags next_stages = 0;
