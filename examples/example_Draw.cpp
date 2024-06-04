@@ -9,6 +9,8 @@
 
 NOVA_EXAMPLE(Draw, "draw")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
 
@@ -18,23 +20,18 @@ NOVA_EXAMPLE(Draw, "draw")
         .SetTransparency(nova::TransparencyMode::PerPixel)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
         nova::PresentMode::Layered,
         nova::SwapchainFlags::PreMultipliedAlpha);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
 // -----------------------------------------------------------------------------
 
-    nova::draw::Draw2D im_draw{ context };
+    nova::draw::Draw2D im_draw;
 
 // -----------------------------------------------------------------------------
 
@@ -52,7 +49,7 @@ NOVA_EXAMPLE(Draw, "draw")
         std::vector<b8> data(target_accessor.GetSize());
         nova::Image_Copy(desc, src.data, target_accessor, data.data());
 
-        image = nova::Image::Create(context,
+        image = nova::Image::Create(
             Vec3U(desc.width, desc.height, 0),
             nova::ImageUsage::Sampled,
             nova::Format::RGBA8_UNorm);

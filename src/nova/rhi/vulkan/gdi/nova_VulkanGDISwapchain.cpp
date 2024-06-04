@@ -57,6 +57,8 @@ namespace nova
 
         virtual SyncPoint Acquire(Queue, Span<HSwapchain> swapchains, bool* out_any_resized) final override
         {
+            auto context = rhi::Get();
+
             bool any_resized = false;
 
             for (auto& _swapchain : swapchains) {
@@ -73,14 +75,14 @@ namespace nova
                     any_resized = true;
                     ClearResources(swapchain);
 
-                    swapchain->image = nova::Image::Create(swapchain->context, {new_size.x, new_size.y, 0},
+                    swapchain->image = nova::Image::Create({new_size.x, new_size.y, 0},
                         swapchain->usage,
                         nova::Format::BGRA8_UNorm,
                         nova::ImageFlags::None);
 
                     swapchain->bitmap_size = new_size + Vec2U(1);
 
-                    auto alignment = swapchain->context.Properties().min_imported_host_pointer_alignment;
+                    auto alignment = context.Properties().min_imported_host_pointer_alignment;
                     usz buffer_size = swapchain->bitmap_size.x * swapchain->bitmap_size.y * 4;
 
                     for(;;) {
@@ -147,7 +149,7 @@ namespace nova
 
                     // Import BITMAP memory into a buffer
 
-                    swapchain->buffer = nova::Buffer::Create(swapchain->context, buffer_size, {}, nova::BufferFlags::ImportHost, swapchain->bits);
+                    swapchain->buffer = nova::Buffer::Create(buffer_size, {}, nova::BufferFlags::ImportHost, swapchain->bits);
                 }
             }
 
@@ -234,11 +236,10 @@ namespace nova
         return &strategy;
     }
 
-    Swapchain GDISwapchain_Create(HContext context, Window window, ImageUsage usage)
+    Swapchain GDISwapchain_Create(Window window, ImageUsage usage)
     {
         auto impl = new GDISwapchainData;
         impl->strategy = GetGDISwapchainStrategy();
-        impl->context = context;
         impl->usage = usage;
         impl->window = window;
 

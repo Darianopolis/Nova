@@ -30,10 +30,11 @@ namespace nova
         return {};
     }
 
-    Shader Shader::Create(HContext context, ShaderLang lang, ShaderStage stage, std::string entry, StringView filename, Span<StringView> fragments)
+    Shader Shader::Create(ShaderLang lang, ShaderStage stage, std::string entry, StringView filename, Span<StringView> fragments)
     {
+        auto context = rhi::Get();
+
         auto impl = new Impl;
-        impl->context = context;
         impl->stage = stage;
 
         std::optional<std::vector<u32>> _spirv;
@@ -104,20 +105,20 @@ namespace nova
             break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
         }
 
-        if (!shader->context->shader_objects)
+        if (!context->shader_objects)
             generate_shader_object = false;
 
         // TODO: remove shader module creation,
         //   store spirv and simply pass to pipelines
 
-        vkh::Check(impl->context->vkCreateShaderModule(context->device, PtrTo(VkShaderModuleCreateInfo {
+        vkh::Check(context->vkCreateShaderModule(context->device, PtrTo(VkShaderModuleCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
             .codeSize = spirv.size() * sizeof(u32),
             .pCode = spirv.data(),
         }), context->alloc, &shader->handle));
 
         if (generate_shader_object) {
-            vkh::Check(impl->context->vkCreateShadersEXT(context->device, 1, PtrTo(VkShaderCreateInfoEXT {
+            vkh::Check(context->vkCreateShadersEXT(context->device, 1, PtrTo(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
                 .nextStage = next_stages,
@@ -140,14 +141,16 @@ namespace nova
 
     void Shader::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
-        impl->context->vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->alloc);
+        context->vkDestroyShaderModule(context->device, impl->handle, context->alloc);
 
         if (impl->shader) {
-            impl->context->vkDestroyShaderEXT(impl->context->device, impl->shader, impl->context->alloc);
+            context->vkDestroyShaderEXT(context->device, impl->shader, context->alloc);
         }
 
         delete impl;

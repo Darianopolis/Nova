@@ -18,8 +18,6 @@ namespace nova
 {
     struct DXGISwapchainData : Handle<Swapchain>::Impl
     {
-        Context context = {};
-
         // TODO: This DX state should be centralized >:(
         IDXGIFactory7*    dxfactory = nullptr;
         IDXGIAdapter4*    dxadapter = nullptr;
@@ -53,5 +51,5 @@ namespace nova
         }
     };
 
-    Swapchain DXGISwapchain_Create(HContext context, Window window, ImageUsage usage, PresentMode present_mode);
+    Swapchain DXGISwapchain_Create(Window window, ImageUsage usage, PresentMode present_mode);
 }

@@ -8,13 +8,10 @@
 
 NOVA_EXAMPLE(MultiPresent, "multi-present")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
-
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
 
     auto present_mode = nova::PresentMode::Mailbox;
     auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
@@ -35,12 +32,12 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
             .SetTitle(std::format("Nova - Multi Present {}", i))
             .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
             .Show(true));
-        swapchains.emplace_back(nova::Swapchain::Create(context, window, swapchain_usage, present_mode));
+        swapchains.emplace_back(nova::Swapchain::Create(window, swapchain_usage, present_mode));
     }
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
     std::array<nova::SyncPoint, 2> wait_values;
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
+    auto sampler = nova::Sampler::Create(nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 

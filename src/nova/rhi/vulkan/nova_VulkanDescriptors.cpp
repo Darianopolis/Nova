@@ -2,9 +2,10 @@
 
 namespace nova
 {
-    void DescriptorHeap::Init(HContext _context, u32 _image_descriptor_count, u32 _sampler_descriptor_count)
+    void DescriptorHeap::Init(u32 _image_descriptor_count, u32 _sampler_descriptor_count)
     {
-        context = _context;
+        auto context = rhi::Get();
+
         image_descriptor_count = _image_descriptor_count;
         sampler_descriptor_count = _sampler_descriptor_count;
 
@@ -67,7 +68,7 @@ namespace nova
             storage_stride = context->descriptor_sizes.storageImageDescriptorSize;
             sampler_stride = context->descriptor_sizes.samplerDescriptorSize;
 
-            descriptor_buffer = Buffer::Create(context, size,
+            descriptor_buffer = Buffer::Create(size,
                 BufferUsage::DescriptorResources | BufferUsage::DescriptorSamplers,
                 BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
@@ -95,6 +96,8 @@ namespace nova
 
     void DescriptorHeap::Destroy()
     {
+        auto context = rhi::Get();
+
         if (context->descriptor_buffers) {
             descriptor_buffer.Destroy();
         } else {
@@ -107,6 +110,8 @@ namespace nova
 
     void DescriptorHeap::Bind(CommandList cmd, BindPoint bind_point)
     {
+        auto context = rhi::Get();
+
         if (context->descriptor_buffers) {
             context->vkCmdBindDescriptorBuffersEXT(cmd->buffer, 1, PtrTo(VkDescriptorBufferBindingInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT,
@@ -131,6 +136,8 @@ namespace nova
 
     void DescriptorHeap::WriteSampled(u32 index, HImage image)
     {
+        auto context = rhi::Get();
+
         if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, PtrTo(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
@@ -162,6 +169,8 @@ namespace nova
 
     void DescriptorHeap::WriteStorage(u32 index, HImage image)
     {
+        auto context = rhi::Get();
+
         if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, PtrTo(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,
@@ -195,6 +204,8 @@ namespace nova
 
     void DescriptorHeap::WriteSampler(u32 index, HSampler sampler)
     {
+        auto context = rhi::Get();
+
         if (context->descriptor_buffers) {
             context->vkGetDescriptorEXT(context->device, PtrTo(VkDescriptorGetInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT,

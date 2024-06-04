@@ -6,6 +6,8 @@
 
 NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 {
+    nova::rhi::Init({ .ray_tracing = true });
+
 // -----------------------------------------------------------------------------
 //                             GLFW Initialization
 // -----------------------------------------------------------------------------
@@ -21,43 +23,35 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 //                             Nova Initialization
 // -----------------------------------------------------------------------------
 
-    // Create Nova context with ray tracing enabled
-
-    auto context = nova::Context::Create({
-        .debug = true,
-        .ray_tracing = true,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::Storage | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     // Create required Nova objects
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
-    auto builder = nova::AccelerationStructureBuilder::Create(context);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
+    auto builder = nova::AccelerationStructureBuilder::Create();
     NOVA_DEFER(&) { builder.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                                 Pipeline
 // -----------------------------------------------------------------------------
 
-    auto closest_hit_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::ClosestHit, "ClosestHit", "example_TriangleRayTraced.slang");
+    auto closest_hit_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::ClosestHit, "ClosestHit", "example_TriangleRayTraced.slang");
     NOVA_DEFER(&) { closest_hit_shader.Destroy(); };
 
-    auto ray_gen_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::RayGen, "RayGeneration", "example_TriangleRayTraced.slang");
+    auto ray_gen_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::RayGen, "RayGeneration", "example_TriangleRayTraced.slang");
     NOVA_DEFER(&) { ray_gen_shader.Destroy(); };
 
-    auto ray_query_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_TriangleRayTraced.slang");
+    auto ray_query_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_TriangleRayTraced.slang");
     NOVA_DEFER(&) { ray_query_shader.Destroy(); };
 
     // Create a ray tracing pipeline with one ray gen shader
 
-    auto pipeline = nova::RayTracingPipeline::Create(context);
+    auto pipeline = nova::RayTracingPipeline::Create();
     NOVA_DEFER(&) { pipeline.Destroy(); };
     pipeline.Update(ray_gen_shader, {}, {nova::HitShaderGroup{.closesthit_shader = closest_hit_shader}}, {});
 
@@ -67,11 +61,11 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
     // Vertex data
 
-    auto scratch = nova::Buffer::Create(context, 0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
+    auto scratch = nova::Buffer::Create(0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal);
     NOVA_DEFER(&) { scratch.Destroy(); };
 
     auto blas = [&] {
-        auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vec3),
+        auto vertices = nova::Buffer::Create(3 * sizeof(Vec3),
             nova::BufferUsage::AccelBuild,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
         NOVA_DEFER(&) { vertices.Destroy(); };
@@ -79,7 +73,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
         // Index data
 
-        auto indices = nova::Buffer::Create(context, 3 * sizeof(u32),
+        auto indices = nova::Buffer::Create(3 * sizeof(u32),
             nova::BufferUsage::AccelBuild,
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
         NOVA_DEFER(&) { indices.Destroy(); };
@@ -96,7 +90,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
         // Create BLAS and scratch buffer
 
-        auto uncompacted_blas = nova::AccelerationStructure::Create(context, builder.BuildSize(),
+        auto uncompacted_blas = nova::AccelerationStructure::Create(builder.BuildSize(),
             nova::AccelerationStructureType::BottomLevel);
         NOVA_DEFER(&) { uncompacted_blas.Destroy(); };
         scratch.Resize(builder.BuildScratchSize());
@@ -109,7 +103,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
         // Compact BLAS
 
-        auto blas = nova::AccelerationStructure::Create(context,
+        auto blas = nova::AccelerationStructure::Create(
             builder.CompactSize(),
             nova::AccelerationStructureType::BottomLevel);
 
@@ -127,7 +121,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
     // Instance data
 
-    auto instances = nova::Buffer::Create(context, builder.InstanceSize(),
+    auto instances = nova::Buffer::Create(builder.InstanceSize(),
         nova::BufferUsage::AccelBuild,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { instances.Destroy(); };
@@ -140,7 +134,7 @@ NOVA_EXAMPLE(TriangleRayTraced, "tri-rt")
 
     // Create TLAS and resize scratch buffer
 
-    auto tlas = nova::AccelerationStructure::Create(context,
+    auto tlas = nova::AccelerationStructure::Create(
         builder.BuildSize(),
         nova::AccelerationStructureType::TopLevel);
     NOVA_DEFER(&) { tlas.Destroy(); };

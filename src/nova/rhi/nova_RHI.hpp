@@ -15,8 +15,6 @@ namespace nova
         inline std::atomic<i64> AllocationCount = 0;
         inline std::atomic<i64> NewAllocationCount = 0;
         inline std::atomic<u64> MemoryAllocated = 0;
-
-        inline bool ThrowOnAllocation = false;
     }
 
 // -----------------------------------------------------------------------------
@@ -423,14 +421,16 @@ namespace nova
 
     struct Context : Handle<Context>
     {
-        static Context Create(const struct ContextConfig&);
-        void Destroy();
-
         void WaitIdle() const;
         const ContextConfig& Config() const;
         const ContextProperties& Properties() const;
-        Queue Queue(QueueFlags, u32 index) const;
     };
+
+    namespace rhi
+    {
+        Context Init(const struct ContextConfig&);
+        Context Get();
+    }
 
 // -----------------------------------------------------------------------------
 
@@ -438,6 +438,7 @@ namespace nova
 
     struct Queue : Handle<Queue>
     {
+        static Queue Get(QueueFlags, u32 index);
         friend Context;
 
         SyncPoint Submit(Span<HCommandList>, Span<SyncPoint> waits) const;
@@ -457,7 +458,7 @@ namespace nova
 
     struct Fence : Handle<Fence>
     {
-        static Fence Create(HContext);
+        static Fence Create();
         void Destroy();
 
         u64 Advance() const;
@@ -572,7 +573,7 @@ namespace nova
 
     struct Swapchain : Handle<Swapchain>
     {
-        static Swapchain Create(HContext, Window window, ImageUsage, PresentMode, SwapchainFlags = {});
+        static Swapchain Create(Window window, ImageUsage, PresentMode, SwapchainFlags = {});
         void Destroy();
 
         Image Target() const;
@@ -584,7 +585,7 @@ namespace nova
 
     struct Shader : Handle<Shader>
     {
-        static Shader Create(HContext, ShaderLang, ShaderStage, std::string entry,
+        static Shader Create(ShaderLang, ShaderStage, std::string entry,
             StringView filename, Span<StringView> fragments = {});
 
         void Destroy();
@@ -594,7 +595,7 @@ namespace nova
 
     struct Sampler : Handle<Sampler>
     {
-        static Sampler Create(HContext, Filter, AddressMode, BorderColor, f32 anisotropy);
+        static Sampler Create(Filter, AddressMode, BorderColor, f32 anisotropy);
         void Destroy();
 
         SamplerDescriptor Descriptor() const;
@@ -604,7 +605,7 @@ namespace nova
 
     struct Image : Handle<Image>
     {
-        static Image Create(HContext, Vec3U size, ImageUsage, Format, ImageFlags = {});
+        static Image Create(Vec3U size, ImageUsage, Format, ImageFlags = {});
         void Destroy();
 
         Vec3U Extent() const;
@@ -621,7 +622,7 @@ namespace nova
 
     struct Buffer : Handle<Buffer>
     {
-        static Buffer Create(HContext, u64 size, BufferUsage, BufferFlags = {}, void* to_import = {});
+        static Buffer Create(u64 size, BufferUsage, BufferFlags = {}, void* to_import = {});
         void Destroy();
 
         void Resize(u64 size) const;
@@ -647,7 +648,7 @@ namespace nova
 
     struct AccelerationStructureBuilder : Handle<AccelerationStructureBuilder>
     {
-        static AccelerationStructureBuilder Create(HContext);
+        static AccelerationStructureBuilder Create();
         void Destroy();
 
         void AddInstances(u32 geometry_index, u64 device_address, u32 count) const;
@@ -674,7 +675,7 @@ namespace nova
 
     struct AccelerationStructure : Handle<AccelerationStructure>
     {
-        static AccelerationStructure Create(HContext, u64 size, AccelerationStructureType, HBuffer = {}, u64 offset = 0);
+        static AccelerationStructure Create(u64 size, AccelerationStructureType, HBuffer = {}, u64 offset = 0);
         void Destroy();
 
         u64 DeviceAddress() const;
@@ -684,7 +685,7 @@ namespace nova
 
     struct RayTracingPipeline : Handle<RayTracingPipeline>
     {
-        static RayTracingPipeline Create(HContext);
+        static RayTracingPipeline Create();
         void Destroy();
 
         void Update(

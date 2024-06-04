@@ -6,28 +6,24 @@
 
 NOVA_EXAMPLE(ImGuiTest, "imgui")
 {
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
+    nova::rhi::Init({});
 
     auto present_mode = nova::PresentMode::Mailbox;
     auto swapchain_usage = nova::ImageUsage::ColorAttach | nova::ImageUsage::Storage;
 
     auto app = nova::Application::Create();
     nova::Window window = nova::Window::Create(app).SetTitle("Nova - ImGui").SetSize({ 1920, 1080 }, nova::WindowPart::Client).Show(true);
-    auto swapchain = nova::Swapchain::Create(context, window, swapchain_usage, present_mode);
+    auto swapchain = nova::Swapchain::Create(window, swapchain_usage, present_mode);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
     std::array<nova::SyncPoint, 2> wait_values;
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
+    auto sampler = nova::Sampler::Create(nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 
     auto imgui = nova::imgui::ImGuiLayer({
         .window = window,
-        .context = context,
         .sampler = sampler,
         .frames_in_flight = 2,
     });
@@ -86,10 +82,6 @@ NOVA_EXAMPLE(ImGuiTest, "imgui")
 
         // Present both swapchains
         queue.Present({swapchain}, {});
-
-        if (frames > 100) {
-            nova::rhi::stats::ThrowOnAllocation = true;
-        }
     };
 
     NOVA_DEFER(&) { queue.WaitIdle(); };

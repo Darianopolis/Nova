@@ -6,18 +6,15 @@
 
 NOVA_EXAMPLE(Copy, "copy")
 {
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
+    nova::rhi::Init({});
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
     std::array<nova::Buffer, 4> buffers;
     std::array<nova::Image, 4> images;
     for (u32 i = 0; i < 4; ++i) {
-        buffers[i] = nova::Buffer::Create(context, 8192ull * 8192ull * 4, {}, nova::BufferFlags::DeviceLocal);
-        images[i] = nova::Image::Create(context, { 8192u, 8192u, 0u }, {}, nova::Format::RGBA8_UNorm, {});
+        buffers[i] = nova::Buffer::Create(8192ull * 8192ull * 4, {}, nova::BufferFlags::DeviceLocal);
+        images[i] = nova::Image::Create({ 8192u, 8192u, 0u }, {}, nova::Format::RGBA8_UNorm, {});
     }
     NOVA_DEFER(&) {
         for (u32 i = 0; i < 4; ++i) {
@@ -53,7 +50,7 @@ NOVA_EXAMPLE(Copy, "copy")
     nova::Buffer targets[count];
     for (int i = 0; i < count; ++i) {
         sources[i] = std::vector<char>(size);
-        targets[i] = nova::Buffer::Create(context, size,
+        targets[i] = nova::Buffer::Create(size,
             {},
             nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     }

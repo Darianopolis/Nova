@@ -81,6 +81,9 @@ namespace nova
 
         virtual void Present(Queue queue, Span<HSwapchain> swapchains, Span<SyncPoint> waits, PresentFlag flags) final override
         {
+            auto context = rhi::Get();
+
+            NOVA_IGNORE(queue);
             NOVA_IGNORE(flags);
 
             NOVA_STACK_POINT();
@@ -93,7 +96,7 @@ namespace nova
                     values[i] = waits[i].Value();
                 }
 
-                vkh::Check(queue->context->vkWaitSemaphores(queue->context->device, PtrTo(VkSemaphoreWaitInfo {
+                vkh::Check(context->vkWaitSemaphores(context->device, PtrTo(VkSemaphoreWaitInfo {
                     .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
                     .semaphoreCount = u32(waits.size()),
                     .pSemaphores = semaphores,
@@ -122,8 +125,9 @@ namespace nova
 
         void InitSwapchain(Swapchain _swapchain)
         {
+            auto context = rhi::Get();
+
             auto* swapchain = DXGISwapchainData::Get(_swapchain);
-            auto context = swapchain->context;
 
             ::CreateDXGIFactory2(0, IID_PPV_ARGS(&swapchain->dxfactory));
 
@@ -174,7 +178,7 @@ namespace nova
             }
 
             swapchain->vkGetMemoryWin32HandlePropertiesKHR = (PFN_vkGetMemoryWin32HandlePropertiesKHR)
-                swapchain->context->vkGetInstanceProcAddr(swapchain->context->instance, "vkGetMemoryWin32HandlePropertiesKHR");
+                context->vkGetInstanceProcAddr(context->instance, "vkGetMemoryWin32HandlePropertiesKHR");
 
             if (!swapchain->vkGetMemoryWin32HandlePropertiesKHR) {
                 NOVA_THROW("DXGI Swapchain :: Failed to load vkGetMemoryWin32HandlePropertiesKHR");
@@ -256,19 +260,23 @@ namespace nova
 
         void DestroySwapchainImages(Swapchain _swapchain)
         {
+            auto context = rhi::Get();
+
             auto* swapchain = DXGISwapchainData::Get(_swapchain);
 
             for (u32 i = 0; i < swapchain->image_count; ++i) {
-                swapchain->context->vkFreeMemory(swapchain->context->device, swapchain->dxmemory[i], swapchain->context->alloc);
+                context->vkFreeMemory(context->device, swapchain->dxmemory[i], context->alloc);
                 ::CloseHandle(swapchain->dxhandles[i]);
                 auto vkimage = swapchain->images[i]->image;
                 swapchain->images[i].Destroy();
-                swapchain->context->vkDestroyImage(swapchain->context->device, vkimage, swapchain->context->alloc);
+                context->vkDestroyImage(context->device, vkimage, context->alloc);
             }
         }
 
         void GetSwapchainImages(Swapchain _swapchain)
         {
+            auto context = rhi::Get();
+
             auto* swapchain = DXGISwapchainData::Get(_swapchain);
 
             swapchain->images.resize(swapchain->image_count);
@@ -307,7 +315,7 @@ namespace nova
                 };
 
                 VkImage vkimage;
-                vkh::Check(swapchain->context->vkCreateImage(swapchain->context->device, &ii, swapchain->context->alloc, &vkimage));
+                vkh::Check(context->vkCreateImage(context->device, &ii, context->alloc, &vkimage));
 
                 HANDLE handle = nullptr;
                 swapchain->dxdevice->CreateSharedHandle(dx_image, nullptr, GENERIC_ALL, nullptr, &handle);
@@ -318,18 +326,18 @@ namespace nova
                     .memoryTypeBits = ~0u,
                 };
 
-                vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(swapchain->context->device,
+                vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(context->device,
                     VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
                     handle,
                     &win32_mem_props));
 
                 VkMemoryRequirements mem_req;
-                swapchain->context->vkGetImageMemoryRequirements(swapchain->context->device, vkimage, &mem_req);
+                context->vkGetImageMemoryRequirements(context->device, vkimage, &mem_req);
 
                 win32_mem_props.memoryTypeBits &= mem_req.memoryTypeBits;
 
                 VkPhysicalDeviceMemoryProperties mem_props;
-                swapchain->context->vkGetPhysicalDeviceMemoryProperties(swapchain->context->gpu, &mem_props);
+                context->vkGetPhysicalDeviceMemoryProperties(context->gpu, &mem_props);
 
                 u32 mem_type_index = UINT_MAX;
                 for (u32 im = 0; im < mem_props.memoryTypeCount; ++im) {
@@ -361,20 +369,19 @@ namespace nova
 
                 VkDeviceMemory memory;
 
-                vkh::Check(swapchain->context->vkAllocateMemory(swapchain->context->device, PtrTo(VkMemoryAllocateInfo {
+                vkh::Check(context->vkAllocateMemory(context->device, PtrTo(VkMemoryAllocateInfo {
                     .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                     .pNext = &imi,
                     .allocationSize = mem_req.size,
                     .memoryTypeIndex = mem_type_index,
-                }), swapchain->context->alloc, &memory));
+                }), context->alloc, &memory));
 
                 swapchain->dxmemory[i] = memory;
 
-                vkh::Check(swapchain->context->vkBindImageMemory(swapchain->context->device, vkimage, memory, 0));
+                vkh::Check(context->vkBindImageMemory(context->device, vkimage, memory, 0));
 
                 {
                     auto& image = (swapchain->images[i] = { new Image::Impl });
-                    image->context = swapchain->context;
 
                     image->usage = swapchain->usage;
                     image->format = swapchain->format;
@@ -384,13 +391,13 @@ namespace nova
                     image->layers = 1;
 
                     image->image = vkimage;
-                    vkh::Check(swapchain->context->vkCreateImageView(swapchain->context->device, PtrTo(VkImageViewCreateInfo {
+                    vkh::Check(context->vkCreateImageView(context->device, PtrTo(VkImageViewCreateInfo {
                         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                         .image = vkimage,
                         .viewType = VK_IMAGE_VIEW_TYPE_2D,
                         .format = GetVulkanFormat(swapchain->format).vk_format,
                         .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                    }), swapchain->context->alloc, &image->view));
+                    }), context->alloc, &image->view));
                 }
             }
         }
@@ -402,12 +409,11 @@ namespace nova
         return &strategy;
     }
 
-    Swapchain DXGISwapchain_Create(HContext context, Window window, ImageUsage usage, PresentMode present_mode)
+    Swapchain DXGISwapchain_Create(Window window, ImageUsage usage, PresentMode present_mode)
     {
         auto strategy = GetDXGISwapchainStrategy();
         auto impl = new DXGISwapchainData;
         impl->strategy = strategy;
-        impl->context = context;
         impl->usage = usage;
         impl->present_mode = present_mode;
         impl->image_count = 3;

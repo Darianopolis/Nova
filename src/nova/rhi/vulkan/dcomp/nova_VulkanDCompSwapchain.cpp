@@ -51,6 +51,8 @@ namespace nova
 
         void InitSwapchain(DCompSwapchainData* swapchain)
         {
+            auto context = rhi::Get();
+
             // TODO: Cleanup on errors
 
             // D3D11 Device
@@ -121,18 +123,20 @@ namespace nova
             // Vulkan functions
 
             if (!(swapchain->vkGetMemoryWin32HandlePropertiesKHR = (PFN_vkGetMemoryWin32HandlePropertiesKHR)
-                    swapchain->context->vkGetInstanceProcAddr(swapchain->context->instance, "vkGetMemoryWin32HandlePropertiesKHR"))) {
+                    context->vkGetInstanceProcAddr(context->instance, "vkGetMemoryWin32HandlePropertiesKHR"))) {
                 NOVA_THROW("DComp Swapchain :: Failed to load vkGetMemoryWin32HandlePropertiesKHR");
             }
 
             if (!(swapchain->vkImportSemaphoreWin32HandleKHR = (PFN_vkImportSemaphoreWin32HandleKHR)
-                    swapchain->context->vkGetInstanceProcAddr(swapchain->context->instance, "vkImportSemaphoreWin32HandleKHR"))) {
+                    context->vkGetInstanceProcAddr(context->instance, "vkImportSemaphoreWin32HandleKHR"))) {
                 NOVA_THROW("DComp Swapchain :: Failed to load vkImportSemaphoreWin32HandleKHR");
             }
         }
 
         void CreateBuffer(DCompSwapchainData* swapchain, u32 index)
         {
+            auto context = rhi::Get();
+
             IDXGIResource1* dxgi_resource = {}; // ??
             D3D11_TEXTURE2D_DESC desc {
                 .Width = swapchain->width,
@@ -154,7 +158,6 @@ namespace nova
             win::Check(buffer.texture->QueryInterface(&dxgi_resource)); // ??
             win::Check(dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE, nullptr, &buffer.texture_handle));
 
-            auto& context = swapchain->context;
             auto& device = context->device;
 
             // VkMemoryWin32HandlePropertiesKHR handle_props {
@@ -189,18 +192,18 @@ namespace nova
                 .memoryTypeBits = ~0u,
             };
 
-            vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(swapchain->context->device,
+            vkh::Check(swapchain->vkGetMemoryWin32HandlePropertiesKHR(context->device,
                 VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT,
                 buffer.texture_handle,
                 &win32_mem_props));
 
             VkMemoryRequirements mem_req;
-            swapchain->context->vkGetImageMemoryRequirements(swapchain->context->device, vkimage, &mem_req);
+            context->vkGetImageMemoryRequirements(context->device, vkimage, &mem_req);
 
             win32_mem_props.memoryTypeBits &= mem_req.memoryTypeBits;
 
             VkPhysicalDeviceMemoryProperties mem_props;
-            swapchain->context->vkGetPhysicalDeviceMemoryProperties(swapchain->context->gpu, &mem_props);
+            context->vkGetPhysicalDeviceMemoryProperties(context->gpu, &mem_props);
 
             u32 mem_type_index = UINT_MAX;
             for (u32 im = 0; im < mem_props.memoryTypeCount; ++im) {
@@ -230,18 +233,17 @@ namespace nova
                 .name = nullptr,
             };
 
-            vkh::Check(swapchain->context->vkAllocateMemory(swapchain->context->device, PtrTo(VkMemoryAllocateInfo {
+            vkh::Check(context->vkAllocateMemory(context->device, PtrTo(VkMemoryAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                 .pNext = &imi,
                 .allocationSize = mem_req.size,
                 .memoryTypeIndex = mem_type_index,
-            }), swapchain->context->alloc, &buffer.memory));
+            }), context->alloc, &buffer.memory));
 
-            vkh::Check(swapchain->context->vkBindImageMemory(swapchain->context->device, vkimage, buffer.memory, 0));
+            vkh::Check(context->vkBindImageMemory(context->device, vkimage, buffer.memory, 0));
 
             {
                 auto& image = buffer.image;
-                image->context = swapchain->context;
 
                 image->usage = swapchain->usage;
                 image->format = nova::Format::BGRA8_UNorm;
@@ -251,18 +253,18 @@ namespace nova
                 image->layers = 1;
 
                 image->image = vkimage;
-                vkh::Check(swapchain->context->vkCreateImageView(swapchain->context->device, PtrTo(VkImageViewCreateInfo {
+                vkh::Check(context->vkCreateImageView(context->device, PtrTo(VkImageViewCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                     .image = vkimage,
                     .viewType = VK_IMAGE_VIEW_TYPE_2D,
                     .format = GetVulkanFormat(image->format).vk_format,
                     .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 },
-                }), swapchain->context->alloc, &image->view));
+                }), context->alloc, &image->view));
             }
 
             // -- Import semaphore
 
-            buffer.fence = nova::Fence::Create(context);
+            buffer.fence = nova::Fence::Create();
 
             vkh::Check(swapchain->vkImportSemaphoreWin32HandleKHR(device, PtrTo(VkImportSemaphoreWin32HandleInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR,
@@ -288,7 +290,7 @@ namespace nova
         auto strategy = GetDCompSwapchainStrategy();
         auto impl = new DCompSwapchainData;
         impl->strategy = strategy;
-        impl->context = context;
+        context = context;
         impl->usage = usage;
 
         Swapchain swapchain = { impl };

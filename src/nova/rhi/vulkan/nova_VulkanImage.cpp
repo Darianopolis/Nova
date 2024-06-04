@@ -2,12 +2,13 @@
 
 namespace nova
 {
-    Sampler Sampler::Create(HContext context, Filter filter, AddressMode address_mode, BorderColor color, f32 anisotropy)
+    Sampler Sampler::Create(Filter filter, AddressMode address_mode, BorderColor color, f32 anisotropy)
     {
-        auto impl = new Impl;
-        impl->context = context;
+        auto context = rhi::Get();
 
-        vkh::Check(impl->context->vkCreateSampler(context->device, PtrTo(VkSamplerCreateInfo {
+        auto impl = new Impl;
+
+        vkh::Check(context->vkCreateSampler(context->device, PtrTo(VkSamplerCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .magFilter = GetVulkanFilter(filter),
             .minFilter = GetVulkanFilter(filter),
@@ -38,15 +39,17 @@ namespace nova
 
     void Sampler::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
-        impl->context->vkDestroySampler(impl->context->device, impl->sampler, impl->context->alloc);
+        context->vkDestroySampler(context->device, impl->sampler, context->alloc);
 
         {
-            std::scoped_lock lock{ impl->context->global_heap.mutex };
-            impl->context->global_heap.sampler_handles.Release(impl->descriptor_index);
+            std::scoped_lock lock{ context->global_heap.mutex };
+            context->global_heap.sampler_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             Log("Sampler Descriptor Released: {}", impl->descriptorIndex);
 #endif
@@ -63,10 +66,12 @@ namespace nova
 
 // -----------------------------------------------------------------------------
 
-    Image Image::Create(HContext context, Vec3U size, ImageUsage usage, nova::Format format, ImageFlags flags)
+    Image Image::Create(Vec3U size, ImageUsage usage, nova::Format format, ImageFlags flags)
     {
+        auto context = rhi::Get();
+
         auto impl = new Impl;
-        impl->context = context;
+        context = context;
         impl->format = format;
         impl->usage = usage;
         bool make_view = (GetVulkanImageUsage(usage) & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) != 0;
@@ -176,7 +181,7 @@ namespace nova
         // ---- Make view -----
 
         if (make_view) {
-            vkh::Check(impl->context->vkCreateImageView(context->device, PtrTo(VkImageViewCreateInfo {
+            vkh::Check(context->vkCreateImageView(context->device, PtrTo(VkImageViewCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                 .image = impl->image,
                 .viewType = view_type,
@@ -190,26 +195,28 @@ namespace nova
 
     void Image::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
         if (impl->view) {
-            impl->context->vkDestroyImageView(impl->context->device, impl->view, impl->context->alloc);
+            context->vkDestroyImageView(context->device, impl->view, context->alloc);
         }
 
         if (impl->allocation) {
             VmaAllocationInfo info;
-            vmaGetAllocationInfo(impl->context->vma, impl->allocation, &info);
+            vmaGetAllocationInfo(context->vma, impl->allocation, &info);
             rhi::stats::AllocationCount--;
             rhi::stats::MemoryAllocated -= info.size;
-            vmaDestroyImage(impl->context->vma, impl->image, impl->allocation);
+            vmaDestroyImage(context->vma, impl->image, impl->allocation);
         }
 
         if (impl->descriptor_index != UINT_MAX) {
-            auto& heap = impl->context->global_heap;
+            auto& heap = context->global_heap;
             std::scoped_lock lock{ heap.mutex };
-            impl->context->global_heap.image_handles.Release(impl->descriptor_index);
+            context->global_heap.image_handles.Release(impl->descriptor_index);
 #ifdef NOVA_RHI_NOISY_ALLOCATIONS
             Log("Image Descriptor Released: {} (total = {})",
                 impl->descriptorIndex, heap.imageHandles.nextIndex - heap.imageHandles.freeList.size());
@@ -222,8 +229,10 @@ namespace nova
 
     ImageDescriptor Image::Descriptor() const
     {
+        auto context = rhi::Get();
+
         if (impl->descriptor_index == UINT_MAX) {
-            auto& heap = impl->context->global_heap;
+            auto& heap = context->global_heap;
             {
                 std::scoped_lock lock{ heap.mutex };
                 impl->descriptor_index = heap.image_handles.Acquire();
@@ -255,11 +264,13 @@ namespace nova
 
     void Image::Set(Vec3I offset, Vec3U extent, const void* data) const
     {
+        auto context = rhi::Get();
+
         // TODO: Layers
         // TODO: Mips
 
-        if (impl->context->transfer_manager.staged_image_copy) {
-            auto& manager = impl->context->transfer_manager;
+        if (context->transfer_manager.staged_image_copy) {
+            auto& manager = context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };
 
             auto format = GetVulkanFormat(impl->format);
@@ -273,7 +284,7 @@ namespace nova
             cmd.CopyToImage(*this, manager.staging);
             manager.queue.Submit({cmd}, {}).Wait();
         } else {
-            impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, PtrTo(VkHostImageLayoutTransitionInfoEXT {
+            context->vkTransitionImageLayoutEXT(context->device, 1, PtrTo(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
                 .image = impl->image,
                 .oldLayout = impl->layout,
@@ -281,7 +292,7 @@ namespace nova
                 .subresourceRange{ impl->aspect, 0, impl->mips, 0, impl->layers },
             }));
 
-            impl->context->vkCopyMemoryToImageEXT(impl->context->device, PtrTo(VkCopyMemoryToImageInfoEXT {
+            context->vkCopyMemoryToImageEXT(context->device, PtrTo(VkCopyMemoryToImageInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT,
                 .dstImage = impl->image,
                 .dstImageLayout = VK_IMAGE_LAYOUT_GENERAL,
@@ -302,14 +313,16 @@ namespace nova
 
     void Image::Transition(ImageLayout layout) const
     {
-        if (impl->context->transfer_manager.staged_image_copy) {
-            auto& manager = impl->context->transfer_manager;
+        auto context = rhi::Get();
+
+        if (context->transfer_manager.staged_image_copy) {
+            auto& manager = context->transfer_manager;
             std::scoped_lock lock{ manager.mutex };
             auto cmd = manager.queue.Begin();
             cmd.Transition(*this, layout, nova::PipelineStage::All);
             manager.queue.Submit({cmd}, {}).Wait();
         } else {
-            impl->context->vkTransitionImageLayoutEXT(impl->context->device, 1, PtrTo(VkHostImageLayoutTransitionInfoEXT {
+            context->vkTransitionImageLayoutEXT(context->device, 1, PtrTo(VkHostImageLayoutTransitionInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
                 .image = impl->image,
                 .oldLayout = impl->layout,
@@ -327,6 +340,8 @@ namespace nova
     void CommandList::Impl::Transition(HImage image,
         VkImageLayout new_layout, VkPipelineStageFlags2 new_stages)
     {
+        auto context = rhi::Get();
+
         context->vkCmdPipelineBarrier2(buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
@@ -360,10 +375,12 @@ namespace nova
 
     void CommandList::ClearColor(HImage image, std::variant<Vec4, Vec4U, Vec4I> value) const
     {
+        auto context = rhi::Get();
+
         impl->Transition(image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_CLEAR_BIT);
 
-        impl->context->vkCmdClearColorImage(impl->buffer,
+        context->vkCmdClearColorImage(impl->buffer,
             image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             nova::PtrTo(std::visit(Overloads {
                 [&](const Vec4&  v) { return VkClearColorValue{ .float32{ v.r, v.g, v.b, v.a }}; },
@@ -376,10 +393,12 @@ namespace nova
 
     void CommandList::CopyToImage(HImage dst, HBuffer src, u64 src_offset) const
     {
+        auto context = rhi::Get();
+
         impl->Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_2_COPY_BIT);
 
-        impl->context->vkCmdCopyBufferToImage2(impl->buffer, PtrTo(VkCopyBufferToImageInfo2 {
+        context->vkCmdCopyBufferToImage2(impl->buffer, PtrTo(VkCopyBufferToImageInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
             .srcBuffer = src->buffer,
             .dstImage = dst->image,
@@ -396,10 +415,12 @@ namespace nova
 
     void CommandList::CopyToImage(HImage dst, HImage src) const
     {
+        auto context = rhi::Get();
+
         impl->Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_COPY_BIT);
         impl->Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_COPY_BIT);
 
-        impl->context->vkCmdCopyImage(impl->buffer,
+        context->vkCmdCopyImage(impl->buffer,
             src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, PtrTo(VkImageCopy {
@@ -413,10 +434,12 @@ namespace nova
 
     void CommandList::CopyFromImage(HBuffer dst, HImage src, Rect2D region, u32 buffer_row_pitch) const
     {
+        auto context = rhi::Get();
+
         impl->Transition(src,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-        impl->context->vkCmdCopyImageToBuffer2(impl->buffer, nova::PtrTo(VkCopyImageToBufferInfo2 {
+        context->vkCmdCopyImageToBuffer2(impl->buffer, nova::PtrTo(VkCopyImageToBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2,
             .srcImage = src->image,
             .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -434,6 +457,8 @@ namespace nova
 
     void CommandList::GenerateMips(HImage image) const
     {
+        auto context = rhi::Get();
+
         if (image->mips == 1) {
             return;
         }
@@ -445,7 +470,7 @@ namespace nova
         int32_t mip_height = image->extent.y;
 
         for (uint32_t mip = 1; mip < image->mips; ++mip) {
-            impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
+            context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
                 .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                 .imageMemoryBarrierCount = 1,
                 .pImageMemoryBarriers = PtrTo(VkImageMemoryBarrier2 {
@@ -463,7 +488,7 @@ namespace nova
                 }),
             }));
 
-            impl->context->vkCmdBlitImage(impl->buffer,
+            context->vkCmdBlitImage(impl->buffer,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1, PtrTo(VkImageBlit {
@@ -478,7 +503,7 @@ namespace nova
             mip_height = std::max(mip_height / 2, 1);
         }
 
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
+        context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = PtrTo(VkImageMemoryBarrier2 {
@@ -501,10 +526,12 @@ namespace nova
 
     void CommandList::BlitImage(HImage dst, HImage src, Filter filter) const
     {
+        auto context = rhi::Get();
+
         impl->Transition(src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT);
         impl->Transition(dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_BLIT_BIT);
 
-        impl->context->vkCmdBlitImage(impl->buffer,
+        context->vkCmdBlitImage(impl->buffer,
             src->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             dst->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, nova::PtrTo(VkImageBlit {

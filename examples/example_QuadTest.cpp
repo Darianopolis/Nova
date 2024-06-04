@@ -18,6 +18,8 @@
 
 NOVA_EXAMPLE(QuadTest, "quad-test")
 {
+    nova::rhi::Init({});
+
     constexpr u32 size = 1024;
     constexpr u32 quad_side_count = size / 1;
     constexpr u32 num_quads = quad_side_count * quad_side_count;
@@ -31,22 +33,17 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         .SetSize({ size, size }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Mailbox);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
     // Quad data
 
-    auto quads = nova::Buffer::Create(context, num_quads * sizeof(Quad),
+    auto quads = nova::Buffer::Create(num_quads * sizeof(Quad),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { quads.Destroy(); };
@@ -58,7 +55,7 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     // Indices
 
-    auto indices = nova::Buffer::Create(context, num_indices * sizeof(u32),
+    auto indices = nova::Buffer::Create(num_indices * sizeof(u32),
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { indices.Destroy(); };
@@ -71,13 +68,13 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     // Shaders
 
-    auto batch_vertex_shader    = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexBatched", "example_QuadTest.slang");
+    auto batch_vertex_shader    = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexBatched", "example_QuadTest.slang");
     NOVA_DEFER(&) { batch_vertex_shader.Destroy(); };
 
-    auto instance_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexInstanced", "example_QuadTest.slang");
+    auto instance_vertex_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexInstanced", "example_QuadTest.slang");
     NOVA_DEFER(&) { instance_vertex_shader.Destroy(); };
 
-    auto fragment_shader        = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_QuadTest.slang");
+    auto fragment_shader        = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_QuadTest.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Variables

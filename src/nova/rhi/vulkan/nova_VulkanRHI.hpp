@@ -53,8 +53,6 @@ namespace nova
     template<>
     struct Handle<Queue>::Impl
     {
-        Context context = {};
-
         VkQueueFlags           flags = {};
         VkQueue               handle = {};
         u32                   family = UINT32_MAX;
@@ -89,7 +87,6 @@ namespace nova
     template<>
     struct Handle<Fence>::Impl
     {
-        Context                       context = {};
         VkSemaphore                 semaphore = {};
         std::atomic<u64> last_submitted_value = 0;
         std::atomic<u64>      last_seen_value = 0;
@@ -98,7 +95,6 @@ namespace nova
     template<>
     struct Handle<CommandList>::Impl
     {
-        Context                        context = {};
         Queue                            queue = {};
         Queue::Impl::CommandPool* command_pool = {};
         bool                         recording = false;
@@ -130,8 +126,6 @@ namespace nova
 
     struct DescriptorHeap
     {
-        Context context = {};
-
         VkDescriptorSetLayout heap_layout = {};
         VkPipelineLayout  pipeline_layout = {};
 
@@ -152,7 +146,7 @@ namespace nova
 
         std::shared_mutex mutex;
 
-        void Init(HContext context, u32 image_descriptor_count, u32 sampler_descriptor_count);
+        void Init(u32 image_descriptor_count, u32 sampler_descriptor_count);
         void Destroy();
 
         void Bind(CommandList cmd, BindPoint bind_point);
@@ -164,8 +158,6 @@ namespace nova
 
     struct TransferManager
     {
-        Context context = {};
-
         Queue          queue = {};
         Buffer       staging = {};
 
@@ -173,7 +165,7 @@ namespace nova
 
         bool staged_image_copy = true;
 
-        void Init(HContext context);
+        void Init();
         void Destroy();
     };
 
@@ -203,8 +195,6 @@ namespace nova
     template<>
     struct Handle<Shader>::Impl
     {
-        Context context = {};
-
         UID id = UID::Invalid;
 
         VkShaderModule handle = {};
@@ -220,8 +210,6 @@ namespace nova
     template<>
     struct Handle<Buffer>::Impl
     {
-        Context context = {};
-
         VkBuffer          buffer = {};
         union {
             VmaAllocation allocation = {};
@@ -237,8 +225,6 @@ namespace nova
     template<>
     struct Handle<Sampler>::Impl
     {
-        Context context = {};
-
         VkSampler sampler;
 
         u32 descriptor_index;
@@ -247,8 +233,6 @@ namespace nova
     template<>
     struct Handle<Image>::Impl
     {
-        Context context = {};
-
         VkImage             image = {};
         VmaAllocation  allocation = {};
         VkImageView          view = {};
@@ -269,8 +253,6 @@ namespace nova
     template<>
     struct Handle<AccelerationStructureBuilder>::Impl
     {
-        Context context = {};
-
         VkAccelerationStructureTypeKHR        type = {};
         VkBuildAccelerationStructureFlagsKHR flags = {};
 
@@ -292,8 +274,6 @@ namespace nova
     template<>
     struct Handle<AccelerationStructure>::Impl
     {
-        Context context = {};
-
         VkAccelerationStructureKHR structure = {};
         u64                          address = {};
         VkAccelerationStructureTypeKHR  type = {};
@@ -305,8 +285,6 @@ namespace nova
     template<>
     struct Handle<RayTracingPipeline>::Impl
     {
-        Context context = {};
-
         VkPipeline pipeline = {};
         Buffer   sbt_buffer = {};
 

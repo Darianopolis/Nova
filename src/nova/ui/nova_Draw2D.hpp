@@ -50,8 +50,6 @@ namespace nova::draw
         static constexpr u32 MaxPrimitives = 65'536;
 
     public:
-        Context context = {};
-
         Sampler default_sampler;
 
         Shader rect_vert_shader;
@@ -64,7 +62,7 @@ namespace nova::draw
         std::vector<DrawCommand> draw_commands;
 
     public:
-        Draw2D(HContext);
+        Draw2D();
         ~Draw2D();
 
         Sampler DefaultSampler() noexcept;

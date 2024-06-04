@@ -2,12 +2,13 @@
 
 namespace nova
 {
-    Fence Fence::Create(HContext context)
+    Fence Fence::Create()
     {
-        auto impl = new Impl;
-        impl->context = context;
+        auto context = rhi::Get();
 
-        vkh::Check(impl->context->vkCreateSemaphore(context->device, PtrTo(VkSemaphoreCreateInfo {
+        auto impl = new Impl;
+
+        vkh::Check(context->vkCreateSemaphore(context->device, PtrTo(VkSemaphoreCreateInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = PtrTo(VkSemaphoreTypeCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
@@ -21,13 +22,15 @@ namespace nova
 
     void Fence::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
         Wait();
 
-        impl->context->vkDestroySemaphore(impl->context->device, impl->semaphore, impl->context->alloc);
+        context->vkDestroySemaphore(context->device, impl->semaphore, context->alloc);
 
         delete impl;
         impl = nullptr;
@@ -35,6 +38,8 @@ namespace nova
 
     void Fence::Wait(u64 wait_value) const
     {
+        auto context = rhi::Get();
+
         if (wait_value == InvalidFenceValue) {
             wait_value = impl->last_submitted_value;
         }
@@ -44,7 +49,7 @@ namespace nova
             return;
         }
 
-        vkh::Check(impl->context->vkWaitSemaphores(impl->context->device, PtrTo(VkSemaphoreWaitInfo {
+        vkh::Check(context->vkWaitSemaphores(context->device, PtrTo(VkSemaphoreWaitInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
             .semaphoreCount = 1,
             .pSemaphores = &impl->semaphore,
@@ -69,6 +74,8 @@ namespace nova
 
     void Fence::Signal(u64 signal_value) const
     {
+        auto context = rhi::Get();
+
         if (signal_value == InvalidFenceValue) {
             signal_value = Advance();
         }
@@ -79,7 +86,7 @@ namespace nova
 
         impl->last_submitted_value = signal_value;
 
-        vkh::Check(impl->context->vkSignalSemaphore(impl->context->device, PtrTo(VkSemaphoreSignalInfo {
+        vkh::Check(context->vkSignalSemaphore(context->device, PtrTo(VkSemaphoreSignalInfo {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
             .semaphore = impl->semaphore,
             .value = signal_value,
@@ -93,6 +100,8 @@ namespace nova
 
     u64 Fence::CurrentValue() const
     {
+        auto context = rhi::Get();
+
         u64 last_seen = impl->last_seen_value;
 
         if (last_seen >= impl->last_submitted_value) {
@@ -101,7 +110,7 @@ namespace nova
         }
 
         u64 actual_value = 0;
-        vkh::Check(impl->context->vkGetSemaphoreCounterValue(impl->context->device, impl->semaphore, &actual_value));
+        vkh::Check(context->vkGetSemaphoreCounterValue(context->device, impl->semaphore, &actual_value));
 
         AtomicSetMax(impl->last_seen_value, last_seen, actual_value);
 
@@ -110,6 +119,8 @@ namespace nova
 
     bool Fence::Check(u64 check_value) const
     {
+        auto context = rhi::Get();
+
         if (check_value == InvalidFenceValue) {
             check_value = impl->last_submitted_value;
         }
@@ -121,7 +132,7 @@ namespace nova
         }
 
         u64 actual_value = 0;
-        vkh::Check(impl->context->vkGetSemaphoreCounterValue(impl->context->device, impl->semaphore, &actual_value));
+        vkh::Check(context->vkGetSemaphoreCounterValue(context->device, impl->semaphore, &actual_value));
 
         AtomicSetMax(impl->last_seen_value, last_seen, actual_value);
 

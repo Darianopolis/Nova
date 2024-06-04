@@ -4,6 +4,8 @@ namespace nova
 {
     Handle<Queue>::Impl::CommandPool* Handle<Queue>::Impl::AcquireCommandPool()
     {
+        auto context = rhi::Get();
+
         if (pools.empty()) {
             CommandPool* pool = new CommandPool{};
             vkh::Check(context->vkCreateCommandPool(context->device, PtrTo(VkCommandPoolCreateInfo {
@@ -23,6 +25,8 @@ namespace nova
 
     void Handle<Queue>::Impl::DestroyCommandPools()
     {
+        auto context = rhi::Get();
+
         for (auto& pending : pending_command_lists) {
             delete pending.command_list.impl;
         }
@@ -53,6 +57,8 @@ namespace nova
 
     void Handle<Queue>::Impl::ClearPendingCommandLists()
     {
+        auto context = rhi::Get();
+
         auto current_value = fence.CurrentValue();
         while (!pending_command_lists.empty()) {
             auto& pending = pending_command_lists.front();
@@ -69,6 +75,8 @@ namespace nova
 
     CommandList Queue::Begin() const
     {
+        auto context = rhi::Get();
+
         impl->ClearPendingCommandLists();
 
         CommandList cmd;
@@ -79,9 +87,8 @@ namespace nova
             cmd = { new CommandList::Impl };
             cmd->command_pool = pool;
             cmd->queue = *this;
-            cmd->context = impl->context;
 
-            vkh::Check(impl->context->vkAllocateCommandBuffers(impl->context->device, PtrTo(VkCommandBufferAllocateInfo {
+            vkh::Check(context->vkAllocateCommandBuffers(context->device, PtrTo(VkCommandBufferAllocateInfo {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                 .commandPool = pool->command_pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -94,21 +101,21 @@ namespace nova
 
         cmd->recording = true;
 
-        cmd->using_shader_objects = impl->context->shader_objects;
+        cmd->using_shader_objects = context->shader_objects;
         cmd->bound_graphics_pipeline = nullptr;
         cmd->shaders.clear();
 
-        vkh::Check(impl->context->vkBeginCommandBuffer(cmd->buffer, PtrTo(VkCommandBufferBeginInfo {
+        vkh::Check(context->vkBeginCommandBuffer(cmd->buffer, PtrTo(VkCommandBufferBeginInfo {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         })));
 
         if (impl->flags & VK_QUEUE_GRAPHICS_BIT) {
-            cmd->context->global_heap.Bind(cmd, nova::BindPoint::Graphics);
+            context->global_heap.Bind(cmd, nova::BindPoint::Graphics);
         }
         if (impl->flags & VK_QUEUE_COMPUTE_BIT) {
-            cmd->context->global_heap.Bind(cmd, nova::BindPoint::Compute);
-            if (cmd->context.Config().ray_tracing) {
-                cmd->context->global_heap.Bind(cmd, nova::BindPoint::RayTracing);
+            context->global_heap.Bind(cmd, nova::BindPoint::Compute);
+            if (context.Config().ray_tracing) {
+                context->global_heap.Bind(cmd, nova::BindPoint::RayTracing);
             }
         }
 
@@ -122,8 +129,10 @@ namespace nova
 
     void CommandList::Discard() const
     {
+        auto context = rhi::Get();
+
         impl->queue->ReleaseCommandPoolForList(*this);
-        vkh::Check(impl->context->vkResetCommandBuffer(impl->buffer, 0));
+        vkh::Check(context->vkResetCommandBuffer(impl->buffer, 0));
         impl->command_pool->available_command_lists.emplace_back(*this);
     }
 
@@ -131,7 +140,9 @@ namespace nova
 
     void CommandList::Barrier(PipelineStage src, PipelineStage dst) const
     {
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
+        auto context = rhi::Get();
+
+        context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .memoryBarrierCount = 1,
             .pMemoryBarriers = PtrTo(VkMemoryBarrier2 {

@@ -2,9 +2,9 @@
 
 namespace nova
 {
-    void TransferManager::Init(HContext _context)
+    void TransferManager::Init()
     {
-        context = _context;
+        auto context = rhi::Get();
 
         // TODO: Also handle transfers for buffers
         // TODO: Configure transfer size, lazily create?
@@ -12,8 +12,8 @@ namespace nova
             return;
         }
 
-        queue = context.Queue(nova::QueueFlags::Transfer, 0);
-        staging = nova::Buffer::Create(context, 64ull * 1024 * 1024,
+        queue = Queue::Get(nova::QueueFlags::Transfer, 0);
+        staging = nova::Buffer::Create(64ull * 1024 * 1024,
             nova::BufferUsage::TransferSrc,
             nova::BufferFlags::Mapped);
     }

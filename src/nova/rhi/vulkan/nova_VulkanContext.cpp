@@ -195,7 +195,35 @@ Validation-VUID({}): {}
         }
     };
 
-    Context Context::Create(const ContextConfig& config)
+    static
+    void CreateContext(const ContextConfig& config);
+
+    static
+    void DestroyContext();
+
+    static
+    Context gpu_context;
+
+    Context rhi::Init(const ContextConfig& config)
+    {
+        NOVA_ASSERT(!gpu_context, "Cannot initialize context multiple times");
+
+        NOVA_ON_EXIT() { DestroyContext(); };
+
+        if (!gpu_context) {
+            CreateContext(config);
+        }
+
+        return gpu_context;
+    }
+
+    Context rhi::Get()
+    {
+        NOVA_ASSERT(gpu_context, "Context must be initialized before use!");
+        return gpu_context;
+    }
+
+    void CreateContext(const ContextConfig& config)
     {
         NOVA_STACK_POINT();
 
@@ -207,8 +235,9 @@ Validation-VUID({}): {}
             }
         };
 
-        auto impl = new Impl;
+        auto impl = new Context::Impl;
         impl->config = config;
+        gpu_context = {impl};
 
         // Load pre-instance functions
 
@@ -634,7 +663,6 @@ Validation-VUID({}): {}
             auto count = std::min(info.count, max_count);
             for (u32 i = 0; i < count; ++i) {
                 auto queue = queues.emplace_back(new Queue::Impl {
-                    .context = { impl },
                     .flags = info.flags,
                     .family = info.family_index,
                     .stages = stages,
@@ -744,7 +772,7 @@ Validation-VUID({}): {}
             for (u32 i = 0; i < queues.size(); ++i) {
                 impl->vkGetDeviceQueue(impl->device, queues[i]->family, i, &queues[i]->handle);
 
-                queues[i]->fence = Fence::Create(impl);
+                queues[i]->fence = Fence::Create();
             }
         };
 
@@ -802,72 +830,71 @@ Validation-VUID({}): {}
                 Log("Push constant size: {}", impl->properties.max_push_constant_size);
             }
 
-            impl->global_heap.Init(impl, num_image_descriptors, num_sampler_descriptors);
+            impl->global_heap.Init(num_image_descriptors, num_sampler_descriptors);
         }
 
         // Create transfer manager
 
-        impl->transfer_manager.Init(impl);
-
-        return { impl };
+        impl->transfer_manager.Init();
     }
 
-    void Context::Destroy()
+    void DestroyContext()
     {
-        if (!impl) {
+        auto context = rhi::Get();
+
+        if (!context) {
             return;
         }
 
-        WaitIdle();
+        context.WaitIdle();
 
-        for (auto& queue : impl->graphics_queues) {
+        for (auto& queue : context->graphics_queues) {
             queue->DestroyCommandPools();
             queue->fence.Destroy();
-            delete queue.impl;
+            delete queue.operator->();
         }
 
-        for (auto& queue : impl->compute_queues)  {
+        for (auto& queue : context->compute_queues)  {
             queue->DestroyCommandPools();
             queue->fence.Destroy();
-            delete queue.impl;
+            delete queue.operator->();
         }
 
-        for (auto& queue : impl->transfer_queues) {
+        for (auto& queue : context->transfer_queues) {
             queue->DestroyCommandPools();
             queue->fence.Destroy();
-            delete queue.impl;
+            delete queue.operator->();
         }
 
 
         // Deleted graphics pipeline library stages
 
-        for (auto pipeline : impl->vertex_input_stages    | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline : impl->preraster_stages       | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline : impl->fragment_shader_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline : impl->fragment_output_stages | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline : impl->graphics_pipeline_sets | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
-        for (auto pipeline : impl->compute_pipelines      | std::views::values) { impl->vkDestroyPipeline(impl->device, pipeline, impl->alloc); }
+        for (auto pipeline : context->vertex_input_stages    | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
+        for (auto pipeline : context->preraster_stages       | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
+        for (auto pipeline : context->fragment_shader_stages | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
+        for (auto pipeline : context->fragment_output_stages | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
+        for (auto pipeline : context->graphics_pipeline_sets | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
+        for (auto pipeline : context->compute_pipelines      | std::views::values) { context->vkDestroyPipeline(context->device, pipeline, context->alloc); }
 
-        impl->global_heap.Destroy();
-        impl->transfer_manager.Destroy();
+        context->global_heap.Destroy();
+        context->transfer_manager.Destroy();
 
         // Destroy context vk objects
 
-        impl->vkDestroyPipelineCache(impl->device, impl->pipeline_cache, impl->alloc);
-        vmaDestroyAllocator(impl->vma);
-        impl->vkDestroyDevice(impl->device, impl->alloc);
-        if (impl->debug_messenger) {
-            impl->vkDestroyDebugUtilsMessengerEXT(impl->instance, impl->debug_messenger, impl->alloc);
+        context->vkDestroyPipelineCache(context->device, context->pipeline_cache, context->alloc);
+        vmaDestroyAllocator(context->vma);
+        context->vkDestroyDevice(context->device, context->alloc);
+        if (context->debug_messenger) {
+            context->vkDestroyDebugUtilsMessengerEXT(context->instance, context->debug_messenger, context->alloc);
         }
-        impl->vkDestroyInstance(impl->instance, impl->alloc);
+        context->vkDestroyInstance(context->instance, context->alloc);
 
         if (rhi::stats::MemoryAllocated > 0 || rhi::stats::AllocationCount > 0) {
             Log("WARNING: {} memory allocation ({}) remaining. Improper cleanup",
                 rhi::stats::AllocationCount.load(), ByteSizeToString(rhi::stats::MemoryAllocated.load()));
         }
 
-        delete impl;
-        impl = nullptr;
+        delete context.operator->();
     }
 
     void Context::WaitIdle() const

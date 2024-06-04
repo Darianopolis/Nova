@@ -40,8 +40,6 @@ namespace nova
 
     struct DCompSwapchainData : Handle<Swapchain>::Impl
     {
-        Context context = {};
-
         Window                 window = {};
         ID3D11Device5*   d3d11_device = {};
         IPresentationManager* manager = {};

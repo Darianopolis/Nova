@@ -9,6 +9,8 @@
 
 NOVA_EXAMPLE(Compute, "compute")
 {
+    nova::rhi::Init({});
+
     nova::Log("Running example: Compute");
 
     if (args.size() < 2) {
@@ -51,14 +53,9 @@ NOVA_EXAMPLE(Compute, "compute")
 //                             Nova Initialization
 // -----------------------------------------------------------------------------
 
-    auto context = nova::Context::Create({
-        .debug = true,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-
     // Create surface and swapchain for GLFW window
 
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::Storage
         | nova::ImageUsage::TransferDst
         | nova::ImageUsage::ColorAttach,
@@ -67,12 +64,12 @@ NOVA_EXAMPLE(Compute, "compute")
 
     // Create required Nova objects
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
     std::array<nova::SyncPoint, 2> wait_values;
 
     // Image
 
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
+    auto sampler = nova::Sampler::Create(nova::Filter::Linear, nova::AddressMode::Edge, {}, 16.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 
     nova::Image image;
@@ -155,7 +152,7 @@ NOVA_DEBUG();
         // Upload to GPU
 
         NOVA_TIMEIT_RESET();
-        image = nova::Image::Create(context,
+        image = nova::Image::Create(
             extent,
             nova::ImageUsage::Sampled | nova::ImageUsage::TransferDst,
             format);
@@ -166,7 +163,7 @@ NOVA_DEBUG();
 
     // Shader
 
-    auto shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_Compute.slang");
+    auto shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_Compute.slang");
     NOVA_DEFER(&) { shader.Destroy(); };
 
 // -----------------------------------------------------------------------------

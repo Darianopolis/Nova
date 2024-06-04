@@ -8,18 +8,17 @@
 
 namespace nova::draw
 {
-    Draw2D::Draw2D(HContext _context)
-        : context(_context)
+    Draw2D::Draw2D()
     {
-        default_sampler = Sampler::Create(context, Filter::Linear,
+        default_sampler = Sampler::Create(Filter::Linear,
             AddressMode::Border,
             BorderColor::TransparentBlack,
             16.f);
 
-        rect_vert_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
-        rect_frag_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
+        rect_vert_shader = Shader::Create(ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
+        rect_frag_shader = Shader::Create(ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
 
-        rect_buffer = Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
+        rect_buffer = Buffer::Create(sizeof(Rectangle) * MaxPrimitives,
             BufferUsage::Storage,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
     }
@@ -92,7 +91,7 @@ namespace nova::draw
                 pixels[i] = { 255, 255, 255, face->glyph->bitmap.buffer[i] };
             }
 
-            glyph.image = Image::Create(context,
+            glyph.image = Image::Create(
                 Vec3(f32(w), f32(h), 0.f),
                 ImageUsage::Sampled,
                 Format::RGBA8_UNorm);

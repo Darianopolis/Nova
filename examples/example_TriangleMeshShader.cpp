@@ -5,6 +5,8 @@
 
 NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)
@@ -12,22 +14,18 @@ NOVA_EXAMPLE(TriangleMeshShader, "tri-mesh")
         .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = true,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
-    auto task_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Task, "Task", "example_TriangleMeshShader.slang");
+    auto task_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Task, "Task", "example_TriangleMeshShader.slang");
     NOVA_DEFER(&) { task_shader.Destroy(); };
-    auto mesh_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Mesh, "Mesh", "example_TriangleMeshShader.slang");
+    auto mesh_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Mesh, "Mesh", "example_TriangleMeshShader.slang");
     NOVA_DEFER(&) { mesh_shader.Destroy(); };
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_TriangleMeshShader.slang");
+    auto fragment_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_TriangleMeshShader.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     NOVA_DEFER(&) { queue.WaitIdle(); };

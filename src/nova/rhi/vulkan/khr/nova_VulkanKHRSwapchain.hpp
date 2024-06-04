@@ -4,8 +4,6 @@ namespace nova
 {
     struct KHRSwapchainData : Handle<Swapchain>::Impl
     {
-        Context context = {};
-
         VkSurfaceKHR      surface = {};
         VkSwapchainKHR  swapchain = {};
         VkSurfaceFormatKHR format = { VK_FORMAT_UNDEFINED, VK_COLORSPACE_SRGB_NONLINEAR_KHR };
@@ -25,5 +23,5 @@ namespace nova
         }
     };
 
-    Swapchain KHRSwapchain_Create(HContext context, Window window, ImageUsage usage, PresentMode present_mode);
+    Swapchain KHRSwapchain_Create(Window window, ImageUsage usage, PresentMode present_mode);
 }

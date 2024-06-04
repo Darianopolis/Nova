@@ -8,6 +8,8 @@
 
 NOVA_EXAMPLE(CommandTest, "cmd-test")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)
@@ -15,16 +17,12 @@ NOVA_EXAMPLE(CommandTest, "cmd-test")
         .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = false,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Immediate);
     NOVA_DEFER(&) { swapchain.Destroy(); };
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
     std::array<nova::SyncPoint, 2> wait_values;
     // std::array<nova::CommandPool, 2> pools { nova::CommandPool::Create(context, queue), nova::CommandPool::Create(context, queue) };

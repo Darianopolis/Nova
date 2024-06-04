@@ -18,7 +18,6 @@ namespace nova::imgui
 
         Window window;
 
-        Context context;
         Sampler sampler;
 
         u32 frames_in_flight = 0;
@@ -26,8 +25,6 @@ namespace nova::imgui
 
     struct ImGuiLayer
     {
-        Context context;
-
         Window window;
 
         ImGuiContext*      imgui_ctx = {};

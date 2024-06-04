@@ -7,8 +7,6 @@ namespace nova
 {
     struct GDISwapchainData : Handle<Swapchain>::Impl
     {
-        Context context = {};
-
         Window        window = {};
         ImageUsage     usage = {};
         Image          image = {};
@@ -29,5 +27,5 @@ namespace nova
         }
     };
 
-    Swapchain GDISwapchain_Create(HContext context, Window window, ImageUsage usage);
+    Swapchain GDISwapchain_Create(Window window, ImageUsage usage);
 }

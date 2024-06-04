@@ -2,30 +2,33 @@
 
 namespace nova
 {
-    RayTracingPipeline RayTracingPipeline::Create(HContext context)
+    RayTracingPipeline RayTracingPipeline::Create()
     {
-        auto impl = new Impl;
-        impl->context = context;
+        auto context = rhi::Get();
 
-        impl->sbt_buffer = nova::Buffer::Create(context, 0,
+        auto impl = new Impl;
+
+        impl->sbt_buffer = nova::Buffer::Create(0,
             BufferUsage::ShaderBindingTable,
             BufferFlags::DeviceLocal | BufferFlags::Mapped);
 
-        impl->handle_size = impl->context->ray_tracing_pipeline_properties.shaderGroupHandleSize;
+        impl->handle_size = context->ray_tracing_pipeline_properties.shaderGroupHandleSize;
         impl->handle_stride = u32(AlignUpPower2(impl->handle_size,
-            impl->context->ray_tracing_pipeline_properties.shaderGroupHandleAlignment));
+            context->ray_tracing_pipeline_properties.shaderGroupHandleAlignment));
 
         return { impl };
     }
 
     void RayTracingPipeline::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
         impl->sbt_buffer.Destroy();
-        impl->context->vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->alloc);
+        context->vkDestroyPipeline(context->device, impl->pipeline, context->alloc);
 
         delete impl;
         impl = nullptr;
@@ -37,6 +40,8 @@ namespace nova
         Span<HitShaderGroup> ray_hit_shader_group,
         Span<HShader>            callable_shaders) const
     {
+        auto context = rhi::Get();
+
         // Convert to stages and groups
 
         HashMap<VkShaderModule, u32> stage_indices;
@@ -97,14 +102,14 @@ namespace nova
         // Create pipeline
 
         if (impl->pipeline) {
-            impl->context->vkDestroyPipeline(impl->context->device, impl->pipeline, impl->context->alloc);
+            context->vkDestroyPipeline(context->device, impl->pipeline, context->alloc);
         }
 
-        vkh::Check(impl->context->vkCreateRayTracingPipelinesKHR(impl->context->device,
-            0, impl->context->pipeline_cache,
+        vkh::Check(context->vkCreateRayTracingPipelinesKHR(context->device,
+            0, context->pipeline_cache,
             1, PtrTo(VkRayTracingPipelineCreateInfoKHR {
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
-                .flags = impl->context->descriptor_buffers
+                .flags = context->descriptor_buffers
                     ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
                     : VkPipelineCreateFlags(0),
                 .stageCount = u32(stages.size()),
@@ -112,15 +117,15 @@ namespace nova
                 .groupCount = u32(groups.size()),
                 .pGroups = groups.data(),
                 .maxPipelineRayRecursionDepth = 1, // TODO: Parameterize
-                .layout = impl->context->global_heap.pipeline_layout,
+                .layout = context->global_heap.pipeline_layout,
             }),
-            impl->context->alloc, &impl->pipeline));
+            context->alloc, &impl->pipeline));
 
         // Compute table parameters
 
         u32 handle_size    = impl->handle_size;
         u32 handle_stride  = impl->handle_stride;
-        u64 group_align    = impl->context->ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
+        u64 group_align    = context->ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
         u64 raygen_offset  = AlignUpPower2(                 ray_hit_shader_group.size() * handle_stride, group_align);
         u64 raymiss_offset = AlignUpPower2(raygen_offset  +                               handle_stride, group_align);
         u64 raycall_offset = AlignUpPower2(raymiss_offset +     ray_miss_shaders.size() * handle_stride, group_align);
@@ -129,7 +134,7 @@ namespace nova
         // Allocate table and get groups from pipeline
 
         if (table_size > impl->sbt_buffer.Size()) {
-            if (impl->context->config.trace) {
+            if (context->config.trace) {
                 Log("Resizing existing buffer");
             }
             impl->sbt_buffer.Resize(std::max(256ull, table_size));
@@ -140,7 +145,7 @@ namespace nova
         };
 
         impl->handles.resize(groups.size() * handle_size);
-        vkh::Check(impl->context->vkGetRayTracingShaderGroupHandlesKHR(impl->context->device, impl->pipeline,
+        vkh::Check(context->vkGetRayTracingShaderGroupHandlesKHR(context->device, impl->pipeline,
             0, u32(groups.size()),
             u32(impl->handles.size()), impl->handles.data()));
 
@@ -195,7 +200,9 @@ namespace nova
 
     u64 RayTracingPipeline::HandleGroupAlign() const
     {
-        return impl->context->ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
+        auto context = rhi::Get();
+
+        return context->ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
     }
 
     u64 RayTracingPipeline::HandleStride() const
@@ -218,7 +225,9 @@ namespace nova
 
     void CommandList::TraceRays(HRayTracingPipeline pipeline, Vec3U extent, u64 hit_shader_address, u32 hit_shader_count) const
     {
-        impl->context->vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
+        auto context = rhi::Get();
+
+        context->vkCmdBindPipeline(impl->buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipeline->pipeline);
 
         VkStridedDeviceAddressRegionKHR rayHitRegion = {};
         if (hit_shader_address) {
@@ -229,7 +238,7 @@ namespace nova
             rayHitRegion = pipeline->rayhit_region;
         }
 
-        impl->context->vkCmdTraceRaysKHR(impl->buffer,
+        context->vkCmdTraceRaysKHR(impl->buffer,
             &pipeline->raygen_region,
             &pipeline->raymiss_region,
             &rayHitRegion,

@@ -13,6 +13,8 @@ using enum WootingAnalogResult;
 
 NOVA_EXAMPLE(WootingTest, "wooting")
 {
+    nova::rhi::Init({});
+
     auto woores = wooting_analog_initialise();
     if (woores >= 0) {
         nova::Log("Successfully initialized wooting, found {} devices", woores);
@@ -34,24 +36,19 @@ NOVA_EXAMPLE(WootingTest, "wooting")
         .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = true,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear,
+    auto sampler = nova::Sampler::Create(nova::Filter::Linear,
         nova::AddressMode::Repeat, nova::BorderColor::TransparentBlack, 0.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
 
     auto imgui = nova::imgui::ImGuiLayer({
         .window = window,
-        .context = context,
         .sampler = sampler,
         .frames_in_flight = 1,
     });

@@ -5,25 +5,27 @@
 
 NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
+
     auto window = nova::Window::Create(app)
         .SetTitle("Nova - Triangle Minimal")
         .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({ .debug = true });
-    NOVA_DEFER(&) { context.Destroy(); };
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Mailbox);
     NOVA_DEFER(&) { swapchain.Destroy(); };
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
 
-    auto vertex_shader   = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex,   "Vertex",   "example_TriangleMinimal.slang");
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
+
+    auto vertex_shader   = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Vertex,   "Vertex",   "example_TriangleMinimal.slang");
     NOVA_DEFER(&) { vertex_shader.Destroy(); };
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_TriangleMinimal.slang");
+    auto fragment_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_TriangleMinimal.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     std::array<nova::SyncPoint, 2> wait_values;

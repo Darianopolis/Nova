@@ -16,10 +16,11 @@ namespace nova
     // TODO: Clean up host importing, use BufferInfo create struct instead of param list?
     // TODO: Remove resizing?
 
-    Buffer Buffer::Create(HContext context, u64 size, BufferUsage usage, BufferFlags flags, void* to_import)
+    Buffer Buffer::Create(u64 size, BufferUsage usage, BufferFlags flags, void* to_import)
     {
+        auto context = rhi::Get();
+
         auto impl = new Impl;
-        impl->context = context;
         impl->flags = flags;
         impl->usage = usage;
 
@@ -77,7 +78,7 @@ namespace nova
             vkh::Check(context->vkBindBufferMemory(context->device, buffer->buffer, impl->imported, 0));
 
             if (impl->flags >= BufferFlags::Addressable) {
-                impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
+                impl->address = context->vkGetBufferDeviceAddress(context->device, PtrTo(VkBufferDeviceAddressInfo {
                     .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                     .buffer = impl->buffer,
                 }));
@@ -108,15 +109,17 @@ namespace nova
 
     void Buffer::Destroy()
     {
+        auto context = rhi::Get();
+
         if (!impl) {
             return;
         }
 
         if (impl->flags >= BufferFlags::ImportHost) {
-            impl->context->vkFreeMemory(impl->context->device, impl->imported, impl->context->alloc);
-            impl->context->vkDestroyBuffer(impl->context->device, impl->buffer, impl->context->alloc);
+            context->vkFreeMemory(context->device, impl->imported, context->alloc);
+            context->vkDestroyBuffer(context->device, impl->buffer, context->alloc);
         } else {
-            ResetBuffer(impl->context, *this);
+            ResetBuffer(context, *this);
         }
 
         delete impl;
@@ -125,13 +128,15 @@ namespace nova
 
     void Buffer::Resize(u64 _size) const
     {
+        auto context = rhi::Get();
+
         NOVA_ASSERT(!(impl->flags >= BufferFlags::ImportHost), "Can't resize imported host buffer");
 
         if (impl->size >= _size) {
             return;
         }
 
-        ResetBuffer(impl->context, *this);
+        ResetBuffer(context, *this);
         impl->size = _size;
         rhi::stats::AllocationCount++;
         rhi::stats::NewAllocationCount++;
@@ -150,14 +155,14 @@ namespace nova
         VmaAllocationInfo info;
 
         vkh::Check(vmaCreateBuffer(
-            impl->context->vma,
+            context->vma,
             PtrTo(VkBufferCreateInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = impl->size,
                 .usage = GetBufferUsageFlags(impl->usage, impl->flags),
                 .sharingMode = VK_SHARING_MODE_CONCURRENT,
-                .queueFamilyIndexCount = impl->context->queue_family_count,
-                .pQueueFamilyIndices = impl->context->queue_families.data(),
+                .queueFamilyIndexCount = context->queue_family_count,
+                .pQueueFamilyIndices = context->queue_families.data(),
             }),
             PtrTo(VmaAllocationCreateInfo {
                 .flags = vmaFlags,
@@ -171,7 +176,7 @@ namespace nova
             &info));
 
         if (impl->flags >= BufferFlags::Addressable) {
-            impl->address = impl->context->vkGetBufferDeviceAddress(impl->context->device, PtrTo(VkBufferDeviceAddressInfo {
+            impl->address = context->vkGetBufferDeviceAddress(context->device, PtrTo(VkBufferDeviceAddressInfo {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
                 .buffer = impl->buffer,
             }));
@@ -199,12 +204,16 @@ namespace nova
 
     void CommandList::UpdateBuffer(HBuffer dst, const void* data, usz size, u64 dst_offset) const
     {
-        impl->context->vkCmdUpdateBuffer(impl->buffer, dst->buffer, dst_offset, size, data);
+        auto context = rhi::Get();
+
+        context->vkCmdUpdateBuffer(impl->buffer, dst->buffer, dst_offset, size, data);
     }
 
     void CommandList::CopyToBuffer(HBuffer dst, HBuffer src, u64 size, u64 dst_offset, u64 src_offset) const
     {
-        impl->context->vkCmdCopyBuffer2(impl->buffer, PtrTo(VkCopyBufferInfo2 {
+        auto context = rhi::Get();
+
+        context->vkCmdCopyBuffer2(impl->buffer, PtrTo(VkCopyBufferInfo2 {
             .sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
             .srcBuffer = src->buffer,
             .dstBuffer = dst->buffer,
@@ -220,7 +229,9 @@ namespace nova
 
     void CommandList::Barrier(HBuffer _buffer, PipelineStage src, PipelineStage dst) const
     {
-        impl->context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
+        auto context = rhi::Get();
+
+        context->vkCmdPipelineBarrier2(impl->buffer, PtrTo(VkDependencyInfo {
             .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = PtrTo(VkBufferMemoryBarrier2 {

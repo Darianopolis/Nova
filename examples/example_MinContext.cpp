@@ -5,10 +5,7 @@
 
 NOVA_EXAMPLE(MinContext, "min-context")
 {
-    // Minimal RHI context
-
-    auto context = nova::Context::Create({ .debug = false });
-    NOVA_DEFER(&) { context.Destroy(); };
+    nova::rhi::Init({});
 
     // Minimal Window context
 

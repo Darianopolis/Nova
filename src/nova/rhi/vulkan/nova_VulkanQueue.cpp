@@ -2,21 +2,23 @@
 
 namespace nova
 {
-    Queue Context::Queue(QueueFlags flags, u32 index) const
+    Queue Queue::Get(QueueFlags flags, u32 index)
     {
+        auto context = rhi::Get();
+
         if (flags >= QueueFlags::Graphics) {
-            if (index >= impl->graphics_queues.size()) {
+            if (index >= context->graphics_queues.size()) {
                 NOVA_THROW("Tried to access graphics queue out of bounds - {}", index);
             }
-            return impl->graphics_queues[index];
+            return context->graphics_queues[index];
         }
 
         if (flags >= QueueFlags::Transfer) {
-            return impl->transfer_queues[index];
+            return context->transfer_queues[index];
         }
 
         if (flags >= QueueFlags::Compute) {
-            return impl->compute_queues[index];
+            return context->compute_queues[index];
         }
 
         NOVA_THROW("Illegal queue flags: {}", u32(flags));
@@ -24,6 +26,8 @@ namespace nova
 
     SyncPoint Queue::Submit(Span<HCommandList> command_lists, Span<SyncPoint> waits) const
     {
+        auto context = rhi::Get();
+
         NOVA_STACK_POINT();
 
         auto buffer_infos = NOVA_STACK_ALLOC(VkCommandBufferSubmitInfo, command_lists.size());
@@ -34,7 +38,7 @@ namespace nova
                 .commandBuffer = cmd->buffer,
             };
 
-            vkh::Check(impl->context->vkEndCommandBuffer(cmd->buffer));
+            vkh::Check(context->vkEndCommandBuffer(cmd->buffer));
         }
 
         auto wait_infos = NOVA_STACK_ALLOC(VkSemaphoreSubmitInfo, waits.size());
@@ -58,7 +62,7 @@ namespace nova
         };
 
         auto start = std::chrono::steady_clock::now();
-        vkh::Check(impl->context->vkQueueSubmit2(impl->handle, 1, PtrTo(VkSubmitInfo2 {
+        vkh::Check(context->vkQueueSubmit2(impl->handle, 1, PtrTo(VkSubmitInfo2 {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
             .waitSemaphoreInfoCount = u32(waits.size()),
             .pWaitSemaphoreInfos = wait_infos,

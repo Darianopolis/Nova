@@ -139,26 +139,25 @@ namespace nova::imgui
     }
 
     ImGuiLayer::ImGuiLayer(const ImGuiConfig& config)
-        : context(config.context)
-        , default_sampler(config.sampler)
+        : default_sampler(config.sampler)
         , frames_in_flight(config.frames_in_flight)
     {
         NOVA_ASSERT(frames_in_flight != 0, "frames_in_flight must be greater than 0!");
 
         for (u32 i = 0; i < frames_in_flight; ++i) {
             frame_data.push_back(FrameData {
-                .vertex_buffer = Buffer::Create(context, 0,
+                .vertex_buffer = Buffer::Create(0,
                     BufferUsage::Storage,
                     BufferFlags::DeviceLocal | BufferFlags::Mapped),
 
-                .index_buffer = Buffer::Create(context, 0,
+                .index_buffer = Buffer::Create(0,
                     BufferUsage::Index,
                     BufferFlags::DeviceLocal | BufferFlags::Mapped),
             });
         }
 
-        vertex_shader   = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_ImGui.slang");
-        fragment_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_ImGui.slang");
+        vertex_shader   = Shader::Create(ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_ImGui.slang");
+        fragment_shader = Shader::Create(ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_ImGui.slang");
 
         // Create ImGui context and initialize
 
@@ -190,7 +189,7 @@ namespace nova::imgui
             int width, height;
             io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
-            font_image = Image::Create(context,
+            font_image = Image::Create(
                 { u32(width), u32(height), 0u },
                 ImageUsage::Sampled,
                 Format::RGBA8_UNorm, {});

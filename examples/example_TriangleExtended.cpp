@@ -8,6 +8,8 @@
 
 NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 {
+    nova::rhi::Init({});
+
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)
@@ -15,22 +17,17 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         .SetSize({ 1920, 1080 }, nova::WindowPart::Client)
         .Show(true);
 
-    auto context = nova::Context::Create({
-        .debug = true,
-    });
-    NOVA_DEFER(&) { context.Destroy(); };
-
-    auto swapchain = nova::Swapchain::Create(context, window,
+    auto swapchain = nova::Swapchain::Create(window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
         nova::PresentMode::Fifo);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
-    auto queue = context.Queue(nova::QueueFlags::Graphics, 0);
+    auto queue = nova::Queue::Get(nova::QueueFlags::Graphics, 0);
 
     /// Image
 
-    auto sampler = nova::Sampler::Create(context, nova::Filter::Linear, nova::AddressMode::Repeat, nova::BorderColor::Black, 1.f);
+    auto sampler = nova::Sampler::Create(nova::Filter::Linear, nova::AddressMode::Repeat, nova::BorderColor::Black, 1.f);
     NOVA_DEFER(&) { sampler.Destroy(); };
     nova::Image image;
     {
@@ -46,7 +43,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         std::vector<b8> data(target_accessor.GetSize());
         nova::Image_Copy(desc, src.data, target_accessor, data.data());
 
-        image = nova::Image::Create(context,
+        image = nova::Image::Create(
             Vec3U(desc.width, desc.height, 0),
             nova::ImageUsage::Sampled,
             nova::Format::RGBA8_UNorm);
@@ -58,7 +55,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Vertex data
 
-    auto vertices = nova::Buffer::Create(context, 3 * sizeof(Vertex),
+    auto vertices = nova::Buffer::Create(3 * sizeof(Vertex),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { vertices.Destroy(); };
@@ -72,7 +69,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Indices
 
-    auto indices = nova::Buffer::Create(context, 6 * 4,
+    auto indices = nova::Buffer::Create(6 * 4,
         nova::BufferUsage::Index,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { indices.Destroy(); };
@@ -80,10 +77,10 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
     // Shaders
 
-    auto vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexShader", "example_TriangleExtended.slang");
+    auto vertex_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexShader", "example_TriangleExtended.slang");
     NOVA_DEFER(&) { vertex_shader.Destroy(); };
 
-    auto fragment_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "FragmentShader", "example_TriangleExtended.slang");
+    auto fragment_shader = nova::Shader::Create(nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "FragmentShader", "example_TriangleExtended.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Draw

@@ -56,23 +56,23 @@ namespace nova
         swapchain->strategy->PreparePresent(*this, swapchain);
     }
 
-    Swapchain Swapchain::Create(HContext context, Window window, ImageUsage usage, PresentMode present_mode, SwapchainFlags flags)
+    Swapchain Swapchain::Create(Window window, ImageUsage usage, PresentMode present_mode, SwapchainFlags flags)
     {
         window->swapchain_handles_move_size = false;
 
         if (present_mode == PresentMode::Layered) {
 #ifdef NOVA_PLATFORM_WINDOWS
             NOVA_ASSERT(flags >= SwapchainFlags::PreMultipliedAlpha, "Must specify PreMultipliedAlpha to use Layered currently");
-            return GDISwapchain_Create(context, window, usage);
+            return GDISwapchain_Create(window, usage);
 #else
             NOVA_THROW("Layered present mode not supported on this platform");
 #endif
         }
 
         if (flags >= SwapchainFlags::PreMultipliedAlpha) {
-            return DXGISwapchain_Create(context, window, usage, present_mode);
+            return DXGISwapchain_Create(window, usage, present_mode);
         } else {
-            return KHRSwapchain_Create(context, window, usage, present_mode);
+            return KHRSwapchain_Create(window, usage, present_mode);
         }
     }
 }
