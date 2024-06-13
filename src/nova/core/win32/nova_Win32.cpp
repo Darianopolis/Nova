@@ -1,6 +1,8 @@
 #include "nova_Win32.hpp"
 
 #include "shellapi.h"
+#include "userenv.h"
+#include "shlobj_core.h"
 
 namespace {
     std::monostate Win32_EnableUTF8 = []() -> std::monostate {
@@ -64,9 +66,16 @@ namespace nova::env
 
     fs::path GetExecutablePath()
     {
-        char module_filename[4096];
-        GetModuleFileNameA(nullptr, module_filename, sizeof(module_filename));
+        wchar_t module_filename[4096];
+        if (0 == GetModuleFileNameW(nullptr, module_filename, sizeof(module_filename))) {
+            NOVA_THROW(win::LastErrorString());
+        }
         return std::filesystem::path(module_filename);
+    }
+
+    fs::path GetUserDirectory()
+    {
+        return fs::path(GetValue("USERPROFILE"));
     }
 
     std::string GetCmdLineArgs()

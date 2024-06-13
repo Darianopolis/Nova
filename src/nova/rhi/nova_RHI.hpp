@@ -2,6 +2,8 @@
 
 #include <nova/core/nova_Core.hpp>
 
+#include <variant>
+
 namespace nova
 {
     namespace rhi::stats
@@ -313,7 +315,7 @@ namespace nova
         RayTracing = 1 << 2,
         Compute    = 1 << 3,
         AccelBuild = 1 << 4,
-        All        = Transfer | Graphics | RayTracing | Compute | AccelBuild,
+        All        = 1 << 5,
     };
     NOVA_DECORATE_FLAG_ENUM(PipelineStage)
 

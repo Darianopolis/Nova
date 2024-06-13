@@ -8,6 +8,10 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 
+#include <shared_mutex>
+#include <bitset>
+#include <deque>
+
 namespace nova
 {
     namespace vkh
@@ -46,7 +50,8 @@ namespace nova
         u32 block_height = 1;
     };
 
-    enum class UID : u64 {
+    enum class UID : u64
+    {
         Invalid = 0,
     };
 
@@ -207,11 +212,14 @@ namespace nova
 
         UID id = UID::Invalid;
 
-        VkShaderModule handle = {};
-        std::string     entry = {};
+        std::string entry = {};
+        ShaderStage stage = {};
 
-        VkShaderEXT    shader = {};
-        ShaderStage     stage = {};
+        std::vector<u32> code;
+
+        VkShaderModuleCreateInfo create_info = {};
+        VkShaderModule                handle = {};
+        VkShaderEXT                   shader = {};
 
     public:
         VkPipelineShaderStageCreateInfo GetStageInfo() const;
@@ -439,7 +447,7 @@ namespace nova
     template<>
     struct Handle<Context>::Impl
     {
-#define NOVA_VULKAN_FUNCTION(vk_function) PFN_##vk_function vk_function;
+#define NOVA_VULKAN_FUNCTION(vk_function, ...) PFN_##vk_function vk_function;
 #include "nova_VulkanFunctions.inl"
 #undef NOVA_VULKAN_FUNCTION
 
@@ -473,6 +481,7 @@ namespace nova
         bool            shader_objects = false;
         bool graphics_pipeline_library = false;
         bool        descriptor_buffers = false;
+        bool         no_shader_modules = false;
         bool             resizable_bar = false;
         bool              mesh_shading = false;
 

@@ -39,7 +39,7 @@ namespace nova
     {
         // Convert to stages and groups
 
-        HashMap<VkShaderModule, u32> stage_indices;
+        HashMap<UID, u32> stage_indices;
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         u32 raygen_index;
         u32 raymiss_index_start;
@@ -51,12 +51,12 @@ namespace nova
                 return VK_SHADER_UNUSED_KHR;
             }
 
-            if (!stage_indices.contains(shader->handle)) {
-                stage_indices.insert({ shader->handle, u32(stages.size()) });
+            if (!stage_indices.contains(shader->id)) {
+                stage_indices.insert({ shader->id, u32(stages.size()) });
                 stages.push_back(shader->GetStageInfo());
             }
 
-            return stage_indices.at(shader->handle);
+            return stage_indices.at(shader->id);
         };
 
         auto CreateGroup = [&]() -> auto& {

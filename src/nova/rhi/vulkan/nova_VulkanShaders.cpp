@@ -72,14 +72,14 @@ namespace nova
             NOVA_THROW("Cannot compile shader, no available compiler for {}", lang_str);
         }
 
-        auto spirv = std::move(*_spirv);
+        auto& spirv = *_spirv;
 
         Shader shader{ impl };
 
         shader->id = context->GetUID();
         shader->entry = std::move(actual_entry);
 
-        bool generate_shader_object = true;
+        bool is_rt_stage = false;
         VkShaderStageFlags next_stages = 0;
 
         switch (GetVulkanShaderStage(shader->stage)) {
@@ -92,31 +92,20 @@ namespace nova
             break;case VK_SHADER_STAGE_GEOMETRY_BIT:                next_stages = VK_SHADER_STAGE_FRAGMENT_BIT;
             break;case VK_SHADER_STAGE_FRAGMENT_BIT:                ;
             break;case VK_SHADER_STAGE_COMPUTE_BIT:                 ;
-            break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              generate_shader_object = false;
-            break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             generate_shader_object = false;
-            break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         generate_shader_object = false;
-            break;case VK_SHADER_STAGE_MISS_BIT_KHR:                generate_shader_object = false;
-            break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        generate_shader_object = false;
-            break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            generate_shader_object = false;
+            break;case VK_SHADER_STAGE_RAYGEN_BIT_KHR:              is_rt_stage = true;
+            break;case VK_SHADER_STAGE_ANY_HIT_BIT_KHR:             is_rt_stage = true;
+            break;case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR:         is_rt_stage = true;
+            break;case VK_SHADER_STAGE_MISS_BIT_KHR:                is_rt_stage = true;
+            break;case VK_SHADER_STAGE_INTERSECTION_BIT_KHR:        is_rt_stage = true;
+            break;case VK_SHADER_STAGE_CALLABLE_BIT_KHR:            is_rt_stage = true;
             break;case VK_SHADER_STAGE_TASK_BIT_EXT:                next_stages = VK_SHADER_STAGE_MESH_BIT_EXT;
             break;case VK_SHADER_STAGE_MESH_BIT_EXT:                next_stages = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-            break;default: NOVA_THROW("Unknown stage: {}", int(shader->stage));
+            break;default: NOVA_UNREACHABLE();
         }
 
-        if (!shader->context->shader_objects)
-            generate_shader_object = false;
-
-        // TODO: remove shader module creation,
-        //   store spirv and simply pass to pipelines
-
-        vkh::Check(impl->context->vkCreateShaderModule(context->device, PtrTo(VkShaderModuleCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-            .codeSize = spirv.size() * sizeof(u32),
-            .pCode = spirv.data(),
-        }), context->alloc, &shader->handle));
-
-        if (generate_shader_object) {
+        if (shader->context->shader_objects && !is_rt_stage) {
+            // shader objects
             vkh::Check(impl->context->vkCreateShadersEXT(context->device, 1, PtrTo(VkShaderCreateInfoEXT {
                 .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
                 .stage = VkShaderStageFlagBits(GetVulkanShaderStage(shader->stage)),
@@ -133,6 +122,23 @@ namespace nova
                     .size = context->properties.max_push_constant_size,
                 }),
             }), context->alloc, &shader->shader));
+
+        } else if (context->no_shader_modules) {
+            // maintenance5 - pass create info to pipeline creation
+            shader->code = std::move(spirv);
+            shader->create_info = {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .codeSize = shader->code.size() * sizeof(u32),
+                .pCode = shader->code.data(),
+            };
+
+        } else {
+            // shader modules
+            vkh::Check(impl->context->vkCreateShaderModule(context->device, PtrTo(VkShaderModuleCreateInfo {
+                .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                .codeSize = spirv.size() * sizeof(u32),
+                .pCode = spirv.data(),
+            }), context->alloc, &shader->handle));
         }
 
         return shader;
@@ -144,7 +150,9 @@ namespace nova
             return;
         }
 
-        impl->context->vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->alloc);
+        if (impl->handle) {
+            impl->context->vkDestroyShaderModule(impl->context->device, impl->handle, impl->context->alloc);
+        }
 
         if (impl->shader) {
             impl->context->vkDestroyShaderEXT(impl->context->device, impl->shader, impl->context->alloc);
@@ -156,11 +164,15 @@ namespace nova
 
     VkPipelineShaderStageCreateInfo Shader::Impl::GetStageInfo() const
     {
-        return {
+        VkPipelineShaderStageCreateInfo info {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VkShaderStageFlagBits(GetVulkanShaderStage(stage)),
-            .module = handle,
             .pName = entry.c_str(),
         };
+
+        if (handle) info.module = handle;
+        else        info.pNext  = &create_info;
+
+        return info;
     }
 }

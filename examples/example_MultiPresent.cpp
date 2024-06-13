@@ -12,7 +12,7 @@ NOVA_EXAMPLE(MultiPresent, "multi-present")
     NOVA_DEFER(&) { app.Destroy(); };
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 

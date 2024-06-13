@@ -338,7 +338,7 @@ namespace nova
     VkImageLayout GetVulkanImageLayout(ImageLayout layout)
     {
         switch (layout) {
-            break;case ImageLayout::Sampled:                return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            break;case ImageLayout::Sampled:                return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
             break;case ImageLayout::GeneralImage:           return VK_IMAGE_LAYOUT_GENERAL;
             break;case ImageLayout::ColorAttachment:        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             break;case ImageLayout::DepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

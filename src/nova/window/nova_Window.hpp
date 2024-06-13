@@ -275,6 +275,54 @@ namespace nova
         // TODO: Additional display info
     };
 
+    /*
+
+    TODO: Refactor state
+
+    Window Modes
+
+    -----------------------------------------
+
+    - decorations
+        - disabled
+        - light / dark
+        - system themed
+
+    - synchronize move + size + present
+
+    - transparency mode
+        - opaque
+        - transparent
+        - blur
+
+    - clickthrough
+        - never
+        - always
+        - alpha-threshold
+        - callback
+
+    -----------------------------------------
+
+    - allow tearing
+    - wait for vsync
+
+    - alpha mode
+        - opaque
+        - pre-multiplied
+        - post-mutliplied
+
+    -----------------------------------------
+
+    - taskbar icon
+
+    - state
+        - hidden
+        - iconified (can you be in this state with a hidden taskbar icon?)
+        - windowed
+        - fullscreen
+
+    */
+
     struct Window : Handle<Window>
     {
         static Window Create(Application);

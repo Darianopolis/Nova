@@ -108,7 +108,7 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
 
         cmd.PushConstants(PushConstants {
             .image = {image.Descriptor(), sampler.Descriptor()},
-            .vertices = (Vertex*)vertices.DeviceAddress(),
+            .vertices = (const Vertex*)vertices.DeviceAddress(),
             .offset = -offset,
         });
         cmd.BindIndexBuffer(indices, nova::IndexType::U32);

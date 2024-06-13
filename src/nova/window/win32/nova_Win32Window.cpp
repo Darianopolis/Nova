@@ -671,6 +671,30 @@ namespace nova
                 Win32_UpdateStyles(impl->handle, 0, 0, WS_EX_LAYERED, 0);
         }
 
+        // // Make window transparent
+        // bool transparentClientArea = mode != TransparencyMode::Disabled;
+
+        // HRGN region = nullptr;
+        // if (transparentClientArea)
+        //     region = CreateRectRgn(0, 0, -1, -1);
+        // DWM_BLURBEHIND bb{};
+        // bb.dwFlags = DWM_BB_ENABLE | DWM_BB_BLURREGION;
+        // bb.hRgnBlur = region;
+        // bb.fEnable = transparentClientArea;
+        // bb.fTransitionOnMaximized = false;
+        // if (FAILED(DwmEnableBlurBehindWindow(impl->handle, &bb))) {
+        //     throw std::runtime_error("Failed to make window transparent!");
+        // }
+        // DeleteObject(region);
+
+        // DWM_SYSTEMBACKDROP_TYPE attribute = DWMSBT_NONE;
+        // // if (translucency >= OsWindowTranslucency::BackgroundBlur) {
+        //     // attribute = DWMSBT_TABBEDWINDOW;
+        // // } else if (translucency >= OsWindowTranslucency::TransientBlur) {
+        //     // attribute = DWMSBT_TRANSIENTWINDOW;
+        // // }
+        // DwmSetWindowAttribute(impl->handle, DWMWA_SYSTEMBACKDROP_TYPE, &attribute, sizeof(attribute));
+
         return *this;
     }
 

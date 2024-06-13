@@ -23,9 +23,9 @@ static const float2 deltas[6] = {
 
 struct VertexOutput
 {
-    float2                   tex : TEX_POS;
-    nointerpolation uint rect_id : RECT_ID;
-    float4                   pos : SV_Position;
+    float2   tex;
+    uint rect_id;
+    float4   pos : SV_Position;
 };
 
 [shader("vertex")]
@@ -45,15 +45,15 @@ VertexOutput Vertex(uint global_id : SV_VertexID)
 }
 
 [shader("fragment")]
-float4 Fragment(float2 tex : TEX_POS, nointerpolation uint rect_id : RECT_ID)
+float4 Fragment(in VertexOutput vout)
 {
-    nova::draw::Rectangle box = pc.rects[rect_id];
+    nova::draw::Rectangle box = pc.rects[vout.rect_id];
 
-    float2 abs_pos = abs(tex);
+    float2 abs_pos = abs(vout.tex);
     float2 corner_focus = box.half_extent - float2(box.corner_radius);
 
     float4 sampled = box.tex_tint.a > 0
-        ? box.tex_tint * box.tex_handle.Sample((tex / box.half_extent) * box.tex_half_extent + box.tex_center_pos)
+        ? box.tex_tint * box.tex_handle.Sample((vout.tex / box.half_extent) * box.tex_half_extent + box.tex_center_pos)
         : float4(0);
 
     float4 center_color = float4(

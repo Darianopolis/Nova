@@ -3,7 +3,7 @@
 struct MeshOutput
 {
     float4   pos : SV_Position;
-    float3 color : COLOR;
+    float3 color;
 };
 
 [shader("amplification")]

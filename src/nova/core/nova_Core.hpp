@@ -5,7 +5,6 @@
 // -----------------------------------------------------------------------------
 
 #include <algorithm>
-#include <any>
 #include <array>
 #include <chrono>
 #include <climits>
@@ -16,13 +15,10 @@
 #include <cstdio>
 #include <deque>
 #include <execution>
-#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <initializer_list>
-#include <iostream>
 #include <limits>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <future>
@@ -30,27 +26,27 @@
 #include <optional>
 #include <queue>
 #include <random>
-#include <ranges>
 #include <semaphore>
 #include <shared_mutex>
-#include <source_location>
-#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <string>
 #include <syncstream>
 #include <thread>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
 #include <regex>
 #include <bitset>
 #include <cstdlib>
-#include <stacktrace>
 #include <typeindex>
+#include <stacktrace>
+#include <filesystem>
+#include <iostream>
+#include <ranges>
+#include <source_location>
+#include <span>
 
 // -----------------------------------------------------------------------------
 //                            Standard Namespaces
@@ -133,6 +129,20 @@ namespace nova
             return detail::wyhash::hash(&key, sizeof(key));                    \
         }                                                                      \
     };
+
+#define NOVA_MEMORY_HASH_AND_CMP(type)                                         \
+    template<>                                                                 \
+    struct ankerl::unordered_dense::hash<type>                                 \
+    {                                                                          \
+        using is_avalanching = void;                                           \
+        uint64_t operator()(const type& key) const noexcept {                  \
+            return detail::wyhash::hash(&key, sizeof(key));                    \
+        }                                                                      \
+    };                                                                         \
+    bool operator==(const type& l, const type& r)                              \
+    {                                                                          \
+        return std::memcmp(&l, &r, sizeof(type)) == 0;                         \
+    }
 
 // -----------------------------------------------------------------------------
 //                        fmtlib standard formatters
@@ -841,8 +851,6 @@ namespace nova
         Span(const T* first, usz count) : span(first, count) {}
 
     public:
-
-    public:
         const T& operator[](usz i) const noexcept { return span.begin()[i]; }
 
         decltype(auto) begin() const noexcept { return span.data(); }
@@ -1352,7 +1360,7 @@ namespace nova::detail
 
 #define NOVA_TIMEIT(...) do {                                                  \
     using namespace std::chrono;                                               \
-    ::nova::Log("- Timeit ({}) :: " __VA_OPT__("[{}] ") "{} - {}",             \
+    ::nova::Log("- Timeit ({:6}) :: " __VA_OPT__("[{}] ") "{} - {}",           \
         duration_cast<milliseconds>(steady_clock::now()                        \
             - ::nova::detail::NovaTimeitLast),                                 \
          __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__);                         \
@@ -1394,6 +1402,24 @@ namespace nova
     {
         std::string out(source.Size() * 3, '\0');
         auto len = simdutf::convert_utf16_to_utf8((const char16_t*)source.Data(), source.Size(), out.data());
+        out.resize(len);
+        return out;
+    }
+
+    inline
+    std::basic_string<char32_t> ToUtf32(StringView source)
+    {
+        std::basic_string<char32_t> out(source.Size(), '\0');
+        auto len = simdutf::convert_utf8_to_utf32(source.Data(), source.Size(), out.data());
+        out.resize(len);
+        return out;
+    }
+
+    inline
+    std::string FromUtf32(BasicStringView<char32_t> source)
+    {
+        std::string out(source.Size() * 4, '\0');
+        auto len = simdutf::convert_utf32_to_utf8(source.Data(), source.Size(), out.data());
         out.resize(len);
         return out;
     }
@@ -1570,6 +1596,13 @@ namespace nova::env
     std::string GetValue(StringView name);
 
     fs::path GetExecutablePath();
+    fs::path GetUserDirectory();
+
+    inline
+    fs::path GetCurrentWorkingDirectory()
+    {
+        return fs::current_path();
+    }
 
     std::string GetCmdLineArgs();
     std::vector<std::string> ParseCmdLineArgs(StringView args);
@@ -1590,6 +1623,7 @@ namespace nova::detail
 
         static constexpr usz StackSize = 128ull * 1024 * 1024;
 
+    public:
         ThreadStack()
             : ptr(static_cast<std::byte *>(AllocVirtual(AllocationType::Commit | AllocationType::Reserve, StackSize)))
             , beg(ptr)

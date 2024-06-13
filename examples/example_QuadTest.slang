@@ -11,8 +11,8 @@ struct Quad
 
 struct PushConstants
 {
-    Quad      *quads;
-    float2 quad_size;
+    const Quad* quads;
+    float2  quad_size;
 };
 
 #ifdef __cplusplus
@@ -24,7 +24,7 @@ struct PushConstants
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float2       uv : UV;
+    float2       uv;
 };
 
 static const float2 positions[] = {
@@ -55,9 +55,9 @@ VertexOutput VertexInstanced(uint vid : SV_VertexID, uint iid : SV_InstanceID)
 }
 
 [shader("fragment")]
-float4 Fragment(float2 uv : UV)
+float4 Fragment(in VertexOutput vout)
 {
-    return float4(uv, 0, 1);
+    return float4(vout.uv, 0, 1);
 }
 
 #endif

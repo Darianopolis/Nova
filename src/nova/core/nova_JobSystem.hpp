@@ -2,6 +2,9 @@
 
 #include "nova_Core.hpp"
 
+#include <deque>
+#include <shared_mutex>
+
 namespace nova
 {
     struct Job;

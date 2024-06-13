@@ -6,7 +6,7 @@ static const float3 Colors[3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float3    color : COLOR;
+    float3    color;
 };
 
 [shader("vertex")]
@@ -19,7 +19,7 @@ VertexOutput Vertex(uint id : SV_VertexID)
 }
 
 [shader("fragment")]
-float4 Fragment(float3 color : COLOR)
+float4 Fragment(in VertexOutput vout)
 {
-    return float4(color, 1);
+    return float4(vout.color, 1);
 }

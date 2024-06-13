@@ -19,7 +19,7 @@ NOVA_EXAMPLE(Draw, "draw")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -67,7 +67,8 @@ NOVA_EXAMPLE(Draw, "draw")
     auto size = app.PrimaryDisplay().Size();
     std::cout << "Monitor size = " << size.x << ", " << size.y << '\n';
 
-    auto font = im_draw.LoadFont(nova::vfs::Load("arial.ttf"), 20.f);
+    auto font_size = 20.f;
+    auto font = im_draw.LoadFont(nova::vfs::Load("arial.ttf"));
 
     nova::draw::Rectangle box1 {
         .center_color = { 1.f, 0.f, 0.f, 0.5f },
@@ -192,7 +193,7 @@ NOVA_EXAMPLE(Draw, "draw")
         im_draw.DrawString(
             "Hello Nova Draw 2D API Example",
             Vec2(size.x * 0.25f, size.y * 0.45f),
-            *font);
+            *font, font_size);
 
 // -----------------------------------------------------------------------------
 

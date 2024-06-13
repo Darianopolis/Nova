@@ -19,9 +19,9 @@ namespace nova
         FILE* file;
 
     public:
-        File(const char* path, bool write = false)
+        File(StringView path, bool write = false)
         {
-            if (fopen_s(&file, path, write ? "wb" : "rb")) {
+            if (fopen_s(&file, path.CStr(), write ? "wb" : "rb")) {
                 NOVA_THROW("Failed to open file: {}", path);
             }
         }

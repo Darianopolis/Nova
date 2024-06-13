@@ -28,8 +28,8 @@ struct ImDrawVert
 struct VertexOutput
 {
     float4   pos : SV_Position;
-    float2    uv : UV;
-    float4 color : COLOR;
+    float2    uv;
+    float4 color;
 };
 
 [shader("vertex")]
@@ -44,9 +44,9 @@ VertexOutput Vertex(uint id : SV_VertexID)
 }
 
 [shader("fragment")]
-float4 Fragment(float2 uv : UV, float4 color : COLOR)
+float4 Fragment(in VertexOutput vout)
 {
-    return pc.texture.Sample(uv) * color;
+    return pc.texture.Sample(vout.uv) * vout.color;
 }
 
 #endif

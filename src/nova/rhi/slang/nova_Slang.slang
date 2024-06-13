@@ -6,47 +6,58 @@
 
 #else
 
+// -----------------------------------------------------------------------------
+
 [vk::binding(0, 0)] Texture2D             Image2D_Heap[];
 [vk::binding(1, 0)] RWTexture2D<float4> RWImage2D_Heap[];
 [vk::binding(2, 0)] SamplerState          Sampler_Heap[];
 
-struct Image
-{
-    const static uint   ImageHandleMask =    0xFFFFF;
-    const static uint SamplerHandleMask = 0xFFF;
+// -----------------------------------------------------------------------------
 
-    const static uint   ImageHandleMaskWidth = 20;
-    const static uint SamplerHandleMaskWidth = 12;
+struct ImageHandle
+{
+    const static uint   ImageBitsMask   = 0xFFF;
+    const static uint SamplerBitsOffset = 20;
 
     uint handle;
 
-    __init(uint handle) { this.handle = handle; }
+    __init(uint image)
+    {
+        this.handle = image;
+    }
 
-    __init(uint image, uint sampler) { this.handle = (image & ImageHandleMask) | ((sampler & SamplerHandleMask) << ImageHandleMaskWidth); }
+    __init(uint image, uint sampler)
+    {
+        this.handle = (image) | (sampler << SamplerBitsOffset);
+    }
 
     float4 Sample(float2 uv)
     {
-        return Image2D_Heap[NonUniformResourceIndex(handle & ImageHandleMask)].Sample(Sampler_Heap[NonUniformResourceIndex(handle >> ImageHandleMaskWidth)], uv);
+        return Image2D_Heap[NonUniformResourceIndex(handle & ImageBitsMask)]
+            .Sample(Sampler_Heap[NonUniformResourceIndex(handle >> SamplerBitsOffset)], uv);
     }
 
     float4 SampleLod(float2 uv, uint lod)
     {
-        return Image2D_Heap[NonUniformResourceIndex(handle & ImageHandleMask)].SampleLevel(Sampler_Heap[NonUniformResourceIndex(handle >> ImageHandleMaskWidth)], uv, lod);
+        return Image2D_Heap[NonUniformResourceIndex(handle & ImageBitsMask)]
+            .SampleLevel(Sampler_Heap[NonUniformResourceIndex(handle >> SamplerBitsOffset)], uv, lod);
     }
 
     float4 Load(uint idx)
     {
-        return RWImage2D_Heap[NonUniformResourceIndex(handle & ImageHandleMask)][idx];
+        return RWImage2D_Heap[NonUniformResourceIndex(handle & ImageBitsMask)][idx];
     }
 
     float4 Store(uint2 idx, float4 value)
     {
-        return RWImage2D_Heap[NonUniformResourceIndex(handle & ImageHandleMask)][idx] = value;
+        return RWImage2D_Heap[NonUniformResourceIndex(handle & ImageBitsMask)][idx] = value;
     }
 };
 
-typedef Image ImageSamplerDescriptor;
-typedef Image ImageDescriptor;
+typedef ImageHandle ImageSamplerDescriptor;
+typedef ImageHandle ImageDescriptor;
+
+// -----------------------------------------------------------------------------
 
 struct AccelerationStructureHandle
 {
@@ -59,7 +70,9 @@ struct AccelerationStructureHandle
     {
         return ConvertToAS(handle);
     }
-}
+};
+
+// -----------------------------------------------------------------------------
 
 struct RGBA32
 {

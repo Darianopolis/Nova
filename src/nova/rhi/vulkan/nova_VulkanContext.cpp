@@ -16,21 +16,15 @@ namespace nova
             return VK_FALSE;
         }
 
-        Log(R"(
-────────────────────────────────────────────────────────────────────────────────
-{}
-────────────────────────────────────────────────────────────────────────────────
+        NOVA_THROW(R"(
 Validation-VUID({}): {}
 ────────────────────────────────────────────────────────────────────────────────
 {}
 ────────────────────────────────────────────────────────────────────────────────
 )",
-            std::stacktrace::current(),
             data->messageIdNumber,
             data->pMessageIdName,
             data->pMessage);
-
-        std::terminate();
     }
 
     struct VulkanFeature
@@ -458,6 +452,14 @@ Validation-VUID({}): {}
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, synchronization2));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
+        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
+
+        if (chain.AddAll({
+            NOVA_VK_EXTENSION(VK_KHR_MAINTENANCE_5_EXTENSION_NAME),
+            NOVA_VK_FEATURE(VkPhysicalDeviceMaintenance5FeaturesKHR, maintenance5)
+        })) {
+            impl->no_shader_modules = true;
+        }
 
         // Pageable device local memory
 

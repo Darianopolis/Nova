@@ -1,5 +1,7 @@
 #include "nova_VulkanRHI.hpp"
 
+#include <queue>
+
 namespace nova
 {
     void CommandList::PushConstants(const void* data, u64 size, u64 offset) const
@@ -223,9 +225,10 @@ namespace nova
                     }),
                     .flags = VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT,
                 }),
-                .flags = context->descriptor_buffers
+                .flags = (context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                        : VkPipelineCreateFlags(0),
+                        : VkPipelineCreateFlags(0))
+                    | VK_PIPELINE_CREATE_LIBRARY_BIT_KHR,
                 .pVertexInputState = PtrTo(VkPipelineVertexInputStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
                 }),
@@ -298,9 +301,10 @@ namespace nova
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT,
                     }),
                 }),
-                .flags = context->descriptor_buffers
+                .flags = (context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                        : VkPipelineCreateFlags(0),
+                        : VkPipelineCreateFlags(0))
+                    | VK_PIPELINE_CREATE_LIBRARY_BIT_KHR,
                 .stageCount = u32(shaders.size()),
                 .pStages = stages,
                 .pViewportState = PtrTo(VkPipelineViewportStateCreateInfo {
@@ -359,9 +363,10 @@ namespace nova
                         .flags = VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT,
                     }),
                 }),
-                .flags = context->descriptor_buffers
+                .flags = (context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                        : VkPipelineCreateFlags(0),
+                        : VkPipelineCreateFlags(0))
+                    | VK_PIPELINE_CREATE_LIBRARY_BIT_KHR,
                 .stageCount = 1,
                 .pStages = PtrTo(shader->GetStageInfo()),
                 .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
@@ -457,9 +462,10 @@ namespace nova
                     .depthAttachmentFormat = GetVulkanFormat(cmd->depth_attachment_format).vk_format,
                     .stencilAttachmentFormat = GetVulkanFormat(cmd->stencil_attachment_format).vk_format,
                 }),
-                .flags = context->descriptor_buffers
+                .flags = (context->descriptor_buffers
                         ? VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-                        : VkPipelineCreateFlags(0),
+                        : VkPipelineCreateFlags(0))
+                    | VK_PIPELINE_CREATE_LIBRARY_BIT_KHR,
                 .pMultisampleState = PtrTo(VkPipelineMultisampleStateCreateInfo {
                     .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
                     .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,

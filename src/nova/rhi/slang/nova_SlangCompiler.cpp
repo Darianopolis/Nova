@@ -45,7 +45,7 @@ namespace nova
         NOVA_SLANG_IUNKNOWN_IMPL
         NOVA_SLANG_CASTABLE_IMPL
 
-        std::unordered_set<std::string> loaded_paths;
+        ankerl::unordered_dense::set<std::string> loaded_paths;
 
         virtual SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(
             char const*     path,

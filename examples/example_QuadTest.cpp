@@ -32,7 +32,7 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = false,
+        .debug = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -133,7 +133,7 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         cmd.SetBlendState({false});
 
         cmd.PushConstants(PushConstants {
-            .quads = (Quad*)quads.DeviceAddress(),
+            .quads = (const Quad*)quads.DeviceAddress(),
             .quad_size = Vec2(inv_half_size),
         });
 

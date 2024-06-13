@@ -2,6 +2,7 @@
 
 #include <nova/window/nova_Window.hpp>
 #include <nova/rhi/nova_RHI.hpp>
+#include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
 NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 {

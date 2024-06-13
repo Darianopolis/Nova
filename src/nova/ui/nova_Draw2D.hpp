@@ -28,21 +28,14 @@ namespace nova::draw
         f32  height;
         f32 advance;
         Vec2 offset;
+        bool loaded = false;
     };
 
 // -----------------------------------------------------------------------------
 
     struct Draw2D;
-
-    struct Font
-    {
-        Draw2D* im_draw;
-
-        std::vector<Glyph> glyphs;
-
-    public:
-        ~Font();
-    };
+    struct Font;
+    void FontDeleter(Font* font);
 
     struct Draw2D
     {
@@ -62,6 +55,7 @@ namespace nova::draw
         Bounds2F bounds;
 
         std::vector<DrawCommand> draw_commands;
+        std::vector<Font*> loaded_fonts;
 
     public:
         Draw2D(HContext);
@@ -70,13 +64,13 @@ namespace nova::draw
         Sampler DefaultSampler() noexcept;
         const Bounds2F& Bounds() const noexcept;
 
-        std::unique_ptr<Font> LoadFont(std::span<const std::byte> data, f32 size);
+        Font* LoadFont(Span<b8> data);
 
         void Reset();
         void DrawRect(const Rectangle& rect);
-        void DrawString(StringView str, Vec2 pos, Font& font);
+        void DrawString(StringView str, Vec2 pos, Font& font, f32 size);
 
-        Bounds2F MeasureString(StringView str, Font& font);
+        Bounds2F MeasureString(StringView str, Font& font, f32 size);
 
         void Record(CommandList, Image target);
     };
