@@ -1,5 +1,5 @@
 #include "nova_Draw2D.hpp"
-#include "nova_Draw2D.slang"
+#include "nova_Draw2DRect.slang"
 
 #define FT_CONFIG_OPTION_SUBPIXEL_RENDERING
 #include <ft2build.h>
@@ -144,10 +144,10 @@ namespace nova::draw
             16.f);
         NOVA_CLEANUP_ON_EXCEPTION(&) { default_sampler.Destroy(); };
 
-        rect_vert_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2D.slang");
+        rect_vert_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Vertex,   "Vertex",   "nova/ui/nova_Draw2DRect.slang");
         NOVA_CLEANUP_ON_EXCEPTION(&) { rect_vert_shader.Destroy(); };
 
-        rect_frag_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2D.slang");
+        rect_frag_shader = Shader::Create(context, ShaderLang::Slang, ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2DRect.slang");
         NOVA_CLEANUP_ON_EXCEPTION(&) { rect_frag_shader.Destroy(); };
 
         rect_buffer = Buffer::Create(context, sizeof(Rectangle) * MaxPrimitives,
@@ -219,8 +219,8 @@ namespace nova::draw
                 DrawRect(Rectangle {
                     .center_pos = Vec2(g.width / 2.f, g.height / 2.f) + pos + Vec2(g.offset.x, -g.offset.y),
                     .half_extent = { g.width / 2.f, g.height / 2.f },
-                    .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
                     .tex_handle = {g.image.Descriptor(), default_sampler.Descriptor()},
+                    .tex_tint = { 1.f, 1.f, 1.f, 1.f, },
                     .tex_center_pos = { 0.5f, 0.5f },
                     .tex_half_extent = { 0.5f, 0.5f },
                 });

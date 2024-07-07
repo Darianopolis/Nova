@@ -145,9 +145,13 @@ namespace nova
                         }
                     }
 
-                    // Import BITMAP memory into a buffer
-
-                    swapchain->buffer = nova::Buffer::Create(swapchain->context, buffer_size, {}, nova::BufferFlags::ImportHost, swapchain->bits);
+                    if (swapchain->context->external_host_memory) {
+                        // Import BITMAP memory into a buffer
+                        swapchain->buffer = nova::Buffer::Create(swapchain->context, buffer_size, {}, nova::BufferFlags::ImportHost, swapchain->bits);
+                    } else {
+                        // TODO: Warn on suboptimal configuration?
+                        swapchain->buffer = nova::Buffer::Create(swapchain->context, buffer_size, {}, nova::BufferFlags::Mapped);
+                    }
                 }
             }
 
@@ -190,6 +194,11 @@ namespace nova
                 }
 
                 auto window_size = size;
+
+                if (!swapchain->context->external_host_memory) {
+                    // Fallback copy if can't import BITMAP memory
+                    std::memcpy(swapchain->bits, swapchain->buffer.HostAddress(), swapchain->buffer.Size());
+                }
 
                 // If window has moved but not resized, move the edges to force windows to sync move with content update
                 if (swapchain->last_pos.x != swapchain->window->position.x && swapchain->last_size.x == size.x) window_size.x++;

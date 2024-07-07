@@ -478,6 +478,7 @@ namespace nova
 //                              Device Properties
 // -----------------------------------------------------------------------------
 
+        bool      external_host_memory = false;
         bool            shader_objects = false;
         bool graphics_pipeline_library = false;
         bool        descriptor_buffers = false;

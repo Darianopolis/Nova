@@ -470,7 +470,9 @@ Validation-VUID({}): {}
 
         // Memory imports
 
-        chain.Require(NOVA_VK_EXTENSION(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME));
+        if (chain.Add(NOVA_VK_EXTENSION(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))) {
+            impl->external_host_memory = true;
+        }
 
         // Extended Dynamic State
 

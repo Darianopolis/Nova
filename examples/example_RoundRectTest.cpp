@@ -1,16 +1,15 @@
-#include "example_QuadTest.slang"
+#include <nova/ui/nova_Draw2DRect.slang>
 
 #include "main/example_Main.hpp"
 
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/window/nova_Window.hpp>
 
-NOVA_EXAMPLE(QuadTest, "quad-test")
+NOVA_EXAMPLE(RoundRect, "round-rect")
 {
-    constexpr u32 size = 1024;
-    constexpr u32 quad_side_count = size / 1;
-    constexpr u32 num_quads = quad_side_count * quad_side_count;
-    constexpr f32 inv_half_size = 2.f / quad_side_count;
+    constexpr u32 size = 1440;
+
+    constexpr u32 num_quads = 65'536;
     constexpr u32 num_indices = num_quads * 6;
 
     auto app = nova::Application::Create();
@@ -21,7 +20,7 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
@@ -35,14 +34,28 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     // Quad data
 
-    auto quads = nova::Buffer::Create(context, num_quads * sizeof(Quad),
+    std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution<float> size_dist{20.f, 30.f};
+    std::uniform_real_distribution<float> rotation_dist{0.f, 2.f * glm::pi<float>()};
+    std::uniform_real_distribution<float> position_dist{-0.5f * size, 0.5f * size};
+    std::uniform_real_distribution<float> unorm_dist{0.f, 1.f};
+
+    auto quads = nova::Buffer::Create(context, num_quads * sizeof(nova::draw::Rectangle),
         nova::BufferUsage::Storage,
         nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
     NOVA_DEFER(&) { quads.Destroy(); };
-    for (u32 y = 0; y < quad_side_count; ++y) {
-        for (u32 x = 0; x < quad_side_count; ++x) {
-            quads.Set<Quad>(Quad({x * inv_half_size - 1, y * inv_half_size - 1}), x * quad_side_count + y);
-        }
+    for (u32 i = 0; i < num_quads; ++i) {
+        Vec2 half_extent = Vec2(size_dist(rng), size_dist(rng));
+        auto get_color = [&]{ return Vec4(unorm_dist(rng),unorm_dist(rng),unorm_dist(rng),unorm_dist(rng)); };
+        quads.Set<nova::draw::Rectangle>(nova::draw::Rectangle {
+            .center_color = {get_color()},
+            .border_color = {get_color()},
+            .center_pos = Vec2(position_dist(rng), position_dist(rng)) * 0.99f,
+            .half_extent = half_extent,
+            .rotation = rotation_dist(rng),
+            .corner_radius = glm::min(half_extent.x, half_extent.y) * unorm_dist(rng),
+            .border_width = glm::min(half_extent.x, half_extent.y) * unorm_dist(rng),
+        }, i);
     }
 
     // Indices
@@ -60,13 +73,10 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     // Shaders
 
-    auto batch_vertex_shader    = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexBatched", "example_QuadTest.slang");
+    auto batch_vertex_shader    = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "Vertex", "nova/ui/nova_Draw2DRect.slang");
     NOVA_DEFER(&) { batch_vertex_shader.Destroy(); };
 
-    auto instance_vertex_shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Vertex, "VertexInstanced", "example_QuadTest.slang");
-    NOVA_DEFER(&) { instance_vertex_shader.Destroy(); };
-
-    auto fragment_shader        = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "example_QuadTest.slang");
+    auto fragment_shader        = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Fragment, "Fragment", "nova/ui/nova_Draw2DRect.slang");
     NOVA_DEFER(&) { fragment_shader.Destroy(); };
 
     // Variables
@@ -76,19 +86,6 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
     u32 fif = 1;
     std::array<nova::SyncPoint, 2> wait_values;
-
-    bool indexed = true;
-    bool instanced = false;
-
-    app.AddCallback([&](const nova::AppEvent& e) {
-        if (e.type == nova::EventType::Input) {
-            auto vk = app.ToVirtualKey(e.input.channel);
-            if (e.input.pressed) {
-                if (vk == nova::VirtualKey::Q) indexed = !indexed;
-                if (vk == nova::VirtualKey::E) instanced = !instanced;
-            }
-        }
-    });
 
     // Draw loop
 
@@ -104,7 +101,7 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
         frames++;
         auto new_time = std::chrono::steady_clock::now();
         if (new_time - last_time > 1s) {
-            nova::Log("Indexed = {}\tInstanced = {}\tFrametime = {} ({} fps)", indexed, instanced, nova::DurationToString(std::chrono::duration<float>(1.f / frames)), frames);
+            nova::Log("Frametime = {} ({} fps)", nova::DurationToString(std::chrono::duration<float>(1.f / frames)), frames);
 
             last_time = std::chrono::steady_clock::now();
             frames = 0;
@@ -119,28 +116,17 @@ NOVA_EXAMPLE(QuadTest, "quad-test")
 
         cmd.ResetGraphicsState();
         cmd.SetViewports({{{}, Vec2I(swapchain.Extent())}}, true);
-        cmd.SetBlendState({false});
+        cmd.SetBlendState({true});
 
         cmd.PushConstants(PushConstants {
-            .quads = (const Quad*)quads.DeviceAddress(),
-            .quad_size = Vec2(inv_half_size),
+            .inv_half_extent = 2.f / Vec2(size),
+            .rects = (const nova::draw::Rectangle*)quads.DeviceAddress(),
         });
 
-        if (instanced) {
-            cmd.BindShaders({instance_vertex_shader, fragment_shader});
-        } else {
-            cmd.BindShaders({batch_vertex_shader, fragment_shader});
-        }
+        cmd.BindShaders({batch_vertex_shader, fragment_shader});
 
-        const u32 num_indices_per_instance = instanced ? 6 : num_indices;
-        const u32 num_instances            = instanced ? num_quads : 1;
-
-        if (indexed) {
-            cmd.BindIndexBuffer(indices, nova::IndexType::U32);
-            cmd.DrawIndexed(num_indices_per_instance, num_instances, 0, 0, 0);
-        } else {
-            cmd.Draw(num_indices_per_instance, num_instances, 0, 0);
-        }
+        cmd.BindIndexBuffer(indices, nova::IndexType::U32);
+        cmd.DrawIndexed(num_indices, 1, 0, 0, 0);
 
         cmd.EndRendering();
 

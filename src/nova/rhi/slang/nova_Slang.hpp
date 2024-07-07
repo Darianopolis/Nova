@@ -3,6 +3,26 @@
 #include <nova/core/nova_Core.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 
+// Colors
+
+struct RGBA32
+{
+    uint32_t value;
+
+    RGBA32() = default;
+
+    RGBA32(const RGBA32&) = default;
+    RGBA32& operator=(const RGBA32&) = default;
+
+    RGBA32(glm::vec4 color)
+        : value{glm::packUnorm4x8(color)}
+    {}
+
+    RGBA32(float r, float g, float b, float a)
+        : value{glm::packUnorm4x8({r, g, b, a})}
+    {}
+};
+
 // Descriptors
 
 using nova::ImageSamplerDescriptor;
