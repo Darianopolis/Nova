@@ -54,6 +54,54 @@ struct ImageHandle
     }
 };
 
+// TODO: This stuff
+
+// [[vk::binding(0, 0)]] __DynamicResource<__DynamicResourceKind.Sampler> g_SamplerHeap[];
+// [[vk::binding(1, 0)]] __DynamicResource<__DynamicResourceKind.General> g_RWTextureHeap[];
+// [[vk::binding(2, 0)]] __DynamicResource<__DynamicResourceKind.General> g_TextureHeap[];
+
+// struct ImageHandle<T>
+// {
+//     uint32_t handle;
+
+//     __init(uint32_t image) { handle = image; }
+//     __init(uint32_t image, uint32_t sampler) { handle = image | (sampler << 20); }
+
+//     __subscript(uint32_t idx)->T
+//     {
+//         get { return g_TextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<Texture2D<T>>()[idx]; }
+//         set { g_RWTextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<RWTexture2D<T>>()[idx] = newValue; }
+//     }
+
+//     __subscript(uint2 idx)->T
+//     {
+//         get { return g_TextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<Texture2D<T>>()[idx]; }
+//         set { g_RWTextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<RWTexture2D<T>>()[idx] = newValue; }
+//     }
+
+//     uint2 GetDimensions()
+//     {
+//         uint width, height;
+//         g_TextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<Texture2D<T>>().GetDimensions(width, height);
+
+//         return uint2(width, height);
+//     }
+// }
+
+// __generic<T : IFloat>
+//     extension ImageHandle<T>
+// {
+//     T Sample(float2 uv)
+//     {
+//         return g_TextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<Texture2D<T>>().Sample(g_SamplerHeap[NonUniformResourceIndex(handle >> 20)].as<SamplerState>(), uv);
+//     }
+
+//     T SampleLod(float2 uv, uint32_t lod)
+//     {
+//         return g_TextureHeap[NonUniformResourceIndex(handle & 0xfffff)].as<Texture2D<T>>().SampleLevel(g_SamplerHeap[NonUniformResourceIndex(handle >> 20)].as<SamplerState>(), uv, lod);
+//     }
+// }
+
 typedef ImageHandle ImageSamplerDescriptor;
 typedef ImageHandle ImageDescriptor;
 

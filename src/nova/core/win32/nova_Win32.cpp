@@ -1,8 +1,9 @@
 #include "nova_Win32.hpp"
 
-#include "shellapi.h"
-#include "userenv.h"
-#include "shlobj_core.h"
+#include <shellapi.h>
+#include <userenv.h>
+#include <shlobj_core.h>
+#include <timeapi.h>
 
 namespace {
     std::monostate Win32_EnableUTF8 = []() -> std::monostate {
@@ -98,5 +99,54 @@ namespace nova::env
         }
 
         return out;
+    }
+}
+
+// -----------------------------------------------------------------------------
+//                            Win32 Timers
+// -----------------------------------------------------------------------------
+
+namespace nova
+{
+    void SleepFor(std::chrono::nanoseconds nanos)
+    {
+        // https://blog.bearcats.nl/perfect-sleep-function/
+
+        constexpr int64_t Period    = 8;              // 8ms        in milliseconds
+        constexpr int64_t MaxTicks  = Period * 9'500; // 95% of 8ms in ticks (100ns)
+        constexpr int64_t Tolerance = 1'020'000;      // 1.2ms      in nanoseconds
+
+        using namespace std::chrono;
+
+        auto t = steady_clock::now();
+        auto target = t + nanos;
+
+        NOVA_DO_ONCE() { timeBeginPeriod(Period); };
+        thread_local HANDLE timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+
+        // Sleep
+
+        for (;;) {
+            int64_t remaining = (target - t).count();
+            int64_t ticks = (remaining - Tolerance) / 100;
+            if (ticks <= 0) {
+                break;
+            }
+            if (ticks > MaxTicks) {
+                ticks = MaxTicks;
+            }
+
+            LARGE_INTEGER due;
+            due.QuadPart = -ticks;
+            SetWaitableTimerEx(timer, &due, 0, nullptr, nullptr, nullptr, 0);
+            WaitForSingleObject(timer, INFINITE);
+            t = steady_clock::now();
+        }
+
+        // Spin
+
+        while (steady_clock::now() < target) {
+            std::this_thread::yield();
+        }
     }
 }

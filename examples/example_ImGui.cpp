@@ -1,6 +1,5 @@
 #include "main/example_Main.hpp"
 
-#include <nova/core/nova_Timer.hpp>
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/ui/nova_ImGui.hpp>
 

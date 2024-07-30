@@ -4,33 +4,55 @@
 #include <nova/window/nova_Window.hpp>
 #include <nova/asset/nova_Image.hpp>
 
-#include "example_Compute.slang"
+#include "example_Blur.slang"
 
-NOVA_EXAMPLE(Compute, "compute")
+f32 sigma = 3.f;
+
+f32 Gaussian(f32 x)
 {
-    nova::Log("Running example: Compute");
+    f32 Numerator = 1.f;
+    f32 deviation = sigma;
+    f32 denominator = f32(glm::sqrt(2.f * glm::pi<f32>()) * deviation);
 
-    if (args.size() < 2) {
-        NOVA_THROW_STACKLESS("Usage: <encoding> <file>");
+    f32 exponentNumerator = -x * x;
+    f32 exponentDenominator = float(2.f * (deviation * deviation));
+
+    f32 left = Numerator / denominator;
+    f32 right = float(glm::exp(exponentNumerator / exponentDenominator));
+
+    return left * right;
+}
+
+std::vector<f32> CreateGaussianKernel(u32 radius)
+{
+    u32 size = radius * 2 + 1;
+    std::vector<f32> kernel(size * 2 + 1);
+    f32 sum = 0.f;
+
+    f32 midpoint = f32(radius);
+    for (u32 i = 0; i < size; ++i) {
+        f32 x = i - midpoint;
+        f32 gx = Gaussian(x);
+        sum += gx;
+        kernel[i] = gx;
     }
 
-    auto encoding = args[0];
-    {
-        bool found_encoding = false;
-        for (auto& _enc : { "rgba", "bc1", "bc2", "bc3", "bc4", "bc5", "bc6", "bc7" }) {
-            if (encoding == _enc) {
-                found_encoding = true;
-                break;
-            }
-        }
-        if (!found_encoding) {
-            NOVA_THROW_STACKLESS("Unrecognized encoding: {}\n"
-                       "Encodings: rgba, bc1, bc2, bc3, bc4, bc5, bc6, bc7",
-                       encoding);
-        }
+    for (u32 i = 0; i < size; ++i) {
+        kernel[i] /= sum;
     }
 
-    auto file = args[1];
+    return kernel;
+}
+
+NOVA_EXAMPLE(Blur, "blur")
+{
+    nova::Log("Running example: Blur");
+
+    if (args.size() < 1) {
+        NOVA_THROW_STACKLESS("Usage: <file>");
+    }
+
+    auto file = args[0];
     if (!nova::fs::exists(file)) {
         NOVA_THROW_STACKLESS("Could not file: {}", file);
     }
@@ -42,7 +64,7 @@ NOVA_EXAMPLE(Compute, "compute")
     auto app = nova::Application::Create();
     NOVA_DEFER(&) { app.Destroy(); };
     auto window = nova::Window::Create(app)
-        .SetTitle("Nova - Compute")
+        .SetTitle("Nova - Blur")
         .SetSize({ 800, 800 }, nova::WindowPart::Client)
         .Show(true);
 
@@ -120,26 +142,7 @@ NOVA_DEBUG();
         auto target_desc = desc;
         target_desc.is_signed = false;
         nova::Format format;
-        if (encoding == "rgba") {
-            target_desc.format = nova::ImageFormat::RGBA8; format = nova::Format::RGBA8_UNorm;
-        } else if (encoding == "bc1") {
-            target_desc.format = nova::ImageFormat::BC1; format = nova::Format::BC1A_UNorm;
-        } else if (encoding == "bc2") {
-            target_desc.format = nova::ImageFormat::BC2; format = nova::Format::BC2_UNorm;
-        } else if (encoding == "bc3") {
-            target_desc.format = nova::ImageFormat::BC3; format = nova::Format::BC3_UNorm;
-        } else if (encoding == "bc4") {
-            target_desc.format = nova::ImageFormat::BC4; format = nova::Format::BC4_UNorm;
-        } else if (encoding == "bc5") {
-            target_desc.format = nova::ImageFormat::BC5; format = nova::Format::BC5_UNorm;
-        } else if (encoding == "bc6") {
-            target_desc.format = nova::ImageFormat::BC6; format = nova::Format::BC6_UFloat;
-        } else if (encoding == "bc7") {
-            target_desc.format = nova::ImageFormat::BC7; format = nova::Format::BC7_Unorm;
-        } else {
-            nova::Log("Invalid encoding must be one of: rgba, bc[1-7]");
-            return;
-        }
+        target_desc.format = nova::ImageFormat::RGBA8; format = nova::Format::RGBA8_UNorm;
 
         // Encode
 
@@ -163,14 +166,44 @@ NOVA_DEBUG();
         NOVA_TIMEIT("image-upload");
     }
 
+    nova::Image secondaries[2];
+    for (u32 i = 0; i < std::size(secondaries); ++i) {
+        secondaries[i] = nova::Image::Create(context,
+            Vec3(Vec2(image.Extent()), 0),
+            nova::ImageUsage::Sampled | nova::ImageUsage::Storage,
+            image.Format());
+    }
+    NOVA_DEFER(&) { for (auto secondary : secondaries) secondary.Destroy(); };
+
+    nova::Buffer kernel_buffer = nova::Buffer::Create(context, 0, nova::BufferUsage::Storage, nova::BufferFlags::DeviceLocal | nova::BufferFlags::Mapped);
+    NOVA_DEFER(&) { kernel_buffer.Destroy(); };
+
     // Shader
 
-    auto shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_Compute.slang");
+    auto shader = nova::Shader::Create(context, nova::ShaderLang::Slang, nova::ShaderStage::Compute, "Compute", "example_Blur.slang");
     NOVA_DEFER(&) { shader.Destroy(); };
 
 // -----------------------------------------------------------------------------
 //                               Main Loop
 // -----------------------------------------------------------------------------
+
+    i32 blur_radius = 0;
+    i32 passes = 1;
+    app.AddCallback([&](const nova::AppEvent& event) {
+        if (event.type == nova::EventType::MouseScroll) {
+            blur_radius = std::max(0, blur_radius + i32(event.scroll.scrolled.y));
+            nova::Log("Blur Radius: {}", blur_radius);
+        }
+        if (event.type == nova::EventType::Input) {
+            auto vk = app.ToVirtualKey(event.input.channel);
+            if (vk == nova::VirtualKey::E) {
+                passes++;
+            } else if (vk == nova::VirtualKey::Q) {
+                passes = std::max(2, passes) - 1;
+            }
+            nova::Log("Passes: {}", passes);
+        }
+    });
 
     auto last_time = std::chrono::steady_clock::now();
     u64 frame_index = 0;
@@ -207,13 +240,52 @@ NOVA_DEBUG();
 
         // Dispatch
 
-        cmd.PushConstants(PushConstants {
-            .source = {image.Descriptor(), sampler.Descriptor()},
-            .target = swapchain.Target().Descriptor(),
-            .size = Vec2(swapchain.Extent()),
-        });
         cmd.BindShaders(shader);
-        cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
+
+        auto kernel = CreateGaussianKernel(blur_radius);
+        kernel_buffer.Resize(kernel.size() * sizeof(f32));
+        std::memcpy(kernel_buffer.HostAddress(), kernel.data(), kernel_buffer.Size());
+
+        for (int i = 0; i < passes * 2; ++i) {
+            bool horizontal = i % 2;
+
+            auto source = secondaries[i % 2];
+            target = secondaries[1 - (i % 2)];
+
+            if (i == 0) source = image;
+            if (i == passes * 2 - 1) target = swapchain.Target();
+
+            cmd.PushConstants(PushConstants {
+                .source = {source.Descriptor(), sampler.Descriptor()},
+                .target = target.Descriptor(),
+                .size = Vec2(swapchain.Extent()),
+                .horizontal = horizontal,
+                .blur_radius = blur_radius,
+                .kernel = (const f32*)kernel_buffer.DeviceAddress(),
+            });
+            cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
+            cmd.Barrier(nova::PipelineStage::Compute, nova::PipelineStage::Compute);
+        }
+
+        // cmd.PushConstants(PushConstants {
+        //     .source = {image.Descriptor(), sampler.Descriptor()},
+        //     .target = secondary.Descriptor(),
+        //     .size = Vec2(swapchain.Extent()),
+        //     .horizontal = 1,
+        //     .blur_radius = blur_radius,
+        //     .kernel = (const f32*)kernel_buffer.DeviceAddress(),
+        // });
+        // cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
+        // cmd.Barrier(nova::PipelineStage::Compute, nova::PipelineStage::Compute);
+        // cmd.PushConstants(PushConstants {
+        //     .source = {secondary.Descriptor(), sampler.Descriptor()},
+        //     .target = swapchain.Target().Descriptor(),
+        //     .size = Vec2(swapchain.Extent()),
+        //     .horizontal = 0,
+        //     .blur_radius = blur_radius,
+        //     .kernel = (const f32*)kernel_buffer.DeviceAddress(),
+        // });
+        // cmd.Dispatch(Vec3U((Vec2U(target.Extent()) + 15u) / 16u, 1));
 
         // Submit and present work
 
