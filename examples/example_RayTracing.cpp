@@ -18,7 +18,7 @@ NOVA_EXAMPLE(RayTracing, "rt")
     // Create Nova context with ray tracing enabled
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
         .ray_tracing = true,
     });
     NOVA_DEFER(&) { context.Destroy(); };

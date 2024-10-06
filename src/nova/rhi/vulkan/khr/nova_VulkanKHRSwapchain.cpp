@@ -59,9 +59,14 @@ namespace nova
                 vkh::Check(queue->context->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(queue->context->gpu, swapchain->surface, &caps));
 
                 bool recreate = swapchain->invalid
-                    || !swapchain->swapchain
-                    || caps.currentExtent.width != swapchain->extent.width
-                    || caps.currentExtent.height != swapchain->extent.height;
+                    || !swapchain->swapchain;
+                    // || caps.currentExtent.width != swapchain->extent.width
+                    // || caps.currentExtent.height != swapchain->extent.height;
+
+                if (caps.currentExtent.width == 0 && caps.currentExtent.height == 0) {
+                    swapchain->invalid = false;
+                    break;
+                }
 
                 if (recreate) {
                     resized |= recreate;
@@ -145,11 +150,13 @@ namespace nova
 
                 if (result != VK_SUCCESS) {
                     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
-                        Log("Swapchain[{}] acquire returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(result));
+                        // Log("Swapchain[{}] acquire returned {} ", (void*)swapchain->swapchain, result == VK_ERROR_OUT_OF_DATE_KHR ? "out-of-date" : "suboptimal");
                         swapchain->invalid = true;
                     } else {
                         vkh::Check(result);
                     }
+                } else {
+                    swapchain->invalid = false;
                 }
             } while (swapchain->invalid);
 
@@ -293,9 +300,7 @@ namespace nova
             for (u32 i = 0; i < swapchains.size(); ++i) {
                 if (results[i] == VK_ERROR_OUT_OF_DATE_KHR || results[i] == VK_SUBOPTIMAL_KHR) {
                     auto swapchain = KHRSwapchainData::Get(swapchains[i]);
-                    if (queue->context->config.trace) {
-                        Log("Swapchain[{}] present returned out-of-date/suboptimal ({})", (void*)swapchain->swapchain, int(results[i]));
-                    }
+                    // Log("Swapchain[{}] present returned {} ", (void*)swapchain->swapchain, results[i] == VK_ERROR_OUT_OF_DATE_KHR ? "out-of-date" : "suboptimal");
                     swapchain->invalid = true;
                 } else {
                     vkh::Check(results[i]);

@@ -1331,9 +1331,9 @@ namespace nova
         const char*                     what() const noexcept { return What(); }
 
     private:
-        std::string                         message;
-        const std::source_location& source_location;
-        std::optional<std::stacktrace>   back_trace;
+        std::string                       message;
+        std::source_location      source_location;
+        std::optional<std::stacktrace> back_trace;
     };
 }
 
@@ -1370,7 +1370,7 @@ namespace nova::detail
 #define NOVA_TIMEIT(...) do {                                                  \
     using namespace std::chrono;                                               \
     ::nova::Log("- Timeit ({:6}) :: " __VA_OPT__("[{}] ") "{} - {}",           \
-        duration_cast<milliseconds>(steady_clock::now()                        \
+        nova::DurationToString(steady_clock::now()                             \
             - ::nova::detail::NovaTimeitLast),                                 \
          __VA_OPT__(__VA_ARGS__,) __LINE__, __FILE__);                         \
     ::nova::detail::NovaTimeitLast = steady_clock::now();                      \
@@ -1595,6 +1595,23 @@ namespace nova::math
         return static_cast<Target>(source);
     }
 }
+
+// -----------------------------------------------------------------------------
+//                      Copy elision capable placement
+// -----------------------------------------------------------------------------
+
+#ifdef __cpp_lib_constexpr_new
+#define NOVA_CONSTRUCT_AT(ptr, ...) \
+    new(ptr) std::remove_cvref_t<decltype(*(ptr))>(__VA_ARGS__)
+#else
+#define NOVA_CONSTRUCT_AT(ptr, ...) \
+    (std::is_constant_evaluated() \
+        ? std::construct_at((ptr), __VA_ARGS__) \
+        : new(ptr) std::remove_cvref_t<decltype(*(ptr))>(__VA_ARGS__))
+#endif
+
+#define NOVA_PLACE_NEW(ptr) \
+    new (const_cast<void*>(static_cast<const volatile void*>(ptr))) std::remove_cvref_t<decltype(*(ptr))>
 
 // -----------------------------------------------------------------------------
 //                           Environment Variables

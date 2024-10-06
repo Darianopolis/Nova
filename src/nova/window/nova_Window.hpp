@@ -28,6 +28,7 @@ namespace nova
     {
         Disabled,
         ChromaKey,
+        Static,
         PerPixel,
     };
 
@@ -222,6 +223,11 @@ namespace nova
         HWindow gaining;
     };
 
+    struct HotkeyEvent
+    {
+        i32 id;
+    };
+
     struct AppEvent
     {
         HApplication app;
@@ -234,6 +240,7 @@ namespace nova
             MouseMoveEvent mouse_move;
             MouseScrollEvent   scroll;
             WindowFocusEvent    focus;
+            HotkeyEvent        hotkey;
         };
         bool consumed = false;
     };
@@ -349,7 +356,12 @@ namespace nova
 
         Window SetCursor(Cursor cursor) const;
         Window SetDecorate(bool state) const;
-        Window SetTransparency(TransparencyMode mode, Vec3U chroma_key = {}) const;
+        Window SetTransparency(TransparencyMode mode, Vec3U chroma_key = {}, f32 alpha = 1.f) const;
         Window SetFullscreen(bool enabled) const;
+        Window SetBackgroundColor(bool enabled, Vec3 color = {}) const;
+        Window SetTopmost(bool topmost) const;
+
+        // Control whether a window shows up in the taskbar and/or task switcher
+        Window SetAppWindow(bool appwindow) const;
     };
 }

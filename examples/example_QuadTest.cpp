@@ -7,7 +7,7 @@
 
 NOVA_EXAMPLE(QuadTest, "quad-test")
 {
-    constexpr u32 size = 1024;
+    constexpr u32 size = 4096;
     constexpr u32 quad_side_count = size / 1;
     constexpr u32 num_quads = quad_side_count * quad_side_count;
     constexpr f32 inv_half_size = 2.f / quad_side_count;

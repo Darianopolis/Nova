@@ -27,7 +27,7 @@ namespace nova
         ID3D12CommandQueue* dxqueue = nullptr;
         IDXGIDevice*    dxgi_device = nullptr;
 
-        bool                 comp_enabled = true;
+        bool                 comp_enabled = false;
         IDCompositionDevice* dcomp_device = nullptr;
         IDCompositionVisual* dcomp_visual = nullptr;
         IDCompositionTarget* dcomp_target = nullptr;

@@ -44,9 +44,9 @@ Validation-VUID({}): {}
     {
         using FeatureOrExtension = std::variant<VulkanFeature, const char*>;
 
-        std::vector<const char*>                                extensions;
-        HashMap<VkStructureType, VkBaseInStructure*>       device_features;
-        VkBaseInStructure*                                            next = nullptr;
+        std::vector<const char*>                          extensions;
+        HashMap<VkStructureType, VkBaseInStructure*> device_features;
+        VkBaseInStructure*                                      next = nullptr;
 
         Context          ctx;
         VkPhysicalDevice gpu = nullptr;
@@ -451,7 +451,6 @@ Validation-VUID({}): {}
 
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, synchronization2));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, dynamicRendering));
-        chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
         chain.Require(NOVA_VK_FEATURE(VkPhysicalDeviceVulkan13Features, maintenance4));
 
         if (chain.AddAll({

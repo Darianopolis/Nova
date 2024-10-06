@@ -59,7 +59,10 @@ namespace nova
                 auto* swapchain = DXGISwapchainData::Get(_swapchain);
                 RECT rect;
                 GetClientRect(swapchain->dxhwnd, &rect);
-                ResizeSwapchain(_swapchain, u32(rect.right), u32(rect.bottom));
+                if (rect.right > 0 && rect.bottom > 0 /* allow rendering to continue while minimized, add flag for this? */) {
+                    vkh::Check(queue->context->vkQueueWaitIdle(queue->handle));
+                    ResizeSwapchain(_swapchain, u32(rect.right), u32(rect.bottom));
+                }
 
                 swapchain->index = swapchain->dxswapchain->GetCurrentBackBufferIndex();
             }
@@ -105,7 +108,8 @@ namespace nova
                 auto* swapchain = DXGISwapchainData::Get(_swapchain);
                 // TODO: Parameterize sync interval on present mode
                 // TODO: Allow tearing
-                swapchain->dxswapchain->Present1(1, 0, PtrTo(DXGI_PRESENT_PARAMETERS {}));
+                swapchain->dxswapchain->Present1(0, 0, PtrTo(DXGI_PRESENT_PARAMETERS {}));
+                // swapchain->dxswapchain->Present1(1, 0, PtrTo(DXGI_PRESENT_PARAMETERS {}));
                 if (swapchain->comp_enabled) {
                     swapchain->dcomp_visual->SetContent(swapchain->dxswapchain);
                     swapchain->dcomp_target->SetRoot(swapchain->dcomp_visual);
@@ -192,6 +196,8 @@ namespace nova
             swapchain->dxhwnd = hwnd;
             swapchain->extent = { width, height };
 
+            // TODO: Parameterize!
+
             DXGI_SWAP_CHAIN_DESC1 desc {
                 .Width = width,
                 .Height = height,
@@ -200,7 +206,8 @@ namespace nova
                 .SampleDesc = { 1, 0 },
                 .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
                 .BufferCount = swapchain->image_count,
-                .Scaling = DXGI_SCALING_STRETCH,
+                // .Scaling = DXGI_SCALING_STRETCH,
+                .Scaling = DXGI_SCALING_NONE,
                 .SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
                 .AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED,
                 .Flags = 0,

@@ -4,6 +4,8 @@
 #include <nova/rhi/nova_RHI.hpp>
 #include <nova/rhi/vulkan/nova_VulkanRHI.hpp>
 
+#include <nova/core/win32/nova_Win32.hpp>
+
 NOVA_EXAMPLE(TriangleMinimal, "tri-min")
 {
     auto app = nova::Application::Create();

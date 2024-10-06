@@ -55,7 +55,7 @@ namespace nova::imgui
         bool ended = false;
 
         bool dock_menu_bar = true;
-        bool    no_dock_bg = true;
+        bool    no_dock_bg = false;
 
         struct TextureDescriptor
         {

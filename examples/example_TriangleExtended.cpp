@@ -16,14 +16,14 @@ NOVA_EXAMPLE(TriangleBuffered, "tri-ext")
         .Show(true);
 
     auto context = nova::Context::Create({
-        .debug = true,
+        .debug = false,
     });
     NOVA_DEFER(&) { context.Destroy(); };
 
     auto swapchain = nova::Swapchain::Create(context, window,
         nova::ImageUsage::ColorAttach
         | nova::ImageUsage::TransferDst,
-        nova::PresentMode::Fifo);
+        nova::PresentMode::Immediate);
     NOVA_DEFER(&) { swapchain.Destroy(); };
 
     auto queue = context.Queue(nova::QueueFlags::Graphics, 0);

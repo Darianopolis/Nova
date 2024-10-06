@@ -14,7 +14,7 @@ struct PushConstants
 {
     ImageSamplerDescriptor image;
     const Vertex*       vertices;
-    float3                offset;
+    float3 offset;
 };
 
 #ifdef __cplusplus

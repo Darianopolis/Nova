@@ -98,7 +98,10 @@ namespace nova
 
         struct Restore {
             Rect2I rect;
+            bool stored;
         } restore;
+
+        HBRUSH bg_brush = NULL;
 
         static
         LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);

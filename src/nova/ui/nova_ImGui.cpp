@@ -337,7 +337,8 @@ namespace nova::imgui
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-            dockspace_window_flags |= ImGuiWindowFlags_NoTitleBar
+            dockspace_window_flags
+                |= ImGuiWindowFlags_NoTitleBar
                 | ImGuiWindowFlags_NoCollapse
                 | ImGuiWindowFlags_NoResize
                 | ImGuiWindowFlags_NoMove

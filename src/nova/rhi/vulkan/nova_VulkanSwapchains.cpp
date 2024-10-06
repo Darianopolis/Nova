@@ -69,10 +69,12 @@ namespace nova
 #endif
         }
 
-        if (flags >= SwapchainFlags::PreMultipliedAlpha) {
-            return DXGISwapchain_Create(context, window, usage, present_mode);
-        } else {
-            return KHRSwapchain_Create(context, window, usage, present_mode);
-        }
+        // TODO: Sort out swapchain layering
+
+        // if (flags >= SwapchainFlags::PreMultipliedAlpha) {
+        // return DXGISwapchain_Create(context, window, usage, present_mode);
+        // } else {
+        return KHRSwapchain_Create(context, window, usage, present_mode);
+        // }
     }
 }

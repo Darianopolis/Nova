@@ -39,11 +39,13 @@ if Project "nova" then
         "src/nova/ui/*",
         "src/nova/asset/*",
         "src/nova/vfs/*",
+        "src/nova/window/*",
     }
 
     Embed "assets/fonts/CONSOLA.TTF"
 
     Compile {
+        "src/nova/rhi/*",
         "src/nova/rhi/vulkan/*",
         "src/nova/rhi/vulkan/dxgi/*",
         "src/nova/rhi/vulkan/khr/*",

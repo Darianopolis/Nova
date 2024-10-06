@@ -1,5 +1,7 @@
 #include "nova_Win32Window.hpp"
 
+#include "nova_Win32WindowHelpers.hpp"
+
 #include <nova/core/win32/nova_Win32.hpp>
 
 namespace nova
@@ -132,10 +134,16 @@ namespace nova
         if (impl->running) {
             MSG msg = {};
             while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                // {
+                //     auto str = Win32_WindowMessageToString(msg.message);
+                //     if (str.size()) {
+                //         Log("MSG: {0} ({0:#x} :: {1}), WPARAM: {2} ({2:#x}), LPARAM: {3} ({3:#x})", msg.message, str, msg.wParam, msg.lParam);
+                //     }
+                // }
                 switch (msg.message) {
                     break;case WM_HOTKEY:
                         // TODO: Payload!
-                        impl->Send({ .type = EventType::Hotkey });
+                        impl->Send({ .type = EventType::Hotkey, .hotkey = { i32(msg.wParam) } });
                     break;case WM_TIMER:
                         // Log("timer");
                     break;case WM_QUIT:
