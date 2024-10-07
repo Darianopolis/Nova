@@ -148,9 +148,6 @@ namespace nova
 //                        fmtlib standard formatters
 // -----------------------------------------------------------------------------
 
-template<typename ... DurationT>
-struct fmt::formatter<std::chrono::duration<DurationT...>> : fmt::ostream_formatter {};
-
 template<>
 struct fmt::formatter<std::stacktrace> : fmt::ostream_formatter {};
 
@@ -1440,88 +1437,91 @@ namespace nova
 
 namespace nova
 {
+    namespace formatting::detail {
+        inline
+        uint32_t DecimalsFor3SF(double value)
+        {
+            if (value < 10) return 2;
+            if (value < 100) return 1;
+            return 0;
+        }
+    }
+
     inline
     std::string DurationToString(std::chrono::duration<double, std::nano> dur)
     {
-        f64 nanos = dur.count();
+        using formatting::detail::DecimalsFor3SF;
 
-        if (nanos > 1e9) {
-            f64 seconds = nanos / 1e9;
-            u32 decimals = 2 - u32(std::log10(seconds));
-            return Fmt("{:.{}f}s",seconds, decimals);
+        double nanos = dur.count();
+
+        if (nanos >= 1e9) {
+            double seconds = nanos / 1e9;
+            return std::format("{:.{}f}s", seconds, DecimalsFor3SF(seconds));
         }
 
-        if (nanos > 1e6) {
-            f64 millis = nanos / 1e6;
-            u32 decimals = 2 - u32(std::log10(millis));
-            return Fmt("{:.{}f}ms", millis, decimals);
+        if (nanos >= 1e6) {
+            double millis = nanos / 1e6;
+            return std::format("{:.{}f}ms", millis, DecimalsFor3SF(millis));
         }
 
-        if (nanos > 1e3) {
-            f64 micros = nanos / 1e3;
-            u32 decimals = 2 - u32(std::log10(micros));
-            return Fmt("{:.{}f}us", micros, decimals);
+        if (nanos >= 1e3) {
+            double micros = nanos / 1e3;
+            return std::format("{:.{}f}us", micros, DecimalsFor3SF(micros));
         }
 
-        if (nanos > 0) {
-            u32 decimals = 2 - u32(std::log10(nanos));
-            return Fmt("{:.{}f}ns", nanos, decimals);
+        if (nanos >= 0) {
+            return std::format("{:.{}f}ns", nanos, DecimalsFor3SF(nanos));
         }
 
         return "0";
     }
 
     inline
-    std::string ByteSizeToString(u64 bytes)
+    std::string ByteSizeToString(uint64_t bytes)
     {
+        using formatting::detail::DecimalsFor3SF;
+
         constexpr auto Exabyte   = 1ull << 60;
-        if (bytes > Exabyte) {
-            f64 exabytes = bytes / f64(Exabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(exabytes)));
-            return Fmt("{:.{}f}EiB", exabytes, decimals);
+        if (bytes >= Exabyte) {
+            double exabytes = bytes / static_cast<double>(Exabyte);
+            return std::format("{:.{}f}EiB", exabytes, DecimalsFor3SF(exabytes));
         }
 
         constexpr auto Petabyte  = 1ull << 50;
-        if (bytes > Petabyte) {
-            f64 petabytes = bytes / f64(Petabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(petabytes)));
-            return Fmt("{:.{}f}PiB", petabytes, decimals);
+        if (bytes >= Petabyte) {
+            double petabytes = bytes / static_cast<double>(Petabyte);
+            return std::format("{:.{}f}PiB", petabytes, DecimalsFor3SF(petabytes));
         }
 
         constexpr auto Terabyte  = 1ull << 40;
-        if (bytes > Terabyte) {
-            f64 terabytes = bytes / f64(Terabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(terabytes)));
-            return Fmt("{:.{}f}TiB", terabytes, decimals);
+        if (bytes >= Terabyte) {
+            double terabytes = bytes / static_cast<double>(Terabyte);
+            return std::format("{:.{}f}TiB", terabytes, DecimalsFor3SF(terabytes));
         }
 
         constexpr auto Gigabyte = 1ull << 30;
-        if (bytes > Gigabyte) {
-            f64 gigabytes = bytes / f64(Gigabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(gigabytes)));
-            return Fmt("{:.{}f}GiB", gigabytes, decimals);
+        if (bytes >= Gigabyte) {
+            double gigabytes = bytes / static_cast<double>(Gigabyte);
+            return std::format("{:.{}f}GiB", gigabytes, DecimalsFor3SF(gigabytes));
         }
 
         constexpr auto Megabyte = 1ull << 20;
-        if (bytes > Megabyte) {
-            f64 megabytes = bytes / f64(Megabyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(megabytes)));
-            return Fmt("{:.{}f}MiB", megabytes, decimals);
+        if (bytes >= Megabyte) {
+            double megabytes = bytes / static_cast<double>(Megabyte);
+            return std::format("{:.{}f}MiB", megabytes, DecimalsFor3SF(megabytes));
         }
 
         constexpr auto Kilobyte = 1ull << 10;
-        if (bytes > Kilobyte) {
-            f64 kilobytes = bytes / f64(Kilobyte);
-            u32 decimals = 2 - std::min(2u, u32(std::log10(kilobytes)));
-            return Fmt("{:.{}f}KiB", kilobytes, decimals);
+        if (bytes >= Kilobyte) {
+            double kilobytes = bytes / static_cast<double>(Kilobyte);
+            return std::format("{:.{}f}KiB", kilobytes, DecimalsFor3SF(kilobytes));
         }
 
         if (bytes > 0) {
-            u32 decimals = 2 - std::min(2u, u32(std::log10(bytes)));
-            return Fmt("{:.{}f}", f64(bytes), decimals);
+            return std::format("{} byte{}", static_cast<double>(bytes), bytes == 1 ? "" : "s");
         }
 
-        return "0";
+        return "0 bytes";
     }
 }
 

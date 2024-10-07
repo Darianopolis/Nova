@@ -24,27 +24,29 @@ int main()
     args.erase(args.begin());
 
     for (;;) {
-        for (auto& example : GetExamples()) {
-            if (example.name == args[0]) {
-                try {
-                    std::vector<nova::StringView> arg_view(&args[1], &args[1] + std::max(0ull, args.size() - 1));
-                    example.fn(arg_view);
+        if (!args.empty()) {
+            for (auto& example : GetExamples()) {
+                if (example.name == args[0]) {
+                    try {
+                        std::vector<nova::StringView> arg_view(args.data() + 1, args.data() + args.size());
+                        example.fn(arg_view);
 
-                    nova::Log("\nExample({}) exited successfully", example.name);
+                        nova::Log("\nExample({}) exited successfully", example.name);
 
-                    return EXIT_SUCCESS;
-                } catch (std::exception& e) {
-                    // nova::Exception logs on creation, don't duplicate
-                    if (!dynamic_cast<nova::Exception*>(&e)) {
-                        nova::Log("\n────────────────────────────────────────────────────────────────────────────────");
-                        nova::Log(  "Error: {}", e.what());
-                        nova::Log(  "────────────────────────────────────────────────────────────────────────────────");
+                        return EXIT_SUCCESS;
+                    } catch (std::exception& e) {
+                        // nova::Exception logs on creation, don't duplicate
+                        if (!dynamic_cast<nova::Exception*>(&e)) {
+                            nova::Log("\n────────────────────────────────────────────────────────────────────────────────");
+                            nova::Log(  "Error: {}", e.what());
+                            nova::Log(  "────────────────────────────────────────────────────────────────────────────────");
+                        }
+                    } catch (...) {
+                        nova::Log("\nUnknown Error");
                     }
-                } catch (...) {
-                    nova::Log("\nUnknown Error");
-                }
 
-                return EXIT_FAILURE;
+                    return EXIT_FAILURE;
+                }
             }
         }
 

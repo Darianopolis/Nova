@@ -5,7 +5,7 @@
 #pragma warning(push)
 #pragma warning(disable : 4242)
 #include <cmp_core.h>
-#include <encoders/bcn_common_kernel.h>
+#include <bcn_common_kernel.h>
 #pragma warning(pop)
 
 namespace nova
