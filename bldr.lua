@@ -8,6 +8,7 @@ if Project "nova" then
         "glm",
         "simdutf",
         "fmt",
+        "yyjson",
 
         -- Database
         "sqlite3",
@@ -35,20 +36,20 @@ if Project "nova" then
 
     Compile {
         "src/nova/core/*",
-        "src/nova/db/*",
-        "src/nova/ui/*",
-        "src/nova/asset/*",
-        "src/nova/vfs/*",
+        "src/nova/sqlite/*",
+        "src/nova/gui/*",
+        "src/nova/image/*",
+        "src/nova/filesystem/*",
         "src/nova/window/*",
     }
 
     Embed "assets/fonts/CONSOLA.TTF"
 
     Compile {
-        "src/nova/rhi/*",
-        "src/nova/rhi/vulkan/*",
-        "src/nova/rhi/vulkan/dxgi/*",
-        "src/nova/rhi/vulkan/khr/*",
+        "src/nova/gpu/*",
+        "src/nova/gpu/vulkan/*",
+        "src/nova/gpu/vulkan/dxgi/*",
+        "src/nova/gpu/vulkan/khr/*",
     }
 
     if Platform "Win32" then
@@ -56,8 +57,8 @@ if Project "nova" then
         Compile {
             "src/nova/core/win32/**",
             "src/nova/window/win32/**",
-            "src/nova/rhi/vulkan/win32/*",
-            "src/nova/rhi/vulkan/gdi/*",
+            "src/nova/gpu/vulkan/win32/*",
+            "src/nova/gpu/vulkan/gdi/*",
         }
     end
 end
@@ -68,14 +69,14 @@ end
 
 if Project "nova-slang" then
     Compile {
-        "src/nova/rhi/slang/**",
-        "src/nova/rhi/vulkan/slang/**",
+        "src/nova/gpu/slang/**",
+        "src/nova/gpu/vulkan/slang/**",
     }
     Import { "nova", "slang" }
 end
 
 if Project "nova-glsl" then
-    Compile "src/nova/rhi/vulkan/glsl/**"
+    Compile "src/nova/gpu/vulkan/glsl/**"
     Import { "nova", "glslang" }
 end
 

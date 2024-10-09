@@ -1,0 +1,219 @@
+{
+  "targets": [
+    {
+      "name": "glm",
+      "git": "https://github.com/g-truc/glm.git",
+      "include": "."
+    },
+    {
+      "name": "mimalloc",
+      "git": "https://github.com/microsoft/mimalloc.git",
+      "cmake": {
+        // TODO: Platform and version specific
+        "include": "include/mimalloc-1.8",
+        "link": "lib/mimalloc.lib"
+      }
+    },
+    {
+      "name": "stb-image",
+      "git": "https://github.com/nothings/stb.git",
+      "sources": {
+        "paths": "stb_image.h",
+        "type": "c",
+        "define": "STB_IMAGE_IMPLEMENTATION=1"
+      },
+      "include": "."
+    },
+    {
+      "name": "simdutf",
+      "git": "https://github.com/simdutf/simdutf.git",
+      "sources": "src/simdutf.cpp",
+      "include": "include"
+    },
+    {
+      "name": "unordered_dense",
+      "git": "https://github.com/martinus/unordered_dense.git",
+      "include": "include"
+    },
+    {
+      "name": "fmt",
+      "git": "https://github.com/fmtlib/fmt.git",
+      "sources": {
+        "paths": "src",
+        // TODO: These are .cc files that are actually module interface files - We should detect this during dependency scan
+        "type": "c++interface"
+      },
+      "include": "include"
+    },
+    {
+      "name": "vulkan",
+      "git": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+      "cmake": {}
+    },
+    {
+      "name": "vma",
+      "git": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git",
+      "sources": {
+        "paths": "include/vk_mem_alloc.h",
+        "type": "c++",
+        "define": [
+          "VMA_IMPLEMENTATION=1",
+          // TODO: Avoid duplicating this, "inherit exported" flag?
+          "VMA_DYNAMIC_VULKAN_FUNCTIONS=1",
+          "VMA_STATIC_VULKAN_FUNCTIONS=0"
+        ]
+      },
+      "include": "include",
+      "define": [
+        "VMA_DYNAMIC_VULKAN_FUNCTIONS=1",
+        "VMA_STATIC_VULKAN_FUNCTIONS=0"
+      ],
+      "import": "vulkan"
+    },
+    {
+      "name": "game-input",
+      "download": {
+        "url": "https://globalcdn.nuget.org/packages/microsoft.gameinput.0.2303.22621.3038.nupkg?packageVersion=0.2303.22621.3038",
+        // TODO: Verify hash
+        // TODO: Automatically determine archive type
+        "type": "zip"
+      },
+      "include": "native/include",
+      "link": "native/lib/x64"
+    },
+    {
+      "name": "imgui",
+      "git": {
+        "url": "https://github.com/ocornut/imgui.git",
+        "branch": "docking"
+      },
+      "include": ["."],
+      "define": ["IMGUI_DISABLE_DEBUG_TOOLS"],
+      "sources": [
+        "imgui.cpp",
+        "imgui_demo.cpp",
+        "imgui_tables.cpp",
+        "imgui_draw.cpp",
+        "imgui_widgets.cpp"
+      ]
+    },
+    {
+      "name": "freetype",
+      "git": "https://github.com/freetype/freetype.git",
+      // TODO: Translate
+      "cmake": {
+        "include": "include/freetype2"
+      }
+    },
+    {
+      "name": "miniz",
+      "git": "https://github.com/richgel999/miniz.git",
+      "cmake": {
+        "include": [
+          "include",
+          "include/miniz"
+        ]
+      }
+    },
+    {
+      "name": "tinyexr",
+      "git": {
+        "url": "https://github.com/syoyo/tinyexr.git",
+        "branch": "release"
+      },
+      "sources": "tinyexr.cc",
+      "include": ".",
+      "import": "miniz"
+    },
+    {
+      "name": "dds-ktx",
+      "git": "https://github.com/septag/dds-ktx.git",
+      "sources": {
+        "paths": "dds-ktx.h",
+        "type": "c++",
+        "define": "DDSKTX_IMPLEMENT=1"
+      },
+      "include": "."
+    },
+    {
+      "name": "bc7enc",
+      "git": "https://github.com/richgel999/bc7enc_rdo.git",
+      "sources": [
+        "bc7enc.cpp",
+        "rdo_bc_encoder.cpp",
+        "rgbcx.cpp",
+        "utils.cpp",
+        "bc7decomp_ref.cpp",
+        "bc7decomp.cpp",
+        "ert.cpp",
+        "lodepng.cpp"
+      ],
+      "include": "."
+    },
+    {
+      "name": "compressonator",
+      "git": "https://github.com/GPUOpen-Tools/compressonator.git",
+      "sources": [
+        "applications/_libs/cmp_math",
+        "cmp_core/source",
+        "cmp_core/shaders"
+      ],
+      "include": [
+        "applications/_libs/cmp_math",
+        "cmp_core/source",
+        "cmp_core/shaders"
+      ]
+    },
+    {
+      "name": "wooting-sdk",
+      "download": {
+        "url": "https://github.com/WootingKb/wooting-analog-sdk/releases/download/v0.7.5/wooting-analog-sdk-v0.7.5-x86_64-pc-windows-msvc.tar.gz",
+        // TODO: Hash +  Automatic detect
+        "type": "targz"
+      },
+      "include": "wrapper/includes-cpp",
+      "link": "wrapper/lib"
+    },
+    {
+      "name": "yyjson",
+      "git": "https://github.com/ibireme/yyjson.git",
+      "sources": "src",
+      "include": "src"
+    },
+    {
+      "name": "xxhash",
+      "git": "https://github.com/Cyan4973/xxHash.git",
+      "sources": "xxhash.c",
+      "include": "."
+    },
+    {
+      "name": "slang",
+      "git": "https://github.com/shader-slang/slang.git",
+      "cmake": {}
+    },
+//    {
+//      "name": "spirv-headers",
+//      "git": "https://github.com/KhronosGroup/SPIRV-Headers.git"
+//    },
+//    {
+//      "name": "spirv-tools",
+//      "git": "https://github.com/KhronosGroup/SPIRV-Tools.git",
+//      "cmake": {
+//        "options": "SPIRV-Headers_SOURCE_DIR=C:/Nova/data/spirv-headers"
+//      }
+//    },
+    {
+      "name": "glslang",
+      "git": "https://github.com/KhronosGroup/glslang.git",
+      "cmake": {
+        "options": [
+          "ENABLE_OPT=OFF"
+          // TODO: FIXME - Getting SPIRV Tools linking errors with this
+          // TODO: This is bad and glslang should feel bad but we unfortunately have to handle this better
+//          "ALLOW_EXTERNAL_SPIRV_TOOLS=ON",
+//          "CMAKE_PREFIX_PATH=C:/Nova/cmake-install/spirv-tools/SPIRV-Tools/cmake;C:/Nova/cmake-install/spirv-tools/SPIRV-Tools-opt/cmake"
+        ]
+      }
+    }
+  ]
+}

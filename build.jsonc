@@ -1,0 +1,107 @@
+{
+  "targets": [
+    {
+      "name": "nova-core",
+      "import-public": [
+        "glm",
+        "mimalloc",
+        "simdutf",
+        "unordered_dense",
+        "fmt",
+        "yyjson"
+      ],
+      "sources": [
+        "src/nova/core/json.cpp",
+        "src/nova/filesystem/VirtualFileSystem.cpp",
+
+        // TODO: Platform specific
+        "src/nova/core/win32/Win32Files.cpp",
+        "src/nova/core/win32/Win32.cpp"
+      ],
+      // TODO: Platform specific
+      "define": "NOVA_PLATFORM_WINDOWS",
+      "include": "src"
+    },
+    {
+      "name": "nova-build",
+      "executable": {},
+      "sources": [
+        "src/nova/build/Build.cpp",
+        "src/nova/build/BuildScan.cpp",
+        "src/nova/build/BuildCLI.cpp",
+        "src/nova/build/BuildConfigure.cpp",
+
+        "src/nova/build/generators/CMakeGenerator.cpp",
+
+        "src/nova/build/backend/ClangCLBackend.cpp",
+        "src/nova/build/backend/MsvcBackend.cpp",
+        "src/nova/build/backend/MsvcCommon.cpp"
+      ],
+      "import": [
+        "nova-core",
+        "xxhash"
+      ]
+    },
+    {
+      "name": "nova-window",
+      "sources": [
+        // TODO: Platform specific
+        "src/nova/window/win32"
+      ],
+      "import-public": [
+        "nova-core",
+        "game-input", // TODO: This should be moved out to "nova-input"
+        "imgui"       // TODO: This is required by GameInput debug display
+      ]
+    },
+    {
+      "name": "nova-gpu",
+      // TODO: Conditional compilation of platform specific modules
+      "sources": "src/nova/gpu",
+      "import-public": [
+        "nova-core",
+        "nova-window",
+        "vulkan",
+        "vma",
+
+        // TODO: These should be conditionally imported
+        "slang",
+        "glslang"
+      ]
+    },
+    {
+      "name": "nova-gui",
+      "sources": "src/nova/gui",
+      "import-public": [
+        "nova-core",
+        "imgui",
+        "freetype"
+      ]
+    },
+    {
+      "name": "nova-image",
+      "sources": "src/nova/image",
+      "import-public": [
+        "nova-core",
+        "stb-image",
+        "tinyexr",
+        "dds-ktx",
+        "bc7enc",
+        "compressonator"
+      ]
+    },
+    {
+      "name": "nova-examples",
+      "executable": {},
+      "sources": "examples",
+      "import": [
+        "nova-core",
+        "nova-gpu",
+        "nova-window",
+        "nova-gui",
+        "nova-image",
+        "wooting-sdk"
+      ]
+    }
+  ]
+}

@@ -70,8 +70,8 @@ fetchcontent_declare(imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
         GIT_TAG docking)
 fetchcontent_makeavailable(imgui)
-add_library(imgui)
-target_sources(imgui
+add_library(novadep-imgui)
+target_sources(novadep-imgui
         PRIVATE
         ${imgui_SOURCE_DIR}/imgui.h
         ${imgui_SOURCE_DIR}/imgui.cpp
@@ -79,7 +79,7 @@ target_sources(imgui
         ${imgui_SOURCE_DIR}/imgui_tables.cpp
         ${imgui_SOURCE_DIR}/imgui_draw.cpp
         ${imgui_SOURCE_DIR}/imgui_widgets.cpp)
-target_include_directories(imgui
+target_include_directories(novadep-imgui
         PUBLIC
         ${imgui_SOURCE_DIR})
 # ------------------------------------------------------------------------------
@@ -142,6 +142,29 @@ if(MSVC)
     target_link_libraries(wooting-sdk INTERFACE ${wooting-sdk_SOURCE_DIR}/wrapper/lib/wooting_analog_wrapper.lib)
 endif()
 # ------------------------------------------------------------------------------
+fetchcontent_declare(yyjson
+        GIT_REPOSITORY https://github.com/ibireme/yyjson.git)
+fetchcontent_makeavailable(yyjson)
+# ----------------------------------------------------------------------------------------------------------------------
+fetchcontent_declare(xxhash
+        GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
+        GIT_TAG dev)
+fetchcontent_makeavailable(xxhash)
+add_library(xxhash)
+target_sources(xxhash PRIVATE ${xxhash_SOURCE_DIR}/xxhash.c)
+target_include_directories(xxhash PUBLIC ${xxhash_SOURCE_DIR})
+# ------------------------------------------------------------------------------
+set(SLANG_USE_SYSTEM_MINIZ ON)
+set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
+set(SLANG_USE_SYSTEM_UNORDERED_DENSE ON)
+set(SLANG_ENABLE_EXAMPLES OFF)
+set(SLANG_ENABLE_GFX OFF)
+fetchcontent_declare(slang
+        GIT_REPOSITORY https://github.com/shader-slang/slang.git)
+fetchcontent_makeavailable(slang)
+# TODO: Hack
+target_include_directories(slang PUBLIC ${slang_SOURCE_DIR}/include)
+# ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 add_library(nova-core)
@@ -151,14 +174,15 @@ target_sources(nova-core PUBLIC ${nova-core-sources})
 # TODO: Move VFS to separate project
 target_sources(nova-core
         PRIVATE
-        src/nova/vfs/nova_VirtualFilesystem.hpp
-        src/nova/vfs/nova_VirtualFilesystem.cpp)
+        src/nova/core/json.cpp
+        src/nova/filesystem/VirtualFileSystem.hpp
+        src/nova/filesystem/VirtualFileSystem.cpp)
 if(MSVC)
     target_sources(nova-core
         PRIVATE
-        src/nova/core/win32/nova_FilesWin32.cpp
-        src/nova/core/win32/nova_Win32.cpp
-        src/nova/core/win32/nova_Win32.hpp)
+            src/nova/core/win32/Win32Files.cpp
+            src/nova/core/win32/Win32.cpp
+            src/nova/core/win32/Win32.hpp)
     target_compile_definitions(nova-core
         PUBLIC
         NOVA_PLATFORM_WINDOWS)
@@ -174,12 +198,33 @@ target_link_libraries(nova-core
         mimalloc
         simdutf
         unordered_dense
-        fmt)
+        fmt
+        yyjson)
+# ------------------------------------------------------------------------------
+add_executable(nova-build)
+target_sources(nova-build
+        PRIVATE
+        src/nova/build/Build.cpp
+        src/nova/build/BuildScan.cpp
+        src/nova/build/BuildCLI.cpp
+        src/nova/build/BuildConfigure.cpp
+
+        src/nova/build/generators/CMakeGenerator.cpp)
+if(MSVC)
+    target_sources(nova-build
+        PRIVATE
+            src/nova/build/backend/ClangCLBackend.cpp
+            src/nova/build/backend/MsvcBackend.cpp
+            src/nova/build/backend/MsvcCommon.cpp)
+endif()
+target_link_libraries(nova-build
+        PUBLIC
+        nova-core
+        xxhash)
+add_custom_command(TARGET nova-build POST_BUILD COMMAND
+        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:nova-build> ${CMAKE_SOURCE_DIR}/out/build.exe)
 # ------------------------------------------------------------------------------
 add_library(nova-window)
-target_include_directories(nova-window
-        PUBLIC
-        src/nova/window)
 if(MSVC)
     file(GLOB nova-window-sources-win32
             src/nova/window/win32/*.cpp
@@ -189,36 +234,35 @@ endif()
 target_link_libraries(nova-window
         PUBLIC
         nova-core
-        nova-rhi
         game-input
-        imgui # TODO: DELETEME - This is required by debug GameInput code in Win32Input
+        novadep-imgui # TODO: DELETEME - This is required by debug GameInput code in Win32Input
         )
 # ------------------------------------------------------------------------------
-add_library(nova-rhi)
-file(GLOB nova-rhi-sources
-        src/nova/rhi/vulkan/*.hpp
-        src/nova/rhi/vulkan/*.cpp
-        src/nova/rhi/vulkan/khr/*.hpp
-        src/nova/rhi/vulkan/khr/*.cpp)
-target_sources(nova-rhi PUBLIC ${nova-rhi-sources})
+add_library(nova-gpu)
+file(GLOB nova-gpu-sources
+        src/nova/gpu/vulkan/*.hpp
+        src/nova/gpu/vulkan/*.cpp
+        src/nova/gpu/vulkan/khr/*.hpp
+        src/nova/gpu/vulkan/khr/*.cpp)
+target_sources(nova-gpu PUBLIC ${nova-gpu-sources})
 if(MSVC)
-    target_sources(nova-rhi
+    target_sources(nova-gpu
             PUBLIC
-            # src/nova/rhi/vulkan/dcomp/nova_VulkanDCompSwapchain.cpp
-            # src/nova/rhi/vulkan/dcomp/nova_VulkanDCompSwapchain.hpp
-            src/nova/rhi/vulkan/dxgi/nova_VulkanDXGISwapchain.cpp
-            src/nova/rhi/vulkan/dxgi/nova_VulkanDXGISwapchain.hpp
-            src/nova/rhi/vulkan/gdi/nova_VulkanGDISwapchain.cpp
-            src/nova/rhi/vulkan/gdi/nova_VulkanGDISwapchain.hpp
-            src/nova/rhi/vulkan/win32/nova_VulkanWin32.cpp)
-    target_link_libraries(nova-rhi
+            src/nova/gpu/vulkan/dcomp/VulkanDCompSwapchain.cpp
+            src/nova/gpu/vulkan/dcomp/VulkanDCompSwapchain.hpp
+            src/nova/gpu/vulkan/dxgi/VulkanDXGISwapchain.cpp
+            src/nova/gpu/vulkan/dxgi/VulkanDXGISwapchain.hpp
+            src/nova/gpu/vulkan/gdi/VulkanGDISwapchain.cpp
+            src/nova/gpu/vulkan/gdi/VulkanGDISwapchain.hpp
+            src/nova/gpu/vulkan/win32/VulkanWin32.cpp)
+    target_link_libraries(nova-gpu
             PUBLIC
             D3D12.lib
             DXGI.lib
             dcomp.lib
             d3d11.lib)
 endif()
-target_link_libraries(nova-rhi
+target_link_libraries(nova-gpu
         PUBLIC
         nova-core
         nova-window
@@ -226,23 +270,43 @@ target_link_libraries(nova-rhi
         Vulkan-Headers
         VulkanMemoryAllocator)
 # ------------------------------------------------------------------------------
-add_library(nova-ui)
-file(GLOB nova-ui-sources
-        src/nova/ui/*.cpp
-        src/nova/ui/*.hpp)
-target_sources(nova-ui PRIVATE ${nova-ui-sources})
-target_link_libraries(nova-ui
+add_library(nova-slang)
+target_sources(nova-slang
+        PUBLIC
+        src/nova/gpu/slang/Compiler.cpp
+        src/nova/gpu/vulkan/slang/VulkanSlang.cpp)
+target_link_libraries(nova-slang
         PUBLIC
         nova-core
-        imgui
+        nova-gpu
+        slang)
+# ------------------------------------------------------------------------------
+add_library(nova-glslang)
+target_sources(nova-glslang
+        PUBLIC
+        src/nova/gpu/vulkan/glsl/VulkanGlsl.cpp)
+target_link_libraries(nova-glslang
+        PUBLIC
+        nova-core
+        nova-gpu)
+# ------------------------------------------------------------------------------
+add_library(nova-gui)
+file(GLOB nova-gui-sources
+        src/nova/gui/*.cpp
+        src/nova/gui/*.hpp)
+target_sources(nova-gui PRIVATE ${nova-gui-sources})
+target_link_libraries(nova-gui
+        PUBLIC
+        nova-core
+        novadep-imgui
         freetype)
 # ------------------------------------------------------------------------------
-add_library(nova-assets)
-file(GLOB nova-assets-sources
-        src/nova/asset/*.cpp
-        src/nova/asset/*.hpp)
-target_sources(nova-assets PRIVATE ${nova-assets-sources})
-target_link_libraries(nova-assets
+add_library(nova-image)
+file(GLOB nova-image-sources
+        src/nova/image/*.cpp
+        src/nova/image/*.hpp)
+target_sources(nova-image PRIVATE ${nova-image-sources})
+target_link_libraries(nova-image
         PUBLIC
         nova-core
         stb-image
@@ -254,34 +318,36 @@ target_link_libraries(nova-assets
 add_executable(nova-examples)
 target_sources(nova-examples
         PRIVATE
-        examples/example_AllocatorTest.cpp
-        examples/example_Blur.cpp
-        examples/example_CommandListTest.cpp
-        examples/example_Compute.cpp
-        examples/example_Copy.cpp
-        examples/example_Draw.cpp
-        examples/example_ImGui.cpp
-        examples/example_InputTest.cpp
-        examples/example_MinContext.cpp
-        examples/example_MultiPresent.cpp
-        examples/example_MultiView.cpp
-        examples/example_QuadTest.cpp
-        examples/example_RayTracing.cpp
-        examples/example_RoundRectTest.cpp
-        examples/example_TriangleExtended.cpp
-        examples/example_TriangleMeshShader.cpp
-        examples/example_TriangleRayTraced.cpp
-        examples/example_WootingTest.cpp
-        examples/example_MinContext.cpp
-        examples/main/example_Main.cpp
-        examples/main/example_Main.hpp)
+        examples/Allocator.cpp
+        examples/Blur.cpp
+        examples/CommandLists.cpp
+        examples/Compute.cpp
+        examples/CopyTest.cpp
+        examples/DrawTest.cpp
+        examples/ImGui.cpp
+        examples/Input.cpp
+        examples/MinContext.cpp
+        examples/MultiPresent.cpp
+        examples/MultiView.cpp
+        examples/Quads.cpp
+        examples/RayTracing.cpp
+        examples/RoundRect.cpp
+        examples/TriangleExtended.cpp
+        examples/TriangleMeshShader.cpp
+        examples/TriangleRayTrace.cpp
+        examples/Triangle.cpp
+        examples/Wooting.cpp
+        examples/MinContext.cpp
+        examples/main/Main.cpp
+        examples/main/Main.hpp)
 target_link_libraries(nova-examples
         PRIVATE
         nova-core
-        nova-rhi
+        nova-gpu
         nova-window
-        nova-ui
-        nova-assets
+        nova-gui
+        nova-image
+        nova-slang
         wooting-sdk)
 add_custom_command(TARGET nova-examples POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
         -t ${nova_BINARY_DIR}

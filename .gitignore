@@ -1,23 +1,11 @@
-# Configuration
+# IDE
 .vscode/
 .idea/
-.bldr/
 .cmake/
 .vs/
 .cache/
-build/
 out/
-out-packer/
-CMakeSettings.json
 compile_commands.json
 
 # Assets
 assets-external/
-
-# Generated
-.npk-embed
-
-# Runtime
-imgui.ini
-renderdoc.cap
-.raddbg
